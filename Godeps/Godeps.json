@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/micosa/stack/stack",
+	"ImportPath": "github.com/micosa/stack",
 	"GoVersion": "go1.4.2",
 	"Deps": [
 		{

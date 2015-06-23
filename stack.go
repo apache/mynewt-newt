@@ -18,7 +18,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/micosa/stack/stackcli"
+	"github.com/micosa/stack/cli"
 	"github.com/spf13/cobra"
 	"os"
 	"runtime/debug"
