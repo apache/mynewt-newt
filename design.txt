@@ -1,0 +1,368 @@
+                          Design of Stack System
+
+
+
+1. Introduction 
+
+
+The stack tool allows for building and distributing embedded projects.  It's 
+goal is to make it simple for developers to create a source project and 
+manage that project, with an embedded twist.  In embedded systems, the core 
+operating system is often built and distributed along with system libraries
+and applications.  Additionally, there is a fair amount of complexity in 
+managing driver interfaces, board support packages, and both development and 
+production builds.  Right now, all of this is done for every project, and 
+everybody does it in a different way.
+
+Stack introduces the following core concepts: 
+
+Repository
+    The base directory of your embedded software.  A repository can contain 
+    multiple projects, and reflect multiple end products.  It is meant to be 
+    a logical collection of your source code.
+
+Project
+    Projects represent the individual build configurations of your embedded 
+    system.  The project files are what dictate the resulting binary that is 
+    generated.
+
+Package 
+    Packages represent libraries that are distributed.  Packages have multiple
+    types (e.g. "bsp", "library", "os") that represent their function within 
+    the stack system.
+
+
+In order to bring sanity to your embedded life (lonelieness and cat obsession
+left as an exercise for the user), Stack allows you to: 
+
+Build architecture specific binaries 
+    Stack contains the ability to manage and build for multiple different CPU
+    architectures, project definitions and board support packages. 
+
+Manage your drivers, board support and libraries 
+    Stack provides an infrastructure that helps you manage board capabilities, 
+    and drivers based upon what low-level features your libraries and projects 
+    use. 
+
+Distribute Binaries 
+    Stack provides the ability to generate signed firmware images, suitable for
+    booting with n-boot.  Flash can also take n-boot images + project images 
+    and create a full flash map.  
+
+Distribute Source 
+    Stack makes it easy to distribute and download libraries.  By providing a
+    clear interface to the lower layer drivers, and dependency checking across
+    both architecture and board support package: stack makes it easy to 
+    develop reusable software components across embedded projects. 
+
+Test 
+    Stack provides a test framework that allows you to easily define regression
+    and unit tests, and have them run automatically.  
+
+
+2. Usage 
+
+To get started with stack, first create a new repository: 
+
+    $ stack create repo <fw> 
+
+This creates a new repository in the directory specified by <fw>. 
+
+The repository has the following contents: 
+
+    $ cd <fw>; tree 
+    .
+    └── arch
+        └── sim
+            └── compiler
+                └── compiler.yml
+    └── .<fw>
+        └── <fw>.yml 
+        └── <fw>.db 
+
+The arch/ directory contains the architecture specific information for the 
+new repository.  By default, the sim architecture and compiler is installed: 
+which allows you to build new projects and software on your native OS and 
+try it out.  
+
+The stack tool also creates a directory .<fw> -- this contains the
+environment and configuration information for the current project.  More 
+information about this directory is contained in Appendix A. 
+
+Once you have a repo, you can enter that repo, and begin composing your 
+project.
+
+The first step to composing a project is to setup a build environment and 
+board support package for that product.  There are a set of board support 
+packages and architectures available at the following URL: 
+http://www.github.com/XXX. 
+
+Let's start with the board support package for the STM32-E407, which is a 
+test board for the ARM Cortex-M4, provided by Olimex 
+(https://www.olimex.com/Products/ARM/ST/STM32-E407/open-source-hardware). 
+To install the Olimex board support package, cd into the <fw> directory 
+and type: 
+
+    $ stack install bsp http://www.github.com/XXX/STM32-E407 
+    Downloading Board Support Definition from 
+        http://www.github.com/XXX/STM32-E407 ... ok
+    Board Support Definition STM32-E407 requires ARM architecture to be 
+        installed (http://www.github.com/XXX/ARM), is that OK? [Y/n] y
+    Downloading ARM architecture support    ... ok
+    Successfully installed BSP for STM32-E407! 
+    $ 
+
+The "install bsp" command goes out and installs the board support package 
+defined by the URL provided in the link.  In this case, the bsp is defined 
+on github.  Once the stack tool downloads the BSP, it notices that the BSP 
+requires the ARM architecture to be installed, and its currently not in the 
+workspace.  Stack will then download the definiton from the github URL, and 
+install the necessary architecture information.   
+
+After the dependency to the compiler has been fufilled, the bsp support 
+packages are installed into the working directory.  After the command 
+has finished, the following directory structure should exist: 
+
+    $ tree 
+    .
+    └── arch/
+        └── sim/
+            └── compiler/
+                └── compiler.yml 
+        └── arm/
+            └── compiler/
+                └── arm-gcc
+                    └── bin 
+                        └── arm-gcc 
+                        └── arm-as  
+                        └── .. <snip> .. 
+                └── compiler.yml
+            └── include/
+                └── rt_CMSIS.h
+            └── mcu/
+                └── stm32/
+                    └── arch_gpio.c 
+                    └── arch_gpio.h 
+                    └── .. <snip> .. 
+    └── bsp
+        └── stm32-e407
+            └── layout 
+                └── debug 
+                    └── stm32-e407.lds  
+                └── prod  
+                    └── stm32-e407.lds  
+            └── stm32-e407.yml 
+            └── bsp_flash_layout.h 
+            └── bsp_boot.s 
+            └── .. <snip> .. 
+    └── .<fw>
+        └── <fw>.yml 
+        └── <fw>.db 
+
+
+As you can see, a couple of new directories were created: 
+
+arch/arm
+    Definition files specific to the ARM architecture.   This is directory 
+    contains generic definition files across multiple MCU architectures. 
+
+arch/arm/mcu/stm32
+    This directory contains definition files specific to the 
+    STM32 MCU.  This includes things like SPI and UART definitions.  
+
+arch/arm/compiler
+    The compiler for the ARM architecture definition.  This includes an 
+    up-to-date, tested version of the arm-gcc compiler.  By default Stack uses
+    this compiler, however it can be overridden to use a system compiler as 
+    well. 
+
+bsp/stm32-e407 
+    This directory contains the board support files specific to the 
+    STM32-E407 development board. 
+
+bsp/stm32-e407/layout
+    This contains the memory layouts for build layouts, which can often be 
+    different for debug and production builds (e.g. run out of SRAM for debug
+    and Flash for prod.) 
+
+
+The next step is to create a project that will build on the test board.  Let's 
+say the first project is "blink_leds" a project that will load onto the 
+STM32-E407 and blink LED1. 
+
+To create the project, in the main directory enter: 
+
+    $ stack create project blink_leds
+    Creating project blink_leds in project/ ... ok 
+    Creating project scaffolding for blink_leds ... ok
+    $ 
+
+This will create the following directory structure: 
+
+    $ tree 
+    ..<snip>.. (same as previous step) 
+    └── project
+        └── blink_leds
+            └── blink_leds.yml 
+            └── blink_leds.c
+    $ 
+
+The file blink_leds.c will contain base scaffolding in order to build: 
+
+    #include <stack/core.h> 
+
+    int 
+    main(int argc, char **argv)
+    {
+        while (1) { /* your code here */ }
+        return (0);
+    }
+
+
+In order to blink LEDs, the next step is to install the LED package.   The LED
+package contains a standard API definition for controlling board LEDs, and 
+the architecture and board specific definitions for LEDs. 
+
+    $ stack install driver http://www.github.com/XXX/led-driver
+    Downloading driver ... ok
+    Checking for necessary bsp support, bsps found: sim, STM32-E407 ... ok 
+    Installing driver ... ok 
+    $ 
+
+Installing the driver will create the following directories in the root 
+directory of your project: 
+
+    $ tree 
+    ..<snip>.. (same as previous step) 
+    └── drivers
+        └── led-driver 
+            └── led-driver.yml 
+            └── src
+                └── led-driver.c 
+            └── include 
+                └── led-driver.h 
+            └── bsp 
+                └── stm32-e407  
+                    └── stm32-e407.c  
+                    └── stm32-e407.h 
+
+This driver will then be accessible in your project.  The next step is to
+enable it in your project definition, in order to do that, enter: 
+
+    $ stack project blink_leds use driver led-driver
+    Enabling led-driver in blink_leds project.
+
+Now edit project/blink_leds/blink_leds.c, and write the following code: 
+
+    #include <stack/core.h> 
+    #include <led_driver/led_driver.h> 
+
+    int 
+    main(int argc, char **argv)
+    {
+        int toggle = 0; 
+
+        while (1) {
+            if ((toggle++ % 2) == 0) {
+                led_off(LED_DRIVER_LED1);
+            } else {
+                led_on(LED_DRIVER_LED1);
+            }
+        }
+
+        return (0);
+    }
+
+Once this file is edited, you can now build your project.  In order to 
+build an image that can be loaded on the board, create a build definition: 
+
+    $ stack build_def create blink_leds_arm_build 
+    $ stack build_def edit blink_leds_arm_build set bsp=stm32-e407 
+    $ stack build_def edit blink_leds_arm_build set project=blink_leds 
+    $ stack build_def edit blink_leds_arm_build set layout=debug 
+
+This build definition is stored in the project build definition, and can now
+be referenced with the stack build command: 
+
+    $ stack build blink_leds_arm_build  
+    Building project blink_leds with bsp stm32-e407, layout debug ... ok 
+    $ 
+
+In order to see the output of the build, check the bin/ directory in the base 
+directory of your repo: 
+
+    $ cd bin; tree 
+    └── bin
+        └── blink_leds 
+            └── stm32-e407 
+                └── blink_leds.elf  
+                └── blink_leds.map 
+
+
+In order to load these files onto your board using GDB, please see the 
+Debugger Support section of this document. 
+
+3. Packages 
+
+Stack distributes libraries in the form of source packages, making it easy to 
+bundle and reuse source code across multiple repositories and projects.  
+Outside of the core architecture & board specific setup, all source code in 
+a stack project should be encapsulated within a package.
+
+A package has the following directory structure: 
+
+    $ cd pkg/os; tree 
+    └── os
+        └── os.yml 
+        └── include
+            └── arch 
+                └── sim 
+                    └── os_arch.h 
+                └── arm 
+                    └── os_arch.h 
+            └── os 
+                └── os_mutex.h
+                └── os_sem.h 
+            └── os.h 
+        └── src
+            └── arch 
+                └── sim
+                    └── os_arch_sim.c 
+                └── arm
+                    └── os_arch_arm.c 
+            └── os_mutex.c 
+            └── os_sched.c  
+        └── test 
+            └── os_mutex_test 
+                └── os_mutex_test.c 
+
+Building a Package
+
+In order to build a package, either: 
+
+    a) Include it in a project definition, in which case it will be built as a 
+    library and linked with the main application. 
+
+    b) Build it with target "test" in which case the specified regression test 
+    will be executed.  If no regression test is specified, all regression tests
+    will be run. 
+
+
+Running a Package's Unit Tests 
+
+To run a package's unit tests, cd into the package directory and run stack build
+test: 
+
+    $ cd pkg/os
+    $ stack build test 
+    Building regression tests in OS
+    Building OS ... ok 
+    Building Regression Tests ... ok 
+    Running test os_mutex_test ... ok
+    $
+
+Including a Package in a Project file 
+
+
+
+
