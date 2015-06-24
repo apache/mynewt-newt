@@ -140,7 +140,11 @@ func (p *Project) Build() error {
 	for _, pkgName := range p.GetPackages() {
 		pkg, _ := pm.ResolvePkgName(pkgName)
 		incls = append(incls, pkg.Includes...)
-		libs = append(libs, pm.GetPackageLib(pkg))
+
+		lib := pm.GetPackageLib(pkg)
+		if NodeExist(lib) {
+			libs = append(libs, lib)
+		}
 		pm.Build(pkgName)
 	}
 
