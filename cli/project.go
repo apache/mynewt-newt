@@ -138,14 +138,20 @@ func (p *Project) Build() error {
 
 	// Build the packages associated with this project
 	for _, pkgName := range p.GetPackages() {
-		pkg, _ := pm.ResolvePkgName(pkgName)
-		incls = append(incls, pkg.Includes...)
+		pkg, err := pm.ResolvePkgName(pkgName)
+		if err != nil {
+			return err
+		}
 
 		lib := pm.GetPackageLib(pkg)
 		if NodeExist(lib) {
 			libs = append(libs, lib)
 		}
 		pm.Build(pkgName)
+
+		// Get the includes after building the package, as dependencies are added
+		// on after the build
+		incls = append(incls, pkg.Includes...)
 	}
 
 	// Append project includes

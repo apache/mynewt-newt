@@ -73,12 +73,12 @@ func NewPkgMgr(r *Repo, t *Target) (*PkgMgr, error) {
 // Load a package's configuration information from the package config
 // file.
 func (pkg *Package) loadConfig() error {
-	v, err := ReadConfig(pkg.BasePath, pkg.Name)
+	v, err := ReadConfig(pkg.BasePath, filepath.Base(pkg.Name))
 	if err != nil {
 		return err
 	}
 
-	if pkg.Name != v.GetString("pkg.name") {
+	if filepath.Base(pkg.Name) != v.GetString("pkg.name") {
 		return errors.New(
 			"Package file in directory doesn't match directory name.")
 	}
@@ -105,13 +105,8 @@ func (pkg *Package) checkIncludes() error {
 
 	incls = append(incls, incls2...)
 
-	for _, entry := range incls {
-		entry = filepath.Base(entry)
-		if entry != "." && entry != ".." && entry != pkg.Name {
-			return errors.New("Cannot have entries in include/ directory, must be " +
-				"prefixed with package name")
-		}
-	}
+	// XXX: need to re-add enforcing the package base include path
+
 	return nil
 }
 
@@ -181,23 +176,51 @@ func (pm *PkgMgr) loadPackage(pkgName string) error {
 	return nil
 }
 
-// Load all the packages in the repository into the package structure
-func (pm *PkgMgr) loadPackages() error {
-	r := pm.Repo
-
-	pkgDir := r.BasePath + "/pkg/"
-	pkgList, err := ioutil.ReadDir(pkgDir)
+func (pm *PkgMgr) loadPackageDir(baseDir string, pkgName string) error {
+	// first recurse and load subpackages
+	list, err := ioutil.ReadDir(baseDir + "/" + pkgName)
 	if err != nil {
 		return err
 	}
 
-	for _, pkgFile := range pkgList {
-		name := pkgFile.Name()
+	for _, ent := range list {
+		if !ent.IsDir() {
+			continue
+		}
+
+		name := ent.Name()
+
+		if name == "src" || name == "include" || strings.HasPrefix(name, ".") ||
+			name == "bin" {
+			continue
+		} else {
+			err := pm.loadPackageDir(baseDir, pkgName+"/"+name)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return pm.loadPackage(pkgName)
+}
+
+// Load all the packages in the repository into the package structure
+func (pm *PkgMgr) loadPackages() error {
+	r := pm.Repo
+
+	pkgBaseDir := r.BasePath + "/pkg/"
+	pkgList, err := ioutil.ReadDir(pkgBaseDir)
+	if err != nil {
+		return err
+	}
+
+	for _, pkgDir := range pkgList {
+		name := pkgDir.Name()
 		if filepath.HasPrefix(name, ".") || filepath.HasPrefix(name, "..") {
 			continue
 		}
 
-		if err = pm.loadPackage(name); err != nil {
+		if err = pm.loadPackageDir(pkgBaseDir, name); err != nil {
 			return err
 		}
 	}
@@ -280,7 +303,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 			break
 		}
 
-		log.Printf("Loading package dependency: %s", name)
+		log.Printf("[DEBUG] Loading package dependency: %s", name)
 		// Get package structure
 		dpkg, err := pm.ResolvePkgName(name)
 		if err != nil {
@@ -295,6 +318,11 @@ func (pm *PkgMgr) Build(pkgName string) error {
 			return err
 		}
 	}
+
+	// Add on dependency includes to package includes
+	log.Printf("Adding includes for package %s (old: %s) (new: %s)",
+		pkg.Name, pkg.Includes, incls)
+	pkg.Includes = incls
 
 	// Build the package designated by pkgName
 	// Initialize a compiler
