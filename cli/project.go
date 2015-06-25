@@ -147,7 +147,10 @@ func (p *Project) Build() error {
 		if NodeExist(lib) {
 			libs = append(libs, lib)
 		}
-		pm.Build(pkgName)
+		err = pm.Build(pkgName)
+		if err != nil {
+			return err
+		}
 
 		// Get the includes after building the package, as dependencies are added
 		// on after the build

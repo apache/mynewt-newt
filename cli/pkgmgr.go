@@ -106,7 +106,6 @@ func (pkg *Package) checkIncludes() error {
 	incls = append(incls, incls2...)
 
 	// XXX: need to re-add enforcing the package base include path
-
 	return nil
 }
 
@@ -153,7 +152,7 @@ func (pkg *Package) Init() error {
 // Load an individual package specified by pkgName into the package list for
 // this repository
 func (pm *PkgMgr) loadPackage(pkgName string) error {
-	fmt.Println("Loading Package " + pkgName + "...")
+	log.Println("[INFO] Loading Package " + pkgName + "...")
 
 	if pm.Packages == nil {
 		pm.Packages = make(map[string]*Package)
@@ -279,7 +278,7 @@ func (pm *PkgMgr) GetPackageLib(pkg *Package) string {
 
 // Build the package specified by pkgName
 func (pm *PkgMgr) Build(pkgName string) error {
-	fmt.Println("Building package " + pkgName + " for arch " + pm.Target.Arch)
+	log.Println("[INFO] Building package " + pkgName + " for arch " + pm.Target.Arch)
 	// Look up package structure
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {
@@ -320,7 +319,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 	}
 
 	// Add on dependency includes to package includes
-	log.Printf("Adding includes for package %s (old: %s) (new: %s)",
+	log.Printf("[DEBUG] Adding includes for package %s (old: %s) (new: %s)",
 		pkg.Name, pkg.Includes, incls)
 	pkg.Includes = incls
 
@@ -332,7 +331,13 @@ func (pm *PkgMgr) Build(pkgName string) error {
 		return err
 	}
 
-	log.Printf("[DEBUG] compiling src packages in base package directories")
+	if NodeNotExist(pkg.BasePath + "/src/") {
+		// nothing to compile, return true!
+		return nil
+	}
+
+	log.Printf("[DEBUG] compiling src packages in base package directories: %s",
+		pkg.BasePath+"/src/")
 
 	// First change into the package src directory, and build all the objects there
 	os.Chdir(pkg.BasePath + "/src/")
@@ -341,14 +346,17 @@ func (pm *PkgMgr) Build(pkgName string) error {
 	}
 
 	log.Printf("[DEBUG] compiling architecture specific src packages")
-	os.Chdir(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/")
-	if err = c.RecursiveCompile("*.c", 0, nil); err != nil {
-		return err
-	}
 
-	// compile assembly sources in recursive compile as well
-	if err = c.RecursiveCompile("*.s", 1, nil); err != nil {
-		return err
+	if NodeExist(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/") {
+		os.Chdir(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/")
+		if err = c.RecursiveCompile("*.c", 0, nil); err != nil {
+			return err
+		}
+
+		// compile assembly sources in recursive compile as well
+		if err = c.RecursiveCompile("*.s", 1, nil); err != nil {
+			return err
+		}
 	}
 
 	// Link everything into a static library, which can be linked with a main

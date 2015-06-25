@@ -216,7 +216,7 @@ func (c *Compiler) RecursiveCompile(match string, cType int, ignDirs []string) e
 	case 1:
 		return c.CompileAs(match)
 	default:
-		return errors.New("Wrong compiler type specified to recursivecompile")
+		return errors.New("Wrong compiler type specified to RecursiveCompile")
 	}
 }
 

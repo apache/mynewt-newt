@@ -177,6 +177,8 @@ func targetAddCmds(base *cobra.Command) {
 		Use:   "target",
 		Short: "Set and view target information",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(StackLogLevel)
+
 			var err error
 			StackRepo, err = cli.NewRepo()
 			if err != nil {
@@ -315,6 +317,8 @@ func compilerAddCmds(baseCmd *cobra.Command) {
 		Use:   "compiler",
 		Short: "Commands to install and create compiler definitions",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(StackLogLevel)
+
 			var err error
 			StackRepo, err = cli.NewRepo()
 			if err != nil {
