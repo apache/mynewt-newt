@@ -272,7 +272,7 @@ func (pm *PkgMgr) BuildClean(pkgName string, cleanAll bool) error {
 
 func (pm *PkgMgr) GetPackageLib(pkg *Package) string {
 	binDir := pkg.BasePath + "/bin/" + pm.Target.Arch + "/" +
-		"lib" + pkg.Name + ".a"
+		"lib" + filepath.Base(pkg.Name) + ".a"
 	return binDir
 }
 

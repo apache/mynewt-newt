@@ -31,12 +31,14 @@ type Compiler struct {
 	ObjPathList  map[string]bool
 	LinkerScript string
 
-	ccPath  string
-	asPath  string
-	arPath  string
-	odPath  string
-	osPath  string
-	ccFlags string
+	ccPath                string
+	asPath                string
+	arPath                string
+	odPath                string
+	osPath                string
+	ccFlags               string
+	ldFlags               string
+	ldResolveCircularDeps bool
 }
 
 func NewCompiler(ccPath string, cDef string, arch string, includes []string) (
@@ -65,11 +67,11 @@ func (c *Compiler) ReadSettings(cDef string) error {
 		return err
 	}
 
-	c.ccPath = strings.Trim(v.GetString("compiler.path.cc"), "\n")
-	c.asPath = strings.Trim(v.GetString("compiler.path.as"), "\n")
-	c.arPath = strings.Trim(v.GetString("compiler.path.archive"), "\n")
-	c.odPath = strings.Trim(v.GetString("compiler.path.objdump"), "\n")
-	c.osPath = strings.Trim(v.GetString("compiler.path.objsize"), "\n")
+	c.ccPath = v.GetString("compiler.path.cc")
+	c.asPath = v.GetString("compiler.path.as")
+	c.arPath = v.GetString("compiler.path.archive")
+	c.odPath = v.GetString("compiler.path.objdump")
+	c.osPath = v.GetString("compiler.path.objsize")
 
 	cflags := v.GetStringSlice("compiler.flags." + cDef)
 	for _, flag := range cflags {
@@ -79,6 +81,8 @@ func (c *Compiler) ReadSettings(cDef string) error {
 			c.ccFlags += strings.Trim(flag, "\n") + " "
 		}
 	}
+	c.ldFlags = v.GetString("compiler.ld.flags")
+	c.ldResolveCircularDeps = v.GetBool("compiler.ld.resolve_circular_deps")
 
 	log.Printf("[DEBUG] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
 		c.arPath, c.ccFlags)
@@ -235,8 +239,13 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 	log.Printf("[DEBUG] compiling binary %s with object files %s", binFile,
 		objList)
 
-	cmd := c.ccPath + " -o " + binFile + " -static -lgcc " + c.ccFlags +
-		" -Wl,--start-group " + objList + " -Wl,--end-group "
+	cmd := c.ccPath + " -o " + binFile + " " + c.ldFlags + " " + c.ccFlags
+	if c.ldResolveCircularDeps {
+		cmd += " -Wl,--start-group " + objList + " -Wl,--end-group "
+	} else {
+		cmd += objList
+	}
+
 	if c.LinkerScript != "" {
 		cmd += " -T " + c.LinkerScript
 	}
