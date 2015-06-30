@@ -16,12 +16,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/micosa/stack/cli"
 	"github.com/spf13/cobra"
 	"os"
-	"runtime/debug"
 	"strings"
 )
 
@@ -33,11 +31,11 @@ var StackLogLevel string = ""
 
 func StackUsage(cmd *cobra.Command, err error) {
 	if err != nil {
-		fmt.Println("Error: ", err)
-	}
-
-	if DispStackTrace {
-		debug.PrintStack()
+		sErr := err.(*cli.StackError)
+		fmt.Println("Error: ", sErr)
+		if DispStackTrace {
+			fmt.Printf("%s", sErr.StackTrace)
+		}
 	}
 
 	if cmd != nil {
@@ -49,7 +47,7 @@ func StackUsage(cmd *cobra.Command, err error) {
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		StackUsage(cmd,
-			errors.New("Must specify two arguments (sect & k=v) to set"))
+			cli.NewStackError("Must specify two arguments (sect & k=v) to set"))
 	}
 
 	t, err := cli.LoadTarget(StackRepo, args[0])
@@ -93,13 +91,13 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 func targetCreateCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		StackUsage(cmd, errors.New("Wrong number of args to create cmd."))
+		StackUsage(cmd, cli.NewStackError("Wrong number of args to create cmd."))
 	}
 
 	fmt.Println("Creating target " + args[0])
 
 	if cli.TargetExists(StackRepo, args[0]) {
-		StackUsage(cmd, errors.New(
+		StackUsage(cmd, cli.NewStackError(
 			"Target already exists, cannot create target with same name."))
 	}
 
@@ -120,7 +118,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 
 func targetBuildCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		StackUsage(cmd, errors.New("Must specify target to build"))
+		StackUsage(cmd, cli.NewStackError("Must specify target to build"))
 	}
 
 	t, err := cli.LoadTarget(StackRepo, args[0])
@@ -147,7 +145,7 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 
 func targetTestCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		StackUsage(cmd, errors.New("Must specify target to build"))
+		StackUsage(cmd, cli.NewStackError("Must specify target to build"))
 	}
 
 	t, err := cli.LoadTarget(StackRepo, args[0])
@@ -236,7 +234,7 @@ func targetAddCmds(base *cobra.Command) {
 func repoCreateCmd(cmd *cobra.Command, args []string) {
 	// must specify a repo name to create
 	if len(args) != 1 {
-		StackUsage(cmd, errors.New("Must specify a repo name to repo create"))
+		StackUsage(cmd, cli.NewStackError("Must specify a repo name to repo create"))
 	}
 
 	_, err := cli.CreateRepo(args[0])
@@ -270,7 +268,7 @@ func repoAddCmds(baseCmd *cobra.Command) {
 func compilerCreateCmd(cmd *cobra.Command, args []string) {
 	// must specify a compiler name to compiler create
 	if len(args) != 1 {
-		StackUsage(cmd, errors.New("Must specify a compiler name to compiler create"))
+		StackUsage(cmd, cli.NewStackError("Must specify a compiler name to compiler create"))
 	}
 
 	err := StackRepo.CreateCompiler(args[0])
@@ -283,7 +281,7 @@ func compilerCreateCmd(cmd *cobra.Command, args []string) {
 
 func compilerInstallCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		StackUsage(cmd, errors.New("Need to specify URL to install compiler "+
+		StackUsage(cmd, cli.NewStackError("Need to specify URL to install compiler "+
 			"def from"))
 	}
 
@@ -301,7 +299,7 @@ func compilerInstallCmd(cmd *cobra.Command, args []string) {
 
 	dirName := StackRepo.BasePath + "/compiler/" + name + "/"
 	if cli.NodeExist(dirName) {
-		StackUsage(cmd, errors.New("Compiler "+name+" already installed."))
+		StackUsage(cmd, cli.NewStackError("Compiler "+name+" already installed."))
 	}
 
 	err = cli.CopyUrl(args[0], dirName)

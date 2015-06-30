@@ -16,7 +16,6 @@
 package cli
 
 import (
-	"errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -112,7 +111,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	case 1:
 		cmd = c.asPath
 	default:
-		return errors.New("Unknown compiler type")
+		return NewStackError("Unknown compiler type")
 	}
 
 	cmd += " -c " + "-o " + objPath + " " + file +
@@ -151,7 +150,7 @@ func (c *Compiler) RecursiveClean(path string, arch string) error {
 	// remove that directory either altogether, or just the arch specific directory.
 	dirList, err := ioutil.ReadDir(path)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	for _, node := range dirList {
@@ -195,12 +194,12 @@ func (c *Compiler) RecursiveCompile(match string, cType int, ignDirs []string) e
 	// directory and compile the files in there
 	wd, err := os.Getwd()
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	dirList, err := ioutil.ReadDir(wd)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	for _, node := range dirList {
@@ -220,7 +219,7 @@ func (c *Compiler) RecursiveCompile(match string, cType int, ignDirs []string) e
 	case 1:
 		return c.CompileAs(match)
 	default:
-		return errors.New("Wrong compiler type specified to RecursiveCompile")
+		return NewStackError("Wrong compiler type specified to RecursiveCompile")
 	}
 }
 
@@ -241,7 +240,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 
 	cmd := c.ccPath + " -o " + binFile + " " + c.ldFlags + " " + c.ccFlags
 	if c.ldResolveCircularDeps {
-		cmd += " -Wl,--start-group " + objList + " -Wl,--end-group "
+		cmd += " -Wl,--start-group -lc " + objList + " -Wl,--end-group "
 	} else {
 		cmd += objList
 	}

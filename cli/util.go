@@ -16,7 +16,6 @@
 package cli
 
 import (
-	"errors"
 	"github.com/hashicorp/logutils"
 	"github.com/spf13/viper"
 	"log"
@@ -24,9 +23,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
+type StackError struct {
+	Text       string
+	StackTrace []byte
+}
+
 var Logger *log.Logger
+
+func (se *StackError) Error() string {
+	return se.Text + "\n" + string(se.StackTrace)
+}
+
+func NewStackError(msg string) *StackError {
+	err := &StackError{
+		Text:       msg,
+		StackTrace: make([]byte, 1<<16),
+	}
+
+	runtime.Stack(err.StackTrace, true)
+
+	return err
+}
 
 // Initialize the CLI module
 func Init(level string) {
@@ -58,9 +78,9 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, err
+		return nil, NewStackError(err.Error())
 	} else {
-		return v, err
+		return v, nil
 	}
 }
 
@@ -88,7 +108,11 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 
 	o, err := cmd.CombinedOutput()
 	log.Print("[DEBUG] o=" + string(o))
-	return o, err
+	if err != nil {
+		return o, NewStackError(err.Error())
+	} else {
+		return o, nil
+	}
 }
 
 func fileClone(path string, dest string) error {
@@ -110,16 +134,16 @@ func gitClone(urlLoc string, dest string) error {
 func UrlPath(urlLoc string) (string, error) {
 	url, err := url.Parse(urlLoc)
 	if err != nil {
-		return "", err
+		return "", NewStackError(err.Error())
 	}
 
-	return filepath.Base(url.Path), err
+	return filepath.Base(url.Path), nil
 }
 
 func CopyUrl(urlLoc string, dest string) error {
 	url, err := url.Parse(urlLoc)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	switch url.Scheme {
@@ -128,7 +152,7 @@ func CopyUrl(urlLoc string, dest string) error {
 	case "https", "http", "git": // non file schemes are assumed git repos
 		err = gitClone(urlLoc, dest)
 	default:
-		err = errors.New("Unknown resource type: " + url.Scheme)
+		err = NewStackError("Unknown resource type: " + url.Scheme)
 	}
 
 	if err != nil {

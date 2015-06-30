@@ -16,7 +16,6 @@
 package cli
 
 import (
-	"errors"
 	"log"
 	"os"
 	"strings"
@@ -86,13 +85,6 @@ func (p *Project) BuildClean(cleanAll bool) error {
 		}
 	}
 
-	// clean the bsp
-	bspPath := p.Repo.BasePath + "/hw/bsp/" + p.Target.Bsp + "/"
-	os.RemoveAll(bspPath + "/src/obj/" + p.Target.Arch + "/")
-	if cleanAll {
-		os.RemoveAll(bspPath + "/src/obj/")
-	}
-
 	// next, clean project
 	os.RemoveAll(p.BasePath + "/src/obj/" + p.Target.Arch + "/")
 	os.RemoveAll(p.BasePath + "/src/arch/" + p.Target.Arch + "/obj/")
@@ -105,24 +97,52 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	return nil
 }
 
-func (p *Project) buildBsp(c *Compiler) error {
-	bspDir := p.Repo.BasePath + "/hw/bsp/" + p.Target.Bsp + "/"
-
-	if NodeExist(bspDir + "/" + p.Target.Bsp + ".ld") {
-		c.LinkerScript = bspDir + "/" + p.Target.Bsp + ".ld"
+func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
+	pkgList := p.GetPackages()
+	if pkgList == nil {
+		return nil
 	}
 
-	os.Chdir(bspDir + "src/")
+	for _, pkgName := range pkgList {
+		pkg, err := pm.ResolvePkgName(pkgName)
+		if err != nil {
+			return err
+		}
 
-	if err := c.Compile("*.c"); err != nil {
-		return err
-	}
+		if lib := pm.GetPackageLib(pkg); NodeExist(lib) {
+			*libs = append(*libs, lib)
+		}
 
-	if err := c.CompileAs("*.s"); err != nil {
-		return err
+		if err = pm.Build(pkgName); err != nil {
+			return err
+		}
+
+		*incls = append(*incls, pkg.Includes...)
 	}
 
 	return nil
+}
+
+func (p *Project) buildBsp(pm *PkgMgr, incls *[]string, libs *[]string) (string, error) {
+	if p.Target.Bsp == "" {
+		return "", NewStackError("Must specify a BSP to build project")
+	}
+
+	bspPackage, err := pm.ResolvePkgName(p.Target.Bsp)
+	if err != nil {
+		return "", NewStackError("No BSP package for " + p.Target.Bsp + " exists")
+	}
+
+	if err = pm.Build(p.Target.Bsp); err != nil {
+		return "", err
+	}
+
+	*libs = append(*libs, pm.GetPackageLib(bspPackage))
+	*incls = append(*incls, bspPackage.Includes...)
+
+	linkerScript := bspPackage.BasePath + "/" + bspPackage.LinkerScript
+
+	return linkerScript, nil
 }
 
 // Build the project
@@ -132,36 +152,22 @@ func (p *Project) Build() error {
 		return err
 	}
 
-	// Save package includes
 	incls := []string{}
 	libs := []string{}
 
-	// Build the packages associated with this project
-	for _, pkgName := range p.GetPackages() {
-		pkg, err := pm.ResolvePkgName(pkgName)
-		if err != nil {
-			return err
-		}
+	if err := p.buildDeps(pm, &incls, &libs); err != nil {
+		return err
+	}
 
-		lib := pm.GetPackageLib(pkg)
-		if NodeExist(lib) {
-			libs = append(libs, lib)
-		}
-		err = pm.Build(pkgName)
-		if err != nil {
-			return err
-		}
-
-		// Get the includes after building the package, as dependencies are added
-		// on after the build
-		incls = append(incls, pkg.Includes...)
+	linkerScript, err := p.buildBsp(pm, &incls, &libs)
+	if err != nil {
+		return err
 	}
 
 	// Append project includes
 	projIncls := []string{
 		p.BasePath + "/include/",
 		p.BasePath + "/arch/" + p.Target.Arch + "/include/",
-		p.Repo.BasePath + "/hw/bsp/" + p.Target.Bsp + "/include/",
 	}
 
 	incls = append(incls, projIncls...)
@@ -172,14 +178,7 @@ func (p *Project) Build() error {
 		return err
 	}
 
-	// Build the configured BSP to start
-	if p.Target.Bsp == "" {
-		return errors.New("No BSP specified")
-	}
-
-	if err := p.buildBsp(c); err != nil {
-		return err
-	}
+	c.LinkerScript = linkerScript
 
 	os.Chdir(p.BasePath + "/src/")
 	if err = c.Compile("*.c"); err != nil {
@@ -212,7 +211,7 @@ func (p *Project) Build() error {
 func (p *Project) Init() error {
 	p.BasePath = p.Repo.BasePath + "/project/" + p.Name + "/"
 	if NodeNotExist(p.BasePath) {
-		return errors.New("Project directory does not exist")
+		return NewStackError("Project directory does not exist")
 	}
 
 	if err := p.loadConfig(); err != nil {

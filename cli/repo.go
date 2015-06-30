@@ -17,7 +17,6 @@ package cli
 
 import (
 	"database/sql"
-	"errors"
 	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
 	"os"
@@ -55,12 +54,12 @@ func (r *Repo) CreateCompiler(cName string) error {
 	cfgFile := basePath + "compiler.yml"
 
 	if NodeExist(basePath) {
-		return errors.New("Compiler " + cName + " already exists!")
+		return NewStackError("Compiler " + cName + " already exists!")
 	}
 
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	compilerDef := `compiler.path.cc: /path/to/compiler
@@ -70,7 +69,7 @@ compiler.flags.debug: [compiler.flags.default, -additional -debug -flags]`
 
 	err = ioutil.WriteFile(cfgFile, []byte(compilerDef), 0644)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	return nil
@@ -84,7 +83,7 @@ func (r *Repo) getRepoFile() (string, error) {
 
 	curDir, err := os.Getwd()
 	if err != nil {
-		return rFile, err
+		return rFile, NewStackError(err.Error())
 	}
 
 	for {
@@ -96,7 +95,7 @@ func (r *Repo) getRepoFile() (string, error) {
 		curDir = path.Clean(curDir + "../../")
 		if curDir == "/" {
 			rFile = ""
-			err = errors.New("No repo file found!")
+			err = NewStackError("No repo file found!")
 			break
 		}
 	}
@@ -114,8 +113,11 @@ func (r *Repo) createDb(db *sql.DB) error {
 	)
 	`
 	_, err := db.Exec(query)
-	return err
-
+	if err != nil {
+		return NewStackError(err.Error())
+	} else {
+		return nil
+	}
 }
 
 // Initialize the configuration database specified by dbName.  If the database
@@ -135,7 +137,7 @@ func (r *Repo) initDb(dbName string) error {
 	// Populate repo configuration
 	rows, err := db.Query("SELECT * FROM stack_cfg")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 	defer rows.Close()
 
@@ -145,7 +147,7 @@ func (r *Repo) initDb(dbName string) error {
 		var cfgVal sql.NullString
 		err := rows.Scan(&cfgName, &cfgKey, &cfgVal)
 		if err != nil {
-			return err
+			return NewStackError(err.Error())
 		}
 
 		_, ok := r.Config[cfgName.String]
@@ -164,12 +166,12 @@ func (r *Repo) initDb(dbName string) error {
 func (r *Repo) GetConfig(sect string, key string) (string, error) {
 	sectMap, ok := r.Config[sect]
 	if !ok {
-		return "", errors.New("No configuration section exists")
+		return "", NewStackError("No configuration section exists")
 	}
 
 	val, ok := sectMap[key]
 	if !ok {
-		return "", errors.New("No configuration variable exists")
+		return "", NewStackError("No configuration variable exists")
 	}
 
 	return val, nil
@@ -178,7 +180,7 @@ func (r *Repo) GetConfig(sect string, key string) (string, error) {
 func (r *Repo) GetConfigSect(sect string) (map[string]string, error) {
 	sm, ok := r.Config[sect]
 	if !ok {
-		return nil, errors.New("No configuration section exists")
+		return nil, NewStackError("No configuration section exists")
 	}
 
 	return sm, nil
@@ -199,19 +201,19 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	stmt, err := tx.Prepare(
 		"UPDATE stack_cfg SET value=? WHERE cfg_name=? AND key=?")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(val, sect, key)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	// Value already existed, and we updated it.  Mission accomplished!
@@ -224,13 +226,13 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 	// Otherwise, insert a new row
 	stmt1, err := tx.Prepare("INSERT INTO stack_cfg VALUES (?, ?, ?)")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 	defer stmt1.Close()
 
 	_, err = stmt1.Exec(sect, key, val)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	tx.Commit()
@@ -242,12 +244,12 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 func (r *Repo) loadConfig() error {
 	v, err := ReadConfig(r.BasePath, "repo")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	r.Repo = v.GetString("repo.name")
 	if r.Repo == "" {
-		return errors.New("Repo file must specify repo name")
+		return NewStackError("Repo file must specify repo name")
 	}
 
 	return nil
@@ -260,7 +262,7 @@ func CreateRepo(rName string) (*Repo, error) {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, NewStackError(err.Error())
 	}
 
 	repo.BasePath = cwd + "/" + rName + "/"
@@ -271,7 +273,7 @@ func CreateRepo(rName string) (*Repo, error) {
 	repoContents := "repo.name: " + rName + "\n"
 	err = ioutil.WriteFile(repo.RepoFile, []byte(repoContents), 0644)
 	if err != nil {
-		return nil, err
+		return nil, NewStackError(err.Error())
 	}
 
 	// make base directory structure

@@ -16,7 +16,6 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -47,6 +46,9 @@ type Package struct {
 	Target *Target
 	// Package version
 	Version string
+	// Type of package
+	LinkerScript string
+
 	// Package sources
 	Sources []string
 	// Package include directories
@@ -79,14 +81,15 @@ func (pkg *Package) loadConfig() error {
 	}
 
 	if filepath.Base(pkg.Name) != v.GetString("pkg.name") {
-		return errors.New(
+		return NewStackError(
 			"Package file in directory doesn't match directory name.")
 	}
 
 	pkg.Version = v.GetString("pkg.vers")
+	pkg.LinkerScript = v.GetString("pkg.linkerscript")
 
 	// Load package dependencies
-	pkg.Deps = strings.Split(strings.Trim(v.GetString("pkg.deps"), " \n"), " ")
+	pkg.Deps = strings.Split(v.GetString("pkg.deps"), " ")
 
 	return nil
 }
@@ -94,13 +97,13 @@ func (pkg *Package) loadConfig() error {
 func (pkg *Package) checkIncludes() error {
 	incls, err := filepath.Glob(pkg.BasePath + "/include/*")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	incls2, err := filepath.Glob(pkg.BasePath + "/include/" + pkg.Name + "/arch/" +
 		pkg.Target.Arch + "/*")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	incls = append(incls, incls2...)
@@ -117,11 +120,11 @@ func (pkg *Package) Init() error {
 	// source files in src/, and src files in src/arch/<arch>
 	srcs, err := filepath.Glob(pkg.BasePath + "/src/*")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 	srcs1, err := filepath.Glob(pkg.BasePath + "/src/arch/" + pkg.Target.Arch + "/*")
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	pkg.Sources = append(srcs, srcs1...)
@@ -151,14 +154,14 @@ func (pkg *Package) Init() error {
 
 // Load an individual package specified by pkgName into the package list for
 // this repository
-func (pm *PkgMgr) loadPackage(pkgName string) error {
+func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgName string) error {
 	log.Println("[INFO] Loading Package " + pkgName + "...")
 
 	if pm.Packages == nil {
 		pm.Packages = make(map[string]*Package)
 	}
 
-	pkgDir := pm.Repo.BasePath + "/pkg/" + pkgName
+	pkgDir := pkgBaseDir + pkgName
 	pkg := &Package{
 		BasePath: pkgDir,
 		Name:     pkgName,
@@ -179,7 +182,7 @@ func (pm *PkgMgr) loadPackageDir(baseDir string, pkgName string) error {
 	// first recurse and load subpackages
 	list, err := ioutil.ReadDir(baseDir + "/" + pkgName)
 	if err != nil {
-		return err
+		return NewStackError(err.Error())
 	}
 
 	for _, ent := range list {
@@ -200,27 +203,32 @@ func (pm *PkgMgr) loadPackageDir(baseDir string, pkgName string) error {
 		}
 	}
 
-	return pm.loadPackage(pkgName)
+	return pm.loadPackage(baseDir, pkgName)
 }
 
 // Load all the packages in the repository into the package structure
 func (pm *PkgMgr) loadPackages() error {
 	r := pm.Repo
 
-	pkgBaseDir := r.BasePath + "/pkg/"
-	pkgList, err := ioutil.ReadDir(pkgBaseDir)
-	if err != nil {
-		return err
-	}
+	// Multiple package directories to be searched
+	searchDirs := []string{"/pkg/", "/hw/bsp/"}
 
-	for _, pkgDir := range pkgList {
-		name := pkgDir.Name()
-		if filepath.HasPrefix(name, ".") || filepath.HasPrefix(name, "..") {
-			continue
+	for _, pkgDir := range searchDirs {
+		pkgBaseDir := r.BasePath + pkgDir
+		pkgList, err := ioutil.ReadDir(pkgBaseDir)
+		if err != nil {
+			return NewStackError(err.Error())
 		}
 
-		if err = pm.loadPackageDir(pkgBaseDir, name); err != nil {
-			return err
+		for _, subPkgDir := range pkgList {
+			name := subPkgDir.Name()
+			if filepath.HasPrefix(name, ".") || filepath.HasPrefix(name, "..") {
+				continue
+			}
+
+			if err = pm.loadPackageDir(pkgBaseDir, name); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -237,7 +245,7 @@ func (pm *PkgMgr) Init() error {
 func (pm *PkgMgr) ResolvePkgName(pkgName string) (*Package, error) {
 	pkg, ok := pm.Packages[pkgName]
 	if !ok {
-		return nil, errors.New("Invalid package " + pkgName + " specified")
+		return nil, NewStackError("Invalid package " + pkgName + " specified")
 	}
 	return pkg, nil
 }
@@ -382,7 +390,12 @@ func (pm *PkgMgr) GetPackageTests(pkgName string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	tests, _ := filepath.Glob(pkg.BasePath + "/src/test/*")
+
+	tests, err := filepath.Glob(pkg.BasePath + "/src/test/*")
+	if err != nil {
+		return nil, NewStackError(err.Error())
+	}
+
 	for key, val := range tests {
 		tests[key] = filepath.Base(val)
 	}
@@ -454,7 +467,7 @@ func (pm *PkgMgr) runTests(pkg *Package, exitOnFailure bool,
 		if err != nil {
 			fmt.Println("Test " + test + " failed, output: " + string(o))
 			if exitOnFailure {
-				return errors.New("Unit tests failed to complete successfully.")
+				return NewStackError("Unit tests failed to complete successfully.")
 			}
 		} else {
 			fmt.Println("Test " + test + " ... ok")
@@ -469,7 +482,7 @@ func (pm *PkgMgr) testsExist(pkg *Package, tests []string) error {
 	for _, test := range tests {
 		dirName := pkg.BasePath + "/src/test/" + test + "/"
 		if NodeNotExist(dirName) {
-			return errors.New("No test exists for " + test)
+			return NewStackError("No test exists for " + test)
 		}
 	}
 

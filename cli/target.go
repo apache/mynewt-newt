@@ -16,7 +16,6 @@
 package cli
 
 import (
-	"errors"
 	"strings"
 )
 
@@ -59,7 +58,7 @@ func LoadTarget(r *Repo, name string) (*Target, error) {
 
 	// Cannot have both a project and package set
 	if t.Vars["project"] != "" && t.Vars["pkg"] != "" {
-		return nil, errors.New("Target " + t.Vars["name"] + " cannot have a " +
+		return nil, NewStackError("Target " + t.Vars["name"] + " cannot have a " +
 			"project and package set.")
 	}
 
@@ -77,6 +76,8 @@ func LoadTarget(r *Repo, name string) (*Target, error) {
 	}
 
 	t.Bsp = t.Vars["bsp"]
+
+	// Load in Bsp configuration
 
 	return t, nil
 }
@@ -169,7 +170,7 @@ func (t *Target) BuildClean(cleanAll bool) error {
 
 func (t *Target) Test(cmd string, flag bool) error {
 	if t.Vars["project"] != "" {
-		return errors.New("Tests not supported on projects, only packages")
+		return NewStackError("Tests not supported on projects, only packages")
 	}
 
 	pm, err := NewPkgMgr(t.Repo, t)
@@ -193,7 +194,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 	case "testclean":
 		err = pm.TestClean(t.Vars["pkg"], tests, flag)
 	default:
-		err = errors.New("Unknown command to Test() " + cmd)
+		err = NewStackError("Unknown command to Test() " + cmd)
 	}
 	if err != nil {
 		return err
@@ -207,7 +208,7 @@ func (t *Target) Save() error {
 	r := t.Repo
 
 	if _, ok := t.Vars["name"]; !ok {
-		return errors.New("Cannot save a target without a name")
+		return NewStackError("Cannot save a target without a name")
 	}
 
 	targetCfg := TARGET_SECT_PREFIX + t.Vars["name"]
