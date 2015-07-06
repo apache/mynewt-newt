@@ -16,6 +16,9 @@
 package cli
 
 import (
+	"bufio"
+	"fmt"
+	"os"
 	"strings"
 )
 
@@ -23,6 +26,8 @@ const TARGET_SECT_PREFIX = "_target_"
 
 type Target struct {
 	Vars map[string]string
+
+	Name string
 
 	Arch string
 	Cdef string
@@ -43,22 +48,9 @@ func TargetExists(r *Repo, name string) bool {
 	}
 }
 
-// Load the target specified by name for the repository specified by r
-func LoadTarget(r *Repo, name string) (*Target, error) {
-	t := &Target{
-		Repo: r,
-	}
-
-	var err error
-
-	t.Vars, err = r.GetConfigSect(TARGET_SECT_PREFIX + name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Cannot have both a project and package set
+func (t *Target) SetDefaults() error {
 	if t.Vars["project"] != "" && t.Vars["pkg"] != "" {
-		return nil, NewStackError("Target " + t.Vars["name"] + " cannot have a " +
+		return NewStackError("Target " + t.Vars["name"] + " cannot have a " +
 			"project and package set.")
 	}
 
@@ -77,9 +69,119 @@ func LoadTarget(r *Repo, name string) (*Target, error) {
 
 	t.Bsp = t.Vars["bsp"]
 
-	// Load in Bsp configuration
+	t.Name = t.Vars["name"]
+
+	return nil
+}
+
+// Load the target specified by name for the repository specified by r
+func LoadTarget(r *Repo, name string) (*Target, error) {
+	t := &Target{
+		Repo: r,
+	}
+
+	var err error
+
+	t.Vars, err = r.GetConfigSect(TARGET_SECT_PREFIX + name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cannot have both a project and package set
+	err = t.SetDefaults()
+	if err != nil {
+		return nil, err
+	}
 
 	return t, nil
+}
+
+// Export a target, or all targets.  If exportAll is true, then all targets are exported, if false,
+// then only the target represented by targetName is exported
+func ExportTargets(r *Repo, name string, exportAll bool, fp *os.File) error {
+	targets, err := GetTargets(r)
+	if err != nil {
+		return err
+	}
+
+	for _, target := range targets {
+		if !exportAll && target.Name != name {
+			continue
+		}
+
+		fmt.Fprintf(fp, "@target=%s\n", target.Name)
+
+		for k, v := range target.GetVars() {
+			fmt.Fprintf(fp, "%s=%s\n", k, v)
+		}
+	}
+	fmt.Fprintf(fp, "@endtargets\n")
+
+	return nil
+}
+
+func ImportTargets(r *Repo, name string, importAll bool, fp *os.File) error {
+	s := bufio.NewScanner(fp)
+
+	var currentTarget *Target = nil
+
+	targets := make([]*Target, 0, 10)
+
+	for s.Scan() {
+		line := s.Text()
+
+		// scan lines
+		// lines defining a target start with @
+		if idx := strings.Index(line, "@"); idx == 0 {
+			// save existing target if it exists
+			if currentTarget != nil {
+				targets = append(targets, currentTarget)
+			}
+
+			// look either for an end of target definitions, or a new target definition
+			if line == "@endtargets" {
+				break
+			} else {
+				// create a current target
+				elements := strings.SplitN(line, "=", 2)
+				// name is elements[0], and value is elements[1]
+				currentTarget = &Target{
+					Repo: r,
+				}
+
+				var err error
+				currentTarget.Vars = map[string]string{}
+				if err != nil {
+					return err
+				}
+
+				currentTarget.Vars["name"] = elements[1]
+			}
+		} else {
+			if currentTarget == nil {
+				return NewStackError("No target present when variables being set in import file")
+			}
+			// target variables, set these on the current target
+			elements := strings.SplitN(line, "=", 2)
+			currentTarget.Vars[elements[0]] = elements[1]
+		}
+	}
+
+	if err := s.Err(); err != nil {
+		return err
+	}
+
+	for _, target := range targets {
+		if err := target.SetDefaults(); err != nil {
+			return err
+		}
+
+		if err := target.Save(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Get a list of targets for the repository specified by r

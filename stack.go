@@ -25,6 +25,8 @@ import (
 
 var DispStackTrace bool = true
 var ExitOnFailure bool = false
+var ExportAll bool = false
+var ImportAll bool = false
 var StackVersion string = "1.0"
 var StackRepo *cli.Repo
 var StackLogLevel string = ""
@@ -170,6 +172,43 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func targetExportCmd(cmd *cobra.Command, args []string) {
+	var targetName string
+	if ExportAll {
+		targetName = ""
+	} else {
+		if len(args) < 1 {
+			StackUsage(cmd, cli.NewStackError("Must either specify -a flag or name of target to export"))
+		}
+		targetName = args[0]
+	}
+
+	err := cli.ExportTargets(StackRepo, targetName, ExportAll, os.Stdout)
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+}
+
+func targetImportCmd(cmd *cobra.Command, args []string) {
+	var targetName string
+	if ImportAll {
+		targetName = ""
+	} else {
+		if len(args) < 1 {
+			StackUsage(cmd, cli.NewStackError("Must either specify -a flag or name of target to import"))
+		}
+
+		targetName = args[0]
+	}
+
+	err := cli.ImportTargets(StackRepo, targetName, ImportAll, os.Stdin)
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	fmt.Println("Target(s) successfully imported!")
+}
+
 func targetAddCmds(base *cobra.Command) {
 	targetCmd := &cobra.Command{
 		Use:   "target",
@@ -227,6 +266,28 @@ func targetAddCmds(base *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(testCmd)
+
+	exportCmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export target",
+		Run:   targetExportCmd,
+	}
+
+	exportCmd.PersistentFlags().BoolVarP(&ExportAll, "export-all", "a", false,
+		"If present, export all targets")
+
+	targetCmd.AddCommand(exportCmd)
+
+	importCmd := &cobra.Command{
+		Use:   "import",
+		Short: "Import target",
+		Run:   targetImportCmd,
+	}
+
+	importCmd.PersistentFlags().BoolVarP(&ImportAll, "import-all", "a", false,
+		"If present, import all targets")
+
+	targetCmd.AddCommand(importCmd)
 
 	base.AddCommand(targetCmd)
 }
