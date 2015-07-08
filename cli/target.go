@@ -18,6 +18,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -105,6 +106,8 @@ func ExportTargets(r *Repo, name string, exportAll bool, fp *os.File) error {
 	}
 
 	for _, target := range targets {
+		log.Printf("[DEBUG] Exporting target %s", target.Name)
+
 		if !exportAll && target.Name != name {
 			continue
 		}
@@ -126,6 +129,12 @@ func ImportTargets(r *Repo, name string, importAll bool, fp *os.File) error {
 	var currentTarget *Target = nil
 
 	targets := make([]*Target, 0, 10)
+
+	if importAll {
+		log.Printf("[DEBUG] Importing all targets from %s", fp.Name())
+	} else {
+		log.Printf("[DEBUG] Importing target %s from %s", name, fp.Name())
+	}
 
 	for s.Scan() {
 		line := s.Text()

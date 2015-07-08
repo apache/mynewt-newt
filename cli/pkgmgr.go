@@ -75,6 +75,9 @@ func NewPkgMgr(r *Repo, t *Target) (*PkgMgr, error) {
 // Load a package's configuration information from the package config
 // file.
 func (pkg *Package) loadConfig() error {
+	log.Printf("[DEBUG] Loading configuration for pkg %s, in directory %s",
+		filepath.Base(pkg.Name), pkg.BasePath)
+
 	v, err := ReadConfig(pkg.BasePath, filepath.Base(pkg.Name))
 	if err != nil {
 		return err
@@ -94,6 +97,8 @@ func (pkg *Package) loadConfig() error {
 	return nil
 }
 
+// Check the include directories for the package, to make sure there are no conflicts in
+// include paths for source code
 func (pkg *Package) checkIncludes() error {
 	incls, err := filepath.Glob(pkg.BasePath + "/include/*")
 	if err != nil {
@@ -108,13 +113,38 @@ func (pkg *Package) checkIncludes() error {
 
 	incls = append(incls, incls2...)
 
-	// XXX: need to re-add enforcing the package base include path
+	for _, incl := range incls {
+		finfo, err := os.Stat(incl)
+		if err != nil {
+			return NewStackError(err.Error())
+		}
+
+		bad := false
+		if !finfo.IsDir() {
+			bad = true
+		}
+
+		// XXX: The BSP check should only be in BSP packages, or the structure of includes within
+		// BSPs should be done differently.
+		if filepath.Base(incl) != pkg.Name && filepath.Base(incl) != "bsp" {
+			bad = true
+		}
+
+		if bad {
+			return NewStackError(fmt.Sprintf("File %s should not exist in include directory, "+
+				"only file allowed in include directory is a directory with the package name %s",
+				incl, pkg.Name))
+		}
+	}
+
 	return nil
 }
 
 // Initialize a package
 func (pkg *Package) Init() error {
 	var err error
+
+	log.Printf("[DEBUG] Initializing package %s in path %s", pkg.Name, pkg.BasePath)
 
 	// Load package sources, this is a combination of:
 	// source files in src/, and src files in src/arch/<arch>
@@ -129,6 +159,7 @@ func (pkg *Package) Init() error {
 
 	pkg.Sources = append(srcs, srcs1...)
 
+	log.Printf("[DEBUG] Checking package includes to ensure correctness")
 	// Check to make sure no include files are in the /include/* directory for the
 	// package
 	err = pkg.checkIncludes()
@@ -178,7 +209,11 @@ func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgName string) error {
 	return nil
 }
 
+// Recursively load a package.  Given the baseDir of the packages (e.g. pkg/ or hw/bsp), and
+// the base package name.
 func (pm *PkgMgr) loadPackageDir(baseDir string, pkgName string) error {
+	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir, pkgName)
+
 	// first recurse and load subpackages
 	list, err := ioutil.ReadDir(baseDir + "/" + pkgName)
 	if err != nil {
@@ -269,19 +304,20 @@ func (pm *PkgMgr) BuildClean(pkgName string, cleanAll bool) error {
 		return err
 	}
 
-	err = c.RecursiveClean(pkg.BasePath+"/src/", arch)
-	if err != nil {
+	if err := c.RecursiveClean(pkg.BasePath+"/src/", arch); err != nil {
 		return err
 	}
-	os.RemoveAll(pkg.BasePath + "/bin/" + arch)
+	if err := os.RemoveAll(pkg.BasePath + "/bin/" + arch); err != nil {
+		return NewStackError(err.Error())
+	}
 
 	return nil
 }
 
 func (pm *PkgMgr) GetPackageLib(pkg *Package) string {
-	binDir := pkg.BasePath + "/bin/" + pm.Target.Arch + "/" +
+	libDir := pkg.BasePath + "/bin/" + pm.Target.Arch + "/" +
 		"lib" + filepath.Base(pkg.Name) + ".a"
-	return binDir
+	return libDir
 }
 
 // Build the package specified by pkgName
@@ -356,8 +392,10 @@ func (pm *PkgMgr) Build(pkgName string) error {
 	log.Printf("[DEBUG] compiling architecture specific src packages")
 
 	if NodeExist(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/") {
-		os.Chdir(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/")
-		if err = c.RecursiveCompile("*.c", 0, nil); err != nil {
+		if err := os.Chdir(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/"); err != nil {
+			return NewStackError(err.Error())
+		}
+		if err := c.RecursiveCompile("*.c", 0, nil); err != nil {
 			return err
 		}
 
@@ -369,12 +407,16 @@ func (pm *PkgMgr) Build(pkgName string) error {
 
 	// Link everything into a static library, which can be linked with a main
 	// program
-	os.Chdir(pkg.BasePath + "/")
+	if err := os.Chdir(pkg.BasePath + "/"); err != nil {
+		return NewStackError(err.Error())
+	}
 
 	binDir := pkg.BasePath + "/bin/" + pm.Target.Arch + "/"
 
 	if NodeNotExist(binDir) {
-		os.MkdirAll(binDir, 0755)
+		if err := os.MkdirAll(binDir, 0755); err != nil {
+			return NewStackError(err.Error())
+		}
 	}
 
 	if err = c.CompileArchive(pm.GetPackageLib(pkg), ""); err != nil {
@@ -417,8 +459,12 @@ func (pm *PkgMgr) TestClean(pkgName string, tests []string,
 	}
 
 	for _, test := range tests {
-		os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/bin/" + arch)
-		os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/obj/" + arch)
+		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/bin/" + arch); err != nil {
+			return NewStackError(err.Error())
+		}
+		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/obj/" + arch); err != nil {
+			return NewStackError(err.Error())
+		}
 	}
 
 	return nil
@@ -435,7 +481,10 @@ func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
 	}
 
 	for _, test := range tests {
-		os.Chdir(pkg.BasePath + "/src/test/" + test + "/")
+		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/"); err != nil {
+			return NewStackError(err.Error())
+		}
+
 		if err = c.Compile("*.c"); err != nil {
 			return err
 		}
@@ -443,11 +492,12 @@ func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
 		testBinDir := pkg.BasePath + "/src/test/" + test + "/bin/" +
 			pm.Target.Arch + "/"
 		if NodeNotExist(testBinDir) {
-			os.MkdirAll(testBinDir, 0755)
+			if err := os.MkdirAll(testBinDir, 0755); err != nil {
+				return NewStackError(err.Error())
+			}
 		}
-		err = c.CompileBinary(testBinDir+test, map[string]bool{},
-			pkg.BasePath+"/bin/"+pm.Target.Arch+"/lib"+pkg.Name+".a")
-		if err != nil {
+		if err := c.CompileBinary(testBinDir+test, map[string]bool{},
+			pkg.BasePath+"/bin/"+pm.Target.Arch+"/lib"+pkg.Name+".a"); err != nil {
 			return err
 		}
 	}
@@ -461,16 +511,18 @@ func (pm *PkgMgr) runTests(pkg *Package, exitOnFailure bool,
 	tests []string) error {
 	// go and run all the tests
 	for _, test := range tests {
-		os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + pm.Target.Arch +
-			"/")
+		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + pm.Target.Arch +
+			"/"); err != nil {
+			return err
+		}
 		o, err := ShellCommand("./" + test)
 		if err != nil {
-			fmt.Println("Test " + test + " failed, output: " + string(o))
+			log.Printf("[ERROR] Test %s failed, output: %s", test, string(o))
 			if exitOnFailure {
 				return NewStackError("Unit tests failed to complete successfully.")
 			}
 		} else {
-			fmt.Println("Test " + test + " ... ok")
+			log.Printf("[INFO] Test %s ok!", test)
 		}
 	}
 	return nil
@@ -493,7 +545,7 @@ func (pm *PkgMgr) testsExist(pkg *Package, tests []string) error {
 // exitOnFailure signifies whether to stop the test program when one of them
 // fails.
 func (pm *PkgMgr) Test(pkgName string, exitOnFailure bool, tests []string) error {
-	fmt.Println("Testing package " + pkgName + " for arch " + pm.Target.Arch)
+	log.Printf("[INFO] Testing package %s for arch %s", pkgName, pm.Target.Arch)
 
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {

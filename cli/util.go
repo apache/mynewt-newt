@@ -55,7 +55,7 @@ func Init(level string) {
 	}
 
 	filter := &logutils.LevelFilter{
-		Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERROR"},
+		Levels:   []logutils.LogLevel{"DEBUG", "VERBOSE", "INFO", "WARN", "ERROR"},
 		MinLevel: logutils.LogLevel(level),
 		Writer:   os.Stderr,
 	}
@@ -103,11 +103,11 @@ func NodeNotExist(path string) bool {
 
 // Execute the command specified by cmdStr on the shell and return results
 func ShellCommand(cmdStr string) ([]byte, error) {
-	log.Print("[DEBUG] " + cmdStr)
+	log.Print("[VERBOSE] " + cmdStr)
 	cmd := exec.Command("sh", "-c", cmdStr)
 
 	o, err := cmd.CombinedOutput()
-	log.Print("[DEBUG] o=" + string(o))
+	log.Print("[VERBOSE] o=" + string(o))
 	if err != nil {
 		return o, NewStackError(err.Error())
 	} else {

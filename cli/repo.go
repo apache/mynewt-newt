@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 )
@@ -41,6 +42,11 @@ type Repo struct {
 	db *sql.DB
 }
 
+var compilerDef string = `compiler.path.cc: /path/to/compiler
+compiler.path.archive: /path/to/archiver
+compiler.flags.default: -default -compiler -flags
+compiler.flags.debug: [compiler.flags.default, -additional -debug -flags]`
+
 // Create a new repository and initialize it
 func NewRepo() (*Repo, error) {
 	r := &Repo{}
@@ -49,9 +55,14 @@ func NewRepo() (*Repo, error) {
 	return r, err
 }
 
+// Create a compiler defintiion, including sample file that
+
 func (r *Repo) CreateCompiler(cName string) error {
 	basePath := r.BasePath + "/compiler/" + cName + "/"
 	cfgFile := basePath + "compiler.yml"
+
+	log.Printf("Creating a compiler definition in directory %s",
+		basePath)
 
 	if NodeExist(basePath) {
 		return NewStackError("Compiler " + cName + " already exists!")
@@ -61,11 +72,6 @@ func (r *Repo) CreateCompiler(cName string) error {
 	if err != nil {
 		return NewStackError(err.Error())
 	}
-
-	compilerDef := `compiler.path.cc: /path/to/compiler
-compiler.path.archive: /path/to/archiver
-compiler.flags.default: -default -compiler -flags
-compiler.flags.debug: [compiler.flags.default, -additional -debug -flags]`
 
 	err = ioutil.WriteFile(cfgFile, []byte(compilerDef), 0644)
 	if err != nil {
@@ -88,7 +94,9 @@ func (r *Repo) getRepoFile() (string, error) {
 
 	for {
 		rFile = curDir + "/repo.yml"
+		log.Printf("[DEBUG] Searching for repo file at %s", rFile)
 		if _, err := os.Stat(rFile); err == nil {
+			log.Printf("[DEBUG] Found repo file at %s!", rFile)
 			break
 		}
 
@@ -135,6 +143,8 @@ func (r *Repo) initDb(dbName string) error {
 	}
 
 	// Populate repo configuration
+	log.Printf("[DEBUG] Populating Repository configuration from %s", dbName)
+
 	rows, err := db.Query("SELECT * FROM stack_cfg")
 	if err != nil {
 		return NewStackError(err.Error())
@@ -145,10 +155,14 @@ func (r *Repo) initDb(dbName string) error {
 		var cfgName sql.NullString
 		var cfgKey sql.NullString
 		var cfgVal sql.NullString
+
 		err := rows.Scan(&cfgName, &cfgKey, &cfgVal)
 		if err != nil {
 			return NewStackError(err.Error())
 		}
+
+		log.Printf("[DEBUG] Setting sect %s, key %s to val %s", cfgName.String,
+			cfgKey.String, cfgVal.String)
 
 		_, ok := r.Config[cfgName.String]
 		if !ok {
@@ -197,6 +211,8 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 	r.Config[sect][key] = val
 
 	// Store config
+	log.Printf("[DEBUG] Storing value %s into key %s for section %s",
+		val, sect, key)
 	db := r.db
 
 	tx, err := db.Begin()
@@ -220,6 +236,7 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 	// Exit
 	if affected, err := res.RowsAffected(); affected > 0 && err == nil {
 		tx.Commit()
+		log.Printf("[DEBUG] Key %s, sect %s successfully updated to %s", key, sect, val)
 		return nil
 	}
 
@@ -236,6 +253,9 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 	}
 
 	tx.Commit()
+
+	log.Printf("[DEBUG] Key %s, sect %s successfully create, value set to %s",
+		key, sect, val)
 
 	return nil
 }
@@ -255,49 +275,65 @@ func (r *Repo) loadConfig() error {
 	return nil
 }
 
-func CreateRepo(rName string) (*Repo, error) {
+// Create the repository rName in the directory specified by dir
+// returns an initialized repository on success, with error = nil
+// on failure, error is set to a StackError, and the value of
+// *Repo is undefined
+func CreateRepo(dir string, rName string) (*Repo, error) {
 	repo := &Repo{
 		Repo: rName,
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, NewStackError(err.Error())
-	}
+	log.Printf("[DEBUG] Creating repository in directory %s", dir)
 
-	repo.BasePath = cwd + "/" + rName + "/"
+	repo.BasePath = dir + "/" + rName + "/"
 	repo.RepoFile = repo.BasePath + "repo.yml"
 
 	os.MkdirAll(repo.BasePath, 0755)
 
 	repoContents := "repo.name: " + rName + "\n"
-	err = ioutil.WriteFile(repo.RepoFile, []byte(repoContents), 0644)
-	if err != nil {
+	if err := ioutil.WriteFile(repo.RepoFile, []byte(repoContents), 0644); err != nil {
 		return nil, NewStackError(err.Error())
 	}
 
 	// make base directory structure
-	os.MkdirAll(repo.BasePath+"/pkg", 0755)
-	os.MkdirAll(repo.BasePath+"/project", 0755)
-	os.MkdirAll(repo.BasePath+"/hw/bsp", 0755)
-	os.MkdirAll(repo.BasePath+"/compiler", 0755)
+	paths := []string{"/pkg", "/project", "/hw/bsp", "/compiler"}
+	for _, path := range paths {
+		if err := os.MkdirAll(repo.BasePath+path, 0755); err != nil {
+			return nil, NewStackError(err.Error())
+		}
+	}
+
+	log.Printf("[DEBUG] Repository successfully created in directory %s",
+		repo.BasePath)
 
 	return repo, nil
 }
 
-// Initialize the repo, load configuration
+// Initialze the repository
+// returns a StackError on failure, and nil on success
 func (r *Repo) Init() error {
 	var err error
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return NewStackError(err.Error())
+	}
+	log.Printf("[DEBUG] Searching for repository, starting in directory %s", cwd)
 
 	if r.RepoFile, err = r.getRepoFile(); err != nil {
 		return err
 	}
+
+	log.Printf("[DEBUG] Repository file found, directory %s, loading configuration...", r.RepoFile)
 
 	r.BasePath = path.Dir(r.RepoFile)
 
 	if err = r.loadConfig(); err != nil {
 		return err
 	}
+
+	log.Printf("[DEBUG] Configuration loaded!, initializing repo database")
 
 	// Initialize config
 	r.Config = make(map[string]map[string]string)
@@ -307,6 +343,8 @@ func (r *Repo) Init() error {
 	if err != nil {
 		return err
 	}
+
+	log.Printf("[DEBUG] Database initialized.")
 
 	return nil
 }

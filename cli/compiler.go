@@ -48,7 +48,7 @@ func NewCompiler(ccPath string, cDef string, arch string, includes []string) (
 		BaseIncludes: includes,
 	}
 
-	log.Printf("[DEBUG] Loading compiler %s, arch %s, def %s", ccPath, arch, cDef)
+	log.Printf("[INFO] Loading compiler %s, arch %s, def %s", ccPath, arch, cDef)
 
 	err := c.ReadSettings(cDef)
 	if err != nil {
@@ -83,7 +83,7 @@ func (c *Compiler) ReadSettings(cDef string) error {
 	c.ldFlags = v.GetString("compiler.ld.flags")
 	c.ldResolveCircularDeps = v.GetBool("compiler.ld.resolve_circular_deps")
 
-	log.Printf("[DEBUG] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
+	log.Printf("[INFO] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
 		c.arPath, c.ccFlags)
 
 	return nil
@@ -124,6 +124,13 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 func (c *Compiler) Compile(match string) error {
 	files, _ := filepath.Glob(match)
 
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[INFO] Compiling C (%s/%s) %s", wd, match, strings.Join(files, " "))
+
 	for _, file := range files {
 		err := c.CompileFile(file, 0)
 		if err != nil {
@@ -136,12 +143,20 @@ func (c *Compiler) Compile(match string) error {
 func (c *Compiler) CompileAs(match string) error {
 	files, _ := filepath.Glob(match)
 
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[INFO] Compiling assembly (%s/%s) %s", wd, match, strings.Join(files, " "))
+
 	for _, file := range files {
 		err := c.CompileFile(file, 1)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -235,7 +250,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 	objFiles string) error {
 	objList := c.getObjFiles(objFiles)
 
-	log.Printf("[DEBUG] compiling binary %s with object files %s", binFile,
+	log.Printf("[INFO] Compiling Binary %s with object files %s", binFile,
 		objList)
 
 	cmd := c.ccPath + " -o " + binFile + " " + c.ldFlags + " " + c.ccFlags
@@ -290,7 +305,7 @@ func (c *Compiler) CompileElf(binFile string, options map[string]bool,
 func (c *Compiler) CompileArchive(archiveFile string, objFiles string) error {
 	objList := c.getObjFiles(objFiles)
 
-	log.Printf("[DEBUG] compiling archive %s with object files %s",
+	log.Printf("[INFO] Compiling archive %s with object files %s",
 		archiveFile, objList)
 
 	cmd := c.arPath + " rcs " + archiveFile + " " + objList

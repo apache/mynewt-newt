@@ -298,7 +298,12 @@ func repoCreateCmd(cmd *cobra.Command, args []string) {
 		StackUsage(cmd, cli.NewStackError("Must specify a repo name to repo create"))
 	}
 
-	_, err := cli.CreateRepo(args[0])
+	cwd, err := os.Getwd()
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	_, err = cli.CreateRepo(cwd, args[0])
 	if err != nil {
 		StackUsage(cmd, err)
 	}
