@@ -40,6 +40,8 @@ type Package struct {
 	BasePath string
 	// Name of the package
 	Name string
+	// Full Name of the package include prefix dir
+	FullName string
 	// Repository this package belongs to
 	Repo *Repo
 	// Target that we're building this package for
@@ -185,7 +187,7 @@ func (pkg *Package) Init() error {
 
 // Load an individual package specified by pkgName into the package list for
 // this repository
-func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgName string) error {
+func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgPrefix string, pkgName string) error {
 	log.Println("[INFO] Loading Package " + pkgName + "...")
 
 	if pm.Packages == nil {
@@ -196,6 +198,7 @@ func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgName string) error {
 	pkg := &Package{
 		BasePath: pkgDir,
 		Name:     pkgName,
+		FullName: pkgPrefix + pkgName,
 		Repo:     pm.Repo,
 		Target:   pm.Target,
 	}
@@ -204,14 +207,14 @@ func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgName string) error {
 		return err
 	}
 
-	pm.Packages[pkgName] = pkg
+	pm.Packages[pkg.FullName] = pkg
 
 	return nil
 }
 
 // Recursively load a package.  Given the baseDir of the packages (e.g. pkg/ or hw/bsp), and
 // the base package name.
-func (pm *PkgMgr) loadPackageDir(baseDir string, pkgName string) error {
+func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName string) error {
 	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir, pkgName)
 
 	// first recurse and load subpackages
@@ -231,14 +234,14 @@ func (pm *PkgMgr) loadPackageDir(baseDir string, pkgName string) error {
 			name == "bin" {
 			continue
 		} else {
-			err := pm.loadPackageDir(baseDir, pkgName+"/"+name)
+			err := pm.loadPackageDir(baseDir, pkgPrefix, pkgName+"/"+name)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	return pm.loadPackage(baseDir, pkgName)
+	return pm.loadPackage(baseDir, pkgPrefix, pkgName)
 }
 
 // Load all the packages in the repository into the package structure
@@ -246,10 +249,15 @@ func (pm *PkgMgr) loadPackages() error {
 	r := pm.Repo
 
 	// Multiple package directories to be searched
-	searchDirs := []string{"/pkg/", "/hw/bsp/"}
+	searchDirs := []string{"pkg/", "hw/bsp/", "hw/mcu/", "hw/drivers/"}
 
 	for _, pkgDir := range searchDirs {
-		pkgBaseDir := r.BasePath + pkgDir
+		pkgBaseDir := r.BasePath + "/" + pkgDir
+
+		if NodeNotExist(pkgBaseDir) {
+			continue
+		}
+
 		pkgList, err := ioutil.ReadDir(pkgBaseDir)
 		if err != nil {
 			return NewStackError(err.Error())
@@ -261,7 +269,7 @@ func (pm *PkgMgr) loadPackages() error {
 				continue
 			}
 
-			if err = pm.loadPackageDir(pkgBaseDir, name); err != nil {
+			if err = pm.loadPackageDir(pkgBaseDir, pkgDir, name); err != nil {
 				return err
 			}
 		}
