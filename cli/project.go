@@ -98,21 +98,22 @@ func (p *Project) BuildClean(cleanAll bool) error {
 		}
 	}
 
-	// next, clean project
-	dirs := []string{"/src/obj/", "/bin/"}
-	for _, dir := range dirs {
-		if err := os.RemoveAll(p.BasePath + dir + p.Target.Arch + "/"); err != nil {
-			return err
-		}
-
-		if cleanAll {
-			if err := os.RemoveAll(p.BasePath + dir); err != nil {
-				return err
-			}
-		}
+	// clean the BSP
+	if err := pm.BuildClean(p.Target.Bsp, cleanAll); err != nil {
+		return err
 	}
 
-	if err := os.RemoveAll(p.BasePath + "/src/arch/" + p.Target.Arch + "/obj/"); err != nil {
+	c, err := NewCompiler(p.Target.GetCompiler(), p.Target.Cdef, p.Target.Name, []string{})
+	if err != nil {
+		return err
+	}
+
+	tName := p.Target.Name
+	if cleanAll {
+		tName = ""
+	}
+
+	if err := c.RecursiveClean(p.BasePath, tName); err != nil {
 		return err
 	}
 
@@ -216,7 +217,7 @@ func (p *Project) Build() error {
 
 	incls = append(incls, projIncls...)
 
-	c, err := NewCompiler(p.Target.GetCompiler(), p.Target.Cdef, p.Target.Arch,
+	c, err := NewCompiler(p.Target.GetCompiler(), p.Target.Cdef, p.Target.Name,
 		incls)
 	if err != nil {
 		return err
@@ -238,7 +239,7 @@ func (p *Project) Build() error {
 
 	// Create binaries in the project bin/ directory, under:
 	// bin/<arch>/
-	binDir := p.BasePath + "/bin/" + p.Target.Arch + "/"
+	binDir := p.BasePath + "/bin/" + p.Target.Name + "/"
 	if NodeNotExist(binDir) {
 		os.MkdirAll(binDir, 0755)
 	}

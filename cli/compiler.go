@@ -25,7 +25,7 @@ import (
 
 type Compiler struct {
 	ConfigPath   string
-	Arch         string
+	TargetName   string
 	BaseIncludes []string
 	ObjPathList  map[string]bool
 	LinkerScript string
@@ -41,15 +41,15 @@ type Compiler struct {
 	ldMapFile             bool
 }
 
-func NewCompiler(ccPath string, cDef string, arch string, includes []string) (
+func NewCompiler(ccPath string, cDef string, tName string, includes []string) (
 	*Compiler, error) {
 	c := &Compiler{
 		ConfigPath:   ccPath,
-		Arch:         arch,
+		TargetName:   tName,
 		BaseIncludes: includes,
 	}
 
-	log.Printf("[INFO] Loading compiler %s, arch %s, def %s", ccPath, arch, cDef)
+	log.Printf("[INFO] Loading compiler %s, target %s, def %s", ccPath, tName, cDef)
 
 	err := c.ReadSettings(cDef)
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *Compiler) ReadSettings(cDef string) error {
 // file type 0 = cc, file type 1 = as
 func (c *Compiler) CompileFile(file string, compilerType int) error {
 	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + c.Arch + "/"
+	objDir := wd + "/obj/" + c.TargetName + "/"
 
 	if NodeNotExist(objDir) {
 		os.MkdirAll(objDir, 0755)
@@ -162,7 +162,7 @@ func (c *Compiler) CompileAs(match string) error {
 	return nil
 }
 
-func (c *Compiler) RecursiveClean(path string, arch string) error {
+func (c *Compiler) RecursiveClean(path string, tName string) error {
 	// Find all the subdirectories of path that contain an "obj/" directory, and
 	// remove that directory either altogether, or just the arch specific directory.
 	dirList, err := ioutil.ReadDir(path)
@@ -172,15 +172,15 @@ func (c *Compiler) RecursiveClean(path string, arch string) error {
 
 	for _, node := range dirList {
 		if node.IsDir() {
-			if node.Name() == "obj" {
-				if arch == "" {
-					os.RemoveAll(path + "/obj/")
+			if node.Name() == "obj" || node.Name() == "bin" {
+				if tName == "" {
+					os.RemoveAll(path + "/" + node.Name() + "/")
 				} else {
-					os.RemoveAll(path + "/obj/" + arch + "/")
+					os.RemoveAll(path + "/" + node.Name() + "/" + tName + "/")
 				}
 			} else {
 				// recurse into the directory.
-				err = c.RecursiveClean(path+"/"+node.Name(), arch)
+				err = c.RecursiveClean(path+"/"+node.Name(), tName)
 				if err != nil {
 					return err
 				}

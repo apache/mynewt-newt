@@ -301,21 +301,21 @@ func (pm *PkgMgr) BuildClean(pkgName string, cleanAll bool) error {
 		return err
 	}
 
-	arch := pm.Target.Arch + "/"
+	tName := pm.Target.Name + "/"
 	if cleanAll {
-		arch = ""
+		tName = ""
 	}
 
-	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef, pm.Target.Arch,
+	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef, pm.Target.Name,
 		[]string{})
 	if err != nil {
 		return err
 	}
 
-	if err := c.RecursiveClean(pkg.BasePath+"/src/", arch); err != nil {
+	if err := c.RecursiveClean(pkg.BasePath+"/src/", tName); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(pkg.BasePath + "/bin/" + arch); err != nil {
+	if err := os.RemoveAll(pkg.BasePath + "/bin/" + tName); err != nil {
 		return NewStackError(err.Error())
 	}
 
@@ -378,7 +378,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 	// Build the package designated by pkgName
 	// Initialize a compiler
 	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef,
-		pm.Target.Arch, incls)
+		pm.Target.Name, incls)
 	if err != nil {
 		return err
 	}
@@ -419,7 +419,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 		return NewStackError(err.Error())
 	}
 
-	binDir := pkg.BasePath + "/bin/" + pm.Target.Arch + "/"
+	binDir := pkg.BasePath + "/bin/" + pm.Target.Name + "/"
 
 	if NodeNotExist(binDir) {
 		if err := os.MkdirAll(binDir, 0755); err != nil {
@@ -461,16 +461,16 @@ func (pm *PkgMgr) TestClean(pkgName string, tests []string,
 		return err
 	}
 
-	arch := pm.Target.Arch + "/"
+	tName := pm.Target.Name + "/"
 	if cleanAll {
-		arch = ""
+		tName = ""
 	}
 
 	for _, test := range tests {
-		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/bin/" + arch); err != nil {
+		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/bin/" + tName); err != nil {
 			return NewStackError(err.Error())
 		}
-		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/obj/" + arch); err != nil {
+		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/obj/" + tName); err != nil {
 			return NewStackError(err.Error())
 		}
 	}
@@ -483,7 +483,7 @@ func (pm *PkgMgr) TestClean(pkgName string, tests []string,
 func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
 	// Now, go and build the individual tests, and link them.
 	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef,
-		pm.Target.Arch, pkg.Includes)
+		pm.Target.Name, pkg.Includes)
 	if err != nil {
 		return err
 	}
@@ -498,14 +498,14 @@ func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
 		}
 
 		testBinDir := pkg.BasePath + "/src/test/" + test + "/bin/" +
-			pm.Target.Arch + "/"
+			pm.Target.Name + "/"
 		if NodeNotExist(testBinDir) {
 			if err := os.MkdirAll(testBinDir, 0755); err != nil {
 				return NewStackError(err.Error())
 			}
 		}
 		if err := c.CompileBinary(testBinDir+test, map[string]bool{},
-			pkg.BasePath+"/bin/"+pm.Target.Arch+"/lib"+pkg.Name+".a"); err != nil {
+			pkg.BasePath+"/bin/"+pm.Target.Name+"/lib"+pkg.Name+".a"); err != nil {
 			return err
 		}
 	}
@@ -519,7 +519,7 @@ func (pm *PkgMgr) runTests(pkg *Package, exitOnFailure bool,
 	tests []string) error {
 	// go and run all the tests
 	for _, test := range tests {
-		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + pm.Target.Arch +
+		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + pm.Target.Name +
 			"/"); err != nil {
 			return err
 		}
