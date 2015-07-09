@@ -16,6 +16,7 @@
 package cli
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -136,12 +137,14 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 			return err
 		}
 
-		if lib := pm.GetPackageLib(pkg); NodeExist(lib) {
-			*libs = append(*libs, lib)
-		}
-
 		if err = pm.Build(pkgName); err != nil {
 			return err
+		}
+
+		if lib := pm.GetPackageLib(pkg); NodeExist(lib) {
+			*libs = append(*libs, lib)
+		} else {
+			return NewStackError(fmt.Sprintf("Library %s failed to build", lib))
 		}
 
 		*incls = append(*incls, pkg.Includes...)
