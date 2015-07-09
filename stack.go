@@ -144,6 +144,23 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func targetDelCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		StackUsage(cmd, cli.NewStackError("Must specify target to delete"))
+	}
+
+	t, err := cli.LoadTarget(StackRepo, args[0])
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	if err := t.Remove(); err != nil {
+		StackUsage(cmd, err)
+	}
+
+	fmt.Printf("Target %s successfully removed\n", args[0])
+}
+
 func targetTestCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		StackUsage(cmd, cli.NewStackError("Must specify target to build"))
@@ -233,6 +250,14 @@ func targetAddCmds(base *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(setCmd)
+
+	delCmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete target",
+		Run:   targetDelCmd,
+	}
+
+	targetCmd.AddCommand(delCmd)
 
 	createCmd := &cobra.Command{
 		Use:   "create",

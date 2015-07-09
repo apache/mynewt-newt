@@ -325,7 +325,27 @@ func (t *Target) Save() error {
 	targetCfg := TARGET_SECT_PREFIX + t.Vars["name"]
 
 	for k, v := range t.Vars {
-		r.SetConfig(targetCfg, k, v)
+		if err := r.SetConfig(targetCfg, k, v); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Target) Remove() error {
+	r := t.Repo
+
+	if _, ok := t.Vars["name"]; !ok {
+		return NewStackError("Cannot remove a target without a name")
+	}
+
+	cfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
+
+	for k, _ := range t.Vars {
+		if err := r.DelConfig(cfgSect, k); err != nil {
+			return err
+		}
 	}
 
 	return nil

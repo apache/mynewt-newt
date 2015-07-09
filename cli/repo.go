@@ -200,6 +200,43 @@ func (r *Repo) GetConfigSect(sect string) (map[string]string, error) {
 	return sm, nil
 }
 
+// Delete a configuration variable in section sect with key and val
+// Returns an error if configuration variable cannot be deleted
+// (most likely due to database error or key not existing)
+func (r *Repo) DelConfig(sect string, key string) error {
+	db := r.db
+
+	log.Printf("[DEBUG] Deleting sect %s, key %s", sect, key)
+
+	tx, err := db.Begin()
+	if err != nil {
+		return NewStackError(err.Error())
+	}
+
+	stmt, err := tx.Prepare("DELETE FROM stack_cfg WHERE cfg_name=? AND key=?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(sect, key)
+	if err != nil {
+		return err
+	}
+
+	tx.Commit()
+
+	if affected, err := res.RowsAffected(); affected > 0 && err == nil {
+		log.Printf("[DEBUG] sect %s, key %s successfully deleted from database",
+			sect, key)
+	} else {
+		log.Printf("[DEBUG] sect %s, key %s not found, considering \"delete\" successful",
+			sect, key)
+	}
+
+	return nil
+}
+
 // Set a configuration variable in section sect with key, and val
 // Returns an error if configuration variable cannot be set
 // (most likely not able to set it in database.)
