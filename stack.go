@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"github.com/micosa/stack/cli"
 	"github.com/spf13/cobra"
+	"log"
 	"os"
 	"strings"
 )
 
-var DispStackTrace bool = true
 var ExitOnFailure bool = false
 var ExportAll bool = false
 var ImportAll bool = false
@@ -34,10 +34,9 @@ var StackLogLevel string = ""
 func StackUsage(cmd *cobra.Command, err error) {
 	if err != nil {
 		sErr := err.(*cli.StackError)
+		log.Printf("[DEBUG] %s", sErr.StackTrace)
+
 		fmt.Println("Error: ", sErr)
-		if DispStackTrace {
-			fmt.Printf("%s", sErr.StackTrace)
-		}
 	}
 
 	if cmd != nil {
