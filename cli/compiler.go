@@ -274,6 +274,13 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 
 	if checkBoolMap(options, "listFile") {
 		listFile := binFile + ".lst"
+		// if list file exists, remove it
+		if NodeExist(listFile) {
+			if err := os.RemoveAll(listFile); err != nil {
+				return err
+			}
+		}
+
 		cmd = c.odPath + " -wxdS " + binFile + " >> " + listFile
 		_, err := ShellCommand(cmd)
 		if err != nil {
