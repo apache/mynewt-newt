@@ -36,7 +36,7 @@ func StackUsage(cmd *cobra.Command, err error) {
 		sErr := err.(*cli.StackError)
 		log.Printf("[DEBUG] %s", sErr.StackTrace)
 
-		fmt.Println("Error: ", sErr)
+		fmt.Println("Error: ", sErr.Text)
 	}
 
 	if cmd != nil {
