@@ -38,6 +38,7 @@ type Compiler struct {
 	ccFlags               string
 	ldFlags               string
 	ldResolveCircularDeps bool
+	ldMapFile             bool
 }
 
 func NewCompiler(ccPath string, cDef string, arch string, includes []string) (
@@ -82,6 +83,7 @@ func (c *Compiler) ReadSettings(cDef string) error {
 	}
 	c.ldFlags = v.GetString("compiler.ld.flags")
 	c.ldResolveCircularDeps = v.GetBool("compiler.ld.resolve_circular_deps")
+	c.ldMapFile = v.GetBool("compiler.ld.mapfile")
 
 	log.Printf("[INFO] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
 		c.arPath, c.ccFlags)

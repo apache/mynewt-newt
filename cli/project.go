@@ -200,9 +200,12 @@ func (p *Project) Build() error {
 		return err
 	}
 
-	linkerScript, err := p.buildBsp(pm, &incls, &libs)
-	if err != nil {
-		return err
+	linkerScript := ""
+	if p.Target.Bsp != "" {
+		linkerScript, err = p.buildBsp(pm, &incls, &libs)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Append project includes
@@ -242,7 +245,7 @@ func (p *Project) Build() error {
 	log.Printf("[DEBUG] Compiling a binary %s from libs %s", binDir+p.Name,
 		strings.Join(libs, " "))
 
-	c.CompileElf(binDir+p.Name, map[string]bool{"mapFile": true, "listFile": true},
+	c.CompileElf(binDir+p.Name, map[string]bool{"mapFile": c.ldMapFile, "listFile": true},
 		strings.Join(libs, " "))
 
 	return nil
