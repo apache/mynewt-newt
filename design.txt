@@ -69,16 +69,19 @@ To get started with stack, first create a new repository:
 This creates a new repository in the directory specified by <fw>. 
 
 The repository has the following contents: 
-
-    $ cd <fw>; tree 
+    $ stack repo create test_repo_1
+    Repo test_repo_1 successfully created!
+    $ cd test_repo_1/
+    $ tree
     .
-    └── arch
-        └── sim
-            └── compiler
-                └── compiler.yml
-    └── .<fw>
-        └── <fw>.yml 
-        └── <fw>.db 
+    ├── compiler
+    ├── hw
+    │   └── bsp
+    ├── libs
+    ├── project
+    └── repo.yml
+
+
 
 The arch/ directory contains the architecture specific information for the 
 new repository.  By default, the sim architecture and compiler is installed: 

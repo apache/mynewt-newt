@@ -249,7 +249,7 @@ func (pm *PkgMgr) loadPackages() error {
 	r := pm.Repo
 
 	// Multiple package directories to be searched
-	searchDirs := []string{"pkg/", "hw/bsp/", "hw/mcu/", "hw/drivers/"}
+	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/drivers/"}
 
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := r.BasePath + "/" + pkgDir
@@ -323,7 +323,7 @@ func (pm *PkgMgr) BuildClean(pkgName string, cleanAll bool) error {
 }
 
 func (pm *PkgMgr) GetPackageLib(pkg *Package) string {
-	libDir := pkg.BasePath + "/bin/" + pm.Target.Arch + "/" +
+	libDir := pkg.BasePath + "/bin/" + pm.Target.Name + "/" +
 		"lib" + filepath.Base(pkg.Name) + ".a"
 	return libDir
 }
