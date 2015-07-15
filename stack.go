@@ -30,6 +30,9 @@ var ImportAll bool = false
 var StackVersion string = "1.0"
 var StackRepo *cli.Repo
 var StackLogLevel string = ""
+var InstallSubmodule bool = false
+var InstallSubtree bool = false
+var InstallBranch string = "master"
 
 func StackUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -42,6 +45,15 @@ func StackUsage(cmd *cobra.Command, err error) {
 		cmd.Usage()
 	}
 	os.Exit(1)
+}
+
+func addInstallFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolVarP(&InstallSubmodule, "submodule", "m", false,
+		"Install remote repository as a git submodule")
+	cmd.PersistentFlags().BoolVarP(&InstallSubtree, "subtree", "t", false,
+		"Install remote repostiory as a git subtree")
+	cmd.PersistentFlags().StringVarP(&InstallBranch, "branch", "b", "master",
+		"Branch name to fetch from remote git repository")
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
@@ -369,34 +381,35 @@ func compilerCreateCmd(cmd *cobra.Command, args []string) {
 }
 
 func compilerInstallCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		StackUsage(cmd, cli.NewStackError("Need to specify URL to install compiler "+
-			"def from"))
-	}
+	path := args[0]
+	url := args[1]
 
-	var name string
-	var err error
-
-	if len(args) > 1 {
-		name = args[1]
-	} else {
-		name, err = cli.UrlPath(args[0])
-		if err != nil {
-			StackUsage(cmd, err)
-		}
-	}
-
-	dirName := StackRepo.BasePath + "/compiler/" + name + "/"
+	dirName := StackRepo.BasePath + "/" + path + "/"
 	if cli.NodeExist(dirName) {
-		StackUsage(cmd, cli.NewStackError("Compiler "+name+" already installed."))
+		StackUsage(cmd, cli.NewStackError("Compiler "+path+" already installed."))
 	}
 
-	err = cli.CopyUrl(args[0], dirName)
-	if err != nil {
+	// 0 = install clean
+	// 1 = install submodule
+	// 2 = install subtree
+	installType := 0
+	if InstallSubmodule && InstallSubtree {
+		StackUsage(cmd, cli.NewStackError("Cannot specify both --submodule and --subtree options to install command"))
+	}
+
+	if InstallSubmodule {
+		installType = 1
+	}
+
+	if InstallSubtree {
+		installType = 2
+	}
+
+	if err := cli.CopyUrl(url, InstallBranch, dirName, installType); err != nil {
 		StackUsage(cmd, err)
 	}
 
-	fmt.Println("Compiler " + name + " successfully installed.")
+	fmt.Println("Compiler " + path + " successfully installed.")
 }
 
 func compilerAddCmds(baseCmd *cobra.Command) {
@@ -430,6 +443,8 @@ func compilerAddCmds(baseCmd *cobra.Command) {
 		Short: "Install a compiler from the specified URL",
 		Run:   compilerInstallCmd,
 	}
+
+	addInstallFlags(installCmd)
 
 	compilerCmd.AddCommand(installCmd)
 

@@ -249,7 +249,7 @@ func (pm *PkgMgr) loadPackages() error {
 	r := pm.Repo
 
 	// Multiple package directories to be searched
-	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/drivers/"}
+	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/drivers/", "hw/hal/"}
 
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := r.BasePath + "/" + pkgDir

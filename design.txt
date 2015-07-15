@@ -82,7 +82,6 @@ The repository has the following contents:
     └── repo.yml
 
 
-
 The arch/ directory contains the architecture specific information for the 
 new repository.  By default, the sim architecture and compiler is installed: 
 which allows you to build new projects and software on your native OS and 
