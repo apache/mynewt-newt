@@ -240,12 +240,12 @@ func (t *Target) Build() error {
 			return err
 		}
 	} else if t.Vars["pkg"] != "" {
-		pm, err := NewPkgMgr(t.Repo, t)
+		pm, err := NewPkgMgr(t.Repo)
 		if err != nil {
 			return err
 		}
 
-		err = pm.Build(t.Vars["pkg"])
+		err = pm.Build(t, t.Vars["pkg"])
 		if err != nil {
 			return err
 		}
@@ -266,11 +266,11 @@ func (t *Target) BuildClean(cleanAll bool) error {
 			return err
 		}
 	} else if t.Vars["pkg"] != "" {
-		pm, err := NewPkgMgr(t.Repo, t)
+		pm, err := NewPkgMgr(t.Repo)
 		if err != nil {
 			return err
 		}
-		err = pm.BuildClean(t.Vars["pkg"], cleanAll)
+		err = pm.BuildClean(t, t.Vars["pkg"], cleanAll)
 		if err != nil {
 			return err
 		}
@@ -284,7 +284,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 		return NewStackError("Tests not supported on projects, only packages")
 	}
 
-	pm, err := NewPkgMgr(t.Repo, t)
+	pm, err := NewPkgMgr(t.Repo)
 	if err != nil {
 		return err
 	}
@@ -301,9 +301,9 @@ func (t *Target) Test(cmd string, flag bool) error {
 
 	switch cmd {
 	case "test":
-		err = pm.Test(t.Vars["pkg"], flag, tests)
+		err = pm.Test(t, t.Vars["pkg"], flag, tests)
 	case "testclean":
-		err = pm.TestClean(t.Vars["pkg"], tests, flag)
+		err = pm.TestClean(t, t.Vars["pkg"], tests, flag)
 	default:
 		err = NewStackError("Unknown command to Test() " + cmd)
 	}

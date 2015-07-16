@@ -28,9 +28,6 @@ type PkgMgr struct {
 	// Repository associated with the Packages
 	Repo *Repo
 
-	// Target definition for this package manager
-	Target *Target
-
 	// List of packages for Repo
 	Packages map[string]*Package
 }
@@ -44,8 +41,6 @@ type Package struct {
 	FullName string
 	// Repository this package belongs to
 	Repo *Repo
-	// Target that we're building this package for
-	Target *Target
 	// Package version
 	Version string
 	// Type of package
@@ -56,6 +51,9 @@ type Package struct {
 	// Package include directories
 	Includes []string
 
+	// Whether or not this package is a BSP
+	IsBsp bool
+
 	// Whether or not we've already compiled this package
 	Built bool
 
@@ -64,10 +62,9 @@ type Package struct {
 }
 
 // Allocate a new package manager structure, and initialize it.
-func NewPkgMgr(r *Repo, t *Target) (*PkgMgr, error) {
+func NewPkgMgr(r *Repo) (*PkgMgr, error) {
 	pm := &PkgMgr{
-		Repo:   r,
-		Target: t,
+		Repo: r,
 	}
 	err := pm.Init()
 
@@ -107,13 +104,26 @@ func (pkg *Package) checkIncludes() error {
 		return NewStackError(err.Error())
 	}
 
-	incls2, err := filepath.Glob(pkg.BasePath + "/include/" + pkg.Name + "/arch/" +
-		pkg.Target.Arch + "/*")
+	// Append all the architecture specific directories
+	archDir := pkg.BasePath + "/include/" + pkg.Name + "/arch/"
+	dirs, err := ioutil.ReadDir(archDir)
 	if err != nil {
 		return NewStackError(err.Error())
 	}
 
-	incls = append(incls, incls2...)
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			return NewStackError(fmt.Sprintf("Only directories are allowed in "+
+				"architecture dir: %s", archDir+dir.Name()))
+		}
+
+		incls2, err := filepath.Glob(archDir + dir.Name() + "/*")
+		if err != nil {
+			return NewStackError(err.Error())
+		}
+
+		incls = append(incls, incls2...)
+	}
 
 	for _, incl := range incls {
 		finfo, err := os.Stat(incl)
@@ -126,10 +136,10 @@ func (pkg *Package) checkIncludes() error {
 			bad = true
 		}
 
-		// XXX: The BSP check should only be in BSP packages, or the structure of includes within
-		// BSPs should be done differently.
-		if filepath.Base(incl) != pkg.Name && filepath.Base(incl) != "bsp" {
-			bad = true
+		if filepath.Base(incl) != pkg.Name {
+			if pkg.IsBsp && filepath.Base(incl) != "bsp" {
+				bad = true
+			}
 		}
 
 		if bad {
@@ -142,43 +152,29 @@ func (pkg *Package) checkIncludes() error {
 	return nil
 }
 
-// Initialize a package
-func (pkg *Package) Init() error {
-	var err error
-
-	log.Printf("[DEBUG] Initializing package %s in path %s", pkg.Name, pkg.BasePath)
-
-	// Load package sources, this is a combination of:
-	// source files in src/, and src files in src/arch/<arch>
-	srcs, err := filepath.Glob(pkg.BasePath + "/src/*")
-	if err != nil {
-		return NewStackError(err.Error())
-	}
-	srcs1, err := filepath.Glob(pkg.BasePath + "/src/arch/" + pkg.Target.Arch + "/*")
-	if err != nil {
-		return NewStackError(err.Error())
-	}
-
-	pkg.Sources = append(srcs, srcs1...)
-
+func (pkg *Package) GetBuildIncludes(t *Target) ([]string, error) {
 	log.Printf("[DEBUG] Checking package includes to ensure correctness")
 	// Check to make sure no include files are in the /include/* directory for the
 	// package
-	err = pkg.checkIncludes()
-	if err != nil {
-		return err
+	if err := pkg.checkIncludes(); err != nil {
+		return nil, err
 	}
 
-	// Load package include directory
+	// Return the include directories for just this package
 	incls := []string{
 		pkg.BasePath + "/include/",
-		pkg.BasePath + "/include/" + pkg.Name + "/arch/" + pkg.Target.Arch + "/",
+		pkg.BasePath + "/include/" + pkg.Name + "/arch/" + t.Arch + "/",
 	}
 
-	pkg.Includes = incls
+	return incls, nil
+}
+
+// Initialize a package
+func (pkg *Package) Init() error {
+	log.Printf("[DEBUG] Initializing package %s in path %s", pkg.Name, pkg.BasePath)
 
 	// Load package configuration file
-	if err = pkg.loadConfig(); err != nil {
+	if err := pkg.loadConfig(); err != nil {
 		return err
 	}
 
@@ -200,7 +196,6 @@ func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgPrefix string, pkgName strin
 		Name:     pkgName,
 		FullName: pkgPrefix + pkgName,
 		Repo:     pm.Repo,
-		Target:   pm.Target,
 	}
 	err := pkg.Init()
 	if err != nil {
@@ -295,19 +290,18 @@ func (pm *PkgMgr) ResolvePkgName(pkgName string) (*Package, error) {
 
 // Clean the build for the package specified by pkgName.   if cleanAll is
 // specified, all architectures are cleaned.
-func (pm *PkgMgr) BuildClean(pkgName string, cleanAll bool) error {
+func (pm *PkgMgr) BuildClean(t *Target, pkgName string, cleanAll bool) error {
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {
 		return err
 	}
 
-	tName := pm.Target.Name + "/"
+	tName := t.Name + "/"
 	if cleanAll {
 		tName = ""
 	}
 
-	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef, pm.Target.Name,
-		[]string{})
+	c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, []string{})
 	if err != nil {
 		return err
 	}
@@ -322,15 +316,15 @@ func (pm *PkgMgr) BuildClean(pkgName string, cleanAll bool) error {
 	return nil
 }
 
-func (pm *PkgMgr) GetPackageLib(pkg *Package) string {
-	libDir := pkg.BasePath + "/bin/" + pm.Target.Name + "/" +
+func (pm *PkgMgr) GetPackageLib(t *Target, pkg *Package) string {
+	libDir := pkg.BasePath + "/bin/" + t.Name + "/" +
 		"lib" + filepath.Base(pkg.Name) + ".a"
 	return libDir
 }
 
 // Build the package specified by pkgName
-func (pm *PkgMgr) Build(pkgName string) error {
-	log.Println("[INFO] Building package " + pkgName + " for arch " + pm.Target.Arch)
+func (pm *PkgMgr) Build(t *Target, pkgName string) error {
+	log.Println("[INFO] Building package " + pkgName + " for arch " + t.Arch)
 	// Look up package structure
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {
@@ -344,8 +338,10 @@ func (pm *PkgMgr) Build(pkgName string) error {
 	}
 	pkg.Built = true
 
-	incls := []string{}
-	incls = append(incls, pkg.Includes...)
+	incls, err := pkg.GetBuildIncludes(t)
+	if err != nil {
+		return err
+	}
 
 	// Go through the package dependencies, load & build those packages
 	log.Printf("[DEBUG] Loading includes for %s\n", pkg.Name)
@@ -361,13 +357,15 @@ func (pm *PkgMgr) Build(pkgName string) error {
 			return err
 		}
 
-		incls = append(incls, dpkg.Includes...)
-
 		// Build the package
-		err = pm.Build(name)
+		err = pm.Build(t, name)
 		if err != nil {
 			return err
 		}
+
+		// After build, get dependency package includes.  Build function generates all
+		// the package includes
+		incls = append(incls, dpkg.Includes...)
 	}
 
 	// Add on dependency includes to package includes
@@ -377,8 +375,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 
 	// Build the package designated by pkgName
 	// Initialize a compiler
-	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef,
-		pm.Target.Name, incls)
+	c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, incls)
 	if err != nil {
 		return err
 	}
@@ -399,8 +396,8 @@ func (pm *PkgMgr) Build(pkgName string) error {
 
 	log.Printf("[DEBUG] compiling architecture specific src packages")
 
-	if NodeExist(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/") {
-		if err := os.Chdir(pkg.BasePath + "/src/arch/" + pm.Target.Arch + "/"); err != nil {
+	if NodeExist(pkg.BasePath + "/src/arch/" + t.Arch + "/") {
+		if err := os.Chdir(pkg.BasePath + "/src/arch/" + t.Arch + "/"); err != nil {
 			return NewStackError(err.Error())
 		}
 		if err := c.RecursiveCompile("*.c", 0, nil); err != nil {
@@ -419,7 +416,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 		return NewStackError(err.Error())
 	}
 
-	binDir := pkg.BasePath + "/bin/" + pm.Target.Name + "/"
+	binDir := pkg.BasePath + "/bin/" + t.Name + "/"
 
 	if NodeNotExist(binDir) {
 		if err := os.MkdirAll(binDir, 0755); err != nil {
@@ -427,7 +424,7 @@ func (pm *PkgMgr) Build(pkgName string) error {
 		}
 	}
 
-	if err = c.CompileArchive(pm.GetPackageLib(pkg), ""); err != nil {
+	if err = c.CompileArchive(pm.GetPackageLib(t, pkg), ""); err != nil {
 		return err
 	}
 
@@ -454,14 +451,14 @@ func (pm *PkgMgr) GetPackageTests(pkgName string) ([]string, error) {
 
 // Clean the tests in the tests parameter, for the package identified by
 // pkgName.  If cleanAll is set to true, all architectures will be removed.
-func (pm *PkgMgr) TestClean(pkgName string, tests []string,
+func (pm *PkgMgr) TestClean(t *Target, pkgName string, tests []string,
 	cleanAll bool) error {
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {
 		return err
 	}
 
-	tName := pm.Target.Name + "/"
+	tName := t.Name + "/"
 	if cleanAll {
 		tName = ""
 	}
@@ -480,10 +477,9 @@ func (pm *PkgMgr) TestClean(pkgName string, tests []string,
 
 // Compile tests specified by the tests parameter.  The tests are linked
 // to the package specified by the pkg parameter
-func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
+func (pm *PkgMgr) compileTests(t *Target, pkg *Package, tests []string) error {
 	// Now, go and build the individual tests, and link them.
-	c, err := NewCompiler(pm.Target.GetCompiler(), pm.Target.Cdef,
-		pm.Target.Name, pkg.Includes)
+	c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, pkg.Includes)
 	if err != nil {
 		return err
 	}
@@ -498,14 +494,14 @@ func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
 		}
 
 		testBinDir := pkg.BasePath + "/src/test/" + test + "/bin/" +
-			pm.Target.Name + "/"
+			t.Name + "/"
 		if NodeNotExist(testBinDir) {
 			if err := os.MkdirAll(testBinDir, 0755); err != nil {
 				return NewStackError(err.Error())
 			}
 		}
 		if err := c.CompileBinary(testBinDir+test, map[string]bool{},
-			pkg.BasePath+"/bin/"+pm.Target.Name+"/lib"+pkg.Name+".a"); err != nil {
+			pkg.BasePath+"/bin/"+t.Name+"/lib"+pkg.Name+".a"); err != nil {
 			return err
 		}
 	}
@@ -515,11 +511,11 @@ func (pm *PkgMgr) compileTests(pkg *Package, tests []string) error {
 // Run all the tests in the tests parameter.  pkg is the package to check for
 // the tests.  exitOnFailure specifies whether to exit immediately when a
 // test fails, or continue executing all tests.
-func (pm *PkgMgr) runTests(pkg *Package, exitOnFailure bool,
+func (pm *PkgMgr) runTests(t *Target, pkg *Package, exitOnFailure bool,
 	tests []string) error {
 	// go and run all the tests
 	for _, test := range tests {
-		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + pm.Target.Name +
+		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + t.Name +
 			"/"); err != nil {
 			return err
 		}
@@ -552,8 +548,8 @@ func (pm *PkgMgr) testsExist(pkg *Package, tests []string) error {
 // Test the package identified by pkgName, by executing the tests specified.
 // exitOnFailure signifies whether to stop the test program when one of them
 // fails.
-func (pm *PkgMgr) Test(pkgName string, exitOnFailure bool, tests []string) error {
-	log.Printf("[INFO] Testing package %s for arch %s", pkgName, pm.Target.Arch)
+func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool, tests []string) error {
+	log.Printf("[INFO] Testing package %s for arch %s", pkgName, t.Arch)
 
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {
@@ -566,17 +562,17 @@ func (pm *PkgMgr) Test(pkgName string, exitOnFailure bool, tests []string) error
 	}
 
 	// Build the package first
-	if err := pm.Build(pkgName); err != nil {
+	if err := pm.Build(t, pkgName); err != nil {
 		return err
 	}
 
 	// compile all the tests first.  want to catch compile errors on all tests
 	// before we run the actual tests.
-	if err := pm.compileTests(pkg, tests); err != nil {
+	if err := pm.compileTests(t, pkg, tests); err != nil {
 		return err
 	}
 
-	if err := pm.runTests(pkg, exitOnFailure, tests); err != nil {
+	if err := pm.runTests(t, pkg, exitOnFailure, tests); err != nil {
 		return err
 	}
 

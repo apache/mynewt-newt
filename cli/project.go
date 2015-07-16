@@ -83,7 +83,7 @@ func (p *Project) loadConfig() error {
 // project, if cleanAll is true, then clean everything, not just the current
 // architecture
 func (p *Project) BuildClean(cleanAll bool) error {
-	pm, err := NewPkgMgr(p.Repo, p.Target)
+	pm, err := NewPkgMgr(p.Repo)
 	if err != nil {
 		return err
 	}
@@ -92,14 +92,14 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	log.Printf("[DEBUG] Cleaning all the packages associated with project %s",
 		p.Name)
 	for _, pkgName := range p.GetPackages() {
-		err = pm.BuildClean(pkgName, cleanAll)
+		err = pm.BuildClean(p.Target, pkgName, cleanAll)
 		if err != nil {
 			return err
 		}
 	}
 
 	// clean the BSP
-	if err := pm.BuildClean(p.Target.Bsp, cleanAll); err != nil {
+	if err := pm.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
 		return err
 	}
 
@@ -138,11 +138,11 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 			return err
 		}
 
-		if err = pm.Build(pkgName); err != nil {
+		if err = pm.Build(p.Target, pkgName); err != nil {
 			return err
 		}
 
-		if lib := pm.GetPackageLib(pkg); NodeExist(lib) {
+		if lib := pm.GetPackageLib(p.Target, pkg); NodeExist(lib) {
 			*libs = append(*libs, lib)
 		} else {
 			return NewStackError(fmt.Sprintf("Library %s failed to build", lib))
@@ -172,11 +172,11 @@ func (p *Project) buildBsp(pm *PkgMgr, incls *[]string, libs *[]string) (string,
 		return "", NewStackError("No BSP package for " + p.Target.Bsp + " exists")
 	}
 
-	if err = pm.Build(p.Target.Bsp); err != nil {
+	if err = pm.Build(p.Target, p.Target.Bsp); err != nil {
 		return "", err
 	}
 
-	*libs = append(*libs, pm.GetPackageLib(bspPackage))
+	*libs = append(*libs, pm.GetPackageLib(p.Target, bspPackage))
 	*incls = append(*incls, bspPackage.Includes...)
 
 	linkerScript := bspPackage.BasePath + "/" + bspPackage.LinkerScript
@@ -189,7 +189,7 @@ func (p *Project) Build() error {
 	log.Printf("[INFO] Building project %s", p.Name)
 
 	// First build project package dependencies
-	pm, err := NewPkgMgr(p.Repo, p.Target)
+	pm, err := NewPkgMgr(p.Repo)
 	if err != nil {
 		return err
 	}
