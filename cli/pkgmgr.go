@@ -204,7 +204,7 @@ func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgPrefix string, pkgName strin
 	}
 	err := pkg.Init()
 	if err != nil {
-		return err
+		return nil
 	}
 
 	pm.Packages[pkg.FullName] = pkg
@@ -249,7 +249,7 @@ func (pm *PkgMgr) loadPackages() error {
 	r := pm.Repo
 
 	// Multiple package directories to be searched
-	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/drivers/"}
+	searchDirs := []string{"libs/", "hw/", "hw/mcu/stm/", "hw/drivers/", "hw/bsp"}
 
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := r.BasePath + "/" + pkgDir
