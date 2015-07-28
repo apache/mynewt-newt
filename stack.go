@@ -497,7 +497,11 @@ func dispPkg(pkg *cli.Package) {
 	fmt.Printf("  path: %s\n", filepath.Clean(pkg.BasePath))
 	if pkg.Capabilities != nil {
 		fmt.Printf("  capabilities: ")
-		for _, capability := range pkg.Capabilities {
+		caps, err := pkg.GetCapabilities()
+		if err != nil {
+			return
+		}
+		for _, capability := range caps {
 			fmt.Printf("%s@%s ", capability.Name, capability.Vers)
 		}
 		fmt.Printf("\n")

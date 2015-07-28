@@ -68,10 +68,10 @@ type Package struct {
 	IsBsp bool
 
 	// Capabilities that this package exports
-	Capabilities map[string]*Capability
+	Capabilities *map[string]*Capability
 
 	// Capabilities that this package requires
-	ReqCapabilities map[string]*Capability
+	ReqCapabilities *map[string]*Capability
 
 	// Whether or not we've already compiled this package
 	Built bool
@@ -242,29 +242,29 @@ func (c *Capability) String() string {
 }
 
 func (pkg *Package) GetCapabilities() (map[string]*Capability, error) {
-	return pkg.Capabilities, nil
+	return *pkg.Capabilities, nil
 }
 
-func (pkg *Package) loadCaps(caps *map[string]*Capability, capList []string) error {
-	// Allocate an array of capabilities
-	caps = &map[string]*Capability{}
-
+func (pkg *Package) loadCaps(capList []string) (*map[string]*Capability, error) {
 	if len(capList) == 0 {
-		return nil
+		return nil, nil
 	}
 
+	// Allocate an array of capabilities
+	caps := map[string]*Capability{}
+	log.Printf("[DEBUG] Loading capabilities %s", strings.Join(capList, " "))
 	for _, capItem := range capList {
 		c, err := NewCapFromStr(capItem)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		(*caps)[c.String()] = c
+		caps[c.String()] = c
 		log.Printf("[DEBUG] Appending new capability pkg: %s, name: %s, vers: %s",
 			pkg.Name, c.Name, c.Vers)
 	}
 
-	return nil
+	return &caps, nil
 }
 
 // Load a package's configuration information from the package config
@@ -303,14 +303,13 @@ func (pkg *Package) loadConfig() error {
 	}
 
 	// Load package capabilities
-	if err = pkg.loadCaps(&pkg.Capabilities,
-		v.GetStringSlice("pkg.capabilities")); err != nil {
+	pkg.Capabilities, err = pkg.loadCaps(v.GetStringSlice("pkg.caps"))
+	if err != nil {
 		return err
 	}
 
-	// Load required package capabilities
-	if err = pkg.loadCaps(&pkg.ReqCapabilities,
-		v.GetStringSlice("pkg.req_capabilities")); err != nil {
+	pkg.ReqCapabilities, err = pkg.loadCaps(v.GetStringSlice("pkg.req_caps"))
+	if err != nil {
 		return err
 	}
 
