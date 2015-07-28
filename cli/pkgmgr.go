@@ -32,35 +32,6 @@ type PkgMgr struct {
 	Packages map[string]*Package
 }
 
-type Package struct {
-	// Base directory of the package
-	BasePath string
-	// Name of the package
-	Name string
-	// Full Name of the package include prefix dir
-	FullName string
-	// Repository this package belongs to
-	Repo *Repo
-	// Package version
-	Version string
-	// Type of package
-	LinkerScript string
-
-	// Package sources
-	Sources []string
-	// Package include directories
-	Includes []string
-
-	// Whether or not this package is a BSP
-	IsBsp bool
-
-	// Whether or not we've already compiled this package
-	Built bool
-
-	// Packages that this package depends on
-	Deps []string
-}
-
 // Allocate a new package manager structure, and initialize it.
 func NewPkgMgr(r *Repo) (*PkgMgr, error) {
 	pm := &PkgMgr{
@@ -71,134 +42,20 @@ func NewPkgMgr(r *Repo) (*PkgMgr, error) {
 	return pm, err
 }
 
-// Load a package's configuration information from the package config
-// file.
-func (pkg *Package) loadConfig() error {
-	log.Printf("[DEBUG] Loading configuration for pkg %s, in directory %s",
-		filepath.Base(pkg.Name), pkg.BasePath)
-
-	v, err := ReadConfig(pkg.BasePath, filepath.Base(pkg.Name))
-	if err != nil {
-		return err
-	}
-
-	if filepath.Base(pkg.Name) != v.GetString("pkg.name") {
-		return NewStackError(
-			"Package file in directory doesn't match directory name.")
-	}
-
-	pkg.Version = v.GetString("pkg.vers")
-	pkg.LinkerScript = v.GetString("pkg.linkerscript")
-
-	// Load package dependencies
-	pkg.Deps = strings.Split(v.GetString("pkg.deps"), " ")
-
-	return nil
-}
-
-// Check the include directories for the package, to make sure there are no conflicts in
-// include paths for source code
-func (pkg *Package) checkIncludes() error {
-	incls, err := filepath.Glob(pkg.BasePath + "/include/*")
-	if err != nil {
-		return NewStackError(err.Error())
-	}
-
-	// Append all the architecture specific directories
-	archDir := pkg.BasePath + "/include/" + pkg.Name + "/arch/"
-	dirs, err := ioutil.ReadDir(archDir)
-	if err != nil {
-		return NewStackError(err.Error())
-	}
-
-	for _, dir := range dirs {
-		if !dir.IsDir() {
-			return NewStackError(fmt.Sprintf("Only directories are allowed in "+
-				"architecture dir: %s", archDir+dir.Name()))
-		}
-
-		incls2, err := filepath.Glob(archDir + dir.Name() + "/*")
-		if err != nil {
-			return NewStackError(err.Error())
-		}
-
-		incls = append(incls, incls2...)
-	}
-
-	for _, incl := range incls {
-		finfo, err := os.Stat(incl)
-		if err != nil {
-			return NewStackError(err.Error())
-		}
-
-		bad := false
-		if !finfo.IsDir() {
-			bad = true
-		}
-
-		if filepath.Base(incl) != pkg.Name {
-			if pkg.IsBsp && filepath.Base(incl) != "bsp" {
-				bad = true
-			}
-		}
-
-		if bad {
-			return NewStackError(fmt.Sprintf("File %s should not exist in include directory, "+
-				"only file allowed in include directory is a directory with the package name %s",
-				incl, pkg.Name))
-		}
-	}
-
-	return nil
-}
-
-func (pkg *Package) GetBuildIncludes(t *Target) ([]string, error) {
-	log.Printf("[DEBUG] Checking package includes to ensure correctness")
-	// Check to make sure no include files are in the /include/* directory for the
-	// package
-	if err := pkg.checkIncludes(); err != nil {
-		return nil, err
-	}
-
-	// Return the include directories for just this package
-	incls := []string{
-		pkg.BasePath + "/include/",
-		pkg.BasePath + "/include/" + pkg.Name + "/arch/" + t.Arch + "/",
-	}
-
-	return incls, nil
-}
-
-// Initialize a package
-func (pkg *Package) Init() error {
-	log.Printf("[DEBUG] Initializing package %s in path %s", pkg.Name, pkg.BasePath)
-
-	// Load package configuration file
-	if err := pkg.loadConfig(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Load an individual package specified by pkgName into the package list for
 // this repository
-func (pm *PkgMgr) loadPackage(pkgBaseDir string, pkgPrefix string, pkgName string) error {
-	log.Println("[INFO] Loading Package " + pkgName + "...")
+func (pm *PkgMgr) loadPackage(pkgDir string) error {
+	log.Println("[INFO] Loading Package " + pkgDir + "...")
 
 	if pm.Packages == nil {
 		pm.Packages = make(map[string]*Package)
 	}
 
-	pkgDir := pkgBaseDir + pkgName
 	pkg := &Package{
 		BasePath: pkgDir,
-		Name:     pkgName,
-		FullName: pkgPrefix + pkgName,
 		Repo:     pm.Repo,
 	}
-	err := pkg.Init()
-	if err != nil {
+	if err := pkg.Init(); err != nil {
 		return err
 	}
 
@@ -229,14 +86,13 @@ func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName strin
 			name == "bin" {
 			continue
 		} else {
-			err := pm.loadPackageDir(baseDir, pkgPrefix, pkgName+"/"+name)
-			if err != nil {
+			if err := pm.loadPackageDir(baseDir, pkgPrefix, pkgName+"/"+name); err != nil {
 				return err
 			}
 		}
 	}
 
-	return pm.loadPackage(baseDir, pkgPrefix, pkgName)
+	return pm.loadPackage(baseDir + "/" + pkgName)
 }
 
 // Load all the packages in the repository into the package structure
@@ -288,6 +144,30 @@ func (pm *PkgMgr) ResolvePkgName(pkgName string) (*Package, error) {
 	return pkg, nil
 }
 
+func (pm *PkgMgr) ResolvePkgDir(pkgDir string) (*Package, error) {
+	pkgDir = filepath.Clean(pkgDir)
+	for name, pkg := range pm.Packages {
+		if filepath.Clean(pkg.BasePath) == pkgDir {
+			return pm.Packages[name], nil
+		}
+	}
+	return nil, NewStackError(fmt.Sprintf("Cannot resolve package dir %s in package manager", pkgDir))
+}
+
+func (pm *PkgMgr) VerifyPackage(pkgDir string) (*Package, error) {
+	err := pm.loadPackage(pkgDir)
+	if err != nil {
+		return nil, err
+	}
+
+	pkg, err := pm.ResolvePkgDir(pkgDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return pkg, nil
+}
+
 // Clean the build for the package specified by pkgName.   if cleanAll is
 // specified, all architectures are cleaned.
 func (pm *PkgMgr) BuildClean(t *Target, pkgName string, cleanAll bool) error {
@@ -309,6 +189,7 @@ func (pm *PkgMgr) BuildClean(t *Target, pkgName string, cleanAll bool) error {
 	if err := c.RecursiveClean(pkg.BasePath+"/src/", tName); err != nil {
 		return err
 	}
+
 	if err := os.RemoveAll(pkg.BasePath + "/bin/" + tName); err != nil {
 		return NewStackError(err.Error())
 	}
@@ -320,6 +201,37 @@ func (pm *PkgMgr) GetPackageLib(t *Target, pkg *Package) string {
 	libDir := pkg.BasePath + "/bin/" + t.Name + "/" +
 		"lib" + filepath.Base(pkg.Name) + ".a"
 	return libDir
+}
+
+func (pm *PkgMgr) buildDeps(pkg *Package, t *Target) error {
+	log.Printf("[DEBUG] Building package dependencies for %s, target %s", pkg.Name, t.Name)
+
+	for _, dep := range pkg.Deps {
+		if dep.Name == "" {
+			break
+		}
+
+		log.Printf("[DEBUG] Loading package dependency: %s", dep.Name)
+		// Get package structure
+		dpkg, err := pm.ResolvePkgName(dep.Name)
+		if err != nil {
+			return err
+		}
+
+		// Build the package
+		if err = pm.Build(t, dep.Name); err != nil {
+			return err
+		}
+
+		// After build, get dependency package includes.  Build function generates all
+		// the package includes
+		pkg.Includes = append(pkg.Includes, dpkg.Includes...)
+	}
+
+	// Add on dependency includes to package includes
+	log.Printf("[DEBUG] Package depencies for %s built, incls = %s", pkg.Name, pkg.Includes)
+
+	return nil
 }
 
 // Build the package specified by pkgName
@@ -343,35 +255,9 @@ func (pm *PkgMgr) Build(t *Target, pkgName string) error {
 		return err
 	}
 
-	// Go through the package dependencies, load & build those packages
-	log.Printf("[DEBUG] Loading includes for %s\n", pkg.Name)
-	for _, name := range pkg.Deps {
-		if name == "" {
-			break
-		}
-
-		log.Printf("[DEBUG] Loading package dependency: %s", name)
-		// Get package structure
-		dpkg, err := pm.ResolvePkgName(name)
-		if err != nil {
-			return err
-		}
-
-		// Build the package
-		err = pm.Build(t, name)
-		if err != nil {
-			return err
-		}
-
-		// After build, get dependency package includes.  Build function generates all
-		// the package includes
-		incls = append(incls, dpkg.Includes...)
+	if err := pm.buildDeps(pkg, t); err != nil {
+		return err
 	}
-
-	// Add on dependency includes to package includes
-	log.Printf("[DEBUG] Adding includes for package %s (old: %s) (new: %s)",
-		pkg.Name, pkg.Includes, incls)
-	pkg.Includes = incls
 
 	// Build the package designated by pkgName
 	// Initialize a compiler

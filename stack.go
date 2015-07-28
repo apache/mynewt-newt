@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -205,7 +206,8 @@ func targetExportCmd(cmd *cobra.Command, args []string) {
 		targetName = ""
 	} else {
 		if len(args) < 1 {
-			StackUsage(cmd, cli.NewStackError("Must either specify -a flag or name of target to export"))
+			StackUsage(cmd, cli.NewStackError("Must either specify -a flag or name of "+
+				"target to export"))
 		}
 		targetName = args[0]
 	}
@@ -222,7 +224,8 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 		targetName = ""
 	} else {
 		if len(args) < 1 {
-			StackUsage(cmd, cli.NewStackError("Must either specify -a flag or name of target to import"))
+			StackUsage(cmd, cli.NewStackError("Must either specify -a flag or name of "+
+				"target to import"))
 		}
 
 		targetName = args[0]
@@ -394,7 +397,9 @@ func compilerInstallCmd(cmd *cobra.Command, args []string) {
 	// 2 = install subtree
 	installType := 0
 	if InstallSubmodule && InstallSubtree {
-		StackUsage(cmd, cli.NewStackError("Cannot specify both --submodule and --subtree options to install command"))
+		StackUsage(cmd,
+			cli.NewStackError("Cannot specify both --submodule and --subtree options to "+
+				"install command"))
 	}
 
 	if InstallSubmodule {
@@ -451,15 +456,118 @@ func compilerAddCmds(baseCmd *cobra.Command) {
 	baseCmd.AddCommand(compilerCmd)
 }
 
+func runInstallCmd(cmd *cobra.Command, args []string) {
+	inst, err := cli.NewInstaller(StackRepo)
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	if len(args) == 0 {
+		StackUsage(cmd, cli.NewStackError("Must specify a URL to install"))
+	}
+
+	if err := inst.Install(args[0], cli.INSTALLER_GIT_CLONE_CLEAN); err != nil {
+		StackUsage(cmd, err)
+	}
+
+	fmt.Println("Installation successfully completed!")
+}
+
+func installerAddCmds(baseCmd *cobra.Command) {
+	installCmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install a package",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(StackLogLevel)
+
+			var err error
+			StackRepo, err = cli.NewRepo()
+			if err != nil {
+				StackUsage(nil, err)
+			}
+		},
+		Run: runInstallCmd,
+	}
+
+	baseCmd.AddCommand(installCmd)
+}
+
+func dispPkg(pkg *cli.Package) {
+	fmt.Printf("Package %s, version %s\n", pkg.FullName, pkg.Version)
+	fmt.Printf("  path: %s\n", filepath.Clean(pkg.BasePath))
+	if pkg.Capabilities != nil {
+		fmt.Printf("  capabilities: ")
+		for _, capability := range pkg.Capabilities {
+			fmt.Printf("%s@%s ", capability.Name, capability.Vers)
+		}
+		fmt.Printf("\n")
+	}
+	if len(pkg.Deps) > 0 {
+		fmt.Printf("  deps: ")
+		for _, dep := range pkg.Deps {
+			if dep == nil {
+				continue
+			}
+			if dep.CompareType == "-" {
+				fmt.Printf("%s-%s", dep.Name, dep.Stability)
+			} else {
+				fmt.Printf("%s-%s%s%s-%s", dep.Name, dep.MinVers, dep.CompareType, dep.MaxVers, dep.Stability)
+			}
+		}
+		fmt.Printf("\n")
+	}
+
+	if pkg.LinkerScript != "" {
+		fmt.Printf("  linkerscript: %s\n", pkg.LinkerScript)
+	}
+}
+
+func pkgListCmd(cmd *cobra.Command, args []string) {
+	pkgMgr, err := cli.NewPkgMgr(StackRepo)
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	for _, pkg := range pkgMgr.Packages {
+		dispPkg(pkg)
+	}
+}
+
+func pkgAddCmds(baseCmd *cobra.Command) {
+	pkgCmd := &cobra.Command{
+		Use:   "pkg",
+		Short: "Commands to list and inspect packages on a repo",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(StackLogLevel)
+
+			var err error
+			StackRepo, err = cli.NewRepo()
+			if err != nil {
+				StackUsage(nil, err)
+			}
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			StackUsage(cmd, nil)
+		},
+	}
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List packages in the current repository",
+		Run:   pkgListCmd,
+	}
+
+	pkgCmd.AddCommand(listCmd)
+
+	baseCmd.AddCommand(pkgCmd)
+}
+
 func parseCmds() *cobra.Command {
 	stackCmd := &cobra.Command{
 		Use:   "stack",
 		Short: "Stack is a tool to help you compose and build your own OS",
 		Long: `Stack allows you to create your own embedded project based on the
 		     stack operating system`,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			cli.Init(StackLogLevel)
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Usage()
 		},
@@ -481,6 +589,8 @@ func parseCmds() *cobra.Command {
 	targetAddCmds(stackCmd)
 	repoAddCmds(stackCmd)
 	compilerAddCmds(stackCmd)
+	installerAddCmds(stackCmd)
+	pkgAddCmds(stackCmd)
 
 	return stackCmd
 }

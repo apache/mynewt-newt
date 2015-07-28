@@ -28,6 +28,8 @@ const TARGET_SECT_PREFIX = "_target_"
 type Target struct {
 	Vars map[string]string
 
+	Identities []string
+
 	Name string
 
 	Arch string
@@ -49,7 +51,14 @@ func TargetExists(r *Repo, name string) bool {
 	}
 }
 
+func parseTargetStringSlice(str string) ([]string, error) {
+	slice := strings.Split(str, " ")
+	return slice, nil
+}
+
 func (t *Target) SetDefaults() error {
+	var err error
+
 	if t.Vars["project"] != "" && t.Vars["pkg"] != "" {
 		return NewStackError("Target " + t.Vars["name"] + " cannot have a " +
 			"project and package set.")
@@ -72,6 +81,12 @@ func (t *Target) SetDefaults() error {
 
 	t.Name = t.Vars["name"]
 
+	if t.Vars["identities"] != "" {
+		t.Identities, err = parseTargetStringSlice(t.Vars["identities"])
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

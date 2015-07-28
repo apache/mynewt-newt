@@ -55,6 +55,23 @@ func NewRepo() (*Repo, error) {
 	return r, err
 }
 
+// Get a temporary directory to stick stuff in
+func (r *Repo) GetTmpDir(dirName, prefix string) (string, error) {
+	tmpDir := dirName
+	if NodeNotExist(tmpDir) {
+		if err := os.MkdirAll(tmpDir, 0700); err != nil {
+			return "", err
+		}
+	}
+
+	name, err := ioutil.TempDir(tmpDir, prefix)
+	if err != nil {
+		return "", err
+	}
+
+	return name, nil
+}
+
 // Create a compiler defintiion, including sample file that
 
 func (r *Repo) CreateCompiler(cName string) error {
