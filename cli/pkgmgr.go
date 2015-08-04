@@ -42,6 +42,44 @@ func NewPkgMgr(r *Repo) (*PkgMgr, error) {
 	return pm, err
 }
 
+func (pm *PkgMgr) GetDepList(pkgList []string) error {
+
+	return nil
+}
+
+func (pm *PkgMgr) CheckPkgDeps(pkg *Package) error {
+	if pkg.Deps == nil || len(pkg.Deps) == 0 {
+		return nil
+	}
+
+	for _, depReq := range pkg.Deps {
+		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq, pkg.Name)
+		pkg, ok := pm.Packages[depReq.Name]
+		if !ok {
+			return NewStackError(fmt.Sprintf("No package dependency %s found for %s",
+				depReq.Name, pkg.Name))
+		}
+
+		if ok := depReq.SatisfiesDependency(pkg); !ok {
+			return NewStackError(fmt.Sprintf("Package %s doesn't satisfy dependency %s",
+				pkg.Name, depReq))
+		}
+	}
+
+	return nil
+}
+
+func (pm *PkgMgr) CheckDeps() error {
+	// Go through all the packages and check that their dependencies are satisfied
+	for _, pkg := range pm.Packages {
+		if err := pm.CheckPkgDeps(pkg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Load an individual package specified by pkgName into the package list for
 // this repository
 func (pm *PkgMgr) loadPackage(pkgDir string) error {
@@ -51,11 +89,8 @@ func (pm *PkgMgr) loadPackage(pkgDir string) error {
 		pm.Packages = make(map[string]*Package)
 	}
 
-	pkg := &Package{
-		BasePath: pkgDir,
-		Repo:     pm.Repo,
-	}
-	if err := pkg.Init(); err != nil {
+	pkg, err := NewPackage(pm.Repo, pkgDir)
+	if err != nil {
 		return err
 	}
 
@@ -165,6 +200,10 @@ func (pm *PkgMgr) VerifyPackage(pkgDir string) (*Package, error) {
 		return nil, err
 	}
 
+	if err := pm.checkIncludes(pkg); err != nil {
+		return nil, err
+	}
+
 	return pkg, nil
 }
 
@@ -205,6 +244,12 @@ func (pm *PkgMgr) GetPackageLib(t *Target, pkg *Package) string {
 
 func (pm *PkgMgr) buildDeps(pkg *Package, t *Target) error {
 	log.Printf("[DEBUG] Building package dependencies for %s, target %s", pkg.Name, t.Name)
+
+	var err error
+
+	if pkg.Includes, err = pkg.GetIncludes(t); err != nil {
+		return err
+	}
 
 	for _, dep := range pkg.Deps {
 		if dep.Name == "" {
@@ -250,14 +295,14 @@ func (pm *PkgMgr) Build(t *Target, pkgName string) error {
 	}
 	pkg.Built = true
 
-	incls, err := pkg.GetBuildIncludes(t)
-	if err != nil {
-		return err
-	}
-
 	if err := pm.buildDeps(pkg, t); err != nil {
 		return err
 	}
+
+	// NOTE: this assignment must happen after the call to buildDeps(), as buildDeps()
+	// fills in the package includes.
+	incls := pkg.Includes
+	log.Printf("[DEBUG] Package includes for %s are %s", pkgName, incls)
 
 	// Build the package designated by pkgName
 	// Initialize a compiler
@@ -312,6 +357,63 @@ func (pm *PkgMgr) Build(t *Target, pkgName string) error {
 
 	if err = c.CompileArchive(pm.GetPackageLib(t, pkg), ""); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Check the include directories for the package, to make sure there are no conflicts in
+// include paths for source code
+func (pm *PkgMgr) checkIncludes(pkg *Package) error {
+	incls, err := filepath.Glob(pkg.BasePath + "/include/*")
+	if err != nil {
+		return NewStackError(err.Error())
+	}
+
+	// Append all the architecture specific directories
+	archDir := pkg.BasePath + "/include/" + pkg.Name + "/arch/"
+	dirs, err := ioutil.ReadDir(archDir)
+	if err != nil {
+		return NewStackError(err.Error())
+	}
+
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			return NewStackError(fmt.Sprintf("Only directories are allowed in "+
+				"architecture dir: %s", archDir+dir.Name()))
+		}
+
+		incls2, err := filepath.Glob(archDir + dir.Name() + "/*")
+		if err != nil {
+			return NewStackError(err.Error())
+		}
+
+		incls = append(incls, incls2...)
+	}
+
+	for _, incl := range incls {
+		finfo, err := os.Stat(incl)
+		if err != nil {
+			return NewStackError(err.Error())
+		}
+
+		bad := false
+		if !finfo.IsDir() {
+			bad = true
+		}
+
+		if filepath.Base(incl) != pkg.Name {
+			if pkg.IsBsp && filepath.Base(incl) != "bsp" {
+				bad = true
+			}
+		}
+
+		if bad {
+			return NewStackError(fmt.Sprintf("File %s should not exist in include "+
+				"directory, only file allowed in include directory is a directory with "+
+				"the package name %s",
+				incl, pkg.Name))
+		}
 	}
 
 	return nil

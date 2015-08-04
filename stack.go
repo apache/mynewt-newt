@@ -492,17 +492,17 @@ func installerAddCmds(baseCmd *cobra.Command) {
 	baseCmd.AddCommand(installCmd)
 }
 
-func dispPkg(pkg *cli.Package) {
+func dispPkg(pkg *cli.Package) error {
 	fmt.Printf("Package %s, version %s\n", pkg.FullName, pkg.Version)
 	fmt.Printf("  path: %s\n", filepath.Clean(pkg.BasePath))
 	if pkg.Capabilities != nil {
 		fmt.Printf("  capabilities: ")
 		caps, err := pkg.GetCapabilities()
 		if err != nil {
-			return
+			return err
 		}
 		for _, capability := range caps {
-			fmt.Printf("%s@%s ", capability.Name, capability.Vers)
+			fmt.Printf("%s ", capability)
 		}
 		fmt.Printf("\n")
 	}
@@ -512,11 +512,7 @@ func dispPkg(pkg *cli.Package) {
 			if dep == nil {
 				continue
 			}
-			if dep.CompareType == "-" {
-				fmt.Printf("%s-%s", dep.Name, dep.Stability)
-			} else {
-				fmt.Printf("%s-%s%s%s-%s", dep.Name, dep.MinVers, dep.CompareType, dep.MaxVers, dep.Stability)
-			}
+			fmt.Printf("%s ", dep)
 		}
 		fmt.Printf("\n")
 	}
@@ -524,6 +520,7 @@ func dispPkg(pkg *cli.Package) {
 	if pkg.LinkerScript != "" {
 		fmt.Printf("  linkerscript: %s\n", pkg.LinkerScript)
 	}
+	return nil
 }
 
 func pkgListCmd(cmd *cobra.Command, args []string) {
@@ -533,8 +530,23 @@ func pkgListCmd(cmd *cobra.Command, args []string) {
 	}
 
 	for _, pkg := range pkgMgr.Packages {
-		dispPkg(pkg)
+		if err := dispPkg(pkg); err != nil {
+			StackUsage(cmd, err)
+		}
 	}
+}
+
+func pkgCheckDepsCmd(cmd *cobra.Command, args []string) {
+	pkgMgr, err := cli.NewPkgMgr(StackRepo)
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	if err := pkgMgr.CheckDeps(); err != nil {
+		StackUsage(cmd, err)
+	}
+
+	fmt.Println("Dependencies successfully resolved!")
 }
 
 func pkgAddCmds(baseCmd *cobra.Command) {
@@ -562,6 +574,14 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 	}
 
 	pkgCmd.AddCommand(listCmd)
+
+	checkDepsCmd := &cobra.Command{
+		Use:   "checkdeps",
+		Short: "Check package dependencies",
+		Run:   pkgCheckDepsCmd,
+	}
+
+	pkgCmd.AddCommand(checkDepsCmd)
 
 	baseCmd.AddCommand(pkgCmd)
 }

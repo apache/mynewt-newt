@@ -17,13 +17,17 @@ package cli
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+type VersMatch struct {
+	CompareType string
+	Vers        *Version
+}
 
 type Version struct {
 	Major    int64
@@ -31,18 +35,10 @@ type Version struct {
 	Revision int64
 }
 
-type Capability struct {
-	Name string
-
-	Vers *Version
-}
-
 type DependencyRequirement struct {
-	CompareType string
 	Name        string
 	Stability   string
-	MinVers     *Version
-	MaxVers     *Version
+	VersMatches []*VersMatch
 }
 
 type Package struct {
@@ -68,10 +64,10 @@ type Package struct {
 	IsBsp bool
 
 	// Capabilities that this package exports
-	Capabilities *map[string]*Capability
+	Capabilities []*DependencyRequirement
 
 	// Capabilities that this package requires
-	ReqCapabilities *map[string]*Capability
+	ReqCapabilities []*DependencyRequirement
 
 	// Whether or not we've already compiled this package
 	Built bool
@@ -80,7 +76,65 @@ type Package struct {
 	Deps []*DependencyRequirement
 }
 
-func NewVersFromStr(versStr string) (*Version, error) {
+func (v *Version) compareVersions(vers1 *Version, vers2 *Version) int64 {
+	log.Printf("[DEBUG] Comparing %s to %s (%d %d %d)", vers1, vers2,
+		vers1.Major-vers2.Major, vers1.Minor-vers2.Minor,
+		vers1.Revision-vers2.Revision)
+
+	if r := vers1.Major - vers2.Major; r != 0 {
+		return r
+	}
+
+	if r := vers1.Minor - vers2.Minor; r != 0 {
+		return r
+	}
+
+	if r := vers1.Revision - vers2.Revision; r != 0 {
+		return r
+	}
+
+	return 0
+}
+
+func (v *Version) SatisfiesVersion(versMatches []*VersMatch) bool {
+	if versMatches == nil {
+		return true
+	}
+
+	for _, match := range versMatches {
+		r := v.compareVersions(match.Vers, v)
+		switch match.CompareType {
+		case "<":
+			if r <= 0 {
+				return false
+			}
+		case "<=":
+			if r < 0 {
+				return false
+			}
+		case ">":
+			if r >= 0 {
+				return false
+			}
+		case ">=":
+			if r > 0 {
+				return false
+			}
+		case "==":
+			if r != 0 {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (vers *Version) String() string {
+	return fmt.Sprintf("%d.%d.%d", vers.Major, vers.Minor, vers.Revision)
+}
+
+func NewVersParseString(versStr string) (*Version, error) {
 	var err error
 
 	parts := strings.Split(versStr, ".")
@@ -112,15 +166,79 @@ func NewVersFromStr(versStr string) (*Version, error) {
 	return v, nil
 }
 
-func (v *Version) SatisfiesVersion(minVers *Version, maxVers *Version) bool {
-	return true
+//
+// Set the version comparison constraints on a dependency requirement.
+// The version string contains a list of version constraints in the following format:
+//    - <comparison><version>
+// Where <comparison> can be any one of the following comparison
+//   operators: <=, <, >, >=, ==
+// And <version> is specified in the form: X.Y.Z where X, Y and Z are all
+// int64 types in decimal form
+func (dr *DependencyRequirement) SetVersStr(versStr string) error {
+	var err error
+
+	re, err := regexp.Compile(`(<=|>=|==|>|<)([\d\.]+)`)
+	if err != nil {
+		return err
+	}
+
+	matches := re.FindAllStringSubmatch(versStr, -1)
+	if matches != nil {
+		dr.VersMatches = make([]*VersMatch, 0, len(matches))
+		for _, match := range matches {
+			vm := &VersMatch{}
+			vm.CompareType = match[1]
+			if vm.Vers, err = NewVersParseString(match[2]); err != nil {
+				return err
+			}
+			dr.VersMatches = append(dr.VersMatches, vm)
+		}
+	} else {
+		dr.VersMatches = make([]*VersMatch, 0)
+		vm := &VersMatch{}
+		vm.CompareType = "=="
+		if vm.Vers, err = NewVersParseString(versStr); err != nil {
+			return err
+		}
+		dr.VersMatches = append(dr.VersMatches, vm)
+	}
+	return nil
 }
 
-func (vers *Version) String() string {
-	return fmt.Sprintf("%d.%d.%d", vers.Major, vers.Minor, vers.Revision)
+// Convert the array of version matches into a string for display
+func (dr *DependencyRequirement) VersMatchesString() string {
+	if dr.VersMatches != nil {
+		str := ""
+		for _, match := range dr.VersMatches {
+			str += fmt.Sprintf("%s%s", match.CompareType, match.Vers)
+		}
+		return str
+	} else {
+		return "none"
+	}
 }
 
-func NewDependencyRequirementFromStr(depReq string) (*DependencyRequirement, error) {
+// Convert the dependency requirement to a string for display
+func (dr *DependencyRequirement) String() string {
+	return fmt.Sprintf("%s:%s:%s", dr.Name, dr.VersMatchesString(), dr.Stability)
+}
+
+// Check whether the passed in package satisfies the current dependency requirement
+func (dr *DependencyRequirement) SatisfiesDependency(pkg *Package) bool {
+	if pkg.FullName != dr.Name {
+		return false
+	}
+
+	if pkg.Version.SatisfiesVersion(dr.VersMatches) {
+		return true
+	}
+
+	return false
+}
+
+// Create a New DependencyRequirement structure from the contents of the depReq
+// string that has been passed in as an argument.
+func NewDependencyRequirementParseString(depReq string) (*DependencyRequirement, error) {
 	// Allocate dependency requirement
 	dr := &DependencyRequirement{}
 	// Split string into multiple parts, @#
@@ -134,7 +252,6 @@ func NewDependencyRequirementFromStr(depReq string) (*DependencyRequirement, err
 		} else {
 			dr.Stability = "stable"
 		}
-		dr.CompareType = "-"
 	} else if len(parts) == 2 {
 		dr.Name = parts[0]
 		verParts := strings.Split(parts[1], "#")
@@ -152,123 +269,61 @@ func NewDependencyRequirementFromStr(depReq string) (*DependencyRequirement, err
 	return dr, nil
 }
 
-func (dr *DependencyRequirement) SetVersStr(versStr string) error {
-	var err error
-	// Set the dependency version from the string that
-	// Options here are:
-	//  - vers = x[.y[.z]]: just a version, requires that version be present
-	//     - x = major version integer, string LATEST can be put as a placeholder for max
-	//     - y = minor version integer, LATEST can be put as a placeholder for max
-	//     - z = revision integer, LATEST can be put as placeholder for max
-	//  - vers>=<=vers: Version between these two versions
+// Get a map of package capabilities.  The returned map contains the name of the
+// capability, and its version as the key, and a pointer to the
+// Capability structure associated with that name.
+func (pkg *Package) GetCapabilities() ([]*DependencyRequirement, error) {
+	return pkg.Capabilities, nil
+}
 
-	// OH, the humanity!  order matters here, as "<" and ">" will match for "<=" and ">="
-	// and be processed incorrectly.
-	splits := []string{"<=", ">=", ">", "<"}
+// Return the package dependencies for this package.
+func (pkg *Package) GetDependencies() ([]*DependencyRequirement, error) {
+	return pkg.Deps, nil
+}
 
-	minVersStr := versStr
-	maxVersStr := ""
-	compareType := "=="
-	for _, split := range splits {
-		parts := strings.Split(versStr, split)
-		if len(parts) == 2 {
-			compareType = split
-			switch split {
-			case "<=":
-				fallthrough
-			case "<":
-				minVersStr = parts[0]
-				maxVersStr = parts[1]
-			case ">=":
-				fallthrough
-			case ">":
-				minVersStr = parts[1]
-				maxVersStr = parts[0]
-			}
-			break
-		}
+// Load a package's configuration information from the package config
+// file.
+func (pkg *Package) GetIncludes(t *Target) ([]string, error) {
+	// Return the include directories for just this package
+	incls := []string{
+		pkg.BasePath + "/include/",
+		pkg.BasePath + "/include/" + pkg.Name + "/arch/" + t.Arch + "/",
 	}
 
-	dr.CompareType = compareType
-
-	if dr.MinVers, err = NewVersFromStr(minVersStr); err != nil {
-		return err
-	}
-
-	if dr.MaxVers, err = NewVersFromStr(maxVersStr); err != nil {
-		return err
-	}
-
-	return nil
+	return incls, nil
 }
 
-func (dr *DependencyRequirement) String() string {
-	return fmt.Sprintf("%s:%s<=%s", dr.Name, dr.MinVers, dr.MaxVers)
-}
-
-func (dr *DependencyRequirement) SatisfiesDependency(pkgName string, pkgVers *Version) bool {
-	if pkgName == dr.Name && pkgVers.SatisfiesVersion(dr.MinVers, dr.MaxVers) {
-		return true
-	} else {
-		return false
-	}
-}
-
-func NewCapFromStr(capStr string) (*Capability, error) {
-	// The capability can have 2 items
-	// name@version
-	c := &Capability{}
-
-	parts := strings.Split(capStr, "@")
-	c.Name = parts[0]
-	if len(parts) == 2 {
-		var err error
-		if c.Vers, err = NewVersFromStr(parts[1]); err != nil {
-			return nil, err
-		}
-	}
-
-	return c, nil
-}
-
-func (c *Capability) SatisfiesCapability(caps map[string]*Capability) bool {
-	key := fmt.Sprintf("%s:%s", c.Name, c.Vers)
-	_, ok := caps[key]
-	return ok
-}
-
-func (c *Capability) String() string {
-	return fmt.Sprintf("%s:%s", c.Name, c.Vers)
-}
-
-func (pkg *Package) GetCapabilities() (map[string]*Capability, error) {
-	return *pkg.Capabilities, nil
-}
-
-func (pkg *Package) loadCaps(capList []string) (*map[string]*Capability, error) {
+// Load capabilities from a string containing a list of capabilities.
+// The capability format is expected to be one of:
+//   name@version
+//   name
+// @param capList An array of capability strings
+// @return On success error is nil, and a list of capabilities is returned, on failure error is non-nil
+func (pkg *Package) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	if len(capList) == 0 {
 		return nil, nil
 	}
 
 	// Allocate an array of capabilities
-	caps := map[string]*Capability{}
+	caps := make([]*DependencyRequirement, 0)
+
 	log.Printf("[DEBUG] Loading capabilities %s", strings.Join(capList, " "))
 	for _, capItem := range capList {
-		c, err := NewCapFromStr(capItem)
+		dr, err := NewDependencyRequirementParseString(capItem)
 		if err != nil {
 			return nil, err
 		}
 
-		caps[c.String()] = c
-		log.Printf("[DEBUG] Appending new capability pkg: %s, name: %s, vers: %s",
-			pkg.Name, c.Name, c.Vers)
+		caps = append(caps, dr)
+		log.Printf("[DEBUG] Appending new capability pkg: %s, cap:%s",
+			pkg.Name, dr)
 	}
 
-	return &caps, nil
+	return caps, nil
 }
 
-// Load a package's configuration information from the package config
-// file.
+// Load a package's configuration.  This allocates & initializes a fair number of
+// the main data structures within the package.
 func (pkg *Package) loadConfig() error {
 	log.Printf("[DEBUG] Loading configuration for pkg %s", pkg.BasePath)
 
@@ -280,7 +335,7 @@ func (pkg *Package) loadConfig() error {
 	pkg.FullName = v.GetString("pkg.name")
 	pkg.Name = filepath.Base(pkg.FullName)
 
-	pkg.Version, err = NewVersFromStr(v.GetString("pkg.vers"))
+	pkg.Version, err = NewVersParseString(v.GetString("pkg.vers"))
 	if err != nil {
 		return err
 	}
@@ -290,10 +345,11 @@ func (pkg *Package) loadConfig() error {
 	// Load package dependencies
 	depList := v.GetStringSlice("pkg.deps")
 	if len(depList) > 0 {
-		pkg.Deps = make([]*DependencyRequirement, len(depList), len(depList))
+		pkg.Deps = make([]*DependencyRequirement, 0, len(depList))
 		for _, depStr := range depList {
-			log.Printf("[DEBUG] Loading depedency %s from package %s", depStr, pkg.FullName)
-			dr, err := NewDependencyRequirementFromStr(depStr)
+			log.Printf("[DEBUG] Loading depedency %s from package %s", depStr,
+				pkg.FullName)
+			dr, err := NewDependencyRequirementParseString(depStr)
 			if err != nil {
 				return err
 			}
@@ -302,12 +358,13 @@ func (pkg *Package) loadConfig() error {
 		}
 	}
 
-	// Load package capabilities
+	// Load the list of capabilities that this package exposes
 	pkg.Capabilities, err = pkg.loadCaps(v.GetStringSlice("pkg.caps"))
 	if err != nil {
 		return err
 	}
 
+	// Load the list of capabilities that this package requires
 	pkg.ReqCapabilities, err = pkg.loadCaps(v.GetStringSlice("pkg.req_caps"))
 	if err != nil {
 		return err
@@ -316,81 +373,8 @@ func (pkg *Package) loadConfig() error {
 	return nil
 }
 
-// Check the include directories for the package, to make sure there are no conflicts in
-// include paths for source code
-func (pkg *Package) checkIncludes() error {
-	incls, err := filepath.Glob(pkg.BasePath + "/include/*")
-	if err != nil {
-		return NewStackError(err.Error())
-	}
-
-	// Append all the architecture specific directories
-	archDir := pkg.BasePath + "/include/" + pkg.Name + "/arch/"
-	dirs, err := ioutil.ReadDir(archDir)
-	if err != nil {
-		return NewStackError(err.Error())
-	}
-
-	for _, dir := range dirs {
-		if !dir.IsDir() {
-			return NewStackError(fmt.Sprintf("Only directories are allowed in "+
-				"architecture dir: %s", archDir+dir.Name()))
-		}
-
-		incls2, err := filepath.Glob(archDir + dir.Name() + "/*")
-		if err != nil {
-			return NewStackError(err.Error())
-		}
-
-		incls = append(incls, incls2...)
-	}
-
-	for _, incl := range incls {
-		finfo, err := os.Stat(incl)
-		if err != nil {
-			return NewStackError(err.Error())
-		}
-
-		bad := false
-		if !finfo.IsDir() {
-			bad = true
-		}
-
-		if filepath.Base(incl) != pkg.Name {
-			if pkg.IsBsp && filepath.Base(incl) != "bsp" {
-				bad = true
-			}
-		}
-
-		if bad {
-			return NewStackError(fmt.Sprintf("File %s should not exist in include "+
-				"directory, only file allowed in include directory is a directory with "+
-				"the package name %s",
-				incl, pkg.Name))
-		}
-	}
-
-	return nil
-}
-
-func (pkg *Package) GetBuildIncludes(t *Target) ([]string, error) {
-	log.Printf("[DEBUG] Checking package includes to ensure correctness")
-	// Check to make sure no include files are in the /include/* directory for the
-	// package
-	if err := pkg.checkIncludes(); err != nil {
-		return nil, err
-	}
-
-	// Return the include directories for just this package
-	incls := []string{
-		pkg.BasePath + "/include/",
-		pkg.BasePath + "/include/" + pkg.Name + "/arch/" + t.Arch + "/",
-	}
-
-	return incls, nil
-}
-
-// Initialize a package
+// Initialize a package: loads the package configuration, and sets up package data
+// structures.  Should only be called from NewPackage
 func (pkg *Package) Init() error {
 	log.Printf("[DEBUG] Initializing package %s in path %s", pkg.Name, pkg.BasePath)
 
@@ -400,4 +384,23 @@ func (pkg *Package) Init() error {
 	}
 
 	return nil
+}
+
+// Allocate and initialize a new package, and return a fully initialized Package
+//     structure.
+// @param r The repository this package is located in
+// @param basePath The path to this package, within the specified repository
+// @return On success, error is nil, and a Package is returned.  on failure,
+//         error is not nil.
+func NewPackage(r *Repo, basePath string) (*Package, error) {
+	pkg := &Package{
+		BasePath: basePath,
+		Repo:     r,
+	}
+
+	if err := pkg.Init(); err != nil {
+		return nil, err
+	}
+
+	return pkg, nil
 }

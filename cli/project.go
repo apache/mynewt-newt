@@ -132,6 +132,11 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 
 	log.Printf("[INFO] Building package dependencies for project %s", p.Name)
 
+	// Step #1: Resolve dependencies, and collect includes and other definitions
+	if err := pm.GetDepList(pkgList); err != nil {
+		return err
+	}
+
 	for _, pkgName := range pkgList {
 		pkg, err := pm.ResolvePkgName(pkgName)
 		if err != nil {
