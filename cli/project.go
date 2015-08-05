@@ -166,9 +166,21 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 	t.Aflags += " " + p.Aflags
 
 	for _, pkgName := range pkgList {
+		if pkgName == "" {
+			continue
+		}
+
 		pkg, err := pm.ResolvePkgName(pkgName)
 		if err != nil {
 			return err
+		}
+		if false {
+			// Check dependencies to make sure that they're all resolved first.
+			// This also returns a list of present and required capabilities which
+			// are checked after processing.
+			if err := pm.CheckPkgDeps(pkg); err != nil {
+				return err
+			}
 		}
 
 		if err = pm.Build(p.Target, pkgName); err != nil {

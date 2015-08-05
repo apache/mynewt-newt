@@ -49,6 +49,8 @@ func (pm *PkgMgr) GetDepList(pkgList []string) error {
 	return nil
 }
 
+// XXX: Need to recursively process package dependencies & return a list of
+// required capabiltiies and present capabilities
 func (pm *PkgMgr) CheckPkgDeps(pkg *Package) error {
 	if pkg.Deps == nil || len(pkg.Deps) == 0 {
 		return nil
