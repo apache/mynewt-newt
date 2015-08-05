@@ -32,6 +32,8 @@ type Target struct {
 
 	Capabilities []string
 
+	Dependencies []string
+
 	Cflags string
 	Lflags string
 	Aflags string
@@ -95,6 +97,11 @@ func (t *Target) SetDefaults() error {
 	}
 
 	t.Capabilities, err = parseTargetStringSlice(t.Vars["capabilities"])
+	if err != nil {
+		return err
+	}
+
+	t.Dependencies, err = parseTargetStringSlice(t.Vars["dependencies"])
 	if err != nil {
 		return err
 	}

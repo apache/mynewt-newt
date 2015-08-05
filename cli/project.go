@@ -159,6 +159,7 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 
 	// Append project variables to target variables, so that all package builds
 	// inherit from them
+	pkgList = append(pkgList, t.Dependencies...)
 	t.Capabilities = append(t.Capabilities, p.Capabilities...)
 	t.Cflags += " " + p.Cflags
 	t.Lflags += " " + p.Lflags
