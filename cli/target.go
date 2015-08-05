@@ -30,6 +30,12 @@ type Target struct {
 
 	Identities []string
 
+	Capabilities []string
+
+	Cflags string
+	Lflags string
+	Aflags string
+
 	Name string
 
 	Arch string
@@ -59,6 +65,8 @@ func parseTargetStringSlice(str string) ([]string, error) {
 func (t *Target) SetDefaults() error {
 	var err error
 
+	t.Name = t.Vars["name"]
+
 	if t.Vars["project"] != "" && t.Vars["pkg"] != "" {
 		return NewStackError("Target " + t.Vars["name"] + " cannot have a " +
 			"project and package set.")
@@ -78,15 +86,19 @@ func (t *Target) SetDefaults() error {
 	}
 
 	t.Bsp = t.Vars["bsp"]
+	t.Cflags = t.Vars["cflags"]
+	t.Lflags = t.Vars["lflags"]
 
-	t.Name = t.Vars["name"]
-
-	if t.Vars["identities"] != "" {
-		t.Identities, err = parseTargetStringSlice(t.Vars["identities"])
-		if err != nil {
-			return err
-		}
+	t.Identities, err = parseTargetStringSlice(t.Vars["identities"])
+	if err != nil {
+		return err
 	}
+
+	t.Capabilities, err = parseTargetStringSlice(t.Vars["capabilities"])
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -255,7 +267,7 @@ func (t *Target) Build() error {
 			return err
 		}
 	} else if t.Vars["pkg"] != "" {
-		pm, err := NewPkgMgr(t.Repo)
+		pm, err := NewPkgMgr(t.Repo, t)
 		if err != nil {
 			return err
 		}
@@ -281,7 +293,7 @@ func (t *Target) BuildClean(cleanAll bool) error {
 			return err
 		}
 	} else if t.Vars["pkg"] != "" {
-		pm, err := NewPkgMgr(t.Repo)
+		pm, err := NewPkgMgr(t.Repo, t)
 		if err != nil {
 			return err
 		}
@@ -299,7 +311,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 		return NewStackError("Tests not supported on projects, only packages")
 	}
 
-	pm, err := NewPkgMgr(t.Repo)
+	pm, err := NewPkgMgr(t.Repo, t)
 	if err != nil {
 		return err
 	}

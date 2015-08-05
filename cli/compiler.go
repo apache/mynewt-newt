@@ -30,12 +30,15 @@ type Compiler struct {
 	ObjPathList  map[string]bool
 	LinkerScript string
 
+	Cflags string
+	Aflags string
+	Lflags string
+
 	ccPath                string
 	asPath                string
 	arPath                string
 	odPath                string
 	osPath                string
-	ccFlags               string
 	ldFlags               string
 	ldResolveCircularDeps bool
 	ldMapFile             bool
@@ -76,17 +79,18 @@ func (c *Compiler) ReadSettings(cDef string) error {
 	cflags := v.GetStringSlice("compiler.flags." + cDef)
 	for _, flag := range cflags {
 		if strings.HasPrefix(flag, "compiler.flags") {
-			c.ccFlags += strings.Trim(v.GetString(flag), "\n") + " "
+			c.Cflags += " " + v.GetString(flag)
 		} else {
-			c.ccFlags += strings.Trim(flag, "\n") + " "
+			c.Cflags += " " + flag
 		}
 	}
+
 	c.ldFlags = v.GetString("compiler.ld.flags")
 	c.ldResolveCircularDeps = v.GetBool("compiler.ld.resolve_circular_deps")
 	c.ldMapFile = v.GetBool("compiler.ld.mapfile")
 
 	log.Printf("[INFO] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
-		c.arPath, c.ccFlags)
+		c.arPath, c.Cflags)
 
 	return nil
 }
@@ -117,7 +121,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	}
 
 	cmd += " -c " + "-o " + objPath + " " + file +
-		" " + c.ccFlags + " -I" + strings.Join(c.BaseIncludes, " -I")
+		" " + c.Cflags + " -I" + strings.Join(c.BaseIncludes, " -I")
 
 	_, err := ShellCommand(cmd)
 	return err
@@ -255,7 +259,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 	log.Printf("[INFO] Compiling Binary %s with object files %s", binFile,
 		objList)
 
-	cmd := c.ccPath + " -o " + binFile + " " + c.ldFlags + " " + c.ccFlags
+	cmd := c.ccPath + " -o " + binFile + " " + c.ldFlags + " " + c.Cflags
 	if c.ldResolveCircularDeps {
 		cmd += " -Wl,--start-group -lc " + objList + " -Wl,--end-group "
 	} else {

@@ -28,14 +28,17 @@ type PkgMgr struct {
 	// Repository associated with the Packages
 	Repo *Repo
 
+	Target *Target
+
 	// List of packages for Repo
 	Packages map[string]*Package
 }
 
 // Allocate a new package manager structure, and initialize it.
-func NewPkgMgr(r *Repo) (*PkgMgr, error) {
+func NewPkgMgr(r *Repo, t *Target) (*PkgMgr, error) {
 	pm := &PkgMgr{
-		Repo: r,
+		Repo:   r,
+		Target: t,
 	}
 	err := pm.Init()
 
@@ -43,7 +46,6 @@ func NewPkgMgr(r *Repo) (*PkgMgr, error) {
 }
 
 func (pm *PkgMgr) GetDepList(pkgList []string) error {
-
 	return nil
 }
 
@@ -89,7 +91,7 @@ func (pm *PkgMgr) loadPackage(pkgDir string) error {
 		pm.Packages = make(map[string]*Package)
 	}
 
-	pkg, err := NewPackage(pm.Repo, pkgDir)
+	pkg, err := NewPackage(pm.Repo, pm.Target, pkgDir)
 	if err != nil {
 		return err
 	}
@@ -274,7 +276,7 @@ func (pm *PkgMgr) buildDeps(pkg *Package, t *Target) error {
 	}
 
 	// Add on dependency includes to package includes
-	log.Printf("[DEBUG] Package depencies for %s built, incls = %s", pkg.Name, pkg.Includes)
+	log.Printf("[DEBUG] Package dependencies for %s built, incls = %s", pkg.Name, pkg.Includes)
 
 	return nil
 }
@@ -310,6 +312,10 @@ func (pm *PkgMgr) Build(t *Target, pkgName string) error {
 	if err != nil {
 		return err
 	}
+	// setup Cflags, Lflags and Aflags
+	c.Cflags += " " + pkg.Cflags + " " + t.Cflags
+	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
+	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
 
 	if NodeNotExist(pkg.BasePath + "/src/") {
 		// nothing to compile, return true!

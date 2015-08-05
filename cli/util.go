@@ -85,6 +85,36 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	}
 }
 
+func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
+	val := v.GetString(key)
+
+	if t == nil {
+		return val
+	}
+
+	idents := t.Identities
+
+	for _, ident := range idents {
+		val += " " + v.GetString(key+"."+ident)
+	}
+	return val
+}
+
+func GetStringSliceIdentities(v *viper.Viper, t *Target, key string) []string {
+	val := v.GetStringSlice(key)
+
+	if t == nil {
+		return val
+	}
+
+	idents := t.Identities
+
+	for _, ident := range idents {
+		val = append(val, v.GetStringSlice(key+"."+ident)...)
+	}
+	return val
+}
+
 func NodeExist(path string) bool {
 	if _, err := os.Stat(path); err == nil {
 		return true

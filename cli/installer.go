@@ -65,7 +65,7 @@ func (inst *Installer) Init(r *Repo) error {
 
 	inst.repo = r
 
-	inst.pkgMgr, err = NewPkgMgr(inst.repo)
+	inst.pkgMgr, err = NewPkgMgr(inst.repo, nil)
 	if err != nil {
 		return err
 	}

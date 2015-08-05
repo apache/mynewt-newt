@@ -33,6 +33,18 @@ type Project struct {
 	// Packages
 	Packages []string
 
+	// Capabilities
+	Capabilities []string
+
+	// Assembler compiler flags
+	Aflags string
+
+	// Compiler flags
+	Cflags string
+
+	// Linker flags
+	Lflags string
+
 	// The repository the project is located in
 	Repo *Repo
 
@@ -74,7 +86,18 @@ func (p *Project) loadConfig() error {
 		return err
 	}
 
-	p.Packages = strings.Split(v.GetString("project.pkgs"), " ")
+	t := p.Target
+
+	p.Packages = GetStringSliceIdentities(v, t, "project.pkgs")
+
+	idents := GetStringSliceIdentities(v, t, "project.identities")
+	t.Identities = append(t.Identities, idents...)
+
+	p.Capabilities = GetStringSliceIdentities(v, t, "project.caps")
+
+	p.Cflags = GetStringIdentities(v, t, "project.cflags")
+	p.Lflags = GetStringIdentities(v, t, "project.lflags")
+	p.Aflags = GetStringIdentities(v, t, "project.aflags")
 
 	return nil
 }
@@ -83,7 +106,7 @@ func (p *Project) loadConfig() error {
 // project, if cleanAll is true, then clean everything, not just the current
 // architecture
 func (p *Project) BuildClean(cleanAll bool) error {
-	pm, err := NewPkgMgr(p.Repo)
+	pm, err := NewPkgMgr(p.Repo, p.Target)
 	if err != nil {
 		return err
 	}
@@ -132,10 +155,14 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 
 	log.Printf("[INFO] Building package dependencies for project %s", p.Name)
 
-	// Step #1: Resolve dependencies, and collect includes and other definitions
-	if err := pm.GetDepList(pkgList); err != nil {
-		return err
-	}
+	t := p.Target
+
+	// Append project variables to target variables, so that all package builds
+	// inherit from them
+	t.Capabilities = append(t.Capabilities, p.Capabilities...)
+	t.Cflags += " " + p.Cflags
+	t.Lflags += " " + p.Lflags
+	t.Aflags += " " + p.Aflags
 
 	for _, pkgName := range pkgList {
 		pkg, err := pm.ResolvePkgName(pkgName)
@@ -194,7 +221,7 @@ func (p *Project) Build() error {
 	log.Printf("[INFO] Building project %s", p.Name)
 
 	// First build project package dependencies
-	pm, err := NewPkgMgr(p.Repo)
+	pm, err := NewPkgMgr(p.Repo, p.Target)
 	if err != nil {
 		return err
 	}

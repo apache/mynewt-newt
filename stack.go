@@ -524,7 +524,7 @@ func dispPkg(pkg *cli.Package) error {
 }
 
 func pkgListCmd(cmd *cobra.Command, args []string) {
-	pkgMgr, err := cli.NewPkgMgr(StackRepo)
+	pkgMgr, err := cli.NewPkgMgr(StackRepo, nil)
 	if err != nil {
 		StackUsage(cmd, err)
 	}
@@ -537,7 +537,7 @@ func pkgListCmd(cmd *cobra.Command, args []string) {
 }
 
 func pkgCheckDepsCmd(cmd *cobra.Command, args []string) {
-	pkgMgr, err := cli.NewPkgMgr(StackRepo)
+	pkgMgr, err := cli.NewPkgMgr(StackRepo, nil)
 	if err != nil {
 		StackUsage(cmd, err)
 	}

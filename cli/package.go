@@ -60,6 +60,15 @@ type Package struct {
 	// Package include directories
 	Includes []string
 
+	// Package compiler flags
+	Cflags string
+
+	// Package linker flags
+	Lflags string
+
+	// Package assembler flags
+	Aflags string
+
 	// Whether or not this package is a BSP
 	IsBsp bool
 
@@ -298,7 +307,8 @@ func (pkg *Package) GetIncludes(t *Target) ([]string, error) {
 //   name@version
 //   name
 // @param capList An array of capability strings
-// @return On success error is nil, and a list of capabilities is returned, on failure error is non-nil
+// @return On success error is nil, and a list of capabilities is returned, on failure
+// error is non-nil
 func (pkg *Package) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	if len(capList) == 0 {
 		return nil, nil
@@ -324,7 +334,7 @@ func (pkg *Package) loadCaps(capList []string) ([]*DependencyRequirement, error)
 
 // Load a package's configuration.  This allocates & initializes a fair number of
 // the main data structures within the package.
-func (pkg *Package) loadConfig() error {
+func (pkg *Package) loadConfig(t *Target) error {
 	log.Printf("[DEBUG] Loading configuration for pkg %s", pkg.BasePath)
 
 	v, err := ReadConfig(pkg.BasePath, "pkg")
@@ -340,10 +350,20 @@ func (pkg *Package) loadConfig() error {
 		return err
 	}
 
-	pkg.LinkerScript = v.GetString("pkg.linkerscript")
+	pkg.LinkerScript = GetStringIdentities(v, t, "pkg.linkerscript")
+
+	pkg.Cflags = GetStringIdentities(v, t, "pkg.cflags")
+	pkg.Lflags = GetStringIdentities(v, t, "pkg.lflags")
+	pkg.Aflags = GetStringIdentities(v, t, "pkg.aflags")
+
+	// Append all the identities that this package exposes to sub-packages
+	if t != nil {
+		idents := GetStringSliceIdentities(v, t, "pkg.identities")
+		t.Identities = append(t.Identities, idents...)
+	}
 
 	// Load package dependencies
-	depList := v.GetStringSlice("pkg.deps")
+	depList := GetStringSliceIdentities(v, t, "pkg.deps")
 	if len(depList) > 0 {
 		pkg.Deps = make([]*DependencyRequirement, 0, len(depList))
 		for _, depStr := range depList {
@@ -359,13 +379,13 @@ func (pkg *Package) loadConfig() error {
 	}
 
 	// Load the list of capabilities that this package exposes
-	pkg.Capabilities, err = pkg.loadCaps(v.GetStringSlice("pkg.caps"))
+	pkg.Capabilities, err = pkg.loadCaps(GetStringSliceIdentities(v, t, "pkg.caps"))
 	if err != nil {
 		return err
 	}
 
 	// Load the list of capabilities that this package requires
-	pkg.ReqCapabilities, err = pkg.loadCaps(v.GetStringSlice("pkg.req_caps"))
+	pkg.ReqCapabilities, err = pkg.loadCaps(GetStringSliceIdentities(v, t, "pkg.req_caps"))
 	if err != nil {
 		return err
 	}
@@ -375,11 +395,11 @@ func (pkg *Package) loadConfig() error {
 
 // Initialize a package: loads the package configuration, and sets up package data
 // structures.  Should only be called from NewPackage
-func (pkg *Package) Init() error {
+func (pkg *Package) Init(t *Target) error {
 	log.Printf("[DEBUG] Initializing package %s in path %s", pkg.Name, pkg.BasePath)
 
 	// Load package configuration file
-	if err := pkg.loadConfig(); err != nil {
+	if err := pkg.loadConfig(t); err != nil {
 		return err
 	}
 
@@ -392,13 +412,13 @@ func (pkg *Package) Init() error {
 // @param basePath The path to this package, within the specified repository
 // @return On success, error is nil, and a Package is returned.  on failure,
 //         error is not nil.
-func NewPackage(r *Repo, basePath string) (*Package, error) {
+func NewPackage(r *Repo, t *Target, basePath string) (*Package, error) {
 	pkg := &Package{
 		BasePath: basePath,
 		Repo:     r,
 	}
 
-	if err := pkg.Init(); err != nil {
+	if err := pkg.Init(t); err != nil {
 		return nil, err
 	}
 
