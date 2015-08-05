@@ -79,9 +79,9 @@ func (c *Compiler) ReadSettings(cDef string) error {
 	cflags := v.GetStringSlice("compiler.flags." + cDef)
 	for _, flag := range cflags {
 		if strings.HasPrefix(flag, "compiler.flags") {
-			c.Cflags += " " + v.GetString(flag)
+			c.Cflags += " " + strings.Trim(v.GetString(flag), "\n")
 		} else {
-			c.Cflags += " " + flag
+			c.Cflags += " " + strings.Trim(flag, "\n")
 		}
 	}
 
@@ -263,7 +263,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 	if c.ldResolveCircularDeps {
 		cmd += " -Wl,--start-group -lc " + objList + " -Wl,--end-group "
 	} else {
-		cmd += objList
+		cmd += " " + objList
 	}
 
 	if c.LinkerScript != "" {

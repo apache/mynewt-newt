@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 type StackError struct {
@@ -95,7 +96,7 @@ func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
 	idents := t.Identities
 
 	for _, ident := range idents {
-		val += " " + v.GetString(key+"."+ident)
+		val += " " + strings.Trim(v.GetString(key+"."+ident), "\n")
 	}
 	return val
 }
