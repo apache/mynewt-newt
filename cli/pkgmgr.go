@@ -101,6 +101,14 @@ func (pm *PkgMgr) loadPackage(pkgDir string) error {
 	return nil
 }
 
+func (pm *PkgMgr) String() string {
+	str := ""
+	for pkgName, _ := range pm.Packages {
+		str += pkgName + " "
+	}
+	return str
+}
+
 // Recursively load a package.  Given the baseDir of the packages (e.g. pkg/ or hw/bsp), and
 // the base package name.
 func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName string) error {
@@ -137,7 +145,7 @@ func (pm *PkgMgr) loadPackages() error {
 	r := pm.Repo
 
 	// Multiple package directories to be searched
-	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/mcu/stm", "hw/drivers/", "hw/hal/"}
+	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/mcu/stm", "hw/drivers/", "hw/"}
 
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := r.BasePath + "/" + pkgDir
@@ -176,7 +184,8 @@ func (pm *PkgMgr) Init() error {
 func (pm *PkgMgr) ResolvePkgName(pkgName string) (*Package, error) {
 	pkg, ok := pm.Packages[pkgName]
 	if !ok {
-		return nil, NewStackError("Invalid package " + pkgName + " specified")
+		return nil, NewStackError(fmt.Sprintf("Invalid package %s specified (pkgs = %s)",
+			pkgName, pm))
 	}
 	return pkg, nil
 }
