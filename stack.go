@@ -120,7 +120,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetCreateCmd(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
+	if len(args) != 1 {
 		StackUsage(cmd, cli.NewStackError("Wrong number of args to create cmd."))
 	}
 
@@ -136,7 +136,6 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		Vars: map[string]string{},
 	}
 	target.Vars["name"] = args[0]
-	target.Vars["arch"] = args[1]
 
 	err := target.Save()
 	if err != nil {
