@@ -45,18 +45,20 @@ func NewPkgMgr(r *Repo, t *Target) (*PkgMgr, error) {
 	return pm, err
 }
 
-func (pm *PkgMgr) GetDepList(pkgList []string) error {
-	return nil
-}
-
-// XXX: Need to recursively process package dependencies & return a list of
-// required capabiltiies and present capabilities
-func (pm *PkgMgr) CheckPkgDeps(pkg *Package) error {
+func (pm *PkgMgr) CheckPkgDeps(pkg *Package,
+	deps map[string]*DependencyRequirement, reqcap map[string]*DependencyRequirement,
+	caps map[string]*DependencyRequirement) error {
+	// if no dependencies, then everything is ok!
 	if pkg.Deps == nil || len(pkg.Deps) == 0 {
 		return nil
 	}
 
 	for _, depReq := range pkg.Deps {
+		// don't process this package if we've already processed it
+		if _, ok := deps[depReq.String()]; ok {
+			continue
+		}
+
 		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq, pkg.Name)
 		pkg, ok := pm.Packages[depReq.Name]
 		if !ok {
@@ -68,6 +70,37 @@ func (pm *PkgMgr) CheckPkgDeps(pkg *Package) error {
 			return NewStackError(fmt.Sprintf("Package %s doesn't satisfy dependency %s",
 				pkg.Name, depReq))
 		}
+
+		// We've checked this dependency requirement, all is gute!
+		deps[depReq.String()] = depReq
+	}
+
+	// Now go through and recurse through the sub-package dependencies
+	for _, depReq := range pkg.Deps {
+		if _, ok := deps[depReq.String()]; ok {
+			continue
+		}
+
+		if err := pm.CheckPkgDeps(pm.Packages[depReq.Name], deps, reqcap, caps); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (pm *PkgMgr) VerifyCaps(reqcaps map[string]*DependencyRequirement,
+	caps map[string]*DependencyRequirement) error {
+
+	for name, rcap := range reqcaps {
+		capability, ok := caps[name]
+		if !ok {
+			return NewStackError(fmt.Sprintf("Required capability %s not found", name))
+		}
+
+		if err := rcap.SatisfiesCapability(capability); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -76,7 +109,11 @@ func (pm *PkgMgr) CheckPkgDeps(pkg *Package) error {
 func (pm *PkgMgr) CheckDeps() error {
 	// Go through all the packages and check that their dependencies are satisfied
 	for _, pkg := range pm.Packages {
-		if err := pm.CheckPkgDeps(pkg); err != nil {
+		deps := map[string]*DependencyRequirement{}
+		reqcap := map[string]*DependencyRequirement{}
+		caps := map[string]*DependencyRequirement{}
+
+		if err := pm.CheckPkgDeps(pkg, deps, reqcap, caps); err != nil {
 			return err
 		}
 	}

@@ -165,6 +165,11 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 	t.Lflags += " " + p.Lflags
 	t.Aflags += " " + p.Aflags
 
+	// XXX: Should set these with target capabilities and dependencies!
+	deps := map[string]*DependencyRequirement{}
+	reqcaps := map[string]*DependencyRequirement{}
+	caps := map[string]*DependencyRequirement{}
+
 	for _, pkgName := range pkgList {
 		if pkgName == "" {
 			continue
@@ -174,13 +179,27 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 		if err != nil {
 			return err
 		}
-		if false {
-			// Check dependencies to make sure that they're all resolved first.
-			// This also returns a list of present and required capabilities which
-			// are checked after processing.
-			if err := pm.CheckPkgDeps(pkg); err != nil {
-				return err
-			}
+
+		if err := pm.CheckPkgDeps(pkg, deps, reqcaps, caps); err != nil {
+			return err
+		}
+	}
+
+	// After processing all the dependencies, verify that the package's capability
+	// requirements are satisfies as well
+	if err := pm.VerifyCaps(reqcaps, caps); err != nil {
+		return err
+	}
+
+	// now go through and build everything
+	for _, pkgName := range pkgList {
+		if pkgName == "" {
+			continue
+		}
+
+		pkg, err := pm.ResolvePkgName(pkgName)
+		if err != nil {
+			return err
 		}
 
 		if err = pm.Build(p.Target, pkgName); err != nil {

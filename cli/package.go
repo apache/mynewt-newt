@@ -232,6 +232,22 @@ func (dr *DependencyRequirement) String() string {
 	return fmt.Sprintf("%s:%s:%s", dr.Name, dr.VersMatchesString(), dr.Stability)
 }
 
+func (dr *DependencyRequirement) SatisfiesCapability(capability *DependencyRequirement) error {
+	if dr.Name != capability.Name {
+		return NewStackError(fmt.Sprintf("Required capability name %s doesn't match "+
+			"specified capability name %s", dr.Name, capability.Name))
+	}
+
+	for _, versMatch := range dr.VersMatches {
+		if !versMatch.Vers.SatisfiesVersion(capability.VersMatches) {
+			return NewStackError(fmt.Sprintf("Capability %s doesn't satisfy version "+
+				"requirement %s", capability, versMatch.Vers))
+		}
+	}
+
+	return nil
+}
+
 // Check whether the passed in package satisfies the current dependency requirement
 func (dr *DependencyRequirement) SatisfiesDependency(pkg *Package) bool {
 	if pkg.FullName != dr.Name {
