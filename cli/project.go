@@ -165,10 +165,19 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 	t.Lflags += " " + p.Lflags
 	t.Aflags += " " + p.Aflags
 
-	// XXX: Should set these with target capabilities and dependencies!
 	deps := map[string]*DependencyRequirement{}
 	reqcaps := map[string]*DependencyRequirement{}
 	caps := map[string]*DependencyRequirement{}
+
+	// inherit project capabilities, mark these capabilities as supported.
+	for _, cName := range t.Capabilities {
+		dr, err := NewDependencyRequirementParseString(cName)
+		if err != nil {
+			return err
+		}
+
+		caps[dr.String()] = dr
+	}
 
 	for _, pkgName := range pkgList {
 		if pkgName == "" {
