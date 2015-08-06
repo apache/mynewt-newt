@@ -348,6 +348,16 @@ func (t *Target) Test(cmd string, flag bool) error {
 	return nil
 }
 
+func (t *Target) DeleteVar(name string) error {
+	targetCfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
+
+	if err := t.Repo.DelConfig(targetCfgSect, name); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Save the target's configuration elements
 func (t *Target) Save() error {
 	r := t.Repo

@@ -71,13 +71,30 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 	t.Vars[ar[0]] = ar[1]
 
-	err = t.Save()
-	if err != nil {
+	if err := t.Save(); err != nil {
 		StackUsage(cmd, err)
 	}
 
 	fmt.Printf("Target %s successfully set %s to %s\n", args[0],
 		ar[0], ar[1])
+}
+
+func targetUnsetCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		StackUsage(cmd,
+			cli.NewStackError("Must specify two arguments (sect & k) to unset"))
+	}
+
+	t, err := cli.LoadTarget(StackRepo, args[0])
+	if err != nil {
+		StackUsage(cmd, err)
+	}
+
+	if err := t.DeleteVar(args[1]); err != nil {
+		StackUsage(cmd, err)
+	}
+
+	fmt.Printf("Target %s successfully unset %s\n", args[0], args[1])
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
@@ -264,6 +281,14 @@ func targetAddCmds(base *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(setCmd)
+
+	unsetCmd := &cobra.Command{
+		Use:   "unset",
+		Short: "Unset target configuration variable",
+		Run:   targetUnsetCmd,
+	}
+
+	targetCmd.AddCommand(unsetCmd)
 
 	delCmd := &cobra.Command{
 		Use:   "delete",
