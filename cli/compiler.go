@@ -293,13 +293,10 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 			return err
 		}
 
-		sects := []string{".text", ".rodata", ".fc", ".data"}
+		sects := []string{".text", ".rodata", ".data"}
 		for _, sect := range sects {
 			cmd = c.odPath + " -s -j " + sect + " " + binFile + " >> " + listFile
-			_, err := ShellCommand(cmd)
-			if err != nil {
-				return err
-			}
+			ShellCommand(cmd)
 		}
 
 		cmd = c.osPath + " " + binFile + " >> " + listFile
