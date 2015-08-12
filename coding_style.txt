@@ -1,0 +1,57 @@
+Stack Coding Style 
+-- 
+
+- Line length is fixed to no more than 90 characters
+
+- At least every function should have documentation above it in godoc format.
+Err on the side of more comments rather than fewer.
+
+- Where possible, the form: 
+
+    if err := func(); err != nil {
+        return err
+    }
+
+Is the preferred method of doing error checking.  Note that "err" should be 
+assigned using the := operator to avoid conflicting with enclosing scope. 
+
+- In cases where it is infeasible to create an error variable, i.e. when 
+using multiple assignments on structure properties, the err variable should 
+be defined at the top of the function scope.  i.e.: 
+
+    func (inst *Installer) SetName(name string) {
+        // declaration at the top of the function 
+        var err error 
+
+        // ...some code here...
+        inst.Name, err = inst.ParseString(name)
+        if err != nil {
+            return err
+        }
+    }
+        
+
+- Every object which requires allocation, shall follow this pattern:
+    - The object itself has an Init() function which accesses to initialize
+      the object.  e.g.: 
+
+        func (inst *Installer) Init() error {
+            // Initialization functions here
+        }
+
+    - There shall be a New<Object Name> function which allocates a new
+    object of <Object Name> type, and calls the init function prior to 
+    allocating the new object.  e.g.: 
+
+        func NewInstaller() (*Installer, error) {
+            inst := &Installer{}
+            if err := inst.Init(); err != nil {
+                return nil, err
+            }
+            return inst, nil
+        }
+
+- Accessors are for object properties SHOULD ALWAYS be provided when setting
+class properties.  For reading object properties, accessor functions are 
+should be provided where it makes sense (i.e. to provide an implementation 
+contract.) 
