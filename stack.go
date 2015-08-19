@@ -408,10 +408,15 @@ func compilerCreateCmd(cmd *cobra.Command, args []string) {
 }
 
 func compilerInstallCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		StackUsage(cmd, cli.NewStackError(fmt.Sprintf("Two arguments to install required, "+
+			"%d provided.", len(args))))
+	}
+
 	path := args[0]
 	url := args[1]
 
-	dirName := StackRepo.BasePath + "/" + path + "/"
+	dirName := StackRepo.BasePath + "/compiler/" + path
 	if cli.NodeExist(dirName) {
 		StackUsage(cmd, cli.NewStackError("Compiler "+path+" already installed."))
 	}
@@ -480,7 +485,7 @@ func compilerAddCmds(baseCmd *cobra.Command) {
 	baseCmd.AddCommand(compilerCmd)
 }
 
-func runInstallCmd(cmd *cobra.Command, args []string) {
+func runPkgInstallCmd(cmd *cobra.Command, args []string) {
 	inst, err := cli.NewInstaller(StackRepo)
 	if err != nil {
 		StackUsage(cmd, err)
@@ -495,25 +500,6 @@ func runInstallCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println("Installation successfully completed!")
-}
-
-func installerAddCmds(baseCmd *cobra.Command) {
-	installCmd := &cobra.Command{
-		Use:   "install",
-		Short: "Install a package",
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			cli.Init(StackLogLevel)
-
-			var err error
-			StackRepo, err = cli.NewRepo()
-			if err != nil {
-				StackUsage(nil, err)
-			}
-		},
-		Run: runInstallCmd,
-	}
-
-	baseCmd.AddCommand(installCmd)
 }
 
 func dispPkg(pkg *cli.Package) error {
@@ -607,6 +593,14 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 
 	pkgCmd.AddCommand(checkDepsCmd)
 
+	installCmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install a package",
+		Run:   runPkgInstallCmd,
+	}
+
+	pkgCmd.AddCommand(installCmd)
+
 	baseCmd.AddCommand(pkgCmd)
 }
 
@@ -637,7 +631,6 @@ func parseCmds() *cobra.Command {
 	targetAddCmds(stackCmd)
 	repoAddCmds(stackCmd)
 	compilerAddCmds(stackCmd)
-	installerAddCmds(stackCmd)
 	pkgAddCmds(stackCmd)
 
 	return stackCmd

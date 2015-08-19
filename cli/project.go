@@ -218,7 +218,10 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 		if lib := pm.GetPackageLib(p.Target, pkg); NodeExist(lib) {
 			*libs = append(*libs, lib)
 		} else {
-			return NewStackError(fmt.Sprintf("Library %s failed to build", lib))
+			fmt.Println(pm.Repo)
+			fmt.Println(pkg.BasePath)
+			return NewStackError(fmt.Sprintf("Library %s for package %s failed to build",
+				lib, pkg.Name))
 		}
 
 		*incls = append(*incls, pkg.Includes...)

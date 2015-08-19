@@ -51,6 +51,9 @@ type Installer struct {
 	pkgMgr *PkgMgr
 }
 
+// Allocate, return and initialize a new Installer object.
+// @param r The Repository that this installer should point to
+// @return Allocated Installer object on success, non-nil error on failure
 func NewInstaller(r *Repo) (*Installer, error) {
 	inst := &Installer{}
 	if err := inst.Init(r); err != nil {
@@ -60,6 +63,9 @@ func NewInstaller(r *Repo) (*Installer, error) {
 	return inst, nil
 }
 
+// Initialize the installer object.
+// @param r The repository to initialize the installer in
+// @return error is nil on success, non-nil on failure
 func (inst *Installer) Init(r *Repo) error {
 	var err error
 
@@ -73,6 +79,10 @@ func (inst *Installer) Init(r *Repo) error {
 	return nil
 }
 
+// Parse a URL into a URL type, which is one of the INSTALLER_*
+// types defined in the package.
+// @param urlPath The path of the URL to analyze
+// @return urlType on success, non-nil error on failure
 func (inst *Installer) parseUrlType(urlPath string) (int, error) {
 	var urlType int
 
@@ -116,6 +126,13 @@ func (inst *Installer) parseUrlType(urlPath string) (int, error) {
 	return urlType, nil
 }
 
+// Copy a local file or directory into the temporary package directory.
+// @param tmpDir The temporary directory to copy the file into
+// @param node The file to copy
+// @param nodeType The type of file location specified by node, can be either
+//                 INSTALLER_FILE_TARBALL or INSTALLER_FILE_DIRECTORY.
+// @return The temporary directory which the node has been copied into, or error is non-nil on failure
+//
 func (inst *Installer) copyLocal(tmpDir string, node string, nodeType int) (string, error) {
 	// First copy local file to temporary directory
 	// if its a tarball, ungz it
@@ -171,6 +188,13 @@ func (inst *Installer) copyLocal(tmpDir string, node string, nodeType int) (stri
 	return localPkgDir, nil
 }
 
+// Copy a remote git repository into the temporary package directory.
+// @param tmpDir The temporary directory to copy the file into
+// @param url The git URL to copy from
+// @param gitType The type of git command to copy from (i.e. either a subtree, a clone or a
+//                clean install.)
+// @return The temporary directory which the node has been copied into, or error is non-nil on failure
+//
 func (inst *Installer) copyGit(tmpDir string, url string, gitType int) (string, error) {
 	switch gitType {
 	case INSTALLER_GIT_CLONE:
@@ -196,7 +220,16 @@ func (inst *Installer) copyGit(tmpDir string, url string, gitType int) (string, 
 	return tmpDir, nil
 }
 
-func (inst *Installer) FetchPackage(instDirName string, url string, gitType int) (string, error) {
+// Fetch a package from a URL, and return the local temporary directory that stores the package
+// and its dependencies
+//
+// @param instDirName Fetch a remote package specified by url
+// @param url The URL to Fetch locally
+// @param gitType The type of git command to use with git URLs
+// @return The temporary directory the packages are copied into, error is non-nil on
+//         failure.
+func (inst *Installer) FetchPackage(instDirName string, url string, gitType int) (string,
+	error) {
 	urlType, err := inst.parseUrlType(url)
 	if err != nil {
 		return "", err
@@ -229,6 +262,11 @@ func (inst *Installer) FetchPackage(instDirName string, url string, gitType int)
 	return localPkgDir, nil
 }
 
+// Install the URL into the local repository (set by instantiating an Installer object.)
+//
+// @param url The URL to install
+// @param gitType The type of commands to use, if the URL is a git URL
+// @return error is nil on success and non-nil on failure.
 func (inst *Installer) Install(url string, gitType int) error {
 	// First, create temporary package directory
 	installDir, err := inst.repo.GetTmpDir(inst.repo.BasePath+"/.repo/tmp/", "install")

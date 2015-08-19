@@ -176,6 +176,10 @@ func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName strin
 		}
 	}
 
+	if NodeNotExist(baseDir + "/" + pkgName + "/pkg.yml") {
+		return nil
+	}
+
 	return pm.loadPackage(baseDir + "/" + pkgName)
 }
 
@@ -201,6 +205,10 @@ func (pm *PkgMgr) loadPackages() error {
 		for _, subPkgDir := range pkgList {
 			name := subPkgDir.Name()
 			if filepath.HasPrefix(name, ".") || filepath.HasPrefix(name, "..") {
+				continue
+			}
+
+			if !subPkgDir.IsDir() {
 				continue
 			}
 
@@ -236,7 +244,8 @@ func (pm *PkgMgr) ResolvePkgDir(pkgDir string) (*Package, error) {
 			return pm.Packages[name], nil
 		}
 	}
-	return nil, NewStackError(fmt.Sprintf("Cannot resolve package dir %s in package manager", pkgDir))
+	return nil, NewStackError(fmt.Sprintf("Cannot resolve package dir %s in package "+
+		"manager", pkgDir))
 }
 
 func (pm *PkgMgr) VerifyPackage(pkgDir string) (*Package, error) {
