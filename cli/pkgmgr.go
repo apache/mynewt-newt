@@ -279,18 +279,32 @@ func (pm *PkgMgr) BuildClean(t *Target, pkgName string, cleanAll bool) error {
 		tName = ""
 	}
 
+	if pkg.Clean {
+		return nil
+	}
+
+	for _, dep := range pkg.Deps {
+		if err := pm.BuildClean(t, dep.Name, cleanAll); err != nil {
+			return err
+		}
+	}
+
 	c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, []string{})
 	if err != nil {
 		return err
 	}
 
-	if err := c.RecursiveClean(pkg.BasePath+"/src/", tName); err != nil {
-		return err
+	if NodeExist(pkg.BasePath + "/src/") {
+		if err := c.RecursiveClean(pkg.BasePath+"/src/", tName); err != nil {
+			return err
+		}
+
+		if err := os.RemoveAll(pkg.BasePath + "/bin/" + tName); err != nil {
+			return NewStackError(err.Error())
+		}
 	}
 
-	if err := os.RemoveAll(pkg.BasePath + "/bin/" + tName); err != nil {
-		return NewStackError(err.Error())
-	}
+	pkg.Clean = true
 
 	return nil
 }

@@ -81,6 +81,9 @@ type Package struct {
 	// Whether or not we've already compiled this package
 	Built bool
 
+	// Whether or not we've already cleaned this package
+	Clean bool
+
 	// Packages that this package depends on
 	Deps []*DependencyRequirement
 }

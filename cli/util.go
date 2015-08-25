@@ -104,16 +104,25 @@ func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
 func GetStringSliceIdentities(v *viper.Viper, t *Target, key string) []string {
 	val := v.GetStringSlice(key)
 
+	// string empty items
+	result := []string{}
+	for _, item := range val {
+		if item == "" || item == " " {
+			continue
+		}
+		result = append(result, item)
+	}
+
 	if t == nil {
-		return val
+		return result
 	}
 
 	idents := t.Identities
 
 	for _, ident := range idents {
-		val = append(val, v.GetStringSlice(key+"."+ident)...)
+		result = append(result, v.GetStringSlice(key+"."+ident)...)
 	}
-	return val
+	return result
 }
 
 func NodeExist(path string) bool {

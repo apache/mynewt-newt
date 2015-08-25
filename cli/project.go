@@ -121,9 +121,11 @@ func (p *Project) BuildClean(cleanAll bool) error {
 		}
 	}
 
-	// clean the BSP
-	if err := pm.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
-		return err
+	// clean the BSP, if it exists
+	if p.Target.Bsp != "" {
+		if err := pm.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
+			return err
+		}
 	}
 
 	c, err := NewCompiler(p.Target.GetCompiler(), p.Target.Cdef, p.Target.Name, []string{})
