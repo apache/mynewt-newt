@@ -98,7 +98,7 @@ func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
 	for _, ident := range idents {
 		val += " " + strings.Trim(v.GetString(key+"."+ident), "\n")
 	}
-	return val
+	return strings.TrimSpace(val)
 }
 
 func GetStringSliceIdentities(v *viper.Viper, t *Target, key string) []string {

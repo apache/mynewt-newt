@@ -146,9 +146,10 @@ func (p *Project) BuildClean(cleanAll bool) error {
 }
 
 // Build the packages that this project depends on
-// pm is an initialized package manager, incls is an array of includes to append to
-// (package includes get append as they are built), and libs is an array of archive
-// files to append to (package libraries get appended as they are built)
+// pm is an initialized package manager, incls is an array of includes to
+// append to (package includes get append as they are built)
+// libs is an array of archive files to append to (package libraries get
+// appended as they are built)
 func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 	pkgList := p.GetPackages()
 	if pkgList == nil {
@@ -213,7 +214,7 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 			return err
 		}
 
-		if err = pm.Build(p.Target, pkgName); err != nil {
+		if err = pm.Build(p.Target, pkgName, *incls, libs); err != nil {
 			return err
 		}
 
@@ -238,28 +239,16 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 // incls and libs are pointers to an array of includes and libraries, when buildBsp()
 // builds the BSP, it appends the include directories for the BSP, and the archive file
 // to these variables.
-func (p *Project) buildBsp(pm *PkgMgr, incls *[]string, libs *[]string) (string, error) {
+func (p *Project) buildBsp(pm *PkgMgr, incls *[]string,
+	libs *[]string) (string, error) {
+
 	log.Printf("[INFO] Building BSP %s for Project %s", p.Target.Bsp, p.Name)
 
 	if p.Target.Bsp == "" {
 		return "", NewStackError("Must specify a BSP to build project")
 	}
 
-	bspPackage, err := pm.ResolvePkgName(p.Target.Bsp)
-	if err != nil {
-		return "", NewStackError("No BSP package for " + p.Target.Bsp + " exists")
-	}
-
-	if err = pm.Build(p.Target, p.Target.Bsp); err != nil {
-		return "", err
-	}
-
-	*libs = append(*libs, pm.GetPackageLib(p.Target, bspPackage))
-	*incls = append(*incls, bspPackage.Includes...)
-
-	linkerScript := bspPackage.BasePath + "/" + bspPackage.LinkerScript
-
-	return linkerScript, nil
+	return buildBsp(p.Target, pm, incls, libs)
 }
 
 // Build the project
@@ -278,6 +267,8 @@ func (p *Project) Build() error {
 	if err := p.buildDeps(pm, &incls, &libs); err != nil {
 		return err
 	}
+
+	log.Printf("[INFO] LIBS = %s", libs)
 
 	linkerScript := ""
 	if p.Target.Bsp != "" {

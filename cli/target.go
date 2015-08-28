@@ -109,6 +109,16 @@ func (t *Target) SetDefaults() error {
 	return nil
 }
 
+func (t *Target) HasIdentity(identity string) bool {
+	for _, cur := range t.Identities {
+		if cur == identity {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Load the target specified by name for the repository specified by r
 func LoadTarget(r *Repo, name string) (*Target, error) {
 	t := &Target{
@@ -279,7 +289,7 @@ func (t *Target) Build() error {
 			return err
 		}
 
-		err = pm.Build(t, t.Vars["pkg"])
+		err = pm.Build(t, t.Vars["pkg"], nil, nil)
 		if err != nil {
 			return err
 		}
