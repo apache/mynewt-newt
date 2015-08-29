@@ -96,7 +96,16 @@ func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
 	idents := t.Identities
 
 	for _, ident := range idents {
-		val += " " + strings.Trim(v.GetString(key+"."+ident), "\n")
+		overwriteVal := v.GetString(key + "." + ident + ".OVERWRITE")
+		if overwriteVal != "" {
+			val = strings.Trim(overwriteVal, "\n")
+			break
+		}
+
+		appendVal := v.GetString(key + "." + ident)
+		if appendVal != "" {
+			val += " " + strings.Trim(appendVal, "\n")
+		}
 	}
 	return strings.TrimSpace(val)
 }
