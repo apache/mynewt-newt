@@ -409,7 +409,7 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 		return err
 	}
 	// setup Cflags, Lflags and Aflags
-	c.Cflags += " " + pkg.Cflags + " " + t.Cflags
+	c.Cflags = CreateCFlags(c, t, pkg)
 	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
 	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
 
@@ -424,10 +424,15 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 	// First change into the package src directory, and build all the objects
 	// there
 	os.Chdir(pkg.BasePath + "/src/")
+
+	// Ignore architecture-specific source files for now.
 	ignDirs := []string{"arch"}
+
+	// Only build test code if the 'test' identity is specified.
 	if !t.HasIdentity("test") {
 		ignDirs = append(ignDirs, "test")
 	}
+
 	if err = c.RecursiveCompile("*.c", 0, ignDirs); err != nil {
 		return err
 	}
@@ -583,7 +588,7 @@ func (pm *PkgMgr) compileTests(t *Target, pkg *Package, tests []string,
 	}
 
 	// setup Cflags, Lflags and Aflags
-	c.Cflags += " " + pkg.Cflags + " " + t.Cflags
+	c.Cflags = CreateCFlags(c, t, pkg)
 	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
 	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
 
@@ -671,6 +676,9 @@ func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool,
 	incls := []string{}
 	libs := []string{}
 
+	// The 'test' identity is implicitly exported during a package test.
+	t.Identities = append(t.Identities, "test")
+
 	// Build the BSP first.  This populates the global set of include paths and
 	// libraries that the test code needs.
 	if t.Bsp != "" {
@@ -681,13 +689,14 @@ func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool,
 	}
 
 	// Build the package under test.
-	pkg.Cflags += " -DPKG_TEST"
 	if err := pm.Build(t, pkgName, incls, &libs); err != nil {
 		return err
 	}
 
-	// compile all the tests first.  want to catch compile errors on all tests
-	// before we run the actual tests.
+	// Compile the package's test code.  This must be compiled with the
+	// PKG_TEST symbol defined so that the appropriate main function gets
+	// built.
+	pkg.Cflags += " -DPKG_TEST"
 	if err := pm.compileTests(t, pkg, tests, incls, libs); err != nil {
 		return err
 	}

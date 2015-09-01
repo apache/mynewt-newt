@@ -53,3 +53,17 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 
 	return linkerScript, nil
 }
+
+// Creates the set of compiler flags that should be specified when building a
+// particular target-package pair.
+func CreateCFlags(c *Compiler, t *Target, p *Package) string {
+	cflags := c.Cflags + " " + p.Cflags + " " + t.Cflags
+
+	// The 'test' identity causes the TEST symbol to be defined.  This allows
+	// package code to behave differently in test builds.
+	if t.HasIdentity("test") {
+		cflags += " -DTEST"
+	}
+
+	return cflags
+}
