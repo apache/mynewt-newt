@@ -17,6 +17,7 @@ package cli
 
 import (
 	"log"
+	"os"
 )
 
 func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
@@ -44,7 +45,6 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 	}
 
 	var linkerScript string
-	log.Printf("[INFO] bspPackage.LinkerScript=>%s<", bspPackage.LinkerScript)
 	if bspPackage.LinkerScript != "" {
 		linkerScript = bspPackage.BasePath + "/" + bspPackage.LinkerScript
 	} else {
@@ -66,4 +66,44 @@ func CreateCFlags(c *Compiler, t *Target, p *Package) string {
 	}
 
 	return cflags
+}
+
+// Recursively compiles all the .c and .s files in the specified directory.
+// Architecture-specific files are also compiled.
+func BuildDir(srcDir string, c *Compiler, t *Target,
+	incls []string, libs *[]string, ignDirs []string) error {
+
+	var err error
+
+	log.Printf("[DEBUG] compiling src in base directory: %s", srcDir)
+
+	// First change into the package src directory, and build all the objects
+	// there
+	os.Chdir(srcDir)
+
+	// Ignore architecture-specific source files for now.
+	ignDirs = append(ignDirs, "arch")
+
+	if err = c.RecursiveCompile("*.c", 0, ignDirs); err != nil {
+		return err
+	}
+
+	log.Printf("[DEBUG] compiling architecture specific src packages")
+
+	archDir := srcDir + "/arch/" + t.Arch + "/"
+	if NodeExist(archDir) {
+		if err := os.Chdir(archDir); err != nil {
+			return NewStackError(err.Error())
+		}
+		if err := c.RecursiveCompile("*.c", 0, nil); err != nil {
+			return err
+		}
+
+		// compile assembly sources in recursive compile as well
+		if err = c.RecursiveCompile("*.s", 1, nil); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

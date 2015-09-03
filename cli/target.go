@@ -333,21 +333,11 @@ func (t *Target) Test(cmd string, flag bool) error {
 		return err
 	}
 
-	var tests []string
-	if t.Vars["tests"] != "" {
-		tests = strings.Split(t.Vars["tests"], " ")
-	} else {
-		tests, err = pm.GetPackageTests(t.Vars["pkg"])
-		if err != nil {
-			return err
-		}
-	}
-
 	switch cmd {
 	case "test":
-		err = pm.Test(t, t.Vars["pkg"], flag, tests)
+		err = pm.Test(t, t.Vars["pkg"], flag)
 	case "testclean":
-		err = pm.TestClean(t, t.Vars["pkg"], tests, flag)
+		err = pm.TestClean(t, t.Vars["pkg"], flag)
 	default:
 		err = NewStackError("Unknown command to Test() " + cmd)
 	}

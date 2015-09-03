@@ -443,3 +443,7 @@ func NewPackage(r *Repo, t *Target, basePath string) (*Package, error) {
 
 	return pkg, nil
 }
+
+func (pkg *Package) TestBinName() string {
+	return "test_" + pkg.Name
+}

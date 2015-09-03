@@ -148,8 +148,8 @@ func (pm *PkgMgr) String() string {
 	return str
 }
 
-// Recursively load a package.  Given the baseDir of the packages (e.g. pkg/ or hw/bsp), and
-// the base package name.
+// Recursively load a package.  Given the baseDir of the packages (e.g. pkg/ or
+// hw/bsp), and the base package name.
 func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName string) error {
 	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir, pkgName)
 
@@ -364,7 +364,8 @@ func (pm *PkgMgr) buildDeps(pkg *Package, t *Target, incls *[]string,
 	}
 
 	// Add on dependency includes to package includes
-	log.Printf("[DEBUG] Package dependencies for %s built, incls = %s", pkg.Name, pkg.Includes)
+	log.Printf("[DEBUG] Package dependencies for %s built, incls = %s",
+		pkg.Name, pkg.Includes)
 
 	return nil
 }
@@ -400,7 +401,14 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 	// NOTE: this assignment must happen after the call to buildDeps(), as
 	// buildDeps() fills in the package includes.
 	incls = append(incls, pkg.Includes...)
+	incls = append(incls, pkg.BasePath+"/src/")
 	log.Printf("[DEBUG] Package includes for %s are %s", pkgName, incls)
+
+	srcDir := pkg.BasePath + "/src/"
+	if NodeNotExist(srcDir) {
+		// nothing to compile, return true!
+		return nil
+	}
 
 	// Build the package designated by pkgName
 	// Initialize a compiler
@@ -413,48 +421,27 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
 	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
 
-	if NodeNotExist(pkg.BasePath + "/src/") {
-		// nothing to compile, return true!
-		return nil
-	}
-
 	log.Printf("[DEBUG] compiling src packages in base package directories: %s",
-		pkg.BasePath+"/src/")
+		srcDir)
 
-	// First change into the package src directory, and build all the objects
-	// there
-	os.Chdir(pkg.BasePath + "/src/")
+	// For now, ignore test code.  Tests get built later if the test identity
+	// is in effect.
+	ignDirs := []string{"test"}
 
-	// Ignore architecture-specific source files for now.
-	ignDirs := []string{"arch"}
-
-	// Only build test code if the 'test' identity is specified.
-	if !t.HasIdentity("test") {
-		ignDirs = append(ignDirs, "test")
-	}
-
-	if err = c.RecursiveCompile("*.c", 0, ignDirs); err != nil {
+	if err = BuildDir(srcDir, c, t, incls, libs, ignDirs); err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] compiling architecture specific src packages")
-
-	if NodeExist(pkg.BasePath + "/src/arch/" + t.Arch + "/") {
-		if err := os.Chdir(pkg.BasePath + "/src/arch/" + t.Arch + "/"); err != nil {
-			return NewStackError(err.Error())
-		}
-		if err := c.RecursiveCompile("*.c", 0, nil); err != nil {
-			return err
-		}
-
-		// compile assembly sources in recursive compile as well
-		if err = c.RecursiveCompile("*.s", 1, nil); err != nil {
+	// Now build the test code if requested.
+	if t.HasIdentity("test") {
+		testSrcDir := srcDir + "/test"
+		if err = BuildDir(testSrcDir, c, t, incls, libs, ignDirs); err != nil {
 			return err
 		}
 	}
 
-	// Link everything into a static library, which can be linked with a main
-	// program
+	// Archive everything into a static library, which can be linked with a
+	// main program
 	if err := os.Chdir(pkg.BasePath + "/"); err != nil {
 		return NewStackError(err.Error())
 	}
@@ -531,27 +518,9 @@ func (pm *PkgMgr) checkIncludes(pkg *Package) error {
 	return nil
 }
 
-// Get the tests for the package specified by pkgName.
-func (pm *PkgMgr) GetPackageTests(pkgName string) ([]string, error) {
-	pkg, err := pm.ResolvePkgName(pkgName)
-	if err != nil {
-		return nil, err
-	}
-
-	tests, err := filepath.Glob(pkg.BasePath + "/src/test/*")
-	if err != nil {
-		return nil, NewStackError(err.Error())
-	}
-
-	for key, val := range tests {
-		tests[key] = filepath.Base(val)
-	}
-	return tests, nil
-}
-
 // Clean the tests in the tests parameter, for the package identified by
 // pkgName.  If cleanAll is set to true, all architectures will be removed.
-func (pm *PkgMgr) TestClean(t *Target, pkgName string, tests []string,
+func (pm *PkgMgr) TestClean(t *Target, pkgName string,
 	cleanAll bool) error {
 	pkg, err := pm.ResolvePkgName(pkgName)
 	if err != nil {
@@ -563,13 +532,11 @@ func (pm *PkgMgr) TestClean(t *Target, pkgName string, tests []string,
 		tName = ""
 	}
 
-	for _, test := range tests {
-		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/bin/" + tName); err != nil {
-			return NewStackError(err.Error())
-		}
-		if err := os.RemoveAll(pkg.BasePath + "/src/test/" + test + "/obj/" + tName); err != nil {
-			return NewStackError(err.Error())
-		}
+	if err := os.RemoveAll(pkg.BasePath + "/src/test/bin/" + tName); err != nil {
+		return NewStackError(err.Error())
+	}
+	if err := os.RemoveAll(pkg.BasePath + "/src/test/obj/" + tName); err != nil {
+		return NewStackError(err.Error())
 	}
 
 	return nil
@@ -577,79 +544,62 @@ func (pm *PkgMgr) TestClean(t *Target, pkgName string, tests []string,
 
 // Compile tests specified by the tests parameter.  The tests are linked
 // to the package specified by the pkg parameter
-func (pm *PkgMgr) compileTests(t *Target, pkg *Package, tests []string,
-	incls []string, libs []string) error {
+func (pm *PkgMgr) linkTests(t *Target, pkg *Package,
+	incls []string, libs *[]string) error {
 
-	// Now, go and build the individual tests, and link them.
-	incls = append(incls, pkg.Includes...)
 	c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, incls)
 	if err != nil {
 		return err
 	}
 
-	// setup Cflags, Lflags and Aflags
-	c.Cflags = CreateCFlags(c, t, pkg)
+	// Configure Lflags.  Since we are only linking, Cflags and Aflags are
+	// unnecessary.
 	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
-	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
 
-	for _, test := range tests {
-		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/"); err != nil {
+	testBinDir := pkg.BasePath + "/src/test/bin/" + t.Name + "/"
+	if NodeNotExist(testBinDir) {
+		if err := os.MkdirAll(testBinDir, 0755); err != nil {
 			return NewStackError(err.Error())
 		}
-
-		if err = c.Compile("*.c"); err != nil {
-			return err
-		}
-
-		testBinDir := pkg.BasePath + "/src/test/" + test + "/bin/" +
-			t.Name + "/"
-		if NodeNotExist(testBinDir) {
-			if err := os.MkdirAll(testBinDir, 0755); err != nil {
-				return NewStackError(err.Error())
-			}
-		}
-		libs = append(libs, pkg.BasePath+"/bin/"+t.Name+"/lib"+pkg.Name+".a")
-		if err := c.CompileBinary(testBinDir+test, map[string]bool{},
-			strings.Join(libs, " ")); err != nil {
-
-			return err
-		}
 	}
+
+	if err := c.CompileBinary(testBinDir+pkg.TestBinName(), map[string]bool{},
+		strings.Join(*libs, " ")); err != nil {
+
+		return err
+	}
+
 	return nil
 }
 
 // Run all the tests in the tests parameter.  pkg is the package to check for
 // the tests.  exitOnFailure specifies whether to exit immediately when a
 // test fails, or continue executing all tests.
-func (pm *PkgMgr) runTests(t *Target, pkg *Package, exitOnFailure bool,
-	tests []string) error {
-	// go and run all the tests
-	for _, test := range tests {
-		if err := os.Chdir(pkg.BasePath + "/src/test/" + test + "/bin/" + t.Name +
-			"/"); err != nil {
-			return err
-		}
-		o, err := ShellCommand("./" + test)
-		if err != nil {
-			log.Printf("[ERROR] Test %s failed, output: %s", test, string(o))
-			if exitOnFailure {
-				return NewStackError("Unit tests failed to complete successfully.")
-			}
-		} else {
-			log.Printf("[INFO] Test %s ok!", test)
-		}
+func (pm *PkgMgr) runTests(t *Target, pkg *Package, exitOnFailure bool) error {
+	if err := os.Chdir(pkg.BasePath + "/src/test/bin/" + t.Name +
+		"/"); err != nil {
+		return err
 	}
+	o, err := ShellCommand("./" + pkg.TestBinName())
+	if err != nil {
+		log.Printf("[ERROR] Test %s failed, output: %s", pkg.TestBinName(),
+			string(o))
+		if exitOnFailure {
+			return NewStackError("Unit tests failed to complete successfully.")
+		}
+	} else {
+		log.Printf("[INFO] Test %s ok!", pkg.TestBinName())
+	}
+
 	return nil
 }
 
 // Check to ensure tests exist.  Go through the array of tests specified by
 // the tests parameter.  pkg is the package to check for these tests.
-func (pm *PkgMgr) testsExist(pkg *Package, tests []string) error {
-	for _, test := range tests {
-		dirName := pkg.BasePath + "/src/test/" + test + "/"
-		if NodeNotExist(dirName) {
-			return NewStackError("No test exists for " + test)
-		}
+func (pm *PkgMgr) testsExist(pkg *Package) error {
+	dirName := pkg.BasePath + "/src/test/"
+	if NodeNotExist(dirName) {
+		return NewStackError("No test exists for package " + pkg.Name)
 	}
 
 	return nil
@@ -658,9 +608,7 @@ func (pm *PkgMgr) testsExist(pkg *Package, tests []string) error {
 // Test the package identified by pkgName, by executing the tests specified.
 // exitOnFailure signifies whether to stop the test program when one of them
 // fails.
-func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool,
-	tests []string) error {
-
+func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool) error {
 	log.Printf("[INFO] Testing package %s for arch %s", pkgName, t.Arch)
 
 	pkg, err := pm.ResolvePkgName(pkgName)
@@ -669,7 +617,7 @@ func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool,
 	}
 
 	// Make sure the test directories exist
-	if err := pm.testsExist(pkg, tests); err != nil {
+	if err := pm.testsExist(pkg); err != nil {
 		return err
 	}
 
@@ -688,21 +636,25 @@ func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool,
 		}
 	}
 
-	// Build the package under test.
+	// Build the package under test.  This must be compiled with the PKG_TEST
+	// symbol defined so that the appropriate main function gets built.
+	pkg.Cflags += " -DPKG_TEST"
 	if err := pm.Build(t, pkgName, incls, &libs); err != nil {
 		return err
 	}
+	lib := pm.GetPackageLib(t, pkg)
+	if !NodeExist(lib) {
+		return NewStackError("Package " + pkgName + " did not produce binary")
+	}
+	libs = append(libs, lib)
 
-	// Compile the package's test code.  This must be compiled with the
-	// PKG_TEST symbol defined so that the appropriate main function gets
-	// built.
-	pkg.Cflags += " -DPKG_TEST"
-	if err := pm.compileTests(t, pkg, tests, incls, libs); err != nil {
+	// Compile the package's test code.
+	if err := pm.linkTests(t, pkg, incls, &libs); err != nil {
 		return err
 	}
 
 	// Run the tests.
-	if err := pm.runTests(t, pkg, exitOnFailure, tests); err != nil {
+	if err := pm.runTests(t, pkg, exitOnFailure); err != nil {
 		return err
 	}
 
