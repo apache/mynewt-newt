@@ -398,13 +398,13 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 		return err
 	}
 
+	srcDir := pkg.BasePath + "/src/"
+
 	// NOTE: this assignment must happen after the call to buildDeps(), as
 	// buildDeps() fills in the package includes.
-	incls = append(incls, pkg.Includes...)
-	incls = append(incls, pkg.BasePath+"/src/")
+	incls = append(incls, PkgIncludeDirs(pkg, t, srcDir)...)
 	log.Printf("[DEBUG] Package includes for %s are %s", pkgName, incls)
 
-	srcDir := pkg.BasePath + "/src/"
 	if NodeNotExist(srcDir) {
 		// nothing to compile, return true!
 		return nil
@@ -428,14 +428,14 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 	// is in effect.
 	ignDirs := []string{"test"}
 
-	if err = BuildDir(srcDir, c, t, incls, libs, ignDirs); err != nil {
+	if err = BuildDir(srcDir, c, t, ignDirs); err != nil {
 		return err
 	}
 
 	// Now build the test code if requested.
 	if t.HasIdentity("test") {
 		testSrcDir := srcDir + "/test"
-		if err = BuildDir(testSrcDir, c, t, incls, libs, ignDirs); err != nil {
+		if err = BuildDir(testSrcDir, c, t, ignDirs); err != nil {
 			return err
 		}
 	}

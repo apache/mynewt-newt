@@ -16,7 +16,6 @@
 package cli
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -218,13 +217,10 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 			return err
 		}
 
+		// Don't fail if package did not produce a library file; some packages
+		// are header-only.
 		if lib := pm.GetPackageLib(p.Target, pkg); NodeExist(lib) {
 			*libs = append(*libs, lib)
-		} else {
-			fmt.Println(pm.Repo)
-			fmt.Println(pkg.BasePath)
-			return NewStackError(fmt.Sprintf("Library %s for package %s failed to build",
-				lib, pkg.Name))
 		}
 
 		*incls = append(*incls, pkg.Includes...)
@@ -315,8 +311,12 @@ func (p *Project) Build() error {
 	log.Printf("[DEBUG] Compiling a binary %s from libs %s", binDir+p.Name,
 		strings.Join(libs, " "))
 
-	c.CompileElf(binDir+p.Name, map[string]bool{"mapFile": c.ldMapFile, "listFile": true},
-		strings.Join(libs, " "))
+	err = c.CompileElf(binDir+p.Name,
+		map[string]bool{"mapFile": c.ldMapFile,
+			"listFile": true}, strings.Join(libs, " "))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

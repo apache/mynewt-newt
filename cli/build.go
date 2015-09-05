@@ -68,10 +68,23 @@ func CreateCFlags(c *Compiler, t *Target, p *Package) string {
 	return cflags
 }
 
+func PkgIncludeDirs(pkg *Package, t *Target, srcDir string) []string {
+	incls := pkg.Includes
+	incls = append(incls, srcDir)
+	incls = append(incls, srcDir+"/arch/"+t.Arch)
+
+	if t.HasIdentity("test") {
+		testSrcDir := srcDir + "/test"
+		incls = append(incls, testSrcDir)
+		incls = append(incls, testSrcDir+"/arch/"+t.Arch)
+	}
+
+	return incls
+}
+
 // Recursively compiles all the .c and .s files in the specified directory.
 // Architecture-specific files are also compiled.
-func BuildDir(srcDir string, c *Compiler, t *Target,
-	incls []string, libs *[]string, ignDirs []string) error {
+func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 
 	var err error
 
