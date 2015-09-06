@@ -94,10 +94,16 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 	// there
 	os.Chdir(srcDir)
 
-	// Ignore architecture-specific source files for now.
-	ignDirs = append(ignDirs, "arch")
+	// Don't recurse into destination directories.
+	ignDirs = append(ignDirs, "obj")
+	ignDirs = append(ignDirs, "bin")
 
-	if err = c.RecursiveCompile("*.c", 0, ignDirs); err != nil {
+	// Ignore architecture-specific source files for now.  Use a temporary
+	// string array here so that the "arch" director is not ignored in the
+	// subsequent architecture-specific compile phase.
+	baseIgnDirs := append(ignDirs, "arch")
+
+	if err = c.RecursiveCompile("*.c", 0, baseIgnDirs); err != nil {
 		return err
 	}
 
@@ -108,12 +114,12 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 		if err := os.Chdir(archDir); err != nil {
 			return NewStackError(err.Error())
 		}
-		if err := c.RecursiveCompile("*.c", 0, nil); err != nil {
+		if err := c.RecursiveCompile("*.c", 0, ignDirs); err != nil {
 			return err
 		}
 
 		// compile assembly sources in recursive compile as well
-		if err = c.RecursiveCompile("*.s", 1, nil); err != nil {
+		if err = c.RecursiveCompile("*.s", 1, ignDirs); err != nil {
 			return err
 		}
 	}
