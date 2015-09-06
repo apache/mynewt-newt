@@ -290,7 +290,9 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 		cmd = c.odPath + " -wxdS " + binFile + " >> " + listFile
 		_, err := ShellCommand(cmd)
 		if err != nil {
-			return err
+			// XXX: gobjdump appears to always crash.  Until we get that sorted
+			// out, don't fail the link process if lst generation fails.
+			return nil
 		}
 
 		sects := []string{".text", ".rodata", ".data"}
