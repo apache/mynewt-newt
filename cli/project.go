@@ -264,8 +264,6 @@ func (p *Project) Build() error {
 		return err
 	}
 
-	log.Printf("[INFO] LIBS = %s", libs)
-
 	linkerScript := ""
 	if p.Target.Bsp != "" {
 		linkerScript, err = p.buildBsp(pm, &incls, &libs)

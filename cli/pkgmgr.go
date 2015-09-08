@@ -282,6 +282,7 @@ func (pm *PkgMgr) BuildClean(t *Target, pkgName string, cleanAll bool) error {
 	if pkg.Clean {
 		return nil
 	}
+	pkg.Clean = true
 
 	for _, dep := range pkg.Deps {
 		if err := pm.BuildClean(t, dep.Name, cleanAll); err != nil {
