@@ -288,6 +288,9 @@ func (p *Project) Build() error {
 
 	c.LinkerScript = linkerScript
 
+	// Add target C flags
+	c.Cflags += " " + p.Target.Cflags
+
 	os.Chdir(p.BasePath + "/src/")
 	if err = c.Compile("*.c"); err != nil {
 		return err
