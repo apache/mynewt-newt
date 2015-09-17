@@ -65,6 +65,8 @@ func CreateCFlags(c *Compiler, t *Target, p *Package) string {
 		cflags += " -DTEST"
 	}
 
+	cflags += " -DARCH=" + t.Arch
+
 	return cflags
 }
 
