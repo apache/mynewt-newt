@@ -32,11 +32,13 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 		return "", NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
-	if err = pm.Build(t, t.Bsp, nil, libs); err != nil {
+	// Add the BSP include directory to the global list of include paths.
+	// All subsequent code that gets built can include BSP header files.
+	*incls = append(*incls, bspPackage.BasePath+"/include/")
+
+	if err = pm.Build(t, t.Bsp, *incls, libs); err != nil {
 		return "", err
 	}
-
-	*incls = append(*incls, bspPackage.Includes...)
 
 	// A BSP doesn't have to contain source; don't fail if no library was
 	// built.
@@ -56,7 +58,7 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 
 // Creates the set of compiler flags that should be specified when building a
 // particular target-package pair.
-func CreateCFlags(c *Compiler, t *Target, p *Package) string {
+func CreateCFlags(pm *PkgMgr, c *Compiler, t *Target, p *Package) string {
 	cflags := c.Cflags + " " + p.Cflags + " " + t.Cflags
 
 	// The 'test' identity causes the TEST symbol to be defined.  This allows
@@ -66,6 +68,13 @@ func CreateCFlags(c *Compiler, t *Target, p *Package) string {
 	}
 
 	cflags += " -DARCH=" + t.Arch
+
+	// If a non-BSP package is being built, add the BSP's C flags to the list.
+	// The BSP's compiler flags get exported to all packages.
+	bspPackage, err := pm.ResolvePkgName(t.Bsp)
+	if err == nil && bspPackage != p {
+		cflags += " " + bspPackage.Cflags
+	}
 
 	return cflags
 }

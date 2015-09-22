@@ -251,7 +251,6 @@ func (p *Project) buildBsp(pm *PkgMgr, incls *[]string,
 func (p *Project) Build() error {
 	log.Printf("[INFO] Building project %s", p.Name)
 
-	// First build project package dependencies
 	pm, err := NewPkgMgr(p.Repo, p.Target)
 	if err != nil {
 		return err
@@ -260,16 +259,19 @@ func (p *Project) Build() error {
 	incls := []string{}
 	libs := []string{}
 
-	if err := p.buildDeps(pm, &incls, &libs); err != nil {
-		return err
-	}
-
+	// First build the BSP if there is one.  The BSP's include directory is
+	// accessible during all subsequent compiles.
 	linkerScript := ""
 	if p.Target.Bsp != "" {
 		linkerScript, err = p.buildBsp(pm, &incls, &libs)
 		if err != nil {
 			return err
 		}
+	}
+
+	// Build the project dependencies.
+	if err := p.buildDeps(pm, &incls, &libs); err != nil {
+		return err
 	}
 
 	// Append project includes
