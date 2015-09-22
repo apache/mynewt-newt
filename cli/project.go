@@ -241,7 +241,7 @@ func (p *Project) buildBsp(pm *PkgMgr, incls *[]string,
 	log.Printf("[INFO] Building BSP %s for Project %s", p.Target.Bsp, p.Name)
 
 	if p.Target.Bsp == "" {
-		return "", NewStackError("Must specify a BSP to build project")
+		return "", NewNewtError("Must specify a BSP to build project")
 	}
 
 	return buildBsp(p.Target, pm, incls, libs)
@@ -326,7 +326,7 @@ func (p *Project) Build() error {
 func (p *Project) Init() error {
 	p.BasePath = p.Repo.BasePath + "/project/" + p.Name + "/"
 	if NodeNotExist(p.BasePath) {
-		return NewStackError("Project directory does not exist")
+		return NewNewtError("Project directory does not exist")
 	}
 
 	if err := p.loadConfig(); err != nil {

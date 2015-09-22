@@ -151,7 +151,7 @@ func NewVersParseString(versStr string) (*Version, error) {
 
 	parts := strings.Split(versStr, ".")
 	if len(parts) > 3 {
-		return nil, NewStackError(fmt.Sprintf("Invalid version string: %s", versStr))
+		return nil, NewNewtError(fmt.Sprintf("Invalid version string: %s", versStr))
 	}
 
 	if strings.Trim(parts[0], " ") == "" {
@@ -162,16 +162,16 @@ func NewVersParseString(versStr string) (*Version, error) {
 
 	// convert first string to an int
 	if v.Major, err = strconv.ParseInt(parts[0], 0, 64); err != nil {
-		return nil, NewStackError(err.Error())
+		return nil, NewNewtError(err.Error())
 	}
 	if len(parts) >= 2 {
 		if v.Minor, err = strconv.ParseInt(parts[1], 0, 64); err != nil {
-			return nil, NewStackError(err.Error())
+			return nil, NewNewtError(err.Error())
 		}
 	}
 	if len(parts) == 3 {
 		if v.Revision, err = strconv.ParseInt(parts[2], 0, 64); err != nil {
-			return nil, NewStackError(err.Error())
+			return nil, NewNewtError(err.Error())
 		}
 	}
 
@@ -237,13 +237,13 @@ func (dr *DependencyRequirement) String() string {
 
 func (dr *DependencyRequirement) SatisfiesCapability(capability *DependencyRequirement) error {
 	if dr.Name != capability.Name {
-		return NewStackError(fmt.Sprintf("Required capability name %s doesn't match "+
+		return NewNewtError(fmt.Sprintf("Required capability name %s doesn't match "+
 			"specified capability name %s", dr.Name, capability.Name))
 	}
 
 	for _, versMatch := range dr.VersMatches {
 		if !versMatch.Vers.SatisfiesVersion(capability.VersMatches) {
-			return NewStackError(fmt.Sprintf("Capability %s doesn't satisfy version "+
+			return NewNewtError(fmt.Sprintf("Capability %s doesn't satisfy version "+
 				"requirement %s", capability, versMatch.Vers))
 		}
 	}

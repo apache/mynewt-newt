@@ -24,12 +24,12 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 	libs *[]string) (string, error) {
 
 	if t.Bsp == "" {
-		return "", NewStackError("Expected a BSP")
+		return "", NewNewtError("Expected a BSP")
 	}
 
 	bspPackage, err := pm.ResolvePkgName(t.Bsp)
 	if err != nil {
-		return "", NewStackError("No BSP package for " + t.Bsp + " exists")
+		return "", NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
 	if err = pm.Build(t, t.Bsp, nil, libs); err != nil {
@@ -114,7 +114,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 	archDir := srcDir + "/arch/" + t.Arch + "/"
 	if NodeExist(archDir) {
 		if err := os.Chdir(archDir); err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 		if err := c.RecursiveCompile("*.c", 0, ignDirs); err != nil {
 			return err

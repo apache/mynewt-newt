@@ -28,19 +28,19 @@ import (
 	"strings"
 )
 
-type StackError struct {
+type NewtError struct {
 	Text       string
 	StackTrace []byte
 }
 
 var Logger *log.Logger
 
-func (se *StackError) Error() string {
+func (se *NewtError) Error() string {
 	return se.Text + "\n" + string(se.StackTrace)
 }
 
-func NewStackError(msg string) *StackError {
-	err := &StackError{
+func NewNewtError(msg string) *NewtError {
+	err := &NewtError{
 		Text:       msg,
 		StackTrace: make([]byte, 1<<16),
 	}
@@ -80,7 +80,7 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, NewStackError(err.Error())
+		return nil, NewNewtError(err.Error())
 	} else {
 		return v, nil
 	}
@@ -159,7 +159,7 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 	o, err := cmd.CombinedOutput()
 	log.Print("[VERBOSE] o=" + string(o))
 	if err != nil {
-		return o, NewStackError(err.Error())
+		return o, NewNewtError(err.Error())
 	} else {
 		return o, nil
 	}
@@ -221,7 +221,7 @@ func gitSubtreeClone(urlLoc string, branch string, dest string) error {
 func UrlPath(urlLoc string) (string, error) {
 	url, err := url.Parse(urlLoc)
 	if err != nil {
-		return "", NewStackError(err.Error())
+		return "", NewNewtError(err.Error())
 	}
 
 	return filepath.Base(url.Path), nil
@@ -230,13 +230,13 @@ func UrlPath(urlLoc string) (string, error) {
 func CopyUrl(urlLoc string, branch string, dest string, installType int) error {
 	url, err := url.Parse(urlLoc)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	switch url.Scheme {
 	case "file":
 		if installType != 0 {
-			return NewStackError("Can only do clean source imports for file URLs")
+			return NewNewtError("Can only do clean source imports for file URLs")
 		}
 		if err := fileClone(url.Path, dest); err != nil {
 			return err
@@ -250,10 +250,10 @@ func CopyUrl(urlLoc string, branch string, dest string, installType int) error {
 		case 2:
 			err = gitSubtreeClone(urlLoc, branch, dest)
 		default:
-			return NewStackError("Unknown install type " + string(installType))
+			return NewNewtError("Unknown install type " + string(installType))
 		}
 	default:
-		err = NewStackError("Unknown resource type: " + url.Scheme)
+		err = NewNewtError("Unknown resource type: " + url.Scheme)
 	}
 
 	if err != nil {

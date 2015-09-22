@@ -24,9 +24,9 @@ import (
 	"path"
 )
 
-// Represents a stack repository
+// Represents a newt repository
 type Repo struct {
-	// Name of the stack repository
+	// Name of the newt repository
 	Repo string
 
 	// The File that contains the repo definition
@@ -82,17 +82,17 @@ func (r *Repo) CreateCompiler(cName string) error {
 		basePath)
 
 	if NodeExist(basePath) {
-		return NewStackError("Compiler " + cName + " already exists!")
+		return NewNewtError("Compiler " + cName + " already exists!")
 	}
 
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	err = ioutil.WriteFile(cfgFile, []byte(compilerDef), 0644)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	return nil
@@ -106,7 +106,7 @@ func (r *Repo) getRepoFile() (string, error) {
 
 	curDir, err := os.Getwd()
 	if err != nil {
-		return rFile, NewStackError(err.Error())
+		return rFile, NewNewtError(err.Error())
 	}
 
 	for {
@@ -120,7 +120,7 @@ func (r *Repo) getRepoFile() (string, error) {
 		curDir = path.Clean(curDir + "../../")
 		if curDir == "/" {
 			rFile = ""
-			err = NewStackError("No repo file found!")
+			err = NewNewtError("No repo file found!")
 			break
 		}
 	}
@@ -131,7 +131,7 @@ func (r *Repo) getRepoFile() (string, error) {
 // Create the contents of the configuration database
 func (r *Repo) createDb(db *sql.DB) error {
 	query := `
-	CREATE TABLE IF NOT EXISTS stack_cfg (
+	CREATE TABLE IF NOT EXISTS newt_cfg (
 		cfg_name VARCHAR(255) NOT NULL,
 		key VARCHAR(255) NOT NULL,
 		value TEXT
@@ -139,7 +139,7 @@ func (r *Repo) createDb(db *sql.DB) error {
 	`
 	_, err := db.Exec(query)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	} else {
 		return nil
 	}
@@ -162,9 +162,9 @@ func (r *Repo) initDb(dbName string) error {
 	// Populate repo configuration
 	log.Printf("[DEBUG] Populating Repository configuration from %s", dbName)
 
-	rows, err := db.Query("SELECT * FROM stack_cfg")
+	rows, err := db.Query("SELECT * FROM newt_cfg")
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 	defer rows.Close()
 
@@ -175,7 +175,7 @@ func (r *Repo) initDb(dbName string) error {
 
 		err := rows.Scan(&cfgName, &cfgKey, &cfgVal)
 		if err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 
 		log.Printf("[DEBUG] Setting sect %s, key %s to val %s", cfgName.String,
@@ -197,12 +197,12 @@ func (r *Repo) initDb(dbName string) error {
 func (r *Repo) GetConfig(sect string, key string) (string, error) {
 	sectMap, ok := r.Config[sect]
 	if !ok {
-		return "", NewStackError("No configuration section exists")
+		return "", NewNewtError("No configuration section exists")
 	}
 
 	val, ok := sectMap[key]
 	if !ok {
-		return "", NewStackError("No configuration variable exists")
+		return "", NewNewtError("No configuration variable exists")
 	}
 
 	return val, nil
@@ -211,7 +211,7 @@ func (r *Repo) GetConfig(sect string, key string) (string, error) {
 func (r *Repo) GetConfigSect(sect string) (map[string]string, error) {
 	sm, ok := r.Config[sect]
 	if !ok {
-		return nil, NewStackError("No configuration section exists")
+		return nil, NewNewtError("No configuration section exists")
 	}
 
 	return sm, nil
@@ -227,10 +227,10 @@ func (r *Repo) DelConfig(sect string, key string) error {
 
 	tx, err := db.Begin()
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
-	stmt, err := tx.Prepare("DELETE FROM stack_cfg WHERE cfg_name=? AND key=?")
+	stmt, err := tx.Prepare("DELETE FROM newt_cfg WHERE cfg_name=? AND key=?")
 	if err != nil {
 		return err
 	}
@@ -271,19 +271,19 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 
 	tx, err := db.Begin()
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	stmt, err := tx.Prepare(
-		"UPDATE stack_cfg SET value=? WHERE cfg_name=? AND key=?")
+		"UPDATE newt_cfg SET value=? WHERE cfg_name=? AND key=?")
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(val, sect, key)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	// Value already existed, and we updated it.  Mission accomplished!
@@ -295,15 +295,15 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 	}
 
 	// Otherwise, insert a new row
-	stmt1, err := tx.Prepare("INSERT INTO stack_cfg VALUES (?, ?, ?)")
+	stmt1, err := tx.Prepare("INSERT INTO newt_cfg VALUES (?, ?, ?)")
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 	defer stmt1.Close()
 
 	_, err = stmt1.Exec(sect, key, val)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	tx.Commit()
@@ -318,12 +318,12 @@ func (r *Repo) SetConfig(sect string, key string, val string) error {
 func (r *Repo) loadConfig() error {
 	v, err := ReadConfig(r.BasePath, "repo")
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	r.Repo = v.GetString("repo.name")
 	if r.Repo == "" {
-		return NewStackError("Repo file must specify repo name")
+		return NewNewtError("Repo file must specify repo name")
 	}
 
 	return nil
@@ -331,7 +331,7 @@ func (r *Repo) loadConfig() error {
 
 // Create the repository rName in the directory specified by dir
 // returns an initialized repository on success, with error = nil
-// on failure, error is set to a StackError, and the value of
+// on failure, error is set to a NewtError, and the value of
 // *Repo is undefined
 func CreateRepo(dir string, rName string) (*Repo, error) {
 	repo := &Repo{
@@ -347,14 +347,14 @@ func CreateRepo(dir string, rName string) (*Repo, error) {
 
 	repoContents := "repo.name: " + rName + "\n"
 	if err := ioutil.WriteFile(repo.RepoFile, []byte(repoContents), 0644); err != nil {
-		return nil, NewStackError(err.Error())
+		return nil, NewNewtError(err.Error())
 	}
 
 	// make base directory structure
 	paths := []string{"/pkg", "/project", "/hw/bsp", "/compiler"}
 	for _, path := range paths {
 		if err := os.MkdirAll(repo.BasePath+path, 0755); err != nil {
-			return nil, NewStackError(err.Error())
+			return nil, NewNewtError(err.Error())
 		}
 	}
 
@@ -365,13 +365,13 @@ func CreateRepo(dir string, rName string) (*Repo, error) {
 }
 
 // Initialze the repository
-// returns a StackError on failure, and nil on success
+// returns a NewtError on failure, and nil on success
 func (r *Repo) Init() error {
 	var err error
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 	log.Printf("[DEBUG] Searching for repository, starting in directory %s", cwd)
 

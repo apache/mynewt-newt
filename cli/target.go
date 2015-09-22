@@ -70,7 +70,7 @@ func (t *Target) SetDefaults() error {
 	t.Name = t.Vars["name"]
 
 	if t.Vars["project"] != "" && t.Vars["pkg"] != "" {
-		return NewStackError("Target " + t.Vars["name"] + " cannot have a " +
+		return NewNewtError("Target " + t.Vars["name"] + " cannot have a " +
 			"project and package set.")
 	}
 
@@ -212,7 +212,7 @@ func ImportTargets(r *Repo, name string, importAll bool, fp *os.File) error {
 			}
 		} else {
 			if currentTarget == nil {
-				return NewStackError("No target present when variables being set in import file")
+				return NewNewtError("No target present when variables being set in import file")
 			}
 			// target variables, set these on the current target
 			elements := strings.SplitN(line, "=", 2)
@@ -325,7 +325,7 @@ func (t *Target) BuildClean(cleanAll bool) error {
 
 func (t *Target) Test(cmd string, flag bool) error {
 	if t.Vars["project"] != "" {
-		return NewStackError("Tests not supported on projects, only packages")
+		return NewNewtError("Tests not supported on projects, only packages")
 	}
 
 	pm, err := NewPkgMgr(t.Repo, t)
@@ -339,7 +339,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 	case "testclean":
 		err = pm.TestClean(t, t.Vars["pkg"], flag)
 	default:
-		err = NewStackError("Unknown command to Test() " + cmd)
+		err = NewNewtError("Unknown command to Test() " + cmd)
 	}
 	if err != nil {
 		return err
@@ -363,7 +363,7 @@ func (t *Target) Save() error {
 	r := t.Repo
 
 	if _, ok := t.Vars["name"]; !ok {
-		return NewStackError("Cannot save a target without a name")
+		return NewNewtError("Cannot save a target without a name")
 	}
 
 	targetCfg := TARGET_SECT_PREFIX + t.Vars["name"]
@@ -381,7 +381,7 @@ func (t *Target) Remove() error {
 	r := t.Repo
 
 	if _, ok := t.Vars["name"]; !ok {
-		return NewStackError("Cannot remove a target without a name")
+		return NewNewtError("Cannot remove a target without a name")
 	}
 
 	cfgSect := TARGET_SECT_PREFIX + t.Vars["name"]

@@ -62,12 +62,12 @@ func (pm *PkgMgr) CheckPkgDeps(pkg *Package,
 		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq, pkg.Name)
 		pkg, ok := pm.Packages[depReq.Name]
 		if !ok {
-			return NewStackError(fmt.Sprintf("No package dependency %s found for %s",
+			return NewNewtError(fmt.Sprintf("No package dependency %s found for %s",
 				depReq.Name, pkg.Name))
 		}
 
 		if ok := depReq.SatisfiesDependency(pkg); !ok {
-			return NewStackError(fmt.Sprintf("Package %s doesn't satisfy dependency %s",
+			return NewNewtError(fmt.Sprintf("Package %s doesn't satisfy dependency %s",
 				pkg.Name, depReq))
 		}
 
@@ -95,7 +95,7 @@ func (pm *PkgMgr) VerifyCaps(reqcaps map[string]*DependencyRequirement,
 	for name, rcap := range reqcaps {
 		capability, ok := caps[name]
 		if !ok {
-			return NewStackError(fmt.Sprintf("Required capability %s not found", name))
+			return NewNewtError(fmt.Sprintf("Required capability %s not found", name))
 		}
 
 		if err := rcap.SatisfiesCapability(capability); err != nil {
@@ -156,7 +156,7 @@ func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName strin
 	// first recurse and load subpackages
 	list, err := ioutil.ReadDir(baseDir + "/" + pkgName)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	for _, ent := range list {
@@ -199,7 +199,7 @@ func (pm *PkgMgr) loadPackages() error {
 
 		pkgList, err := ioutil.ReadDir(pkgBaseDir)
 		if err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 
 		for _, subPkgDir := range pkgList {
@@ -231,7 +231,7 @@ func (pm *PkgMgr) Init() error {
 func (pm *PkgMgr) ResolvePkgName(pkgName string) (*Package, error) {
 	pkg, ok := pm.Packages[pkgName]
 	if !ok {
-		return nil, NewStackError(fmt.Sprintf("Invalid package %s specified (pkgs = %s)",
+		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified (pkgs = %s)",
 			pkgName, pm))
 	}
 	return pkg, nil
@@ -244,7 +244,7 @@ func (pm *PkgMgr) ResolvePkgDir(pkgDir string) (*Package, error) {
 			return pm.Packages[name], nil
 		}
 	}
-	return nil, NewStackError(fmt.Sprintf("Cannot resolve package dir %s in package "+
+	return nil, NewNewtError(fmt.Sprintf("Cannot resolve package dir %s in package "+
 		"manager", pkgDir))
 }
 
@@ -301,7 +301,7 @@ func (pm *PkgMgr) BuildClean(t *Target, pkgName string, cleanAll bool) error {
 		}
 
 		if err := os.RemoveAll(pkg.BasePath + "/bin/" + tName); err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 	}
 
@@ -444,14 +444,14 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 	// Archive everything into a static library, which can be linked with a
 	// main program
 	if err := os.Chdir(pkg.BasePath + "/"); err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	binDir := pkg.BasePath + "/bin/" + t.Name + "/"
 
 	if NodeNotExist(binDir) {
 		if err := os.MkdirAll(binDir, 0755); err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 	}
 
@@ -467,25 +467,25 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 func (pm *PkgMgr) checkIncludes(pkg *Package) error {
 	incls, err := filepath.Glob(pkg.BasePath + "/include/*")
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	// Append all the architecture specific directories
 	archDir := pkg.BasePath + "/include/" + pkg.Name + "/arch/"
 	dirs, err := ioutil.ReadDir(archDir)
 	if err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	for _, dir := range dirs {
 		if !dir.IsDir() {
-			return NewStackError(fmt.Sprintf("Only directories are allowed in "+
+			return NewNewtError(fmt.Sprintf("Only directories are allowed in "+
 				"architecture dir: %s", archDir+dir.Name()))
 		}
 
 		incls2, err := filepath.Glob(archDir + dir.Name() + "/*")
 		if err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 
 		incls = append(incls, incls2...)
@@ -494,7 +494,7 @@ func (pm *PkgMgr) checkIncludes(pkg *Package) error {
 	for _, incl := range incls {
 		finfo, err := os.Stat(incl)
 		if err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 
 		bad := false
@@ -509,7 +509,7 @@ func (pm *PkgMgr) checkIncludes(pkg *Package) error {
 		}
 
 		if bad {
-			return NewStackError(fmt.Sprintf("File %s should not exist in include "+
+			return NewNewtError(fmt.Sprintf("File %s should not exist in include "+
 				"directory, only file allowed in include directory is a directory with "+
 				"the package name %s",
 				incl, pkg.Name))
@@ -534,10 +534,10 @@ func (pm *PkgMgr) TestClean(t *Target, pkgName string,
 	}
 
 	if err := os.RemoveAll(pkg.BasePath + "/src/test/bin/" + tName); err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 	if err := os.RemoveAll(pkg.BasePath + "/src/test/obj/" + tName); err != nil {
-		return NewStackError(err.Error())
+		return NewNewtError(err.Error())
 	}
 
 	return nil
@@ -560,7 +560,7 @@ func (pm *PkgMgr) linkTests(t *Target, pkg *Package,
 	testBinDir := pkg.BasePath + "/src/test/bin/" + t.Name + "/"
 	if NodeNotExist(testBinDir) {
 		if err := os.MkdirAll(testBinDir, 0755); err != nil {
-			return NewStackError(err.Error())
+			return NewNewtError(err.Error())
 		}
 	}
 
@@ -586,7 +586,7 @@ func (pm *PkgMgr) runTests(t *Target, pkg *Package, exitOnFailure bool) error {
 		log.Printf("[ERROR] Test %s failed, output: %s", pkg.TestBinName(),
 			string(o))
 		if exitOnFailure {
-			return NewStackError("Unit tests failed to complete successfully.")
+			return NewNewtError("Unit tests failed to complete successfully.")
 		}
 	} else {
 		log.Printf("[INFO] Test %s ok!", pkg.TestBinName())
@@ -600,7 +600,7 @@ func (pm *PkgMgr) runTests(t *Target, pkg *Package, exitOnFailure bool) error {
 func (pm *PkgMgr) testsExist(pkg *Package) error {
 	dirName := pkg.BasePath + "/src/test/"
 	if NodeNotExist(dirName) {
-		return NewStackError("No test exists for package " + pkg.Name)
+		return NewNewtError("No test exists for package " + pkg.Name)
 	}
 
 	return nil
@@ -645,7 +645,7 @@ func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool) error {
 	}
 	lib := pm.GetPackageLib(t, pkg)
 	if !NodeExist(lib) {
-		return NewStackError("Package " + pkgName + " did not produce binary")
+		return NewNewtError("Package " + pkgName + " did not produce binary")
 	}
 	libs = append(libs, lib)
 

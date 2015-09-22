@@ -117,7 +117,7 @@ func (inst *Installer) parseUrlType(urlPath string) (int, error) {
 	}
 
 	if urlType == INSTALLER_UNKNOWN {
-		return 0, NewStackError("Unknown URL type " + parts.Scheme)
+		return 0, NewNewtError("Unknown URL type " + parts.Scheme)
 	}
 
 	log.Printf("[DEBUG] Installer parsed URL %s (path: %s, scheme: %s, ext: %s, type: %d)",
@@ -179,7 +179,7 @@ func (inst *Installer) copyLocal(tmpDir string, node string, nodeType int) (stri
 			}
 		}
 		if localPkgDir == "" {
-			return "", NewStackError(fmt.Sprintf("No package found in %s", filepath.Dir(node)))
+			return "", NewNewtError(fmt.Sprintf("No package found in %s", filepath.Dir(node)))
 		}
 	} else {
 		localPkgDir = dest + "/" + filepath.Base(node)
@@ -204,7 +204,7 @@ func (inst *Installer) copyGit(tmpDir string, url string, gitType int) (string, 
 		// if clean { remove .git }
 		_, err := ShellCommand(fmt.Sprintf("git clone %s %s", url, tmpDir))
 		if err != nil {
-			return "", NewStackError(err.Error())
+			return "", NewNewtError(err.Error())
 		}
 		if gitType == INSTALLER_GIT_CLONE_CLEAN {
 			_, err := ShellCommand(fmt.Sprintf("rm -rf %s/.git", tmpDir))

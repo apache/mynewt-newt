@@ -1,4 +1,4 @@
-Stack Coding Style 
+Newt Coding Style 
 -- 
 
 - Line length is fixed to no more than 90 characters
