@@ -42,11 +42,6 @@ type Repo struct {
 	db *sql.DB
 }
 
-var compilerDef string = `compiler.path.cc: /path/to/compiler
-compiler.path.archive: /path/to/archiver
-compiler.flags.default: -default -compiler -flags
-compiler.flags.debug: [compiler.flags.default, -additional -debug -flags]`
-
 // Create a new repository and initialize it
 func NewRepo() (*Repo, error) {
 	r := &Repo{}
@@ -70,32 +65,6 @@ func (r *Repo) GetTmpDir(dirName, prefix string) (string, error) {
 	}
 
 	return name, nil
-}
-
-// Create a compiler defintiion, including sample file that
-
-func (r *Repo) CreateCompiler(cName string) error {
-	basePath := r.BasePath + "/compiler/" + cName + "/"
-	cfgFile := basePath + "compiler.yml"
-
-	log.Printf("Creating a compiler definition in directory %s",
-		basePath)
-
-	if NodeExist(basePath) {
-		return NewNewtError("Compiler " + cName + " already exists!")
-	}
-
-	err := os.MkdirAll(basePath, 0755)
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	err = ioutil.WriteFile(cfgFile, []byte(compilerDef), 0644)
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	return nil
 }
 
 // Find the repo file.  Searches the current directory, and then recurses

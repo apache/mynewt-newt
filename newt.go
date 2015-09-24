@@ -31,9 +31,7 @@ var ImportAll bool = false
 var NewtVersion string = "1.0"
 var NewtRepo *cli.Repo
 var NewtLogLevel string = ""
-var InstallSubmodule bool = false
-var InstallSubtree bool = false
-var InstallBranch string = "master"
+var NewtNest *cli.Nest
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -46,15 +44,6 @@ func NewtUsage(cmd *cobra.Command, err error) {
 		cmd.Usage()
 	}
 	os.Exit(1)
-}
-
-func addInstallFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVarP(&InstallSubmodule, "submodule", "m", false,
-		"Install remote repository as a git submodule")
-	cmd.PersistentFlags().BoolVarP(&InstallSubtree, "subtree", "t", false,
-		"Install remote repostiory as a git subtree")
-	cmd.PersistentFlags().StringVarP(&InstallBranch, "branch", "b", "master",
-		"Branch name to fetch from remote git repository")
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
@@ -393,115 +382,6 @@ func repoAddCmds(baseCmd *cobra.Command) {
 	baseCmd.AddCommand(repoCmd)
 }
 
-func compilerCreateCmd(cmd *cobra.Command, args []string) {
-	// must specify a compiler name to compiler create
-	if len(args) != 1 {
-		NewtUsage(cmd, cli.NewNewtError("Must specify a compiler name to compiler create"))
-	}
-
-	err := NewtRepo.CreateCompiler(args[0])
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	fmt.Println("Compiler " + args[0] + " successfully created!")
-}
-
-func compilerInstallCmd(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
-		NewtUsage(cmd, cli.NewNewtError(fmt.Sprintf("Two arguments to install required, "+
-			"%d provided.", len(args))))
-	}
-
-	path := args[0]
-	url := args[1]
-
-	dirName := NewtRepo.BasePath + "/compiler/" + path
-	if cli.NodeExist(dirName) {
-		NewtUsage(cmd, cli.NewNewtError("Compiler "+path+" already installed."))
-	}
-
-	// 0 = install clean
-	// 1 = install submodule
-	// 2 = install subtree
-	installType := 0
-	if InstallSubmodule && InstallSubtree {
-		NewtUsage(cmd,
-			cli.NewNewtError("Cannot specify both --submodule and --subtree options to "+
-				"install command"))
-	}
-
-	if InstallSubmodule {
-		installType = 1
-	}
-
-	if InstallSubtree {
-		installType = 2
-	}
-
-	if err := cli.CopyUrl(url, InstallBranch, dirName, installType); err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	fmt.Println("Compiler " + path + " successfully installed.")
-}
-
-func compilerAddCmds(baseCmd *cobra.Command) {
-	compilerCmd := &cobra.Command{
-		Use:   "compiler",
-		Short: "Commands to install and create compiler definitions",
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			cli.Init(NewtLogLevel)
-
-			var err error
-			NewtRepo, err = cli.NewRepo()
-			if err != nil {
-				NewtUsage(nil, err)
-			}
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Usage()
-		},
-	}
-
-	createCmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new compiler definition",
-		Run:   compilerCreateCmd,
-	}
-
-	compilerCmd.AddCommand(createCmd)
-
-	installCmd := &cobra.Command{
-		Use:   "install",
-		Short: "Install a compiler from the specified URL",
-		Run:   compilerInstallCmd,
-	}
-
-	addInstallFlags(installCmd)
-
-	compilerCmd.AddCommand(installCmd)
-
-	baseCmd.AddCommand(compilerCmd)
-}
-
-func runPkgInstallCmd(cmd *cobra.Command, args []string) {
-	inst, err := cli.NewInstaller(NewtRepo)
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	if len(args) == 0 {
-		NewtUsage(cmd, cli.NewNewtError("Must specify a URL to install"))
-	}
-
-	if err := inst.Install(args[0], cli.INSTALLER_GIT_CLONE_CLEAN); err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	fmt.Println("Installation successfully completed!")
-}
-
 func dispPkg(pkg *cli.Package) error {
 	fmt.Printf("Package %s, version %s\n", pkg.FullName, pkg.Version)
 	fmt.Printf("  path: %s\n", filepath.Clean(pkg.BasePath))
@@ -593,15 +473,114 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 
 	pkgCmd.AddCommand(checkDepsCmd)
 
-	installCmd := &cobra.Command{
-		Use:   "install",
-		Short: "Install a package",
-		Run:   runPkgInstallCmd,
+	baseCmd.AddCommand(pkgCmd)
+}
+
+func nestLayCmd(cmd *cobra.Command, args []string) {
+	manifestUrl := ""
+	if len(args) > 0 {
+		manifestUrl = args[0]
 	}
 
-	pkgCmd.AddCommand(installCmd)
+	pkgMgr, err := cli.NewPkgMgr(NewtRepo, nil)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
 
-	baseCmd.AddCommand(pkgCmd)
+	manifest := ""
+
+	mParams := &cli.ManifestParams{
+		BaseUrl: manifestUrl,
+	}
+
+	fmt.Println("pkgs:")
+
+	if manifest, err = pkgMgr.GetManifest("    ", mParams); err != nil {
+		NewtUsage(cmd, err)
+	}
+	fmt.Print(manifest)
+}
+
+func nestGetCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify both name and URL to larva install command"))
+	}
+
+	name := args[0]
+	url := args[1]
+
+	clutch, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if err := clutch.Install(name, url); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	fmt.Println("Clutch " + name + " sucessfully installed to Nest.")
+}
+
+func nestShowCmd(cmd *cobra.Command, args []string) {
+	clutches, err := NewtNest.GetClutches()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	for name, clutch := range clutches {
+		fmt.Printf("Remote clutch %s (eggshells: %d)\n", name, len(clutch.EggShells))
+	}
+}
+
+func nestAddCmds(baseCmd *cobra.Command) {
+	nestCmd := &cobra.Command{
+		Use:   "nest",
+		Short: "Commands to manage nests & clutches (remote package repositories)",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(NewtLogLevel)
+
+			var err error
+			NewtRepo, err = cli.NewRepo()
+			if err != nil {
+				NewtUsage(nil, err)
+			}
+
+			NewtNest, err = cli.NewNest(NewtRepo)
+			if err != nil {
+				NewtUsage(nil, err)
+			}
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			NewtUsage(cmd, nil)
+		},
+	}
+
+	layCmd := &cobra.Command{
+		Use:   "lay",
+		Short: "Lay (generate) a clutch file from the packages in the current directory",
+		Run:   nestLayCmd,
+	}
+
+	nestCmd.AddCommand(layCmd)
+
+	getCmd := &cobra.Command{
+		Use:   "get",
+		Short: "Get a remote clutch, and put it in the current nest",
+		Run:   nestGetCmd,
+	}
+
+	nestCmd.AddCommand(getCmd)
+
+	showCmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show the clutches installed in the current nest",
+		Run:   nestShowCmd,
+	}
+
+	nestCmd.AddCommand(showCmd)
+
+	baseCmd.AddCommand(nestCmd)
 }
 
 func parseCmds() *cobra.Command {
@@ -630,8 +609,8 @@ func parseCmds() *cobra.Command {
 
 	targetAddCmds(newtCmd)
 	repoAddCmds(newtCmd)
-	compilerAddCmds(newtCmd)
 	pkgAddCmds(newtCmd)
+	nestAddCmds(newtCmd)
 
 	return newtCmd
 }

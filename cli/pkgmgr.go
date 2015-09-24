@@ -16,6 +16,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -151,7 +152,8 @@ func (pm *PkgMgr) String() string {
 // Recursively load a package.  Given the baseDir of the packages (e.g. pkg/ or
 // hw/bsp), and the base package name.
 func (pm *PkgMgr) loadPackageDir(baseDir string, pkgPrefix string, pkgName string) error {
-	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir, pkgName)
+	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir,
+		pkgName)
 
 	// first recurse and load subpackages
 	list, err := ioutil.ReadDir(baseDir + "/" + pkgName)
@@ -264,6 +266,15 @@ func (pm *PkgMgr) VerifyPackage(pkgDir string) (*Package, error) {
 	}
 
 	return pkg, nil
+}
+
+func (pm *PkgMgr) GetManifest(indent string, mParams *ManifestParams) (string, error) {
+	buf := bytes.Buffer{}
+
+	for _, pkg := range pm.Packages {
+		buf.WriteString(pkg.GetManifest(indent, mParams))
+	}
+	return buf.String(), nil
 }
 
 // Clean the build for the package specified by pkgName.   if cleanAll is

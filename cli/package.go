@@ -41,6 +41,11 @@ type DependencyRequirement struct {
 	VersMatches []*VersMatch
 }
 
+type ManifestParams struct {
+	// BaseUrl that the package is located at
+	BaseUrl string
+}
+
 type Package struct {
 	// Base directory of the package
 	BasePath string
@@ -154,8 +159,8 @@ func NewVersParseString(versStr string) (*Version, error) {
 		return nil, NewNewtError(fmt.Sprintf("Invalid version string: %s", versStr))
 	}
 
-	if strings.Trim(parts[0], " ") == "" {
-		return &Version{0, 0, 0}, nil
+	if strings.Trim(parts[0], " ") == "" || strings.Trim(parts[0], " ") == "none" {
+		return nil, nil
 	}
 
 	v := &Version{}
@@ -203,7 +208,10 @@ func (dr *DependencyRequirement) SetVersStr(versStr string) error {
 			if vm.Vers, err = NewVersParseString(match[2]); err != nil {
 				return err
 			}
-			dr.VersMatches = append(dr.VersMatches, vm)
+
+			if vm.Vers != nil {
+				dr.VersMatches = append(dr.VersMatches, vm)
+			}
 		}
 	} else {
 		dr.VersMatches = make([]*VersMatch, 0)
@@ -212,8 +220,15 @@ func (dr *DependencyRequirement) SetVersStr(versStr string) error {
 		if vm.Vers, err = NewVersParseString(versStr); err != nil {
 			return err
 		}
-		dr.VersMatches = append(dr.VersMatches, vm)
+		if vm.Vers != nil {
+			dr.VersMatches = append(dr.VersMatches, vm)
+		}
 	}
+
+	if len(dr.VersMatches) == 0 {
+		dr.VersMatches = nil
+	}
+
 	return nil
 }
 
@@ -232,7 +247,7 @@ func (dr *DependencyRequirement) VersMatchesString() string {
 
 // Convert the dependency requirement to a string for display
 func (dr *DependencyRequirement) String() string {
-	return fmt.Sprintf("%s:%s:%s", dr.Name, dr.VersMatchesString(), dr.Stability)
+	return fmt.Sprintf("%s@%s#%s", dr.Name, dr.VersMatchesString(), dr.Stability)
 }
 
 func (dr *DependencyRequirement) SatisfiesCapability(capability *DependencyRequirement) error {
@@ -295,6 +310,50 @@ func NewDependencyRequirementParseString(depReq string) (*DependencyRequirement,
 	}
 
 	return dr, nil
+}
+
+// Encode this package's contents into a package manifest, suitable for export
+func (pkg *Package) GetManifest(indent string, mParam *ManifestParams) string {
+	// XXX: Generate SHA1 of the package in the manifest
+
+	url := ""
+	if mParam.BaseUrl != "" {
+		url = mParam.BaseUrl + "/" + pkg.FullName
+	}
+
+	manifestStr := fmt.Sprintf("%s%s:\n", indent, pkg.FullName)
+	indent += "    "
+	manifestStr += fmt.Sprintf("%svers: %s\n", indent, pkg.Version)
+
+	if url != "" {
+		manifestStr += fmt.Sprintf("%surl: %s\n", indent, url)
+	}
+
+	depReqs, _ := pkg.GetDependencies()
+	if len(depReqs) > 0 {
+		manifestStr += fmt.Sprintf("%sdeps:\n", indent)
+		for _, dep := range depReqs {
+			manifestStr += fmt.Sprintf("%s    - %s\n", indent, dep)
+		}
+	}
+
+	caps, _ := pkg.GetCapabilities()
+	if len(caps) > 0 {
+		manifestStr += fmt.Sprintf("%scaps:\n", indent)
+		for _, capability := range caps {
+			manifestStr += fmt.Sprintf("%s    - %s\n", indent, capability)
+		}
+	}
+
+	capReqs := pkg.ReqCapabilities
+	if len(capReqs) > 0 {
+		manifestStr += fmt.Sprintf("%sreq_caps:\n", indent)
+		for _, capability := range capReqs {
+			manifestStr += fmt.Sprintf("%s    - %s\n", indent, capability)
+		}
+	}
+
+	return manifestStr
 }
 
 // Get a map of package capabilities.  The returned map contains the name of the
