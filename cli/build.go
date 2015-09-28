@@ -57,9 +57,12 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 }
 
 // Creates the set of compiler flags that should be specified when building a
-// particular target-package pair.
-func CreateCFlags(pm *PkgMgr, c *Compiler, t *Target, p *Package) string {
-	cflags := c.Cflags + " " + p.Cflags + " " + t.Cflags
+// particular target-entity pair.  The "entity" is what is being built; either
+// a package or a project.
+func CreateCflags(pm *PkgMgr, c *Compiler, t *Target,
+	entityCflags string) string {
+
+	cflags := c.Cflags + " " + entityCflags + " " + t.Cflags
 
 	// The 'test' identity causes the TEST symbol to be defined.  This allows
 	// package code to behave differently in test builds.
@@ -72,7 +75,7 @@ func CreateCFlags(pm *PkgMgr, c *Compiler, t *Target, p *Package) string {
 	// If a non-BSP package is being built, add the BSP's C flags to the list.
 	// The BSP's compiler flags get exported to all packages.
 	bspPackage, err := pm.ResolvePkgName(t.Bsp)
-	if err == nil && bspPackage != p {
+	if err == nil && bspPackage.Cflags != entityCflags {
 		cflags += " " + bspPackage.Cflags
 	}
 

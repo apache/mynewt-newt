@@ -429,7 +429,7 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 		return err
 	}
 	// setup Cflags, Lflags and Aflags
-	c.Cflags = CreateCFlags(pm, c, t, pkg)
+	c.Cflags = CreateCflags(pm, c, t, pkg.Cflags)
 	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
 	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
 
