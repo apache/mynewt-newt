@@ -20,6 +20,87 @@ import (
 	"os"
 )
 
+// Recursively iterates through a package's dependencies, adding each package
+// encountered to the supplied set.
+func collectDepsAux(pm *PkgMgr, pkg *Package, set *map[*Package]bool) error {
+	if (*set)[pkg] {
+		return nil
+	}
+
+	(*set)[pkg] = true
+
+	for _, dep := range pkg.Deps {
+		if dep.Name == "" {
+			break
+		}
+
+		// Get package structure
+		dpkg, err := pm.ResolvePkgName(dep.Name)
+		if err != nil {
+			return err
+		}
+
+		collectDepsAux(pm, dpkg, set)
+	}
+
+	return nil
+}
+
+// Recursively iterates through a package's dependencies.  The resulting array
+// contains a pointer to each encountered package.
+func collectDeps(pm *PkgMgr, pkg *Package) ([]*Package, error) {
+	set := map[*Package]bool{}
+
+	err := collectDepsAux(pm, pkg, &set)
+	if err != nil {
+		return nil, err
+	}
+
+	arr := []*Package{}
+	for p, _ := range set {
+		arr = append(arr, p)
+	}
+
+	return arr, nil
+}
+
+// Calculates the include paths exported by the specified package and all of
+// its recursive dependencies.
+func recursiveIncludePaths(pm *PkgMgr, pkg *Package,
+	t *Target) ([]string, error) {
+
+	deps, err := collectDeps(pm, pkg)
+	if err != nil {
+		return nil, err
+	}
+
+	incls := []string{}
+	for _, p := range deps {
+		pkgIncls, err := p.GetIncludes(t)
+		if err != nil {
+			return nil, err
+		}
+		incls = append(incls, pkgIncls...)
+	}
+
+	return incls, nil
+}
+
+// Calculates the include paths exported by the specified target's BSP and all
+// of its recursive dependencies.
+func BspIncludePaths(pm *PkgMgr, t *Target) ([]string, error) {
+	if t.Bsp == "" {
+		return nil, NewNewtError("Expected a BSP")
+	}
+
+	bspPackage, err := pm.ResolvePkgName(t.Bsp)
+	if err != nil {
+		return nil, NewNewtError("No BSP package for " + t.Bsp + " exists")
+	}
+
+	return recursiveIncludePaths(pm, bspPackage, t)
+}
+
 func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 	libs *[]string) (string, error) {
 
@@ -31,10 +112,6 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 	if err != nil {
 		return "", NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
-
-	// Add the BSP include directory to the global list of include paths.
-	// All subsequent code that gets built can include BSP header files.
-	*incls = append(*incls, bspPackage.BasePath+"/include/")
 
 	if err = pm.Build(t, t.Bsp, *incls, libs); err != nil {
 		return "", err

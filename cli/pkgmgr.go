@@ -639,9 +639,16 @@ func (pm *PkgMgr) Test(t *Target, pkgName string, exitOnFailure bool) error {
 	// The 'test' identity is implicitly exported during a package test.
 	t.Identities = append(t.Identities, "test")
 
-	// Build the BSP first.  This populates the global set of include paths and
-	// libraries that the test code needs.
+	// If there is a BSP:
+	//     1. Calculate the include paths that it and its dependencies export.
+	//        This set of include paths is accessible during all subsequent
+	//        builds.
+	//     2. Build the BSP package.
 	if t.Bsp != "" {
+		incls, err = BspIncludePaths(pm, t)
+		if err != nil {
+			return err
+		}
 		_, err = buildBsp(t, pm, &incls, &libs)
 		if err != nil {
 			return err

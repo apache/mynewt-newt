@@ -258,11 +258,18 @@ func (p *Project) Build() error {
 
 	incls := []string{}
 	libs := []string{}
-
-	// First build the BSP if there is one.  The BSP's include directory is
-	// accessible during all subsequent compiles.
 	linkerScript := ""
+
+	// If there is a BSP:
+	//     1. Calculate the include paths that it and its dependencies export.
+	//        This set of include paths is accessible during all subsequent
+	//        builds.
+	//     2. Build the BSP package.
 	if p.Target.Bsp != "" {
+		incls, err = BspIncludePaths(pm, p.Target)
+		if err != nil {
+			return err
+		}
 		linkerScript, err = p.buildBsp(pm, &incls, &libs)
 		if err != nil {
 			return err
