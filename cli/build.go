@@ -159,7 +159,9 @@ func CreateCflags(pm *PkgMgr, c *Compiler, t *Target,
 	return cflags
 }
 
-func PkgIncludeDirs(pkg *Package, t *Target, srcDir string) []string {
+func PkgIncludeDirs(pkg *Package, t *Target) []string {
+	srcDir := pkg.BasePath + "/src/"
+
 	incls := pkg.Includes
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+t.Arch)

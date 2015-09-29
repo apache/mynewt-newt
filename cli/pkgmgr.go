@@ -410,13 +410,12 @@ func (pm *PkgMgr) Build(t *Target, pkgName string, incls []string,
 		return err
 	}
 
-	srcDir := pkg.BasePath + "/src/"
-
 	// NOTE: this assignment must happen after the call to buildDeps(), as
 	// buildDeps() fills in the package includes.
-	incls = append(incls, PkgIncludeDirs(pkg, t, srcDir)...)
+	incls = append(incls, PkgIncludeDirs(pkg, t)...)
 	log.Printf("[DEBUG] Package includes for %s are %s", pkgName, incls)
 
+	srcDir := pkg.BasePath + "/src/"
 	if NodeNotExist(srcDir) {
 		// nothing to compile, return true!
 		return nil
