@@ -22,25 +22,25 @@ import (
 
 // Recursively iterates through a package's dependencies, adding each package
 // encountered to the supplied set.
-func collectDepsAux(pm *PkgMgr, pkg *Package, set *map[*Package]bool) error {
-	if (*set)[pkg] {
+func collectDepsAux(em *EggMgr, egg *Egg, set *map[*Egg]bool) error {
+	if (*set)[egg] {
 		return nil
 	}
 
-	(*set)[pkg] = true
+	(*set)[egg] = true
 
-	for _, dep := range pkg.Deps {
+	for _, dep := range egg.Deps {
 		if dep.Name == "" {
 			break
 		}
 
 		// Get package structure
-		dpkg, err := pm.ResolvePkgName(dep.Name)
+		degg, err := em.ResolveEggName(dep.Name)
 		if err != nil {
 			return err
 		}
 
-		collectDepsAux(pm, dpkg, set)
+		collectDepsAux(em, degg, set)
 	}
 
 	return nil
@@ -48,15 +48,15 @@ func collectDepsAux(pm *PkgMgr, pkg *Package, set *map[*Package]bool) error {
 
 // Recursively iterates through a package's dependencies.  The resulting array
 // contains a pointer to each encountered package.
-func collectDeps(pm *PkgMgr, pkg *Package) ([]*Package, error) {
-	set := map[*Package]bool{}
+func collectDeps(em *EggMgr, egg *Egg) ([]*Egg, error) {
+	set := map[*Egg]bool{}
 
-	err := collectDepsAux(pm, pkg, &set)
+	err := collectDepsAux(em, egg, &set)
 	if err != nil {
 		return nil, err
 	}
 
-	arr := []*Package{}
+	arr := []*Egg{}
 	for p, _ := range set {
 		arr = append(arr, p)
 	}
@@ -66,21 +66,21 @@ func collectDeps(pm *PkgMgr, pkg *Package) ([]*Package, error) {
 
 // Calculates the include paths exported by the specified package and all of
 // its recursive dependencies.
-func recursiveIncludePaths(pm *PkgMgr, pkg *Package,
+func recursiveIncludePaths(em *EggMgr, egg *Egg,
 	t *Target) ([]string, error) {
 
-	deps, err := collectDeps(pm, pkg)
+	deps, err := collectDeps(em, egg)
 	if err != nil {
 		return nil, err
 	}
 
 	incls := []string{}
 	for _, p := range deps {
-		pkgIncls, err := p.GetIncludes(t)
+		eggIncls, err := p.GetIncludes(t)
 		if err != nil {
 			return nil, err
 		}
-		incls = append(incls, pkgIncls...)
+		incls = append(incls, eggIncls...)
 	}
 
 	return incls, nil
@@ -88,44 +88,44 @@ func recursiveIncludePaths(pm *PkgMgr, pkg *Package,
 
 // Calculates the include paths exported by the specified target's BSP and all
 // of its recursive dependencies.
-func BspIncludePaths(pm *PkgMgr, t *Target) ([]string, error) {
+func BspIncludePaths(em *EggMgr, t *Target) ([]string, error) {
 	if t.Bsp == "" {
 		return nil, NewNewtError("Expected a BSP")
 	}
 
-	bspPackage, err := pm.ResolvePkgName(t.Bsp)
+	bspEgg, err := em.ResolveEggName(t.Bsp)
 	if err != nil {
 		return nil, NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
-	return recursiveIncludePaths(pm, bspPackage, t)
+	return recursiveIncludePaths(em, bspEgg, t)
 }
 
-func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
+func buildBsp(t *Target, em *EggMgr, incls *[]string,
 	libs *[]string) (string, error) {
 
 	if t.Bsp == "" {
 		return "", NewNewtError("Expected a BSP")
 	}
 
-	bspPackage, err := pm.ResolvePkgName(t.Bsp)
+	bspEgg, err := em.ResolveEggName(t.Bsp)
 	if err != nil {
 		return "", NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
-	if err = pm.Build(t, t.Bsp, *incls, libs); err != nil {
+	if err = em.Build(t, t.Bsp, *incls, libs); err != nil {
 		return "", err
 	}
 
 	// A BSP doesn't have to contain source; don't fail if no library was
 	// built.
-	if lib := pm.GetPackageLib(t, bspPackage); NodeExist(lib) {
+	if lib := em.GetEggLib(t, bspEgg); NodeExist(lib) {
 		*libs = append(*libs, lib)
 	}
 
 	var linkerScript string
-	if bspPackage.LinkerScript != "" {
-		linkerScript = bspPackage.BasePath + "/" + bspPackage.LinkerScript
+	if bspEgg.LinkerScript != "" {
+		linkerScript = bspEgg.BasePath + "/" + bspEgg.LinkerScript
 	} else {
 		linkerScript = ""
 	}
@@ -136,7 +136,7 @@ func buildBsp(t *Target, pm *PkgMgr, incls *[]string,
 // Creates the set of compiler flags that should be specified when building a
 // particular target-entity pair.  The "entity" is what is being built; either
 // a package or a project.
-func CreateCflags(pm *PkgMgr, c *Compiler, t *Target,
+func CreateCflags(em *EggMgr, c *Compiler, t *Target,
 	entityCflags string) string {
 
 	cflags := c.Cflags + " " + entityCflags + " " + t.Cflags
@@ -151,18 +151,18 @@ func CreateCflags(pm *PkgMgr, c *Compiler, t *Target,
 
 	// If a non-BSP package is being built, add the BSP's C flags to the list.
 	// The BSP's compiler flags get exported to all packages.
-	bspPackage, err := pm.ResolvePkgName(t.Bsp)
-	if err == nil && bspPackage.Cflags != entityCflags {
-		cflags += " " + bspPackage.Cflags
+	bspEgg, err := em.ResolveEggName(t.Bsp)
+	if err == nil && bspEgg.Cflags != entityCflags {
+		cflags += " " + bspEgg.Cflags
 	}
 
 	return cflags
 }
 
-func PkgIncludeDirs(pkg *Package, t *Target) []string {
-	srcDir := pkg.BasePath + "/src/"
+func EggIncludeDirs(egg *Egg, t *Target) []string {
+	srcDir := egg.BasePath + "/src/"
 
-	incls := pkg.Includes
+	incls := egg.Includes
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+t.Arch)
 

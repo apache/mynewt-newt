@@ -29,8 +29,8 @@ type Project struct {
 	// Base path of project
 	BasePath string
 
-	// Packages
-	Packages []string
+	// Eggs
+	Eggs []string
 
 	// Capabilities
 	Capabilities []string
@@ -71,8 +71,8 @@ func LoadProject(r *Repo, t *Target, name string) (*Project, error) {
 }
 
 // Get the packages associated with the project
-func (p *Project) GetPackages() []string {
-	return p.Packages
+func (p *Project) GetEggs() []string {
+	return p.Eggs
 }
 
 // Load project configuration
@@ -87,7 +87,7 @@ func (p *Project) loadConfig() error {
 
 	t := p.Target
 
-	p.Packages = GetStringSliceIdentities(v, t, "project.pkgs")
+	p.Eggs = GetStringSliceIdentities(v, t, "project.eggs")
 
 	idents := GetStringSliceIdentities(v, t, "project.identities")
 	t.Identities = append(t.Identities, idents...)
@@ -105,7 +105,7 @@ func (p *Project) loadConfig() error {
 // project, if cleanAll is true, then clean everything, not just the current
 // architecture
 func (p *Project) BuildClean(cleanAll bool) error {
-	pm, err := NewPkgMgr(p.Repo, p.Target)
+	em, err := NewEggMgr(p.Repo, p.Target)
 	if err != nil {
 		return err
 	}
@@ -113,8 +113,8 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	// first, clean packages
 	log.Printf("[DEBUG] Cleaning all the packages associated with project %s",
 		p.Name)
-	for _, pkgName := range p.GetPackages() {
-		err = pm.BuildClean(p.Target, pkgName, cleanAll)
+	for _, eggName := range p.GetEggs() {
+		err = em.BuildClean(p.Target, eggName, cleanAll)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func (p *Project) BuildClean(cleanAll bool) error {
 
 	// clean the BSP, if it exists
 	if p.Target.Bsp != "" {
-		if err := pm.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
+		if err := em.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
 			return err
 		}
 	}
@@ -145,13 +145,13 @@ func (p *Project) BuildClean(cleanAll bool) error {
 }
 
 // Build the packages that this project depends on
-// pm is an initialized package manager, incls is an array of includes to
+// em is an initialized package manager, incls is an array of includes to
 // append to (package includes get append as they are built)
 // libs is an array of archive files to append to (package libraries get
 // appended as they are built)
-func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
-	pkgList := p.GetPackages()
-	if pkgList == nil {
+func (p *Project) buildDeps(em *EggMgr, incls *[]string, libs *[]string) error {
+	eggList := p.GetEggs()
+	if eggList == nil {
 		return nil
 	}
 
@@ -161,7 +161,7 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 
 	// Append project variables to target variables, so that all package builds
 	// inherit from them
-	pkgList = append(pkgList, t.Dependencies...)
+	eggList = append(eggList, t.Dependencies...)
 	t.Capabilities = append(t.Capabilities, p.Capabilities...)
 	t.Cflags += " " + p.Cflags
 	t.Lflags += " " + p.Lflags
@@ -181,49 +181,49 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 		caps[dr.String()] = dr
 	}
 
-	for _, pkgName := range pkgList {
-		if pkgName == "" {
+	for _, eggName := range eggList {
+		if eggName == "" {
 			continue
 		}
 
-		pkg, err := pm.ResolvePkgName(pkgName)
+		egg, err := em.ResolveEggName(eggName)
 		if err != nil {
 			return err
 		}
 
-		if err := pm.CheckPkgDeps(pkg, deps, reqcaps, caps); err != nil {
+		if err := em.CheckEggDeps(egg, deps, reqcaps, caps); err != nil {
 			return err
 		}
 	}
 
 	// After processing all the dependencies, verify that the package's capability
 	// requirements are satisfies as well
-	if err := pm.VerifyCaps(reqcaps, caps); err != nil {
+	if err := em.VerifyCaps(reqcaps, caps); err != nil {
 		return err
 	}
 
 	// now go through and build everything
-	for _, pkgName := range pkgList {
-		if pkgName == "" {
+	for _, eggName := range eggList {
+		if eggName == "" {
 			continue
 		}
 
-		pkg, err := pm.ResolvePkgName(pkgName)
+		egg, err := em.ResolveEggName(eggName)
 		if err != nil {
 			return err
 		}
 
-		if err = pm.Build(p.Target, pkgName, *incls, libs); err != nil {
+		if err = em.Build(p.Target, eggName, *incls, libs); err != nil {
 			return err
 		}
 
 		// Don't fail if package did not produce a library file; some packages
 		// are header-only.
-		if lib := pm.GetPackageLib(p.Target, pkg); NodeExist(lib) {
+		if lib := em.GetEggLib(p.Target, egg); NodeExist(lib) {
 			*libs = append(*libs, lib)
 		}
 
-		*incls = append(*incls, pkg.Includes...)
+		*incls = append(*incls, egg.Includes...)
 	}
 
 	return nil
@@ -231,11 +231,11 @@ func (p *Project) buildDeps(pm *PkgMgr, incls *[]string, libs *[]string) error {
 
 // Build the BSP for this project.
 // The BSP is specified by the Target attached to the project.
-// pm is an initialized pkg mgr, containing all the packages
+// em is an initialized egg mgr, containing all the packages
 // incls and libs are pointers to an array of includes and libraries, when buildBsp()
 // builds the BSP, it appends the include directories for the BSP, and the archive file
 // to these variables.
-func (p *Project) buildBsp(pm *PkgMgr, incls *[]string,
+func (p *Project) buildBsp(em *EggMgr, incls *[]string,
 	libs *[]string) (string, error) {
 
 	log.Printf("[INFO] Building BSP %s for Project %s", p.Target.Bsp, p.Name)
@@ -244,14 +244,14 @@ func (p *Project) buildBsp(pm *PkgMgr, incls *[]string,
 		return "", NewNewtError("Must specify a BSP to build project")
 	}
 
-	return buildBsp(p.Target, pm, incls, libs)
+	return buildBsp(p.Target, em, incls, libs)
 }
 
 // Build the project
 func (p *Project) Build() error {
 	log.Printf("[INFO] Building project %s", p.Name)
 
-	pm, err := NewPkgMgr(p.Repo, p.Target)
+	em, err := NewEggMgr(p.Repo, p.Target)
 	if err != nil {
 		return err
 	}
@@ -266,18 +266,18 @@ func (p *Project) Build() error {
 	//        builds.
 	//     2. Build the BSP package.
 	if p.Target.Bsp != "" {
-		incls, err = BspIncludePaths(pm, p.Target)
+		incls, err = BspIncludePaths(em, p.Target)
 		if err != nil {
 			return err
 		}
-		linkerScript, err = p.buildBsp(pm, &incls, &libs)
+		linkerScript, err = p.buildBsp(em, &incls, &libs)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Build the project dependencies.
-	if err := p.buildDeps(pm, &incls, &libs); err != nil {
+	if err := p.buildDeps(em, &incls, &libs); err != nil {
 		return err
 	}
 
@@ -298,7 +298,7 @@ func (p *Project) Build() error {
 	c.LinkerScript = linkerScript
 
 	// Add target C flags
-	c.Cflags = CreateCflags(pm, c, p.Target, p.Cflags)
+	c.Cflags = CreateCflags(em, c, p.Target, p.Cflags)
 
 	os.Chdir(p.BasePath + "/src/")
 	if err = c.Compile("*.c"); err != nil {

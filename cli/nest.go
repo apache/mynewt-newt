@@ -16,6 +16,8 @@
 package cli
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
@@ -37,7 +39,6 @@ type Clutch struct {
 
 type EggShell struct {
 	FullName string
-	Url      string
 	Version  *Version
 	Deps     []*DependencyRequirement
 	Caps     []*DependencyRequirement
@@ -75,14 +76,6 @@ func NewNest(repo *Repo) (*Nest, error) {
 	return nest, nil
 }
 
-func NewClutch(nest *Nest) (*Clutch, error) {
-	clutch := &Clutch{}
-
-	clutch.nest = nest
-
-	return clutch, nil
-}
-
 func NewEggShell() (*EggShell, error) {
 	eShell := &EggShell{}
 
@@ -115,6 +108,72 @@ func (nest *Nest) GetClutches() (map[string]*Clutch, error) {
 	return nest.Clutches, nil
 }
 
+func (es *EggShell) serializeDepReq(name string,
+	drList []*DependencyRequirement, indent string) string {
+	drStr := ""
+	if len(drList) > 0 {
+		drStr += fmt.Sprintf("%s%s:\n", indent, name)
+		for _, dr := range drList {
+			drStr += fmt.Sprintf("%s    - %s\n", indent, dr)
+		}
+	}
+
+	return drStr
+}
+
+func (es *EggShell) Serialize(indent string) string {
+	esStr := fmt.Sprintf("%s%s:\n", indent, es.FullName)
+	indent += "    "
+	if es.Version == nil {
+		es.Version = &Version{0, 0, 0}
+	}
+	esStr += fmt.Sprintf("%svers: %s\n", indent, es.Version)
+
+	esStr += es.serializeDepReq("deps", es.Deps, indent)
+	esStr += es.serializeDepReq("caps", es.Caps, indent)
+	esStr += es.serializeDepReq("req_caps", es.ReqCaps, indent)
+
+	return esStr
+}
+
+func NewClutch(nest *Nest) (*Clutch, error) {
+	clutch := &Clutch{}
+
+	clutch.nest = nest
+
+	return clutch, nil
+}
+
+func (cl *Clutch) LoadFromPM(em *EggMgr) error {
+	for _, pkg := range em.Eggs {
+		eggShell := &EggShell{}
+		eggShell.FullName = pkg.FullName
+		eggShell.Deps = pkg.Deps
+		eggShell.Caps = pkg.Capabilities
+		eggShell.ReqCaps = pkg.ReqCapabilities
+		eggShell.Version = pkg.Version
+
+		cl.EggShells = append(cl.EggShells, eggShell)
+	}
+
+	return nil
+}
+
+func (cl *Clutch) Serialize() (string, error) {
+	clStr := "name: " + cl.Name + "\n"
+	clStr = clStr + "url: " + cl.RemoteUrl + "\n"
+	clStr = clStr + "eggs:\n"
+
+	buf := bytes.Buffer{}
+
+	indent := "    "
+	for _, eggShell := range cl.EggShells {
+		buf.WriteString(eggShell.Serialize(indent))
+	}
+
+	return clStr + buf.String(), nil
+}
+
 func (cl *Clutch) strSliceToDr(list []string) ([]*DependencyRequirement, error) {
 	drList := []*DependencyRequirement{}
 
@@ -133,45 +192,45 @@ func (cl *Clutch) strSliceToDr(list []string) ([]*DependencyRequirement, error) 
 	}
 }
 
-func (cl *Clutch) fileToPackageList(cfg *viper.Viper) ([]*EggShell, error) {
-	pkgMap := cfg.GetStringMap("pkgs")
+func (cl *Clutch) fileToEggList(cfg *viper.Viper) ([]*EggShell,
+	error) {
+	eggMap := cfg.GetStringMap("eggs")
 
-	pkgList := []*EggShell{}
+	eggList := []*EggShell{}
 
-	for name, _ := range pkgMap {
-		lpkg, err := NewEggShell()
+	for name, _ := range eggMap {
+		eggShell, err := NewEggShell()
 		if err != nil {
 			return nil, err
 		}
-		lpkg.FullName = name
+		eggShell.FullName = name
 
-		pkgDef := cfg.GetStringMap("pkgs." + name)
-		lpkg.Url = pkgDef["url"].(string)
-		lpkg.Version, err = NewVersParseString(pkgDef["vers"].(string))
-		if err != nil {
-			return nil, err
-		}
-
-		lpkg.Deps, err = cl.strSliceToDr(cfg.GetStringSlice("pkgs." + name + ".deps"))
+		eggDef := cfg.GetStringMap("eggs." + name)
+		eggShell.Version, err = NewVersParseString(eggDef["vers"].(string))
 		if err != nil {
 			return nil, err
 		}
 
-		lpkg.Caps, err = cl.strSliceToDr(cfg.GetStringSlice("pkgs." + name + ".caps"))
+		eggShell.Deps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name + ".deps"))
 		if err != nil {
 			return nil, err
 		}
 
-		lpkg.ReqCaps, err = cl.strSliceToDr(cfg.GetStringSlice("pkgs." + name +
+		eggShell.Caps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name + ".caps"))
+		if err != nil {
+			return nil, err
+		}
+
+		eggShell.ReqCaps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name +
 			".req_caps"))
 		if err != nil {
 			return nil, err
 		}
 
-		pkgList = append(pkgList, lpkg)
+		eggList = append(eggList, eggShell)
 	}
 
-	return pkgList, nil
+	return eggList, nil
 }
 
 // Create the manifest file name, it's the manifest dir + manifest name and a
@@ -186,7 +245,16 @@ func (cl *Clutch) Load(name string) error {
 		return nil
 	}
 
-	cl.EggShells, err = cl.fileToPackageList(cfg)
+	if cfg.GetString("name") != name {
+		return NewNewtError(
+			fmt.Sprintf("Wrong name %s in remote larva file (expected %s)",
+				cfg.GetString("name"), name))
+	}
+
+	cl.Name = cfg.GetString("name")
+	cl.RemoteUrl = cfg.GetString("url")
+
+	cl.EggShells, err = cl.fileToEggList(cfg)
 	if err != nil {
 		return err
 	}

@@ -69,7 +69,7 @@ func (t *Target) SetDefaults() error {
 
 	t.Name = t.Vars["name"]
 
-	if t.Vars["project"] != "" && t.Vars["pkg"] != "" {
+	if t.Vars["project"] != "" && t.Vars["egg"] != "" {
 		return NewNewtError("Target " + t.Vars["name"] + " cannot have a " +
 			"project and package set.")
 	}
@@ -283,13 +283,13 @@ func (t *Target) Build() error {
 		if err = p.Build(); err != nil {
 			return err
 		}
-	} else if t.Vars["pkg"] != "" {
-		pm, err := NewPkgMgr(t.Repo, t)
+	} else if t.Vars["egg"] != "" {
+		pm, err := NewEggMgr(t.Repo, t)
 		if err != nil {
 			return err
 		}
 
-		err = pm.Build(t, t.Vars["pkg"], nil, nil)
+		err = pm.Build(t, t.Vars["egg"], nil, nil)
 		if err != nil {
 			return err
 		}
@@ -309,12 +309,12 @@ func (t *Target) BuildClean(cleanAll bool) error {
 		if err = p.BuildClean(cleanAll); err != nil {
 			return err
 		}
-	} else if t.Vars["pkg"] != "" {
-		pm, err := NewPkgMgr(t.Repo, t)
+	} else if t.Vars["egg"] != "" {
+		pm, err := NewEggMgr(t.Repo, t)
 		if err != nil {
 			return err
 		}
-		err = pm.BuildClean(t, t.Vars["pkg"], cleanAll)
+		err = pm.BuildClean(t, t.Vars["egg"], cleanAll)
 		if err != nil {
 			return err
 		}
@@ -328,16 +328,16 @@ func (t *Target) Test(cmd string, flag bool) error {
 		return NewNewtError("Tests not supported on projects, only packages")
 	}
 
-	pm, err := NewPkgMgr(t.Repo, t)
+	pm, err := NewEggMgr(t.Repo, t)
 	if err != nil {
 		return err
 	}
 
 	switch cmd {
 	case "test":
-		err = pm.Test(t, t.Vars["pkg"], flag)
+		err = pm.Test(t, t.Vars["egg"], flag)
 	case "testclean":
-		err = pm.TestClean(t, t.Vars["pkg"], flag)
+		err = pm.TestClean(t, t.Vars["egg"], flag)
 	default:
 		err = NewNewtError("Unknown command to Test() " + cmd)
 	}

@@ -382,12 +382,12 @@ func repoAddCmds(baseCmd *cobra.Command) {
 	baseCmd.AddCommand(repoCmd)
 }
 
-func dispPkg(pkg *cli.Package) error {
-	fmt.Printf("Package %s, version %s\n", pkg.FullName, pkg.Version)
-	fmt.Printf("  path: %s\n", filepath.Clean(pkg.BasePath))
-	if pkg.Capabilities != nil {
+func dispEgg(egg *cli.Egg) error {
+	fmt.Printf("Egg %s, version %s\n", egg.FullName, egg.Version)
+	fmt.Printf("  path: %s\n", filepath.Clean(egg.BasePath))
+	if egg.Capabilities != nil {
 		fmt.Printf("  capabilities: ")
-		caps, err := pkg.GetCapabilities()
+		caps, err := egg.GetCapabilities()
 		if err != nil {
 			return err
 		}
@@ -396,9 +396,9 @@ func dispPkg(pkg *cli.Package) error {
 		}
 		fmt.Printf("\n")
 	}
-	if len(pkg.Deps) > 0 {
+	if len(egg.Deps) > 0 {
 		fmt.Printf("  deps: ")
-		for _, dep := range pkg.Deps {
+		for _, dep := range egg.Deps {
 			if dep == nil {
 				continue
 			}
@@ -407,42 +407,42 @@ func dispPkg(pkg *cli.Package) error {
 		fmt.Printf("\n")
 	}
 
-	if pkg.LinkerScript != "" {
-		fmt.Printf("  linkerscript: %s\n", pkg.LinkerScript)
+	if egg.LinkerScript != "" {
+		fmt.Printf("  linkerscript: %s\n", egg.LinkerScript)
 	}
 	return nil
 }
 
-func pkgListCmd(cmd *cobra.Command, args []string) {
-	pkgMgr, err := cli.NewPkgMgr(NewtRepo, nil)
+func eggListCmd(cmd *cobra.Command, args []string) {
+	eggMgr, err := cli.NewEggMgr(NewtRepo, nil)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	for _, pkg := range pkgMgr.Packages {
-		if err := dispPkg(pkg); err != nil {
+	for _, egg := range eggMgr.Eggs {
+		if err := dispEgg(egg); err != nil {
 			NewtUsage(cmd, err)
 		}
 	}
 }
 
-func pkgCheckDepsCmd(cmd *cobra.Command, args []string) {
-	pkgMgr, err := cli.NewPkgMgr(NewtRepo, nil)
+func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
+	eggMgr, err := cli.NewEggMgr(NewtRepo, nil)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if err := pkgMgr.CheckDeps(); err != nil {
+	if err := eggMgr.CheckDeps(); err != nil {
 		NewtUsage(cmd, err)
 	}
 
 	fmt.Println("Dependencies successfully resolved!")
 }
 
-func pkgAddCmds(baseCmd *cobra.Command) {
-	pkgCmd := &cobra.Command{
-		Use:   "pkg",
-		Short: "Commands to list and inspect packages on a repo",
+func eggAddCmds(baseCmd *cobra.Command) {
+	eggCmd := &cobra.Command{
+		Use:   "egg",
+		Short: "Commands to list and inspect eggs on a repo",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cli.Init(NewtLogLevel)
 
@@ -459,46 +459,54 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 
 	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "List packages in the current repository",
-		Run:   pkgListCmd,
+		Short: "List eggs in the current repository",
+		Run:   eggListCmd,
 	}
 
-	pkgCmd.AddCommand(listCmd)
+	eggCmd.AddCommand(listCmd)
 
 	checkDepsCmd := &cobra.Command{
 		Use:   "checkdeps",
-		Short: "Check package dependencies",
-		Run:   pkgCheckDepsCmd,
+		Short: "Check egg dependencies",
+		Run:   eggCheckDepsCmd,
 	}
 
-	pkgCmd.AddCommand(checkDepsCmd)
+	eggCmd.AddCommand(checkDepsCmd)
 
-	baseCmd.AddCommand(pkgCmd)
+	baseCmd.AddCommand(eggCmd)
 }
 
 func nestLayCmd(cmd *cobra.Command, args []string) {
-	manifestUrl := ""
-	if len(args) > 0 {
-		manifestUrl = args[0]
+	if len(args) != 2 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify name and URL to lay clutch file"))
 	}
 
-	pkgMgr, err := cli.NewPkgMgr(NewtRepo, nil)
+	clutchName := args[0]
+	clutchUrl := args[1]
+
+	clutch, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	clutch.Name = clutchName
+	clutch.RemoteUrl = clutchUrl
+
+	eggMgr, err := cli.NewEggMgr(NewtRepo, nil)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	manifest := ""
-
-	mParams := &cli.ManifestParams{
-		BaseUrl: manifestUrl,
-	}
-
-	fmt.Println("pkgs:")
-
-	if manifest, err = pkgMgr.GetManifest("    ", mParams); err != nil {
+	if err := clutch.LoadFromPM(eggMgr); err != nil {
 		NewtUsage(cmd, err)
 	}
-	fmt.Print(manifest)
+
+	clutchStr, err := clutch.Serialize()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	fmt.Print(clutchStr)
 }
 
 func nestGetCmd(cmd *cobra.Command, args []string) {
@@ -536,7 +544,7 @@ func nestShowCmd(cmd *cobra.Command, args []string) {
 func nestAddCmds(baseCmd *cobra.Command) {
 	nestCmd := &cobra.Command{
 		Use:   "nest",
-		Short: "Commands to manage nests & clutches (remote package repositories)",
+		Short: "Commands to manage nests & clutches (remote egg repositories)",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cli.Init(NewtLogLevel)
 
@@ -558,7 +566,7 @@ func nestAddCmds(baseCmd *cobra.Command) {
 
 	layCmd := &cobra.Command{
 		Use:   "lay",
-		Short: "Lay (generate) a clutch file from the packages in the current directory",
+		Short: "Lay (generate) a clutch file from the eggs in the current directory",
 		Run:   nestLayCmd,
 	}
 
@@ -609,7 +617,7 @@ func parseCmds() *cobra.Command {
 
 	targetAddCmds(newtCmd)
 	repoAddCmds(newtCmd)
-	pkgAddCmds(newtCmd)
+	eggAddCmds(newtCmd)
 	nestAddCmds(newtCmd)
 
 	return newtCmd
