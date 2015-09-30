@@ -326,9 +326,9 @@ func (p *Project) Build() error {
 	log.Printf("[DEBUG] Compiling a binary %s from libs %s", binDir+p.Name,
 		strings.Join(libs, " "))
 
-	err = c.CompileElf(binDir+p.Name,
-		map[string]bool{"mapFile": c.ldMapFile,
-			"listFile": true}, strings.Join(libs, " "))
+	options := map[string]bool{"mapFile": c.ldMapFile,
+		"listFile": true, "binFile": true}
+	err = c.CompileElf(binDir+p.Name, options, strings.Join(libs, " "))
 	if err != nil {
 		return err
 	}

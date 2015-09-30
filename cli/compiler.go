@@ -39,6 +39,7 @@ type Compiler struct {
 	arPath                string
 	odPath                string
 	osPath                string
+	ocPath                string
 	ldFlags               string
 	ldResolveCircularDeps bool
 	ldMapFile             bool
@@ -75,6 +76,7 @@ func (c *Compiler) ReadSettings(cDef string) error {
 	c.arPath = v.GetString("compiler.path.archive")
 	c.odPath = v.GetString("compiler.path.objdump")
 	c.osPath = v.GetString("compiler.path.objsize")
+	c.ocPath = v.GetString("compiler.path.objcopy")
 
 	cflags := v.GetStringSlice("compiler.flags." + cDef)
 	for _, flag := range cflags {
@@ -253,14 +255,14 @@ func (c *Compiler) getObjFiles(baseObjFiles string) string {
 	return objList
 }
 
-func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
+func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	objFiles string) error {
 	objList := c.getObjFiles(objFiles)
 
-	log.Printf("[INFO] Compiling Binary %s with object files %s", binFile,
+	log.Printf("[INFO] Compiling Binary %s with object files %s", dstFile,
 		objList)
 
-	cmd := c.ccPath + " -o " + binFile + " " + c.ldFlags + " " + c.Cflags
+	cmd := c.ccPath + " -o " + dstFile + " " + c.ldFlags + " " + c.Cflags
 	if c.ldResolveCircularDeps {
 		cmd += " -Wl,--start-group -lc " + objList + " -Wl,--end-group "
 	} else {
@@ -271,7 +273,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 		cmd += " -T " + c.LinkerScript
 	}
 	if checkBoolMap(options, "mapFile") {
-		cmd += " -Wl,-Map=" + binFile + ".map"
+		cmd += " -Wl,-Map=" + dstFile + ".map"
 	}
 
 	_, err := ShellCommand(cmd)
@@ -280,7 +282,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 	}
 
 	if checkBoolMap(options, "listFile") {
-		listFile := binFile + ".lst"
+		listFile := dstFile + ".lst"
 		// if list file exists, remove it
 		if NodeExist(listFile) {
 			if err := os.RemoveAll(listFile); err != nil {
@@ -288,7 +290,7 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 			}
 		}
 
-		cmd = c.odPath + " -wxdS " + binFile + " >> " + listFile
+		cmd = c.odPath + " -wxdS " + dstFile + " >> " + listFile
 		_, err := ShellCommand(cmd)
 		if err != nil {
 			// XXX: gobjdump appears to always crash.  Until we get that sorted
@@ -298,15 +300,24 @@ func (c *Compiler) CompileBinary(binFile string, options map[string]bool,
 
 		sects := []string{".text", ".rodata", ".data"}
 		for _, sect := range sects {
-			cmd = c.odPath + " -s -j " + sect + " " + binFile + " >> " + listFile
+			cmd = c.odPath + " -s -j " + sect + " " + dstFile + " >> " + listFile
 			ShellCommand(cmd)
 		}
 
-		cmd = c.osPath + " " + binFile + " >> " + listFile
+		cmd = c.osPath + " " + dstFile + " >> " + listFile
+	}
+
+	if checkBoolMap(options, "binFile") {
+		binFile := dstFile + ".bin"
+		cmd = c.ocPath + " -R .bss -R .bss.core -R .bss.core.nz -O binary " +
+			dstFile + " " + binFile
+		_, err := ShellCommand(cmd)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
-
 }
 
 func (c *Compiler) CompileElf(binFile string, options map[string]bool,
