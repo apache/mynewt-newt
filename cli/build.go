@@ -147,7 +147,7 @@ func CreateCflags(em *EggMgr, c *Compiler, t *Target,
 		cflags += " -DTEST"
 	}
 
-	cflags += " -DARCH=" + t.Arch
+	cflags += " -DARCH_" + t.Arch
 
 	// If a non-BSP package is being built, add the BSP's C flags to the list.
 	// The BSP's compiler flags get exported to all packages.
