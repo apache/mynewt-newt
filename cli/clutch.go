@@ -62,7 +62,8 @@ func (clutch *Clutch) LoadConfigs(t *Target, force bool) error {
 }
 
 func (clutch *Clutch) CheckEggDeps(egg *Egg,
-	deps map[string]*DependencyRequirement, reqcap map[string]*DependencyRequirement,
+	deps map[string]*DependencyRequirement,
+	reqcap map[string]*DependencyRequirement,
 	caps map[string]*DependencyRequirement) error {
 	// if no dependencies, then everything is ok!
 	if egg.Deps == nil || len(egg.Deps) == 0 {
@@ -75,11 +76,13 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 			continue
 		}
 
-		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq, egg.Name)
+		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq,
+			egg.Name)
 		egg, ok := clutch.Eggs[depReq.Name]
 		if !ok {
-			return NewNewtError(fmt.Sprintf("No package dependency %s found for %s",
-				depReq.Name, egg.Name))
+			return NewNewtError(
+				fmt.Sprintf("No package dependency %s found for %s",
+					depReq.Name, egg.Name))
 		}
 
 		if ok := depReq.SatisfiesDependency(egg); !ok {
@@ -97,7 +100,8 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 			continue
 		}
 
-		if err := clutch.CheckEggDeps(clutch.Eggs[depReq.Name], deps, reqcap, caps); err != nil {
+		if err := clutch.CheckEggDeps(clutch.Eggs[depReq.Name], deps,
+			reqcap, caps); err != nil {
 			return err
 		}
 	}
@@ -111,7 +115,8 @@ func (clutch *Clutch) VerifyCaps(reqcaps map[string]*DependencyRequirement,
 	for name, rcap := range reqcaps {
 		capability, ok := caps[name]
 		if !ok {
-			return NewNewtError(fmt.Sprintf("Required capability %s not found", name))
+			return NewNewtError(fmt.Sprintf("Required capability %s not found",
+				name))
 		}
 
 		if err := rcap.SatisfiesCapability(capability); err != nil {
@@ -139,7 +144,8 @@ func (clutch *Clutch) CheckDeps() error {
 
 // Load an individual package specified by eggName into the package list for
 // this repository
-func (clutch *Clutch) loadEgg(eggDir string, eggPrefix string, eggName string) error {
+func (clutch *Clutch) loadEgg(eggDir string, eggPrefix string,
+	eggName string) error {
 	log.Println("[INFO] Loading Egg " + eggDir + "...")
 
 	if clutch.Eggs == nil {
@@ -166,9 +172,10 @@ func (clutch *Clutch) String() string {
 
 // Recursively load a package.  Given the baseDir of the packages (e.g. egg/ or
 // hw/bsp), and the base package name.
-func (clutch *Clutch) loadEggDir(baseDir string, eggPrefix string, eggName string) error {
-	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir,
-		eggName)
+func (clutch *Clutch) loadEggDir(baseDir string, eggPrefix string,
+	eggName string) error {
+	log.Printf("[DEBUG] Loading packages in %s, starting with package %s",
+		baseDir, eggName)
 
 	// first recurse and load subpackages
 	list, err := ioutil.ReadDir(baseDir + "/" + eggName)
@@ -187,7 +194,8 @@ func (clutch *Clutch) loadEggDir(baseDir string, eggPrefix string, eggName strin
 			name == "bin" {
 			continue
 		} else {
-			if err := clutch.loadEggDir(baseDir, eggPrefix, eggName+"/"+name); err != nil {
+			if err := clutch.loadEggDir(baseDir, eggPrefix,
+				eggName+"/"+name); err != nil {
 				return err
 			}
 		}
@@ -205,7 +213,14 @@ func (clutch *Clutch) loadEggs() error {
 	nest := clutch.Nest
 
 	// Multiple package directories to be searched
-	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/mcu/stm", "hw/drivers/", "hw/"}
+	searchDirs := []string{
+		"libs/",
+		"hw/bsp/",
+		"hw/mcu/",
+		"hw/mcu/stm",
+		"hw/drivers/",
+		"hw/",
+	}
 
 	for _, eggDir := range searchDirs {
 		eggBaseDir := nest.BasePath + "/" + eggDir
@@ -248,8 +263,8 @@ func (clutch *Clutch) Init() error {
 func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
 	egg, ok := clutch.Eggs[eggName]
 	if !ok {
-		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified (eggs = %s)",
-			eggName, clutch))
+		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified "+
+			"(eggs = %s)", eggName, clutch))
 	}
 	return egg, nil
 }
@@ -261,8 +276,8 @@ func (clutch *Clutch) ResolveEggDir(eggDir string) (*Egg, error) {
 			return clutch.Eggs[name], nil
 		}
 	}
-	return nil, NewNewtError(fmt.Sprintf("Cannot resolve package dir %s in package "+
-		"manager", eggDir))
+	return nil, NewNewtError(fmt.Sprintf("Cannot resolve package dir %s in "+
+		"package manager", eggDir))
 }
 
 // Clean the build for the package specified by eggName.   if cleanAll is
@@ -469,8 +484,8 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	return nil
 }
 
-// Check the include directories for the package, to make sure there are no conflicts in
-// include paths for source code
+// Check the include directories for the package, to make sure there are
+// no conflicts in include paths for source code
 func (clutch *Clutch) checkIncludes(egg *Egg) error {
 	incls, err := filepath.Glob(egg.BasePath + "/include/*")
 	if err != nil {
@@ -757,18 +772,20 @@ func (cl *Clutch) fileToEggList(cfg *viper.Viper) ([]*EggShell,
 			return nil, err
 		}
 
-		eggShell.Deps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name + ".deps"))
+		eggShell.Deps, err = cl.strSliceToDr(
+			cfg.GetStringSlice("eggs." + name + ".deps"))
 		if err != nil {
 			return nil, err
 		}
 
-		eggShell.Caps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name + ".caps"))
+		eggShell.Caps, err = cl.strSliceToDr(
+			cfg.GetStringSlice("eggs." + name + ".caps"))
 		if err != nil {
 			return nil, err
 		}
 
-		eggShell.ReqCaps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name +
-			".req_caps"))
+		eggShell.ReqCaps, err = cl.strSliceToDr(
+			cfg.GetStringSlice("eggs." + name + ".req_caps"))
 		if err != nil {
 			return nil, err
 		}

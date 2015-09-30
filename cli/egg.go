@@ -290,7 +290,8 @@ func (dr *DependencyRequirement) String() string {
 	return fmt.Sprintf("%s@%s#%s", dr.Name, dr.VersMatchesString(), dr.Stability)
 }
 
-func (dr *DependencyRequirement) SatisfiesCapability(capability *DependencyRequirement) error {
+func (dr *DependencyRequirement) SatisfiesCapability(
+	capability *DependencyRequirement) error {
 	if dr.Name != capability.Name {
 		return NewNewtError(fmt.Sprintf("Required capability name %s doesn't match "+
 			"specified capability name %s", dr.Name, capability.Name))
@@ -321,7 +322,8 @@ func (dr *DependencyRequirement) SatisfiesDependency(egg *Egg) bool {
 
 // Create a New DependencyRequirement structure from the contents of the depReq
 // string that has been passed in as an argument.
-func NewDependencyRequirementParseString(depReq string) (*DependencyRequirement, error) {
+func NewDependencyRequirementParseString(depReq string) (*DependencyRequirement,
+	error) {
 	// Allocate dependency requirement
 	dr := &DependencyRequirement{}
 	// Split string into multiple parts, @#
@@ -381,8 +383,8 @@ func (egg *Egg) GetIncludes(t *Target) ([]string, error) {
 //   name@version
 //   name
 // @param capList An array of capability strings
-// @return On success error is nil, and a list of capabilities is returned, on failure
-// error is non-nil
+// @return On success error is nil, and a list of capabilities is returned,
+// on failure error is non-nil
 func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	if len(capList) == 0 {
 		return nil, nil
@@ -457,13 +459,15 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	}
 
 	// Load the list of capabilities that this egg exposes
-	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, t, "egg.caps"))
+	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, t,
+		"egg.caps"))
 	if err != nil {
 		return err
 	}
 
 	// Load the list of capabilities that this egg requires
-	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, t, "egg.req_caps"))
+	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, t,
+		"egg.req_caps"))
 	if err != nil {
 		return err
 	}

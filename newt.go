@@ -531,6 +531,38 @@ func nestCreateCmd(cmd *cobra.Command, args []string) {
 	fmt.Printf("Nest %s successfully created in %s\n", args[0], nestDir)
 }
 
+func nestShowClutchCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify a clutch name to show-clutch command"))
+	}
+
+	clutch, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if err := clutch.Load(args[0]); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	// Clutch loaded, now print out clutch information
+	fmt.Printf("Clutch Name: %s\n", clutch.Name)
+	fmt.Printf("Clutch URL: %s\n", clutch.RemoteUrl)
+
+	i := 0
+	for _, eggShell := range clutch.EggShells {
+		i++
+		fmt.Printf(" %s@%s", eggShell.FullName, eggShell.Version)
+		if i%4 == 0 {
+			fmt.Printf("\n")
+		}
+	}
+	if i%4 != 0 {
+		fmt.Printf("\n")
+	}
+}
+
 func nestAddCmds(baseCmd *cobra.Command) {
 	nestCmd := &cobra.Command{
 		Use:   "nest",
@@ -582,6 +614,14 @@ func nestAddCmds(baseCmd *cobra.Command) {
 	}
 
 	nestCmd.AddCommand(listClutchesCmd)
+
+	showClutchCmd := &cobra.Command{
+		Use:   "show-clutch",
+		Short: "Show an individual clutch in the current nest",
+		Run:   nestShowClutchCmd,
+	}
+
+	nestCmd.AddCommand(showClutchCmd)
 
 	baseCmd.AddCommand(nestCmd)
 }
