@@ -436,7 +436,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	baseCmd.AddCommand(eggCmd)
 }
 
-func nestLayCmd(cmd *cobra.Command, args []string) {
+func nestGenerateClutchCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
 			cli.NewNewtError("Must specify name and URL to lay clutch file"))
@@ -469,10 +469,11 @@ func nestLayCmd(cmd *cobra.Command, args []string) {
 	fmt.Print(clutchStr)
 }
 
-func nestGetCmd(cmd *cobra.Command, args []string) {
+func nestAddClutchCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify both name and URL to larva install command"))
+			cli.NewNewtError("Must specify both name and URL to "+
+				"larva install command"))
 	}
 
 	name := args[0]
@@ -490,15 +491,44 @@ func nestGetCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Clutch " + name + " sucessfully installed to Nest.")
 }
 
-func nestShowCmd(cmd *cobra.Command, args []string) {
+func nestListClutchesCmd(cmd *cobra.Command, args []string) {
 	clutches, err := NewtNest.GetClutches()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
 	for name, clutch := range clutches {
-		fmt.Printf("Remote clutch %s (eggshells: %d)\n", name, len(clutch.EggShells))
+		fmt.Printf("Remote clutch %s (eggshells: %d)\n", name,
+			len(clutch.EggShells))
 	}
+}
+
+func nestCreateCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify a nest name to create"))
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		NewtUsage(cmd, cli.NewNewtError(err.Error()))
+	}
+
+	nestDir := wd + "/" + args[0]
+	if len(args) > 1 {
+		nestDir = args[1]
+	}
+
+	tadpoleUrl := ""
+	if len(args) > 2 {
+		tadpoleUrl = args[2]
+	}
+
+	if err := cli.CreateNest(args[0], nestDir, tadpoleUrl); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	fmt.Printf("Nest %s successfully created in %s\n", args[0], nestDir)
 }
 
 func nestAddCmds(baseCmd *cobra.Command) {
@@ -520,29 +550,38 @@ func nestAddCmds(baseCmd *cobra.Command) {
 		},
 	}
 
-	layCmd := &cobra.Command{
-		Use:   "lay",
-		Short: "Lay (generate) a clutch file from the eggs in the current directory",
-		Run:   nestLayCmd,
+	createCmd := &cobra.Command{
+		Use:              "create",
+		Short:            "Create a new nest",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+		Run:              nestCreateCmd,
 	}
 
-	nestCmd.AddCommand(layCmd)
+	nestCmd.AddCommand(createCmd)
 
-	getCmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get a remote clutch, and put it in the current nest",
-		Run:   nestGetCmd,
+	generateCmd := &cobra.Command{
+		Use:   "generate-clutch",
+		Short: "Generate a clutch file from the eggs in the current directory",
+		Run:   nestGenerateClutchCmd,
 	}
 
-	nestCmd.AddCommand(getCmd)
+	nestCmd.AddCommand(generateCmd)
 
-	showCmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show the clutches installed in the current nest",
-		Run:   nestShowCmd,
+	addClutchCmd := &cobra.Command{
+		Use:   "add-clutch",
+		Short: "Add a remote clutch, and put it in the current nest",
+		Run:   nestAddClutchCmd,
 	}
 
-	nestCmd.AddCommand(showCmd)
+	nestCmd.AddCommand(addClutchCmd)
+
+	listClutchesCmd := &cobra.Command{
+		Use:   "list-clutches",
+		Short: "List the clutches installed in the current nest",
+		Run:   nestListClutchesCmd,
+	}
+
+	nestCmd.AddCommand(listClutchesCmd)
 
 	baseCmd.AddCommand(nestCmd)
 }

@@ -687,13 +687,17 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 }
 
 func (cl *Clutch) LoadFromClutch(local *Clutch) error {
-	for _, pkg := range local.Eggs {
+	for _, egg := range local.Eggs {
+		if err := egg.LoadConfig(nil, false); err != nil {
+			return err
+		}
+
 		eggShell := &EggShell{}
-		eggShell.FullName = pkg.FullName
-		eggShell.Deps = pkg.Deps
-		eggShell.Caps = pkg.Capabilities
-		eggShell.ReqCaps = pkg.ReqCapabilities
-		eggShell.Version = pkg.Version
+		eggShell.FullName = egg.FullName
+		eggShell.Deps = egg.Deps
+		eggShell.Caps = egg.Capabilities
+		eggShell.ReqCaps = egg.ReqCapabilities
+		eggShell.Version = egg.Version
 
 		cl.EggShells = append(cl.EggShells, eggShell)
 	}

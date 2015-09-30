@@ -17,6 +17,7 @@ package cli
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
 	"log"
@@ -61,6 +62,50 @@ func NewNest() (*Nest, error) {
 	}
 
 	return n, nil
+}
+
+func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
+	if tadpoleUrl == "" {
+		tadpoleUrl = "https://codeload.github.com/mynewt/tadpole/zip/master"
+	}
+
+	dl, err := NewDownloader()
+	if err != nil {
+		return err
+	}
+
+	tmpDir, err := ioutil.TempDir("", "tadpole")
+	if err != nil {
+		return err
+	}
+
+	tmpFile := tmpDir + "/tadpole-master.zip"
+
+	if err := dl.DownloadFile(tadpoleUrl, tmpFile); err != nil {
+		return err
+	}
+
+	if _, err := ShellCommand(fmt.Sprintf("unzip %s -d %s", tmpFile,
+		tmpDir)); err != nil {
+		return err
+	}
+
+	// Overwrite nest.yml
+	contents := []byte(fmt.Sprintf("nest.name: %s\n", nestName))
+	if err := ioutil.WriteFile(tmpDir+"/tadpole-master/nest.yml",
+		contents, 0644); err != nil {
+		return err
+	}
+
+	// Copy the directory to the desired location
+	if _, err := ShellCommand(fmt.Sprintf("cp -rf %s %s", tmpDir+"/tadpole-master/",
+		destDir)); err != nil {
+		return err
+	}
+
+	// DONE!
+
+	return nil
 }
 
 // Get a temporary directory to stick stuff in
@@ -378,12 +423,14 @@ func (nest *Nest) Init() error {
 	log.Printf("[DEBUG] Database initialized.")
 
 	// Load Clutches for the current Nest
-	nest.ClutchPath = nest.StorePath + "/.clutches/"
+	nest.ClutchPath = nest.StorePath + "/clutches/"
 	if NodeNotExist(nest.ClutchPath) {
 		if err := os.MkdirAll(nest.ClutchPath, 0755); err != nil {
 			return NewNewtError(err.Error())
 		}
 	}
+
+	nest.Clutches = map[string]*Clutch{}
 
 	if err := nest.LoadClutches(); err != nil {
 		return err
