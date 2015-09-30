@@ -29,7 +29,6 @@ var ExitOnFailure bool = false
 var ExportAll bool = false
 var ImportAll bool = false
 var NewtVersion string = "1.0"
-var NewtRepo *cli.Repo
 var NewtLogLevel string = ""
 var NewtNest *cli.Nest
 
@@ -52,7 +51,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 			cli.NewNewtError("Must specify two arguments (sect & k=v) to set"))
 	}
 
-	t, err := cli.LoadTarget(NewtRepo, args[0])
+	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -74,7 +73,7 @@ func targetUnsetCmd(cmd *cobra.Command, args []string) {
 			cli.NewNewtError("Must specify two arguments (sect & k) to unset"))
 	}
 
-	t, err := cli.LoadTarget(NewtRepo, args[0])
+	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -92,7 +91,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		dispSect = args[0]
 	}
 
-	targets, err := cli.GetTargets(NewtRepo)
+	targets, err := cli.GetTargets(NewtNest)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -115,13 +114,13 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 
 	fmt.Println("Creating target " + args[0])
 
-	if cli.TargetExists(NewtRepo, args[0]) {
+	if cli.TargetExists(NewtNest, args[0]) {
 		NewtUsage(cmd, cli.NewNewtError(
 			"Target already exists, cannot create target with same name."))
 	}
 
 	target := &cli.Target{
-		Repo: NewtRepo,
+		Nest: NewtNest,
 		Vars: map[string]string{},
 	}
 	target.Vars["name"] = args[0]
@@ -139,7 +138,7 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to build"))
 	}
 
-	t, err := cli.LoadTarget(NewtRepo, args[0])
+	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -166,7 +165,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to delete"))
 	}
 
-	t, err := cli.LoadTarget(NewtRepo, args[0])
+	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -183,7 +182,7 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to build"))
 	}
 
-	t, err := cli.LoadTarget(NewtRepo, args[0])
+	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -217,7 +216,7 @@ func targetExportCmd(cmd *cobra.Command, args []string) {
 		targetName = args[0]
 	}
 
-	err := cli.ExportTargets(NewtRepo, targetName, ExportAll, os.Stdout)
+	err := cli.ExportTargets(NewtNest, targetName, ExportAll, os.Stdout)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -236,7 +235,7 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 		targetName = args[0]
 	}
 
-	err := cli.ImportTargets(NewtRepo, targetName, ImportAll, os.Stdin)
+	err := cli.ImportTargets(NewtNest, targetName, ImportAll, os.Stdin)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -252,7 +251,7 @@ func targetAddCmds(base *cobra.Command) {
 			cli.Init(NewtLogLevel)
 
 			var err error
-			NewtRepo, err = cli.NewRepo()
+			NewtNest, err = cli.NewNest()
 			if err != nil {
 				NewtUsage(nil, err)
 			}
@@ -343,45 +342,6 @@ func targetAddCmds(base *cobra.Command) {
 	base.AddCommand(targetCmd)
 }
 
-func repoCreateCmd(cmd *cobra.Command, args []string) {
-	// must specify a repo name to create
-	if len(args) != 1 {
-		NewtUsage(cmd, cli.NewNewtError("Must specify a repo name to repo create"))
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	_, err = cli.CreateRepo(cwd, args[0])
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	fmt.Println("Repo " + args[0] + " successfully created!")
-}
-
-func repoAddCmds(baseCmd *cobra.Command) {
-	repoCmd := &cobra.Command{
-		Use:   "repo",
-		Short: "Commands to manipulate the base repository",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Usage()
-		},
-	}
-
-	createCmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a repository",
-		Run:   repoCreateCmd,
-	}
-
-	repoCmd.AddCommand(createCmd)
-
-	baseCmd.AddCommand(repoCmd)
-}
-
 func dispEgg(egg *cli.Egg) error {
 	fmt.Printf("Egg %s, version %s\n", egg.FullName, egg.Version)
 	fmt.Printf("  path: %s\n", filepath.Clean(egg.BasePath))
@@ -414,7 +374,7 @@ func dispEgg(egg *cli.Egg) error {
 }
 
 func eggListCmd(cmd *cobra.Command, args []string) {
-	eggMgr, err := cli.NewEggMgr(NewtRepo, nil)
+	eggMgr, err := cli.NewClutch(NewtNest)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -427,7 +387,7 @@ func eggListCmd(cmd *cobra.Command, args []string) {
 }
 
 func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
-	eggMgr, err := cli.NewEggMgr(NewtRepo, nil)
+	eggMgr, err := cli.NewClutch(NewtNest)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -442,12 +402,12 @@ func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
 func eggAddCmds(baseCmd *cobra.Command) {
 	eggCmd := &cobra.Command{
 		Use:   "egg",
-		Short: "Commands to list and inspect eggs on a repo",
+		Short: "Commands to list and inspect eggs on a nest",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cli.Init(NewtLogLevel)
 
 			var err error
-			NewtRepo, err = cli.NewRepo()
+			NewtNest, err = cli.NewNest()
 			if err != nil {
 				NewtUsage(nil, err)
 			}
@@ -459,7 +419,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 
 	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "List eggs in the current repository",
+		Short: "List eggs in the current nest",
 		Run:   eggListCmd,
 	}
 
@@ -492,12 +452,12 @@ func nestLayCmd(cmd *cobra.Command, args []string) {
 	clutch.Name = clutchName
 	clutch.RemoteUrl = clutchUrl
 
-	eggMgr, err := cli.NewEggMgr(NewtRepo, nil)
+	local, err := cli.NewClutch(NewtNest)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if err := clutch.LoadFromPM(eggMgr); err != nil {
+	if err := clutch.LoadFromClutch(local); err != nil {
 		NewtUsage(cmd, err)
 	}
 
@@ -549,12 +509,8 @@ func nestAddCmds(baseCmd *cobra.Command) {
 			cli.Init(NewtLogLevel)
 
 			var err error
-			NewtRepo, err = cli.NewRepo()
-			if err != nil {
-				NewtUsage(nil, err)
-			}
 
-			NewtNest, err = cli.NewNest(NewtRepo)
+			NewtNest, err = cli.NewNest()
 			if err != nil {
 				NewtUsage(nil, err)
 			}
@@ -616,7 +572,6 @@ func parseCmds() *cobra.Command {
 	newtCmd.AddCommand(versCmd)
 
 	targetAddCmds(newtCmd)
-	repoAddCmds(newtCmd)
 	eggAddCmds(newtCmd)
 	nestAddCmds(newtCmd)
 

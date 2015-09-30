@@ -16,13 +16,14 @@
 package cli
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
 
 // Recursively iterates through a package's dependencies, adding each package
 // encountered to the supplied set.
-func collectDepsAux(em *EggMgr, egg *Egg, set *map[*Egg]bool) error {
+func collectDepsAux(clutch *Clutch, egg *Egg, set *map[*Egg]bool) error {
 	if (*set)[egg] {
 		return nil
 	}
@@ -35,12 +36,12 @@ func collectDepsAux(em *EggMgr, egg *Egg, set *map[*Egg]bool) error {
 		}
 
 		// Get package structure
-		degg, err := em.ResolveEggName(dep.Name)
+		degg, err := clutch.ResolveEggName(dep.Name)
 		if err != nil {
 			return err
 		}
 
-		collectDepsAux(em, degg, set)
+		collectDepsAux(clutch, degg, set)
 	}
 
 	return nil
@@ -48,10 +49,10 @@ func collectDepsAux(em *EggMgr, egg *Egg, set *map[*Egg]bool) error {
 
 // Recursively iterates through a package's dependencies.  The resulting array
 // contains a pointer to each encountered package.
-func collectDeps(em *EggMgr, egg *Egg) ([]*Egg, error) {
+func collectDeps(clutch *Clutch, egg *Egg) ([]*Egg, error) {
 	set := map[*Egg]bool{}
 
-	err := collectDepsAux(em, egg, &set)
+	err := collectDepsAux(clutch, egg, &set)
 	if err != nil {
 		return nil, err
 	}
@@ -66,10 +67,10 @@ func collectDeps(em *EggMgr, egg *Egg) ([]*Egg, error) {
 
 // Calculates the include paths exported by the specified package and all of
 // its recursive dependencies.
-func recursiveIncludePaths(em *EggMgr, egg *Egg,
+func recursiveIncludePaths(clutch *Clutch, egg *Egg,
 	t *Target) ([]string, error) {
 
-	deps, err := collectDeps(em, egg)
+	deps, err := collectDeps(clutch, egg)
 	if err != nil {
 		return nil, err
 	}
@@ -88,38 +89,39 @@ func recursiveIncludePaths(em *EggMgr, egg *Egg,
 
 // Calculates the include paths exported by the specified target's BSP and all
 // of its recursive dependencies.
-func BspIncludePaths(em *EggMgr, t *Target) ([]string, error) {
+func BspIncludePaths(clutch *Clutch, t *Target) ([]string, error) {
 	if t.Bsp == "" {
 		return nil, NewNewtError("Expected a BSP")
 	}
 
-	bspEgg, err := em.ResolveEggName(t.Bsp)
+	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err != nil {
+		fmt.Println(clutch)
 		return nil, NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
-	return recursiveIncludePaths(em, bspEgg, t)
+	return recursiveIncludePaths(clutch, bspEgg, t)
 }
 
-func buildBsp(t *Target, em *EggMgr, incls *[]string,
+func buildBsp(t *Target, clutch *Clutch, incls *[]string,
 	libs *[]string) (string, error) {
 
 	if t.Bsp == "" {
 		return "", NewNewtError("Expected a BSP")
 	}
 
-	bspEgg, err := em.ResolveEggName(t.Bsp)
+	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err != nil {
 		return "", NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
-	if err = em.Build(t, t.Bsp, *incls, libs); err != nil {
+	if err = clutch.Build(t, t.Bsp, *incls, libs); err != nil {
 		return "", err
 	}
 
 	// A BSP doesn't have to contain source; don't fail if no library was
 	// built.
-	if lib := em.GetEggLib(t, bspEgg); NodeExist(lib) {
+	if lib := clutch.GetEggLib(t, bspEgg); NodeExist(lib) {
 		*libs = append(*libs, lib)
 	}
 
@@ -136,7 +138,7 @@ func buildBsp(t *Target, em *EggMgr, incls *[]string,
 // Creates the set of compiler flags that should be specified when building a
 // particular target-entity pair.  The "entity" is what is being built; either
 // a package or a project.
-func CreateCflags(em *EggMgr, c *Compiler, t *Target,
+func CreateCflags(clutch *Clutch, c *Compiler, t *Target,
 	entityCflags string) string {
 
 	cflags := c.Cflags + " " + entityCflags + " " + t.Cflags
@@ -151,7 +153,7 @@ func CreateCflags(em *EggMgr, c *Compiler, t *Target,
 
 	// If a non-BSP package is being built, add the BSP's C flags to the list.
 	// The BSP's compiler flags get exported to all packages.
-	bspEgg, err := em.ResolveEggName(t.Bsp)
+	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err == nil && bspEgg.Cflags != entityCflags {
 		cflags += " " + bspEgg.Cflags
 	}

@@ -48,12 +48,15 @@ type Egg struct {
 	Name string
 	// Full Name of the egg include prefix dir
 	FullName string
-	// Repository this egg belongs to
-	Repo *Repo
+	// Nest this egg belongs to
+	Nest *Nest
 	// Egg version
 	Version *Version
 	// Type of egg
 	LinkerScript string
+
+	// Has the configuration been loaded for this egg
+	CfgLoaded bool
 
 	// Egg sources
 	Sources []string
@@ -86,6 +89,48 @@ type Egg struct {
 
 	// Eggs that this egg depends on
 	Deps []*DependencyRequirement
+}
+
+type EggShell struct {
+	FullName string
+	Version  *Version
+	Deps     []*DependencyRequirement
+	Caps     []*DependencyRequirement
+	ReqCaps  []*DependencyRequirement
+}
+
+func NewEggShell() (*EggShell, error) {
+	eShell := &EggShell{}
+
+	return eShell, nil
+}
+
+func (es *EggShell) serializeDepReq(name string,
+	drList []*DependencyRequirement, indent string) string {
+	drStr := ""
+	if len(drList) > 0 {
+		drStr += fmt.Sprintf("%s%s:\n", indent, name)
+		for _, dr := range drList {
+			drStr += fmt.Sprintf("%s    - %s\n", indent, dr)
+		}
+	}
+
+	return drStr
+}
+
+func (es *EggShell) Serialize(indent string) string {
+	esStr := fmt.Sprintf("%s%s:\n", indent, es.FullName)
+	indent += "    "
+	if es.Version == nil {
+		es.Version = &Version{0, 0, 0}
+	}
+	esStr += fmt.Sprintf("%svers: %s\n", indent, es.Version)
+
+	esStr += es.serializeDepReq("deps", es.Deps, indent)
+	esStr += es.serializeDepReq("caps", es.Caps, indent)
+	esStr += es.serializeDepReq("req_caps", es.ReqCaps, indent)
+
+	return esStr
 }
 
 func (v *Version) compareVersions(vers1 *Version, vers2 *Version) int64 {
@@ -363,7 +408,11 @@ func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 
 // Load a egg's configuration.  This allocates & initializes a fair number of
 // the main data structures within the egg.
-func (egg *Egg) loadConfig(t *Target) error {
+func (egg *Egg) LoadConfig(t *Target, force bool) error {
+	if egg.CfgLoaded && !force {
+		return nil
+	}
+
 	log.Printf("[DEBUG] Loading configuration for egg %s", egg.BasePath)
 
 	v, err := ReadConfig(egg.BasePath, "egg")
@@ -419,35 +468,30 @@ func (egg *Egg) loadConfig(t *Target) error {
 		return err
 	}
 
+	egg.CfgLoaded = true
+
 	return nil
 }
 
 // Initialize a egg: loads the egg configuration, and sets up egg data
 // structures.  Should only be called from NewEgg
-func (egg *Egg) Init(t *Target) error {
-	log.Printf("[DEBUG] Initializing egg %s in path %s", egg.Name, egg.BasePath)
-
-	// Load egg configuration file
-	if err := egg.loadConfig(t); err != nil {
-		return err
-	}
-
+func (egg *Egg) Init() error {
 	return nil
 }
 
 // Allocate and initialize a new egg, and return a fully initialized Egg
 //     structure.
-// @param r The repository this egg is located in
-// @param basePath The path to this egg, within the specified repository
+// @param nest The Nest this egg is located in
+// @param basePath The path to this egg, within the specified nest
 // @return On success, error is nil, and a Egg is returned.  on failure,
 //         error is not nil.
-func NewEgg(r *Repo, t *Target, basePath string) (*Egg, error) {
+func NewEgg(nest *Nest, basePath string) (*Egg, error) {
 	egg := &Egg{
 		BasePath: basePath,
-		Repo:     r,
+		Nest:     nest,
 	}
 
-	if err := egg.Init(t); err != nil {
+	if err := egg.Init(); err != nil {
 		return nil, err
 	}
 

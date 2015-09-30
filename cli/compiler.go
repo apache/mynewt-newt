@@ -154,7 +154,8 @@ func (c *Compiler) CompileAs(match string) error {
 		return err
 	}
 
-	log.Printf("[INFO] Compiling assembly (%s/%s) %s", wd, match, strings.Join(files, " "))
+	log.Printf("[INFO] Compiling assembly (%s/%s) %s", wd, match,
+		strings.Join(files, " "))
 
 	for _, file := range files {
 		err := c.CompileFile(file, 1)

@@ -45,13 +45,13 @@ type Target struct {
 
 	Bsp string
 
-	Repo *Repo
+	Nest *Nest
 }
 
-// Check if the target specified by name exists for the Repo specified by
+// Check if the target specified by name exists for the Nest specified by
 // r
-func TargetExists(r *Repo, name string) bool {
-	_, err := r.GetConfig(TARGET_SECT_PREFIX+name, "name")
+func TargetExists(nest *Nest, name string) bool {
+	_, err := nest.GetConfig(TARGET_SECT_PREFIX+name, "name")
 	if err == nil {
 		return true
 	} else {
@@ -120,14 +120,14 @@ func (t *Target) HasIdentity(identity string) bool {
 }
 
 // Load the target specified by name for the repository specified by r
-func LoadTarget(r *Repo, name string) (*Target, error) {
+func LoadTarget(nest *Nest, name string) (*Target, error) {
 	t := &Target{
-		Repo: r,
+		Nest: nest,
 	}
 
 	var err error
 
-	t.Vars, err = r.GetConfigSect(TARGET_SECT_PREFIX + name)
+	t.Vars, err = nest.GetConfigSect(TARGET_SECT_PREFIX + name)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +143,8 @@ func LoadTarget(r *Repo, name string) (*Target, error) {
 
 // Export a target, or all targets.  If exportAll is true, then all targets are exported, if false,
 // then only the target represented by targetName is exported
-func ExportTargets(r *Repo, name string, exportAll bool, fp *os.File) error {
-	targets, err := GetTargets(r)
+func ExportTargets(nest *Nest, name string, exportAll bool, fp *os.File) error {
+	targets, err := GetTargets(nest)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func ExportTargets(r *Repo, name string, exportAll bool, fp *os.File) error {
 	return nil
 }
 
-func ImportTargets(r *Repo, name string, importAll bool, fp *os.File) error {
+func ImportTargets(nest *Nest, name string, importAll bool, fp *os.File) error {
 	s := bufio.NewScanner(fp)
 
 	var currentTarget *Target = nil
@@ -199,7 +199,7 @@ func ImportTargets(r *Repo, name string, importAll bool, fp *os.File) error {
 				elements := strings.SplitN(line, "=", 2)
 				// name is elements[0], and value is elements[1]
 				currentTarget = &Target{
-					Repo: r,
+					Nest: nest,
 				}
 
 				var err error
@@ -238,11 +238,11 @@ func ImportTargets(r *Repo, name string, importAll bool, fp *os.File) error {
 }
 
 // Get a list of targets for the repository specified by r
-func GetTargets(r *Repo) ([]*Target, error) {
+func GetTargets(nest *Nest) ([]*Target, error) {
 	targets := []*Target{}
-	for sect, _ := range r.Config {
+	for sect, _ := range nest.Config {
 		if strings.HasPrefix(sect, TARGET_SECT_PREFIX) {
-			target, err := LoadTarget(r, sect[len(TARGET_SECT_PREFIX):len(sect)])
+			target, err := LoadTarget(nest, sect[len(TARGET_SECT_PREFIX):len(sect)])
 			if err != nil {
 				return nil, err
 			}
@@ -260,7 +260,7 @@ func (t *Target) GetVars() map[string]string {
 
 // Return the compiler definition file for this target
 func (t *Target) GetCompiler() string {
-	path := t.Repo.BasePath + "/compiler/"
+	path := t.Nest.BasePath + "/compiler/"
 	if t.Vars["compiler"] != "" {
 		path += t.Vars["compiler"]
 	} else {
@@ -275,7 +275,7 @@ func (t *Target) GetCompiler() string {
 func (t *Target) Build() error {
 	if t.Vars["project"] != "" {
 		// Now load and build the project.
-		p, err := LoadProject(t.Repo, t, t.Vars["project"])
+		p, err := LoadProject(t.Nest, t, t.Vars["project"])
 		if err != nil {
 			return err
 		}
@@ -284,12 +284,12 @@ func (t *Target) Build() error {
 			return err
 		}
 	} else if t.Vars["egg"] != "" {
-		pm, err := NewEggMgr(t.Repo, t)
+		clutch, err := NewClutch(t.Nest)
 		if err != nil {
 			return err
 		}
 
-		err = pm.Build(t, t.Vars["egg"], nil, nil)
+		err = clutch.Build(t, t.Vars["egg"], nil, nil)
 		if err != nil {
 			return err
 		}
@@ -300,7 +300,7 @@ func (t *Target) Build() error {
 
 func (t *Target) BuildClean(cleanAll bool) error {
 	if t.Vars["project"] != "" {
-		p, err := LoadProject(t.Repo, t, t.Vars["project"])
+		p, err := LoadProject(t.Nest, t, t.Vars["project"])
 		if err != nil {
 			return err
 		}
@@ -310,11 +310,11 @@ func (t *Target) BuildClean(cleanAll bool) error {
 			return err
 		}
 	} else if t.Vars["egg"] != "" {
-		pm, err := NewEggMgr(t.Repo, t)
+		clutch, err := NewClutch(t.Nest)
 		if err != nil {
 			return err
 		}
-		err = pm.BuildClean(t, t.Vars["egg"], cleanAll)
+		err = clutch.BuildClean(t, t.Vars["egg"], cleanAll)
 		if err != nil {
 			return err
 		}
@@ -328,7 +328,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 		return NewNewtError("Tests not supported on projects, only packages")
 	}
 
-	pm, err := NewEggMgr(t.Repo, t)
+	pm, err := NewClutch(t.Nest)
 	if err != nil {
 		return err
 	}
@@ -351,7 +351,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 func (t *Target) DeleteVar(name string) error {
 	targetCfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
 
-	if err := t.Repo.DelConfig(targetCfgSect, name); err != nil {
+	if err := t.Nest.DelConfig(targetCfgSect, name); err != nil {
 		return err
 	}
 
@@ -360,7 +360,7 @@ func (t *Target) DeleteVar(name string) error {
 
 // Save the target's configuration elements
 func (t *Target) Save() error {
-	r := t.Repo
+	nest := t.Nest
 
 	if _, ok := t.Vars["name"]; !ok {
 		return NewNewtError("Cannot save a target without a name")
@@ -369,7 +369,7 @@ func (t *Target) Save() error {
 	targetCfg := TARGET_SECT_PREFIX + t.Vars["name"]
 
 	for k, v := range t.Vars {
-		if err := r.SetConfig(targetCfg, k, v); err != nil {
+		if err := nest.SetConfig(targetCfg, k, v); err != nil {
 			return err
 		}
 	}
@@ -378,7 +378,7 @@ func (t *Target) Save() error {
 }
 
 func (t *Target) Remove() error {
-	r := t.Repo
+	nest := t.Nest
 
 	if _, ok := t.Vars["name"]; !ok {
 		return NewNewtError("Cannot remove a target without a name")
@@ -387,7 +387,7 @@ func (t *Target) Remove() error {
 	cfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
 
 	for k, _ := range t.Vars {
-		if err := r.DelConfig(cfgSect, k); err != nil {
+		if err := nest.DelConfig(cfgSect, k); err != nil {
 			return err
 		}
 	}

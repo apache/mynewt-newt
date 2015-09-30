@@ -16,7 +16,9 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,28 +26,42 @@ import (
 	"strings"
 )
 
-type EggMgr struct {
-	// Repository associated with the Eggs
-	Repo *Repo
+type Clutch struct {
+	// Nestsitory associated with the Eggs
+	Nest *Nest
 
-	Target *Target
-
-	// List of packages for Repo
+	// List of packages for Nest
 	Eggs map[string]*Egg
+
+	EggShells []*EggShell
+
+	Name string
+
+	LarvaFile string
+
+	RemoteUrl string
 }
 
 // Allocate a new package manager structure, and initialize it.
-func NewEggMgr(r *Repo, t *Target) (*EggMgr, error) {
-	em := &EggMgr{
-		Repo:   r,
-		Target: t,
+func NewClutch(nest *Nest) (*Clutch, error) {
+	clutch := &Clutch{
+		Nest: nest,
 	}
-	err := em.Init()
+	err := clutch.Init()
 
-	return em, err
+	return clutch, err
 }
 
-func (em *EggMgr) CheckEggDeps(egg *Egg,
+func (clutch *Clutch) LoadConfigs(t *Target, force bool) error {
+	for _, egg := range clutch.Eggs {
+		if err := egg.LoadConfig(t, force); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (clutch *Clutch) CheckEggDeps(egg *Egg,
 	deps map[string]*DependencyRequirement, reqcap map[string]*DependencyRequirement,
 	caps map[string]*DependencyRequirement) error {
 	// if no dependencies, then everything is ok!
@@ -60,7 +76,7 @@ func (em *EggMgr) CheckEggDeps(egg *Egg,
 		}
 
 		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq, egg.Name)
-		egg, ok := em.Eggs[depReq.Name]
+		egg, ok := clutch.Eggs[depReq.Name]
 		if !ok {
 			return NewNewtError(fmt.Sprintf("No package dependency %s found for %s",
 				depReq.Name, egg.Name))
@@ -81,7 +97,7 @@ func (em *EggMgr) CheckEggDeps(egg *Egg,
 			continue
 		}
 
-		if err := em.CheckEggDeps(em.Eggs[depReq.Name], deps, reqcap, caps); err != nil {
+		if err := clutch.CheckEggDeps(clutch.Eggs[depReq.Name], deps, reqcap, caps); err != nil {
 			return err
 		}
 	}
@@ -89,7 +105,7 @@ func (em *EggMgr) CheckEggDeps(egg *Egg,
 	return nil
 }
 
-func (em *EggMgr) VerifyCaps(reqcaps map[string]*DependencyRequirement,
+func (clutch *Clutch) VerifyCaps(reqcaps map[string]*DependencyRequirement,
 	caps map[string]*DependencyRequirement) error {
 
 	for name, rcap := range reqcaps {
@@ -106,14 +122,14 @@ func (em *EggMgr) VerifyCaps(reqcaps map[string]*DependencyRequirement,
 	return nil
 }
 
-func (em *EggMgr) CheckDeps() error {
+func (clutch *Clutch) CheckDeps() error {
 	// Go through all the packages and check that their dependencies are satisfied
-	for _, egg := range em.Eggs {
+	for _, egg := range clutch.Eggs {
 		deps := map[string]*DependencyRequirement{}
 		reqcap := map[string]*DependencyRequirement{}
 		caps := map[string]*DependencyRequirement{}
 
-		if err := em.CheckEggDeps(egg, deps, reqcap, caps); err != nil {
+		if err := clutch.CheckEggDeps(egg, deps, reqcap, caps); err != nil {
 			return err
 		}
 	}
@@ -123,26 +139,26 @@ func (em *EggMgr) CheckDeps() error {
 
 // Load an individual package specified by eggName into the package list for
 // this repository
-func (em *EggMgr) loadEgg(eggDir string) error {
+func (clutch *Clutch) loadEgg(eggDir string, eggPrefix string, eggName string) error {
 	log.Println("[INFO] Loading Egg " + eggDir + "...")
 
-	if em.Eggs == nil {
-		em.Eggs = make(map[string]*Egg)
+	if clutch.Eggs == nil {
+		clutch.Eggs = make(map[string]*Egg)
 	}
 
-	egg, err := NewEgg(em.Repo, em.Target, eggDir)
+	egg, err := NewEgg(clutch.Nest, eggDir)
 	if err != nil {
 		return nil
 	}
 
-	em.Eggs[egg.FullName] = egg
+	clutch.Eggs[eggPrefix+eggName] = egg
 
 	return nil
 }
 
-func (em *EggMgr) String() string {
+func (clutch *Clutch) String() string {
 	str := ""
-	for eggName, _ := range em.Eggs {
+	for eggName, _ := range clutch.Eggs {
 		str += eggName + " "
 	}
 	return str
@@ -150,7 +166,7 @@ func (em *EggMgr) String() string {
 
 // Recursively load a package.  Given the baseDir of the packages (e.g. egg/ or
 // hw/bsp), and the base package name.
-func (em *EggMgr) loadEggDir(baseDir string, eggPrefix string, eggName string) error {
+func (clutch *Clutch) loadEggDir(baseDir string, eggPrefix string, eggName string) error {
 	log.Printf("[DEBUG] Loading packages in %s, starting with package %s", baseDir,
 		eggName)
 
@@ -171,7 +187,7 @@ func (em *EggMgr) loadEggDir(baseDir string, eggPrefix string, eggName string) e
 			name == "bin" {
 			continue
 		} else {
-			if err := em.loadEggDir(baseDir, eggPrefix, eggName+"/"+name); err != nil {
+			if err := clutch.loadEggDir(baseDir, eggPrefix, eggName+"/"+name); err != nil {
 				return err
 			}
 		}
@@ -181,18 +197,18 @@ func (em *EggMgr) loadEggDir(baseDir string, eggPrefix string, eggName string) e
 		return nil
 	}
 
-	return em.loadEgg(baseDir + "/" + eggName)
+	return clutch.loadEgg(baseDir+"/"+eggName, eggPrefix, eggName)
 }
 
 // Load all the packages in the repository into the package structure
-func (em *EggMgr) loadEggs() error {
-	r := em.Repo
+func (clutch *Clutch) loadEggs() error {
+	nest := clutch.Nest
 
 	// Multiple package directories to be searched
 	searchDirs := []string{"libs/", "hw/bsp/", "hw/mcu/", "hw/mcu/stm", "hw/drivers/", "hw/"}
 
 	for _, eggDir := range searchDirs {
-		eggBaseDir := r.BasePath + "/" + eggDir
+		eggBaseDir := nest.BasePath + "/" + eggDir
 
 		if NodeNotExist(eggBaseDir) {
 			continue
@@ -213,7 +229,7 @@ func (em *EggMgr) loadEggs() error {
 				continue
 			}
 
-			if err = em.loadEggDir(eggBaseDir, eggDir, name); err != nil {
+			if err = clutch.loadEggDir(eggBaseDir, eggDir, name); err != nil {
 				return err
 			}
 		}
@@ -223,55 +239,41 @@ func (em *EggMgr) loadEggs() error {
 }
 
 // Initialize the package manager
-func (em *EggMgr) Init() error {
-	err := em.loadEggs()
+func (clutch *Clutch) Init() error {
+	err := clutch.loadEggs()
 	return err
 }
 
 // Resolve the package specified by eggName into a package structure.
-func (em *EggMgr) ResolveEggName(eggName string) (*Egg, error) {
-	egg, ok := em.Eggs[eggName]
+func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
+	egg, ok := clutch.Eggs[eggName]
 	if !ok {
 		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified (eggs = %s)",
-			eggName, em))
+			eggName, clutch))
 	}
 	return egg, nil
 }
 
-func (em *EggMgr) ResolveEggDir(eggDir string) (*Egg, error) {
+func (clutch *Clutch) ResolveEggDir(eggDir string) (*Egg, error) {
 	eggDir = filepath.Clean(eggDir)
-	for name, egg := range em.Eggs {
+	for name, egg := range clutch.Eggs {
 		if filepath.Clean(egg.BasePath) == eggDir {
-			return em.Eggs[name], nil
+			return clutch.Eggs[name], nil
 		}
 	}
 	return nil, NewNewtError(fmt.Sprintf("Cannot resolve package dir %s in package "+
 		"manager", eggDir))
 }
 
-func (em *EggMgr) VerifyEgg(eggDir string) (*Egg, error) {
-	err := em.loadEgg(eggDir)
-	if err != nil {
-		return nil, err
-	}
-
-	egg, err := em.ResolveEggDir(eggDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := em.checkIncludes(egg); err != nil {
-		return nil, err
-	}
-
-	return egg, nil
-}
-
 // Clean the build for the package specified by eggName.   if cleanAll is
 // specified, all architectures are cleaned.
-func (em *EggMgr) BuildClean(t *Target, eggName string, cleanAll bool) error {
-	egg, err := em.ResolveEggName(eggName)
+func (clutch *Clutch) BuildClean(t *Target, eggName string, cleanAll bool) error {
+	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
+		return err
+	}
+
+	if err := egg.LoadConfig(t, false); err != nil {
 		return err
 	}
 
@@ -286,7 +288,7 @@ func (em *EggMgr) BuildClean(t *Target, eggName string, cleanAll bool) error {
 	egg.Clean = true
 
 	for _, dep := range egg.Deps {
-		if err := em.BuildClean(t, dep.Name, cleanAll); err != nil {
+		if err := clutch.BuildClean(t, dep.Name, cleanAll); err != nil {
 			return err
 		}
 	}
@@ -311,7 +313,7 @@ func (em *EggMgr) BuildClean(t *Target, eggName string, cleanAll bool) error {
 	return nil
 }
 
-func (em *EggMgr) GetEggLib(t *Target, egg *Egg) string {
+func (clutch *Clutch) GetEggLib(t *Target, egg *Egg) string {
 	libDir := egg.BasePath + "/bin/" + t.Name + "/" +
 		"lib" + filepath.Base(egg.Name) + ".a"
 	return libDir
@@ -321,7 +323,7 @@ func (em *EggMgr) GetEggLib(t *Target, egg *Egg) string {
 //                                  build; not modified by this function.
 // @param libs                  List of libraries that have been built so far;
 //                                  This function appends entries to this list.
-func (em *EggMgr) buildDeps(egg *Egg, t *Target, incls *[]string,
+func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 	libs *[]string) error {
 
 	log.Printf("[DEBUG] Building package dependencies for %s, target %s",
@@ -347,20 +349,20 @@ func (em *EggMgr) buildDeps(egg *Egg, t *Target, incls *[]string,
 
 		log.Printf("[DEBUG] Loading package dependency: %s", dep.Name)
 		// Get package structure
-		degg, err := em.ResolveEggName(dep.Name)
+		degg, err := clutch.ResolveEggName(dep.Name)
 		if err != nil {
 			return err
 		}
 
 		// Build the package
-		if err = em.Build(t, dep.Name, *incls, libs); err != nil {
+		if err = clutch.Build(t, dep.Name, *incls, libs); err != nil {
 			return err
 		}
 
 		// After build, get dependency package includes.  Build function
 		// generates all the package includes
 		egg.Includes = append(egg.Includes, degg.Includes...)
-		if lib := em.GetEggLib(t, degg); NodeExist(lib) {
+		if lib := clutch.GetEggLib(t, degg); NodeExist(lib) {
 			*libs = append(*libs, lib)
 		}
 	}
@@ -374,16 +376,20 @@ func (em *EggMgr) buildDeps(egg *Egg, t *Target, incls *[]string,
 
 // Build the package specified by eggName
 //
-// @param incls                 Extra include paths that get specified during
+// @param incls            Extra include paths that get specified during
 //                                  build.  Note: passed by value.
-// @param libs                  List of libraries that have been built so far;
-//                                  This function appends entries to this list.
-func (em *EggMgr) Build(t *Target, eggName string, incls []string,
+// @param lib              List of libraries that have been built so far;
+//                             This function appends entries to this list.
+func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	libs *[]string) error {
 
 	// Look up package structure
-	egg, err := em.ResolveEggName(eggName)
+	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
+		return err
+	}
+	//XXX: This overwrites the PKG_TEST define
+	if err := egg.LoadConfig(t, false); err != nil {
 		return err
 	}
 
@@ -396,7 +402,7 @@ func (em *EggMgr) Build(t *Target, eggName string, incls []string,
 	}
 	egg.Built = true
 
-	if err := em.buildDeps(egg, t, &incls, libs); err != nil {
+	if err := clutch.buildDeps(egg, t, &incls, libs); err != nil {
 		return err
 	}
 
@@ -418,12 +424,12 @@ func (em *EggMgr) Build(t *Target, eggName string, incls []string,
 		return err
 	}
 	// setup Cflags, Lflags and Aflags
-	c.Cflags = CreateCflags(em, c, t, egg.Cflags)
+	c.Cflags = CreateCflags(clutch, c, t, egg.Cflags)
 	c.Lflags += " " + egg.Lflags + " " + t.Lflags
 	c.Aflags += " " + egg.Aflags + " " + t.Aflags
 
-	log.Printf("[DEBUG] compiling src packages in base package directories: %s",
-		srcDir)
+	log.Printf("[DEBUG] compiling src packages in base package "+
+		"directories: %s", srcDir)
 
 	// For now, ignore test code.  Tests get built later if the test identity
 	// is in effect.
@@ -455,7 +461,8 @@ func (em *EggMgr) Build(t *Target, eggName string, incls []string,
 		}
 	}
 
-	if err = c.CompileArchive(em.GetEggLib(t, egg), ""); err != nil {
+	fmt.Println(c.ObjPathList)
+	if err = c.CompileArchive(clutch.GetEggLib(t, egg), ""); err != nil {
 		return err
 	}
 
@@ -464,7 +471,7 @@ func (em *EggMgr) Build(t *Target, eggName string, incls []string,
 
 // Check the include directories for the package, to make sure there are no conflicts in
 // include paths for source code
-func (em *EggMgr) checkIncludes(egg *Egg) error {
+func (clutch *Clutch) checkIncludes(egg *Egg) error {
 	incls, err := filepath.Glob(egg.BasePath + "/include/*")
 	if err != nil {
 		return NewNewtError(err.Error())
@@ -479,8 +486,9 @@ func (em *EggMgr) checkIncludes(egg *Egg) error {
 
 	for _, dir := range dirs {
 		if !dir.IsDir() {
-			return NewNewtError(fmt.Sprintf("Only directories are allowed in "+
-				"architecture dir: %s", archDir+dir.Name()))
+			return NewNewtError(fmt.Sprintf(
+				"Only directories are allowed in architecture dir: %s",
+				archDir+dir.Name()))
 		}
 
 		incls2, err := filepath.Glob(archDir + dir.Name() + "/*")
@@ -509,9 +517,9 @@ func (em *EggMgr) checkIncludes(egg *Egg) error {
 		}
 
 		if bad {
-			return NewNewtError(fmt.Sprintf("File %s should not exist in include "+
-				"directory, only file allowed in include directory is a directory with "+
-				"the package name %s",
+			return NewNewtError(fmt.Sprintf("File %s should not exist"+
+				"in include directory, only file allowed in include "+
+				"directory is a directory with the package name %s",
 				incl, egg.Name))
 		}
 	}
@@ -521,10 +529,14 @@ func (em *EggMgr) checkIncludes(egg *Egg) error {
 
 // Clean the tests in the tests parameter, for the package identified by
 // eggName.  If cleanAll is set to true, all architectures will be removed.
-func (em *EggMgr) TestClean(t *Target, eggName string,
+func (clutch *Clutch) TestClean(t *Target, eggName string,
 	cleanAll bool) error {
-	egg, err := em.ResolveEggName(eggName)
+	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
+		return err
+	}
+
+	if err := egg.LoadConfig(t, false); err != nil {
 		return err
 	}
 
@@ -545,7 +557,7 @@ func (em *EggMgr) TestClean(t *Target, eggName string,
 
 // Compile tests specified by the tests parameter.  The tests are linked
 // to the package specified by the egg parameter
-func (em *EggMgr) linkTests(t *Target, egg *Egg,
+func (clutch *Clutch) linkTests(t *Target, egg *Egg,
 	incls []string, libs *[]string) error {
 
 	c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, incls)
@@ -576,7 +588,7 @@ func (em *EggMgr) linkTests(t *Target, egg *Egg,
 // Run all the tests in the tests parameter.  egg is the package to check for
 // the tests.  exitOnFailure specifies whether to exit immediately when a
 // test fails, or continue executing all tests.
-func (em *EggMgr) runTests(t *Target, egg *Egg, exitOnFailure bool) error {
+func (clutch *Clutch) runTests(t *Target, egg *Egg, exitOnFailure bool) error {
 	if err := os.Chdir(egg.BasePath + "/src/test/bin/" + t.Name +
 		"/"); err != nil {
 		return err
@@ -597,7 +609,7 @@ func (em *EggMgr) runTests(t *Target, egg *Egg, exitOnFailure bool) error {
 
 // Check to ensure tests exist.  Go through the array of tests specified by
 // the tests parameter.  egg is the package to check for these tests.
-func (em *EggMgr) testsExist(egg *Egg) error {
+func (clutch *Clutch) testsExist(egg *Egg) error {
 	dirName := egg.BasePath + "/src/test/"
 	if NodeNotExist(dirName) {
 		return NewNewtError("No test exists for package " + egg.Name)
@@ -609,16 +621,21 @@ func (em *EggMgr) testsExist(egg *Egg) error {
 // Test the package identified by eggName, by executing the tests specified.
 // exitOnFailure signifies whether to stop the test program when one of them
 // fails.
-func (em *EggMgr) Test(t *Target, eggName string, exitOnFailure bool) error {
+func (clutch *Clutch) Test(t *Target, eggName string,
+	exitOnFailure bool) error {
 	log.Printf("[INFO] Testing package %s for arch %s", eggName, t.Arch)
 
-	egg, err := em.ResolveEggName(eggName)
+	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
 		return err
 	}
 
+	if err := egg.LoadConfig(t, false); err != nil {
+		return err
+	}
+
 	// Make sure the test directories exist
-	if err := em.testsExist(egg); err != nil {
+	if err := clutch.testsExist(egg); err != nil {
 		return err
 	}
 
@@ -634,11 +651,11 @@ func (em *EggMgr) Test(t *Target, eggName string, exitOnFailure bool) error {
 	//        builds.
 	//     2. Build the BSP package.
 	if t.Bsp != "" {
-		incls, err = BspIncludePaths(em, t)
+		incls, err = BspIncludePaths(clutch, t)
 		if err != nil {
 			return err
 		}
-		_, err = buildBsp(t, em, &incls, &libs)
+		_, err = buildBsp(t, clutch, &incls, &libs)
 		if err != nil {
 			return err
 		}
@@ -647,22 +664,166 @@ func (em *EggMgr) Test(t *Target, eggName string, exitOnFailure bool) error {
 	// Build the package under test.  This must be compiled with the PKG_TEST
 	// symbol defined so that the appropriate main function gets built.
 	egg.Cflags += " -DPKG_TEST"
-	if err := em.Build(t, eggName, incls, &libs); err != nil {
+	if err := clutch.Build(t, eggName, incls, &libs); err != nil {
 		return err
 	}
-	lib := em.GetEggLib(t, egg)
+	lib := clutch.GetEggLib(t, egg)
 	if !NodeExist(lib) {
 		return NewNewtError("Egg " + eggName + " did not produce binary")
 	}
 	libs = append(libs, lib)
 
 	// Compile the package's test code.
-	if err := em.linkTests(t, egg, incls, &libs); err != nil {
+	if err := clutch.linkTests(t, egg, incls, &libs); err != nil {
 		return err
 	}
 
 	// Run the tests.
-	if err := em.runTests(t, egg, exitOnFailure); err != nil {
+	if err := clutch.runTests(t, egg, exitOnFailure); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (cl *Clutch) LoadFromClutch(local *Clutch) error {
+	for _, pkg := range local.Eggs {
+		eggShell := &EggShell{}
+		eggShell.FullName = pkg.FullName
+		eggShell.Deps = pkg.Deps
+		eggShell.Caps = pkg.Capabilities
+		eggShell.ReqCaps = pkg.ReqCapabilities
+		eggShell.Version = pkg.Version
+
+		cl.EggShells = append(cl.EggShells, eggShell)
+	}
+
+	return nil
+}
+
+func (cl *Clutch) Serialize() (string, error) {
+	clStr := "name: " + cl.Name + "\n"
+	clStr = clStr + "url: " + cl.RemoteUrl + "\n"
+	clStr = clStr + "eggs:\n"
+
+	buf := bytes.Buffer{}
+
+	indent := "    "
+	for _, eggShell := range cl.EggShells {
+		buf.WriteString(eggShell.Serialize(indent))
+	}
+
+	return clStr + buf.String(), nil
+}
+
+func (cl *Clutch) strSliceToDr(list []string) ([]*DependencyRequirement, error) {
+	drList := []*DependencyRequirement{}
+
+	for _, name := range list {
+		req, err := NewDependencyRequirementParseString(name)
+		if err != nil {
+			return nil, err
+		}
+		drList = append(drList, req)
+	}
+
+	if len(drList) == 0 {
+		return nil, nil
+	} else {
+		return drList, nil
+	}
+}
+
+func (cl *Clutch) fileToEggList(cfg *viper.Viper) ([]*EggShell,
+	error) {
+	eggMap := cfg.GetStringMap("eggs")
+
+	eggList := []*EggShell{}
+
+	for name, _ := range eggMap {
+		eggShell, err := NewEggShell()
+		if err != nil {
+			return nil, err
+		}
+		eggShell.FullName = name
+
+		eggDef := cfg.GetStringMap("eggs." + name)
+		eggShell.Version, err = NewVersParseString(eggDef["vers"].(string))
+		if err != nil {
+			return nil, err
+		}
+
+		eggShell.Deps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name + ".deps"))
+		if err != nil {
+			return nil, err
+		}
+
+		eggShell.Caps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name + ".caps"))
+		if err != nil {
+			return nil, err
+		}
+
+		eggShell.ReqCaps, err = cl.strSliceToDr(cfg.GetStringSlice("eggs." + name +
+			".req_caps"))
+		if err != nil {
+			return nil, err
+		}
+
+		eggList = append(eggList, eggShell)
+	}
+
+	return eggList, nil
+}
+
+// Create the manifest file name, it's the manifest dir + manifest name and a
+// .yml extension
+func (clutch *Clutch) GetClutchFile(name string) string {
+	return clutch.Nest.ClutchPath + name + ".yml"
+}
+
+func (clutch *Clutch) Load(name string) error {
+	cfg, err := ReadConfig(clutch.Nest.ClutchPath, name)
+	if err != nil {
+		return nil
+	}
+
+	if cfg.GetString("name") != name {
+		return NewNewtError(
+			fmt.Sprintf("Wrong name %s in remote larva file (expected %s)",
+				cfg.GetString("name"), name))
+	}
+
+	clutch.Name = cfg.GetString("name")
+	clutch.RemoteUrl = cfg.GetString("url")
+
+	clutch.EggShells, err = clutch.fileToEggList(cfg)
+	if err != nil {
+		return err
+	}
+
+	clutch.Nest.Clutches[name] = clutch
+
+	return nil
+}
+
+func (cl *Clutch) Install(name string, url string) error {
+	clutchFile := cl.GetClutchFile(name)
+
+	// XXX: Should warn if file already exists, and require force option
+	os.Remove(clutchFile)
+
+	// Download the manifest
+	dl, err := NewDownloader()
+	if err != nil {
+		return err
+	}
+
+	if err := dl.DownloadFile(url, clutchFile); err != nil {
+		return err
+	}
+
+	// Load the manifest, and ensure that it is in the correct format
+	if err := cl.Load(name); err != nil {
 		return err
 	}
 

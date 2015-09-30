@@ -45,23 +45,23 @@ type Project struct {
 	Lflags string
 
 	// The repository the project is located in
-	Repo *Repo
+	Nest *Nest
 
 	// The target associated with this project
 	Target *Target
 }
 
 // Load and initialize a project specified by name
-// r & t are the repository and target to associate the project with
-func LoadProject(r *Repo, t *Target, name string) (*Project, error) {
+// nest & t are the nest and target to associate the project with
+func LoadProject(nest *Nest, t *Target, name string) (*Project, error) {
 	p := &Project{
 		Name:   name,
-		Repo:   r,
+		Nest:   nest,
 		Target: t,
 	}
 
 	log.Printf("[DEBUG] Loading project %s for repo %s, target %s",
-		name, r.BasePath, t.Name)
+		name, nest.BasePath, t.Name)
 
 	if err := p.Init(); err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (p *Project) loadConfig() error {
 // project, if cleanAll is true, then clean everything, not just the current
 // architecture
 func (p *Project) BuildClean(cleanAll bool) error {
-	em, err := NewEggMgr(p.Repo, p.Target)
+	clutch, err := NewClutch(p.Nest)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	log.Printf("[DEBUG] Cleaning all the packages associated with project %s",
 		p.Name)
 	for _, eggName := range p.GetEggs() {
-		err = em.BuildClean(p.Target, eggName, cleanAll)
+		err = clutch.BuildClean(p.Target, eggName, cleanAll)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func (p *Project) BuildClean(cleanAll bool) error {
 
 	// clean the BSP, if it exists
 	if p.Target.Bsp != "" {
-		if err := em.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
+		if err := clutch.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
 			return err
 		}
 	}
@@ -145,11 +145,11 @@ func (p *Project) BuildClean(cleanAll bool) error {
 }
 
 // Build the packages that this project depends on
-// em is an initialized package manager, incls is an array of includes to
+// clutch is an initialized package manager, incls is an array of includes to
 // append to (package includes get append as they are built)
 // libs is an array of archive files to append to (package libraries get
 // appended as they are built)
-func (p *Project) buildDeps(em *EggMgr, incls *[]string, libs *[]string) error {
+func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) error {
 	eggList := p.GetEggs()
 	if eggList == nil {
 		return nil
@@ -186,19 +186,19 @@ func (p *Project) buildDeps(em *EggMgr, incls *[]string, libs *[]string) error {
 			continue
 		}
 
-		egg, err := em.ResolveEggName(eggName)
+		egg, err := clutch.ResolveEggName(eggName)
 		if err != nil {
 			return err
 		}
 
-		if err := em.CheckEggDeps(egg, deps, reqcaps, caps); err != nil {
+		if err := clutch.CheckEggDeps(egg, deps, reqcaps, caps); err != nil {
 			return err
 		}
 	}
 
 	// After processing all the dependencies, verify that the package's capability
 	// requirements are satisfies as well
-	if err := em.VerifyCaps(reqcaps, caps); err != nil {
+	if err := clutch.VerifyCaps(reqcaps, caps); err != nil {
 		return err
 	}
 
@@ -208,18 +208,18 @@ func (p *Project) buildDeps(em *EggMgr, incls *[]string, libs *[]string) error {
 			continue
 		}
 
-		egg, err := em.ResolveEggName(eggName)
+		egg, err := clutch.ResolveEggName(eggName)
 		if err != nil {
 			return err
 		}
 
-		if err = em.Build(p.Target, eggName, *incls, libs); err != nil {
+		if err = clutch.Build(p.Target, eggName, *incls, libs); err != nil {
 			return err
 		}
 
 		// Don't fail if package did not produce a library file; some packages
 		// are header-only.
-		if lib := em.GetEggLib(p.Target, egg); NodeExist(lib) {
+		if lib := clutch.GetEggLib(p.Target, egg); NodeExist(lib) {
 			*libs = append(*libs, lib)
 		}
 
@@ -231,11 +231,11 @@ func (p *Project) buildDeps(em *EggMgr, incls *[]string, libs *[]string) error {
 
 // Build the BSP for this project.
 // The BSP is specified by the Target attached to the project.
-// em is an initialized egg mgr, containing all the packages
+// clutch is an initialized egg mgr, containing all the packages
 // incls and libs are pointers to an array of includes and libraries, when buildBsp()
 // builds the BSP, it appends the include directories for the BSP, and the archive file
 // to these variables.
-func (p *Project) buildBsp(em *EggMgr, incls *[]string,
+func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
 	libs *[]string) (string, error) {
 
 	log.Printf("[INFO] Building BSP %s for Project %s", p.Target.Bsp, p.Name)
@@ -244,15 +244,20 @@ func (p *Project) buildBsp(em *EggMgr, incls *[]string,
 		return "", NewNewtError("Must specify a BSP to build project")
 	}
 
-	return buildBsp(p.Target, em, incls, libs)
+	return buildBsp(p.Target, clutch, incls, libs)
 }
 
 // Build the project
 func (p *Project) Build() error {
 	log.Printf("[INFO] Building project %s", p.Name)
 
-	em, err := NewEggMgr(p.Repo, p.Target)
+	clutch, err := NewClutch(p.Nest)
 	if err != nil {
+		return err
+	}
+
+	// Load the configuration for this target
+	if err := clutch.LoadConfigs(p.Target, false); err != nil {
 		return err
 	}
 
@@ -266,18 +271,18 @@ func (p *Project) Build() error {
 	//        builds.
 	//     2. Build the BSP package.
 	if p.Target.Bsp != "" {
-		incls, err = BspIncludePaths(em, p.Target)
+		incls, err = BspIncludePaths(clutch, p.Target)
 		if err != nil {
 			return err
 		}
-		linkerScript, err = p.buildBsp(em, &incls, &libs)
+		linkerScript, err = p.buildBsp(clutch, &incls, &libs)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Build the project dependencies.
-	if err := p.buildDeps(em, &incls, &libs); err != nil {
+	if err := p.buildDeps(clutch, &incls, &libs); err != nil {
 		return err
 	}
 
@@ -298,7 +303,7 @@ func (p *Project) Build() error {
 	c.LinkerScript = linkerScript
 
 	// Add target C flags
-	c.Cflags = CreateCflags(em, c, p.Target, p.Cflags)
+	c.Cflags = CreateCflags(clutch, c, p.Target, p.Cflags)
 
 	os.Chdir(p.BasePath + "/src/")
 	if err = c.Compile("*.c"); err != nil {
@@ -333,7 +338,7 @@ func (p *Project) Build() error {
 
 // Initialize the project, and project definition
 func (p *Project) Init() error {
-	p.BasePath = p.Repo.BasePath + "/project/" + p.Name + "/"
+	p.BasePath = p.Nest.BasePath + "/project/" + p.Name + "/"
 	if NodeNotExist(p.BasePath) {
 		return NewNewtError("Project directory does not exist")
 	}
