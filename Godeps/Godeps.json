@@ -1,11 +1,16 @@
 {
-	"ImportPath": "github.com/micosa/stack",
+	"ImportPath": "github.com/mynewt/newt",
 	"GoVersion": "go1.4.2",
 	"Deps": [
 		{
 			"ImportPath": "github.com/BurntSushi/toml",
 			"Comment": "v0.1.0-21-g056c9bc",
 			"Rev": "056c9bc7be7190eaa7715723883caffa5f8fa3e4"
+		},
+		{
+			"ImportPath": "github.com/andelf/go-curl",
+			"Comment": "compatible-with-go-release.r60-63-gc965868",
+			"Rev": "c965868dde67fef2abe524c33f1661d9ad233fac"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/logutils",
