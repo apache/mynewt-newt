@@ -16,48 +16,66 @@
 package cli
 
 import (
-	curl "github.com/andelf/go-curl"
+	"fmt"
+	"io/ioutil"
 	"os"
 )
 
 type Downloader struct {
+	Repos map[string]string
 }
 
-var Inited bool = false
-
 func NewDownloader() (*Downloader, error) {
-	if !Inited {
-		curl.GlobalInit(curl.GLOBAL_DEFAULT)
-		Inited = true
-	}
-
 	dl := &Downloader{}
+
+	dl.Repos = map[string]string{}
 
 	return dl, nil
 }
 
-func (dl *Downloader) DownloadFile(url string, file string) error {
-	easy := curl.EasyInit()
-	defer easy.Cleanup()
+func (dl *Downloader) gitClone(url string, branch string, dest string) error {
+	_, err := ShellCommand(fmt.Sprintf("git clone -b %s %s %s", branch, url, dest))
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(dest + "/.git/"); err != nil {
+		return err
+	}
 
-	easy.Setopt(curl.OPT_URL, url)
+	return nil
+}
 
-	easy.Setopt(curl.OPT_WRITEFUNCTION, func(data []byte, userdata interface{}) bool {
-		file := userdata.(*os.File)
+func (dl *Downloader) GetRepo(repoUrl string, branch string) (string, error) {
+	// If repo already exists, return the temporary directory where it exists
+	dir, ok := dl.Repos[repoUrl+branch]
+	if ok {
+		return dir, nil
+	}
 
-		if _, err := file.Write(data); err != nil {
-			return false
-		}
-		return true
-	})
+	dir, err := ioutil.TempDir("", "newtrepo")
+	if err != nil {
+		return "", err
+	}
 
-	fp, _ := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0755)
-	defer fp.Close()
+	// Otherwise, get a temporary directory and place the repo there.
+	if err := dl.gitClone(repoUrl, branch, dir); err != nil {
+		return "", nil
+	}
 
-	easy.Setopt(curl.OPT_WRITEDATA, fp)
+	dl.Repos[repoUrl+branch] = dir
 
-	if err := easy.Perform(); err != nil {
-		return NewNewtError(err.Error())
+	return dir, nil
+}
+
+func (dl *Downloader) DownloadFile(repoUrl string, branch string,
+	filePath string, destPath string) error {
+	repoDir, err := dl.GetRepo(repoUrl, branch)
+	if err != nil {
+		return err
+	}
+
+	if err := CopyFile(repoDir+"/"+filePath, destPath); err != nil {
+		return err
 	}
 
 	return nil

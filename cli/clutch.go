@@ -839,7 +839,8 @@ func (cl *Clutch) Install(name string, url string) error {
 		return err
 	}
 
-	if err := dl.DownloadFile(url, clutchFile); err != nil {
+	if err := dl.DownloadFile(url, "master", "clutch.yml",
+		clutchFile); err != nil {
 		return err
 	}
 

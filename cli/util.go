@@ -20,10 +20,8 @@ import (
 	"github.com/hashicorp/logutils"
 	"github.com/spf13/viper"
 	"log"
-	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -166,100 +164,14 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 	}
 }
 
-func fileClone(path string, dest string) error {
-	_, err := ShellCommand("cp -rf " + path + " " + dest)
-	if err != nil {
+func CopyFile(srcFile string, destFile string) error {
+	if _, err := ShellCommand(fmt.Sprintf("cp -rf %s %s", srcFile,
+		destFile)); err != nil {
 		return err
 	}
 	return nil
 }
 
-func gitCleanClone(urlLoc string, branch string, dest string) error {
-	_, err := ShellCommand(fmt.Sprintf("git clone -b %s %s %s", branch, urlLoc, dest))
-	if err != nil {
-		return err
-	}
-	if err := os.RemoveAll(dest + "/.git/"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func gitSubmoduleClone(urlLoc string, branch string, dest string) error {
-	_, err := ShellCommand(fmt.Sprintf("git submodule add -b %s %s %s", branch, urlLoc, dest))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func gitSubtreeClone(urlLoc string, branch string, dest string) error {
-	// first, add urlLoc as a remote, name = filepath.Base(dest)
-	remoteName := filepath.Base(dest)
-	_, err := ShellCommand(fmt.Sprintf("git remote add %s %s", remoteName, urlLoc))
-	if err != nil {
-		return err
-	}
-
-	// then fetch the remote
-	_, err = ShellCommand("git remote fetch " + remoteName)
-	if err != nil {
-		return err
-	}
-
-	// now, create the remote as a subtree
-	_, err = ShellCommand(fmt.Sprintf("git subtree add --prefix %s %s %s", dest, remoteName, branch))
-	if err != nil {
-		return err
-	}
-
-	// XXX: append the remote name as a file to "<repo>/scripts/git-remotes.sh"
-
-	return nil
-}
-
-func UrlPath(urlLoc string) (string, error) {
-	url, err := url.Parse(urlLoc)
-	if err != nil {
-		return "", NewNewtError(err.Error())
-	}
-
-	return filepath.Base(url.Path), nil
-}
-
-func CopyUrl(urlLoc string, branch string, dest string, installType int) error {
-	url, err := url.Parse(urlLoc)
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	switch url.Scheme {
-	case "file":
-		if installType != 0 {
-			return NewNewtError("Can only do clean source imports for file URLs")
-		}
-		if err := fileClone(url.Path, dest); err != nil {
-			return err
-		}
-	case "https", "http", "git": // non file schemes are assumed git repos
-		switch installType {
-		case 0:
-			err = gitCleanClone(urlLoc, branch, dest)
-		case 1:
-			err = gitSubmoduleClone(urlLoc, branch, dest)
-		case 2:
-			err = gitSubtreeClone(urlLoc, branch, dest)
-		default:
-			return NewNewtError("Unknown install type " + string(installType))
-		}
-	default:
-		err = NewNewtError("Unknown resource type: " + url.Scheme)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+func CopyDir(srcDir, destDir string) error {
+	return CopyFile(srcDir, destDir)
 }
