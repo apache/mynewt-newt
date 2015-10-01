@@ -401,6 +401,60 @@ func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Dependencies successfully resolved!")
 }
 
+func eggHuntCmd(cmd *cobra.Command, args []string) {
+	var err error
+
+	if len(args) != 1 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify string to search for"))
+		return
+	}
+
+	/*
+	 * First check local.
+	 */
+	eggMgr, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	found := false
+	for _, egg := range eggMgr.Eggs {
+		contains := strings.Contains(egg.FullName, args[0])
+		if contains == true {
+			fmt.Printf("Installed egg %s@%s\n", egg.FullName,
+				egg.Version)
+			found = true
+		}
+	}
+
+	/*
+	 * Then check remote clutches.
+	 */
+	clutches, err := NewtNest.GetClutches()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	for _, clutch := range clutches {
+		for _, eggShell := range clutch.EggShells {
+			contains := strings.Contains(eggShell.FullName, args[0])
+			if contains == true {
+				fmt.Printf("Clutch %s has egg %s@%s\n",
+					clutch.Name, eggShell.FullName,
+					eggShell.Version)
+				found = true
+			}
+		}
+	}
+
+	if found == false {
+		fmt.Println("No egg found!")
+	}
+}
+
 func eggAddCmds(baseCmd *cobra.Command) {
 	eggCmd := &cobra.Command{
 		Use:   "egg",
@@ -434,6 +488,14 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	}
 
 	eggCmd.AddCommand(checkDepsCmd)
+
+	huntCmd := &cobra.Command{
+		Use:   "hunt",
+		Short: "Search for egg from clutches",
+		Run:   eggHuntCmd,
+	}
+
+	eggCmd.AddCommand(huntCmd)
 
 	baseCmd.AddCommand(eggCmd)
 }
