@@ -274,6 +274,8 @@ func (t *Target) GetCompiler() string {
 // Build the target
 func (t *Target) Build() error {
 	if t.Vars["project"] != "" {
+		StatusMessage(VERBOSITY_DEFAULT, "Building target %s (project = %s)\n",
+			t.Name, t.Vars["project"])
 		// Now load and build the project.
 		p, err := LoadProject(t.Nest, t, t.Vars["project"])
 		if err != nil {

@@ -79,9 +79,13 @@ func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
 		return err
 	}
 
-	if err := dl.DownloadFile(tadpoleUrl, "master", "/", destDir); err != nil {
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading nest skeleton from %s...",
+		tadpoleUrl)
+	if err := dl.DownloadFile(tadpoleUrl, "master", "/",
+		destDir); err != nil {
 		return err
 	}
+	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	// Overwrite nest.yml
 	contents := []byte(fmt.Sprintf("nest.name: %s\n", nestName))

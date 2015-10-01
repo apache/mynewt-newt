@@ -639,6 +639,9 @@ func parseCmds() *cobra.Command {
 		},
 	}
 
+	newtCmd.PersistentFlags().IntVarP(&cli.Verbosity, "verbosity", "v",
+		cli.VERBOSITY_DEFAULT, "How verbose the Newt tool should be "+
+			"about it's operation")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
 

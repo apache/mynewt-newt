@@ -32,6 +32,15 @@ type NewtError struct {
 }
 
 var Logger *log.Logger
+var Verbosity int
+var OK_STRING = " ok!\n"
+
+const (
+	VERBOSITY_VERBOSE = 0
+	VERBOSITY_DEFAULT = 1
+	VERBOSITY_QUIET   = 2
+	VERBOSITY_SILENT  = 3
+)
 
 func (se *NewtError) Error() string {
 	return se.Text + "\n" + string(se.StackTrace)
@@ -174,4 +183,11 @@ func CopyFile(srcFile string, destFile string) error {
 
 func CopyDir(srcDir, destDir string) error {
 	return CopyFile(srcDir, destDir)
+}
+
+// Print Silent, Quiet and Verbose aware status messages
+func StatusMessage(level int, message string, args ...interface{}) {
+	if level >= Verbosity {
+		fmt.Printf(message, args...)
+	}
 }
