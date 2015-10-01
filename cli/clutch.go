@@ -476,7 +476,6 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 		}
 	}
 
-	fmt.Println(c.ObjPathList)
 	if err = c.CompileArchive(clutch.GetEggLib(t, egg), ""); err != nil {
 		return err
 	}
