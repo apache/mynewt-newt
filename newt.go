@@ -378,7 +378,9 @@ func eggListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
 	for _, egg := range eggMgr.Eggs {
 		if err := dispEgg(egg); err != nil {
 			NewtUsage(cmd, err)
