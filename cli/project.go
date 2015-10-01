@@ -271,6 +271,7 @@ func (p *Project) Build() error {
 	//        builds.
 	//     2. Build the BSP package.
 	if p.Target.Bsp != "" {
+		StatusMessage(VERBOSITY_DEFAULT, "Building BSP %s\n", p.Target.Bsp)
 		incls, err = BspIncludePaths(clutch, p.Target)
 		if err != nil {
 			return err
@@ -294,6 +295,7 @@ func (p *Project) Build() error {
 
 	incls = append(incls, projIncls...)
 
+	StatusMessage(VERBOSITY_DEFAULT, "Compiling project %s\n", p.Name)
 	c, err := NewCompiler(p.Target.GetCompiler(), p.Target.Cdef, p.Target.Name,
 		incls)
 	if err != nil {
@@ -316,6 +318,8 @@ func (p *Project) Build() error {
 			return err
 		}
 	}
+
+	StatusMessage(VERBOSITY_DEFAULT, "Linking project %s\n", p.Name)
 
 	// Create binaries in the project bin/ directory, under:
 	// bin/<arch>/

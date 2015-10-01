@@ -66,7 +66,12 @@ func NewNest() (*Nest, error) {
 
 func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
 	if tadpoleUrl == "" {
-		tadpoleUrl = "https://codeload.github.com/mynewt/tadpole/zip/master"
+		tadpoleUrl = "https://www.github.com/mynewt/tadpole"
+	}
+
+	if NodeExist(destDir) {
+		return NewNewtError(fmt.Sprintf("Directory %s already exists, "+
+			" cannot create new newt nest", destDir))
 	}
 
 	dl, err := NewDownloader()
@@ -74,33 +79,19 @@ func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
 		return err
 	}
 
-	tmpDir, err := ioutil.TempDir("", "tadpole")
-	if err != nil {
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading nest skeleton from %s...",
+		tadpoleUrl)
+	if err := dl.DownloadFile(tadpoleUrl, "master", "/",
+		destDir); err != nil {
 		return err
 	}
-
-	tmpFile := tmpDir + "/tadpole-master.zip"
-
-	if err := dl.DownloadFile(tadpoleUrl, tmpFile); err != nil {
-		return err
-	}
-
-	if _, err := ShellCommand(fmt.Sprintf("unzip %s -d %s", tmpFile,
-		tmpDir)); err != nil {
-		return err
-	}
+	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	// Overwrite nest.yml
 	contents := []byte(fmt.Sprintf("nest.name: %s\n", nestName))
-	if err := ioutil.WriteFile(tmpDir+"/tadpole-master/nest.yml",
+	if err := ioutil.WriteFile(destDir+"/nest.yml",
 		contents, 0644); err != nil {
-		return err
-	}
-
-	// Copy the directory to the desired location
-	if _, err := ShellCommand(fmt.Sprintf("cp -rf %s %s", tmpDir+"/tadpole-master/",
-		destDir)); err != nil {
-		return err
+		return NewNewtError(err.Error())
 	}
 
 	// DONE!

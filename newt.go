@@ -773,13 +773,16 @@ func parseCmds() *cobra.Command {
 	newtCmd := &cobra.Command{
 		Use:   "newt",
 		Short: "Newt is a tool to help you compose and build your own OS",
-		Long: `Newt allows you to create your own embedded project based on the
-		     Newt operating system`,
+		Long: `Newt allows you to create your own embedded project based on 
+			the Newt operating system`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Usage()
 		},
 	}
 
+	newtCmd.PersistentFlags().IntVarP(&cli.Verbosity, "verbosity", "v",
+		cli.VERBOSITY_DEFAULT, "How verbose the Newt tool should be "+
+			"about it's operation")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
 

@@ -426,6 +426,8 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	}
 	egg.Built = true
 
+	StatusMessage(VERBOSITY_DEFAULT, "Building egg %s\n", eggName)
+
 	if err := clutch.buildDeps(egg, t, &incls, libs); err != nil {
 		return err
 	}
@@ -847,14 +849,22 @@ func (cl *Clutch) Install(name string, url string) error {
 		return err
 	}
 
-	if err := dl.DownloadFile(url, clutchFile); err != nil {
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading clutch.yml from %s/"+
+		"master...", url)
+
+	if err := dl.DownloadFile(url, "master", "clutch.yml",
+		clutchFile); err != nil {
 		return err
 	}
 
+	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
+
 	// Load the manifest, and ensure that it is in the correct format
+	StatusMessage(VERBOSITY_DEFAULT, "Verifying clutch.yml format...")
 	if err := cl.Load(name); err != nil {
 		return err
 	}
+	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	return nil
 }
