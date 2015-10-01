@@ -373,6 +373,34 @@ func dispEgg(egg *cli.Egg) error {
 	return nil
 }
 
+func dispEggShell(eggShell *cli.EggShell) error {
+	fmt.Printf("Egg %s, version %s\n", eggShell.FullName, eggShell.Version)
+
+	if eggShell.Caps != nil {
+		fmt.Printf("  capabilities: ")
+		caps, err := eggShell.GetCapabilities()
+		if err != nil {
+			return err
+		}
+		for _, capability := range caps {
+			fmt.Printf("%s ", capability)
+		}
+		fmt.Printf("\n")
+	}
+	if len(eggShell.Deps) > 0 {
+		fmt.Printf("  deps: ")
+		for _, dep := range eggShell.Deps {
+			if dep == nil {
+				continue
+			}
+			fmt.Printf("%s ", dep)
+		}
+		fmt.Printf("\n")
+	}
+
+	return nil
+}
+
 func eggListCmd(cmd *cobra.Command, args []string) {
 	eggMgr, err := cli.NewClutch(NewtNest)
 	if err != nil {
@@ -407,7 +435,6 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		NewtUsage(cmd,
 			cli.NewNewtError("Must specify string to search for"))
-		return
 	}
 
 	/*
@@ -455,6 +482,50 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func eggShowCmd(cmd *cobra.Command, args []string) {
+	var eggName string
+	var clutchName string = ""
+
+	if len(args) < 1 || len(args) > 2 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify string to search for"))
+	}
+
+	if len(args) == 1 {
+		eggName = args[0]
+	} else {
+		clutchName = args[0]
+		eggName = args[1]
+	}
+
+	eggMgr, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	egg, err := eggMgr.ResolveEggName(eggName)
+	if err == nil {
+		egg.LoadConfig(nil, false)
+		dispEgg(egg)
+	}
+
+	clutches, err := NewtNest.GetClutches()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	for _, clutch := range clutches {
+		if clutchName == "" || clutch.Name == clutchName {
+			eggShell, err := clutch.ResolveEggShellName(eggName)
+			if err == nil {
+				dispEggShell(eggShell)
+			}
+		}
+	}
+}
+
 func eggAddCmds(baseCmd *cobra.Command) {
 	eggCmd := &cobra.Command{
 		Use:   "egg",
@@ -496,6 +567,14 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	}
 
 	eggCmd.AddCommand(huntCmd)
+
+	showCmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show what we know of an egg",
+		Run:   eggShowCmd,
+	}
+
+	eggCmd.AddCommand(showCmd)
 
 	baseCmd.AddCommand(eggCmd)
 }

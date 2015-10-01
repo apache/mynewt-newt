@@ -33,7 +33,7 @@ type Clutch struct {
 	// List of packages for Nest
 	Eggs map[string]*Egg
 
-	EggShells []*EggShell
+	EggShells map[string]*EggShell
 
 	Name string
 
@@ -267,6 +267,15 @@ func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
 			"(eggs = %s)", eggName, clutch))
 	}
 	return egg, nil
+}
+
+func (clutch *Clutch) ResolveEggShellName(eggName string) (*EggShell, error) {
+	eggShell, ok := clutch.EggShells[eggName]
+	if !ok {
+		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified "+
+			"(eggs = %s)", eggName, clutch))
+	}
+	return eggShell, nil
 }
 
 func (clutch *Clutch) ResolveEggDir(eggDir string) (*Egg, error) {
@@ -713,7 +722,7 @@ func (cl *Clutch) LoadFromClutch(local *Clutch) error {
 		eggShell.ReqCaps = egg.ReqCapabilities
 		eggShell.Version = egg.Version
 
-		cl.EggShells = append(cl.EggShells, eggShell)
+		cl.EggShells[eggShell.FullName] = eggShell
 	}
 
 	return nil
@@ -752,11 +761,11 @@ func (cl *Clutch) strSliceToDr(list []string) ([]*DependencyRequirement, error) 
 	}
 }
 
-func (cl *Clutch) fileToEggList(cfg *viper.Viper) ([]*EggShell,
+func (cl *Clutch) fileToEggList(cfg *viper.Viper) (map[string]*EggShell,
 	error) {
 	eggMap := cfg.GetStringMap("eggs")
 
-	eggList := []*EggShell{}
+	eggList := map[string]*EggShell{}
 
 	for name, _ := range eggMap {
 		eggShell, err := NewEggShell()
@@ -789,7 +798,7 @@ func (cl *Clutch) fileToEggList(cfg *viper.Viper) ([]*EggShell,
 			return nil, err
 		}
 
-		eggList = append(eggList, eggShell)
+		eggList[name] = eggShell
 	}
 
 	return eggList, nil

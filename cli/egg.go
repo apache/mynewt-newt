@@ -366,6 +366,15 @@ func (egg *Egg) GetDependencies() ([]*DependencyRequirement, error) {
 	return egg.Deps, nil
 }
 
+func (eggShell *EggShell) GetCapabilities() ([]*DependencyRequirement, error) {
+	return eggShell.Caps, nil
+}
+
+// Return the egg dependencies for this eggShell.
+func (eggShell *EggShell) GetDependencies() ([]*DependencyRequirement, error) {
+	return eggShell.Deps, nil
+}
+
 // Load a egg's configuration information from the egg config
 // file.
 func (egg *Egg) GetIncludes(t *Target) ([]string, error) {
