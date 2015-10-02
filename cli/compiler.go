@@ -34,6 +34,7 @@ type Compiler struct {
 	Aflags string
 	Lflags string
 
+	depTracker            DepTracker
 	ccPath                string
 	asPath                string
 	arPath                string
@@ -47,11 +48,14 @@ type Compiler struct {
 
 func NewCompiler(ccPath string, cDef string, tName string, includes []string) (
 	*Compiler, error) {
+
 	c := &Compiler{
 		ConfigPath:   ccPath,
 		TargetName:   tName,
 		BaseIncludes: includes,
 	}
+
+	c.depTracker = NewDepTracker(c)
 
 	log.Printf("[INFO] Loading compiler %s, target %s, def %s", ccPath, tName, cDef)
 
@@ -97,6 +101,20 @@ func (c *Compiler) ReadSettings(cDef string) error {
 	return nil
 }
 
+// Skips compilation of the specified C or assembly file, but adds the name of
+// the object file that would have been generated to the compiler's list of
+// object files.  This function is used when the object file is already up to
+// date, so no compilation is necessary.  The name of the object file should
+// still be remembered so that it gets linked in to the final library or
+// executable.
+func (c *Compiler) SkipSourceFile(srcFile string) {
+	wd, _ := os.Getwd()
+	objDir := wd + "/obj/" + c.TargetName + "/"
+	objFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
+		".o"
+	c.ObjPathList[objFile] = true
+}
+
 // file type 0 = cc, file type 1 = as
 func (c *Compiler) CompileFile(file string, compilerType int) error {
 	wd, _ := os.Getwd()
@@ -126,7 +144,61 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		" " + c.Cflags + " -I" + strings.Join(c.BaseIncludes, " -I")
 
 	_, err := ShellCommand(cmd)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Generates a dependency Makefile (.d) for the specified source file.
+func (c *Compiler) GenDepsForFile(file string) error {
+	wd, _ := os.Getwd()
+	objDir := wd + "/obj/" + c.TargetName + "/"
+
+	if NodeNotExist(objDir) {
+		os.MkdirAll(objDir, 0755)
+	}
+
+	depFile := objDir + strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
+	tmpFile := depFile + ".tmp"
+	cFlags := c.Cflags + " -I" + strings.Join(c.BaseIncludes, " -I")
+
+	var cmd string
+	var err error
+
+	cmd = c.ccPath + " " + cFlags + " -MM -MG " + file + " > " + depFile
+	_, err = ShellCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	cmd = "mv -f " + depFile + " " + tmpFile
+	_, err = ShellCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	cmd = "sed -e 's|.*:|" + depFile + ":|' < " + tmpFile + " > " + depFile
+	_, err = ShellCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	cmd = "sed -e 's/.*://' -e 's/\\\\$$//' < " + tmpFile + " | fmt -1 | " +
+		"sed -e 's/^ *//' -e 's/$$/:/' >> " + depFile
+	_, err = ShellCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	cmd = "rm -f " + tmpFile
+	_, err = ShellCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Compiler) Compile(match string) error {
@@ -137,14 +209,33 @@ func (c *Compiler) Compile(match string) error {
 		return err
 	}
 
-	log.Printf("[INFO] Compiling C (%s/%s) %s", wd, match, strings.Join(files, " "))
-
+	// Determine which files need to be compiled.
+	newFiles := []string{}
 	for _, file := range files {
-		err := c.CompileFile(file, 0)
+		doBuild, err := c.depTracker.CompileRequired(file)
 		if err != nil {
 			return err
 		}
+		if doBuild {
+			newFiles = append(newFiles, file)
+		} else {
+			c.SkipSourceFile(file)
+		}
 	}
+
+	// Compile new files.
+	if len(newFiles) != 0 {
+		log.Printf("[INFO] Compiling C (%s/%s) %s", wd, match,
+			strings.Join(files, " "))
+
+		for _, file := range newFiles {
+			err = c.CompileFile(file, 0)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -156,13 +247,30 @@ func (c *Compiler) CompileAs(match string) error {
 		return err
 	}
 
-	log.Printf("[INFO] Compiling assembly (%s/%s) %s", wd, match,
-		strings.Join(files, " "))
-
+	// Determine which files need to be compiled.
+	newFiles := []string{}
 	for _, file := range files {
-		err := c.CompileFile(file, 1)
+		doBuild, err := c.depTracker.CompileRequired(file)
 		if err != nil {
 			return err
+		}
+		if doBuild {
+			newFiles = append(newFiles, file)
+		} else {
+			c.SkipSourceFile(file)
+		}
+	}
+
+	// Compile new files.
+	if len(newFiles) != 0 {
+		log.Printf("[INFO] Compiling assembly (%s/%s) %s", wd, match,
+			strings.Join(files, " "))
+
+		for _, file := range newFiles {
+			err := c.CompileFile(file, 1)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -256,8 +364,9 @@ func (c *Compiler) getObjFiles(baseObjFiles string) string {
 }
 
 func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
-	objFiles string) error {
-	objList := c.getObjFiles(objFiles)
+	objFiles []string) error {
+	objString := strings.Join(objFiles, " ")
+	objList := c.getObjFiles(objString)
 
 	log.Printf("[INFO] Compiling Binary %s with object files %s", dstFile,
 		objList)
@@ -281,8 +390,20 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 		return err
 	}
 
+	return nil
+}
+
+// Generates the following build artifacts:
+//    * lst file
+//    * map file
+//    * bin file
+func (c *Compiler) generateExtras(elfFilename string,
+	options map[string]bool) error {
+
+	var cmd string
+
 	if checkBoolMap(options, "listFile") {
-		listFile := dstFile + ".lst"
+		listFile := elfFilename + ".lst"
 		// if list file exists, remove it
 		if NodeExist(listFile) {
 			if err := os.RemoveAll(listFile); err != nil {
@@ -290,7 +411,7 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 			}
 		}
 
-		cmd = c.odPath + " -wxdS " + dstFile + " >> " + listFile
+		cmd = c.odPath + " -wxdS " + elfFilename + " >> " + listFile
 		_, err := ShellCommand(cmd)
 		if err != nil {
 			// XXX: gobjdump appears to always crash.  Until we get that sorted
@@ -300,17 +421,21 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 
 		sects := []string{".text", ".rodata", ".data"}
 		for _, sect := range sects {
-			cmd = c.odPath + " -s -j " + sect + " " + dstFile + " >> " + listFile
+			cmd = c.odPath + " -s -j " + sect + " " + elfFilename + " >> " + listFile
 			ShellCommand(cmd)
 		}
 
-		cmd = c.osPath + " " + dstFile + " >> " + listFile
+		cmd = c.osPath + " " + elfFilename + " >> " + listFile
+		_, err = ShellCommand(cmd)
+		if err != nil {
+			return err
+		}
 	}
 
 	if checkBoolMap(options, "binFile") {
-		binFile := dstFile + ".bin"
+		binFile := elfFilename + ".bin"
 		cmd = c.ocPath + " -R .bss -R .bss.core -R .bss.core.nz -O binary " +
-			dstFile + " " + binFile
+			elfFilename + " " + binFile
 		_, err := ShellCommand(cmd)
 		if err != nil {
 			return err
@@ -321,19 +446,48 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 }
 
 func (c *Compiler) CompileElf(binFile string, options map[string]bool,
-	objFiles string) error {
+	objFiles []string) error {
+
 	binFile += ".elf"
-	return c.CompileBinary(binFile, options, objFiles)
+
+	linkRequired, err := LinkRequired(binFile, objFiles)
+	if err != nil {
+		return err
+	}
+	if linkRequired {
+		log.Printf("[DEBUG] Compiling a binary %s from libs %s", binFile,
+			strings.Join(objFiles, " "))
+		err := c.CompileBinary(binFile, options, objFiles)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = c.generateExtras(binFile, options)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (c *Compiler) CompileArchive(archiveFile string, objFiles string) error {
-	objList := c.getObjFiles(objFiles)
+func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
+	arRequired, err := c.depTracker.ArchiveRequired(archiveFile)
+	if err != nil {
+		return err
+	}
+	if !arRequired {
+		return nil
+	}
+
+	objString := strings.Join(objFiles, " ")
+	objList := c.getObjFiles(objString)
 
 	log.Printf("[INFO] Compiling archive %s with object files %s",
 		archiveFile, objList)
 
 	cmd := c.arPath + " rcs " + archiveFile + " " + objList
 
-	_, err := ShellCommand(cmd)
+	_, err = ShellCommand(cmd)
 	return err
 }

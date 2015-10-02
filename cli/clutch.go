@@ -487,7 +487,7 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 		}
 	}
 
-	if err = c.CompileArchive(clutch.GetEggLib(t, egg), ""); err != nil {
+	if err = c.CompileArchive(clutch.GetEggLib(t, egg), []string{}); err != nil {
 		return err
 	}
 
@@ -602,7 +602,7 @@ func (clutch *Clutch) linkTests(t *Target, egg *Egg,
 	}
 
 	if err := c.CompileBinary(testBinDir+egg.TestBinName(), map[string]bool{},
-		strings.Join(*libs, " ")); err != nil {
+		*libs); err != nil {
 
 		return err
 	}

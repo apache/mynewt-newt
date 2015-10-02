@@ -18,7 +18,6 @@ package cli
 import (
 	"log"
 	"os"
-	"strings"
 )
 
 // Structure representing a project
@@ -327,12 +326,10 @@ func (p *Project) Build() error {
 	if NodeNotExist(binDir) {
 		os.MkdirAll(binDir, 0755)
 	}
-	log.Printf("[DEBUG] Compiling a binary %s from libs %s", binDir+p.Name,
-		strings.Join(libs, " "))
 
 	options := map[string]bool{"mapFile": c.ldMapFile,
 		"listFile": true, "binFile": true}
-	err = c.CompileElf(binDir+p.Name, options, strings.Join(libs, " "))
+	err = c.CompileElf(binDir+p.Name, options, libs)
 	if err != nil {
 		return err
 	}

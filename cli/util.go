@@ -16,6 +16,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/hashicorp/logutils"
 	"github.com/spf13/viper"
@@ -24,6 +25,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type NewtError struct {
@@ -159,6 +161,20 @@ func NodeNotExist(path string) bool {
 	}
 }
 
+func FileModificationTime(path string) (time.Time, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		epoch := time.Unix(0, 0)
+		if os.IsNotExist(err) {
+			return epoch, nil
+		} else {
+			return epoch, NewNewtError(err.Error())
+		}
+	}
+
+	return fileInfo.ModTime(), nil
+}
+
 // Execute the command specified by cmdStr on the shell and return results
 func ShellCommand(cmdStr string) ([]byte, error) {
 	log.Print("[VERBOSE] " + cmdStr)
@@ -190,4 +206,41 @@ func StatusMessage(level int, message string, args ...interface{}) {
 	if level >= Verbosity {
 		fmt.Printf(message, args...)
 	}
+}
+
+// Reads each line from the specified text file into an array of strings.  If a
+// line ends with a backslash, it is concatenated with the following line.
+func ReadLines(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, NewNewtError(err.Error())
+	}
+	defer file.Close()
+
+	var lines []string
+
+	concat := false
+	var prevLine *string = nil
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if concat {
+			*prevLine += line
+		} else {
+			lines = append(lines, line)
+			prevLine = &line
+		}
+
+		concat = line[len(line)-1:] == "\\"
+		if concat {
+			line = line[:len(line)-1]
+		}
+	}
+
+	if scanner.Err() != nil {
+		return lines, NewNewtError(scanner.Err().Error())
+	}
+
+	return lines, nil
 }
