@@ -770,7 +770,7 @@ func (cl *Clutch) fileToEggList(cfg *viper.Viper) (map[string]*EggShell,
 	eggList := map[string]*EggShell{}
 
 	for name, _ := range eggMap {
-		eggShell, err := NewEggShell()
+		eggShell, err := NewEggShell(cl)
 		if err != nil {
 			return nil, err
 		}
