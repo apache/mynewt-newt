@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,10 +58,16 @@ func ParseDepsFile(filename string) ([]string, error) {
 	return tokens[1:], nil
 }
 
-// Determines if the specified C or assembly file needs to be built.  If the
-// source file or any of its dependencies has been modified more recently than
-// the destination object file, a build is required.
-func (tracker *DepTracker) CompileRequired(srcFile string) (bool, error) {
+// Determines if the specified C or assembly file needs to be built.  A compile
+// is required if any of the following is true:
+//     * The destination object file does not exist.
+//     * The existing object file was built with a different compiler
+//       invocation.
+//     * The source file has a newer modification time than the object file.
+//     * One or more included header files has a newer modification time than
+//       the object file.
+func (tracker *DepTracker) CompileRequired(srcFile string,
+	compilerType int) (bool, error) {
 	wd, _ := os.Getwd()
 	objDir := wd + "/obj/" + tracker.compiler.TargetName + "/"
 
@@ -68,6 +75,16 @@ func (tracker *DepTracker) CompileRequired(srcFile string) (bool, error) {
 		".o"
 	depFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
 		".d"
+
+		// If the object was previously built with a different set of options, a
+		// rebuild is necessary.
+	cmd, err := tracker.compiler.CompileFileCmd(srcFile, compilerType)
+	if err != nil {
+		return false, err
+	}
+	if CommandHasChanged(objFile, cmd) {
+		return true, nil
+	}
 
 	srcModTime, err := FileModificationTime(srcFile)
 	if err != nil {
@@ -128,28 +145,64 @@ func (tracker *DepTracker) CompileRequired(srcFile string) (bool, error) {
 	return false, nil
 }
 
-// Determines if the specified static library needs to be rearchived.
-// Archiving is necessary if the library does not exist or has an older
-// modification time than any source object file.
-func (tracker *DepTracker) ArchiveRequired(aFile string) (bool, error) {
-	aModTime, err := FileModificationTime(aFile)
+// Determines if the specified static library needs to be rearchived.  The
+// library needs to be archived if any of the following is true:
+//     * The destination library file does not exist.
+//     * The existing library file was built with a different compiler
+//       invocation.
+//     * One or more source object files has a newer modification time than the
+//       library file.
+func (tracker *DepTracker) ArchiveRequired(archiveFile string,
+	objFiles []string) (bool, error) {
+
+	// If the archive was previously built with a different set of options, a
+	// rebuild is required.
+	cmd := tracker.compiler.CompileArchiveCmd(archiveFile, objFiles)
+	if CommandHasChanged(archiveFile, cmd) {
+		return true, nil
+	}
+
+	// If the archive doesn't exist or is older than any object file, a rebuild
+	// is required.
+	aModTime, err := FileModificationTime(archiveFile)
 	if err != nil {
 		return false, err
 	}
+	if tracker.MostRecent.After(aModTime) {
+		return true, nil
+	}
 
-	return tracker.MostRecent.After(aModTime), nil
+	// The library is up to date.
+	return false, nil
 }
 
 // Determines if the specified elf file needs to be linked.  Linking is
 // necessary if the elf file does not exist or has an older modification time
 // than any source object or library file.
-func LinkRequired(dest string, objs []string) (bool, error) {
-	dstModTime, err := FileModificationTime(dest)
+// Determines if the specified static library needs to be rearchived.  The
+// library needs to be archived if any of the following is true:
+//     * The destination library file does not exist.
+//     * The existing library file was built with a different compiler
+//       invocation.
+//     * One or more source object files has a newer modification time than the
+//       library file.
+func (tracker *DepTracker) LinkRequired(dstFile string,
+	options map[string]bool, objFiles []string) (bool, error) {
+
+	// If the elf file was previously built with a different set of options, a
+	// rebuild is required.
+	cmd := tracker.compiler.CompileBinaryCmd(dstFile, options, objFiles)
+	if CommandHasChanged(dstFile, cmd) {
+		return true, nil
+	}
+
+	// If the elf file doesn't exist or is older than any input file, a rebuild
+	// is required.
+	dstModTime, err := FileModificationTime(dstFile)
 	if err != nil {
 		return false, err
 	}
-
-	for _, obj := range objs {
+	for _, obj := range objFiles {
 		objModTime, err := FileModificationTime(obj)
 		if err != nil {
 			return false, err

@@ -194,7 +194,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 	ignDirs = append(ignDirs, "bin")
 
 	// Ignore architecture-specific source files for now.  Use a temporary
-	// string array here so that the "arch" director is not ignored in the
+	// string array here so that the "arch" directory is not ignored in the
 	// subsequent architecture-specific compile phase.
 	baseIgnDirs := append(ignDirs, "arch")
 

@@ -195,8 +195,8 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 		}
 	}
 
-	// After processing all the dependencies, verify that the package's capability
-	// requirements are satisfies as well
+	// After processing all the dependencies, verify that the package's
+	// capability requirements are satisfied as well
 	if err := clutch.VerifyCaps(reqcaps, caps); err != nil {
 		return err
 	}

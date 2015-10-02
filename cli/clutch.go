@@ -263,7 +263,7 @@ func (clutch *Clutch) Init() error {
 func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
 	egg, ok := clutch.Eggs[eggName]
 	if !ok {
-		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified "+
+		return nil, NewNewtError(fmt.Sprintf("Invalid egg '%s' specified "+
 			"(eggs = %s)", eggName, clutch))
 	}
 	return egg, nil
@@ -272,7 +272,7 @@ func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
 func (clutch *Clutch) ResolveEggShellName(eggName string) (*EggShell, error) {
 	eggShell, ok := clutch.EggShells[eggName]
 	if !ok {
-		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified "+
+		return nil, NewNewtError(fmt.Sprintf("Invalid egg '%s' specified "+
 			"(eggs = %s)", eggName, clutch))
 	}
 	return eggShell, nil
@@ -401,7 +401,7 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 // Build the package specified by eggName
 //
 // @param incls            Extra include paths that get specified during
-//                                  build.  Note: passed by value.
+//                             build.  Note: passed by value.
 // @param lib              List of libraries that have been built so far;
 //                             This function appends entries to this list.
 func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
@@ -595,16 +595,27 @@ func (clutch *Clutch) linkTests(t *Target, egg *Egg,
 	c.Lflags += " " + egg.Lflags + " " + t.Lflags
 
 	testBinDir := egg.BasePath + "/src/test/bin/" + t.Name + "/"
-	if NodeNotExist(testBinDir) {
-		if err := os.MkdirAll(testBinDir, 0755); err != nil {
-			return NewNewtError(err.Error())
-		}
+	binFile := testBinDir + egg.TestBinName()
+	options := map[string]bool{}
+
+	// Determine if the test executable is already up to date.
+	linkRequired, err := c.depTracker.LinkRequired(binFile, options, *libs)
+	if err != nil {
+		return err
 	}
 
-	if err := c.CompileBinary(testBinDir+egg.TestBinName(), map[string]bool{},
-		*libs); err != nil {
+	// Build the test executable if necessary.
+	if linkRequired {
+		if NodeNotExist(testBinDir) {
+			if err := os.MkdirAll(testBinDir, 0755); err != nil {
+				return NewNewtError(err.Error())
+			}
+		}
 
-		return err
+		err = c.CompileBinary(binFile, options, *libs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -648,7 +659,7 @@ func (clutch *Clutch) testsExist(egg *Egg) error {
 // fails.
 func (clutch *Clutch) Test(t *Target, eggName string,
 	exitOnFailure bool) error {
-	log.Printf("[INFO] Testing package %s for arch %s", eggName, t.Arch)
+	log.Printf("[INFO] Testing egg %s for arch %s", eggName, t.Arch)
 
 	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
