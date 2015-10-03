@@ -588,6 +588,12 @@ func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
 	log.Printf("[INFO] Compiling archive %s with object files %s",
 		archiveFile, objList)
 
+	// Delete the old archive, if it exists.
+	err = os.Remove(archiveFile)
+	if err != nil && !os.IsNotExist(err) {
+		return NewNewtError(err.Error())
+	}
+
 	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
 	_, err = ShellCommand(cmd)
 	if err != nil {
