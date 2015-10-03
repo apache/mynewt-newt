@@ -219,24 +219,26 @@ func ReadLines(path string) ([]string, error) {
 	}
 	defer file.Close()
 
-	var lines []string
-
-	concat := false
-	var prevLine *string = nil
+	lines := []string{}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if concat {
-			*prevLine += line
-		} else {
-			lines = append(lines, line)
-			prevLine = &line
+		concatted := false
+
+		if len(lines) != 0 {
+			prevLine := lines[len(lines)-1]
+			if len(prevLine) > 0 && prevLine[len(prevLine)-1:] == "\\" {
+				prevLine = prevLine[:len(prevLine)-1]
+				prevLine += line
+				lines[len(lines)-1] = prevLine
+
+				concatted = true
+			}
 		}
 
-		concat = line[len(line)-1:] == "\\"
-		if concat {
-			line = line[:len(line)-1]
+		if !concatted {
+			lines = append(lines, line)
 		}
 	}
 
