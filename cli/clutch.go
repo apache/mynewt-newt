@@ -426,11 +426,11 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	}
 	egg.Built = true
 
-	StatusMessage(VERBOSITY_DEFAULT, "Building egg %s\n", eggName)
-
 	if err := clutch.buildDeps(egg, t, &incls, libs); err != nil {
 		return err
 	}
+
+	StatusMessage(VERBOSITY_DEFAULT, "Building egg %s\n", eggName)
 
 	// NOTE: this assignment must happen after the call to buildDeps(), as
 	// buildDeps() fills in the package includes.

@@ -318,7 +318,7 @@ func (p *Project) Build() error {
 		}
 	}
 
-	StatusMessage(VERBOSITY_DEFAULT, "Linking project %s\n", p.Name)
+	StatusMessage(VERBOSITY_DEFAULT, "Building project %s\n", p.Name)
 
 	// Create binaries in the project bin/ directory, under:
 	// bin/<arch>/

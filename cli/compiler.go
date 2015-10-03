@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -238,6 +239,15 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return err
 	}
 
+	switch compilerType {
+	case 0:
+		StatusMessage(VERBOSITY_DEFAULT, "Compiling %s\n", file)
+	case 1:
+		StatusMessage(VERBOSITY_DEFAULT, "Assembling %s\n", file)
+	default:
+		return NewNewtError("Unknown compiler type")
+	}
+
 	_, err = ShellCommand(cmd)
 	if err != nil {
 		return err
@@ -450,6 +460,8 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	log.Printf("[INFO] Compiling Binary %s with object files %s", dstFile,
 		objList)
 
+	StatusMessage(VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
+
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
 	_, err := ShellCommand(cmd)
 	if err != nil {
@@ -587,6 +599,8 @@ func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
 
 	log.Printf("[INFO] Compiling archive %s with object files %s",
 		archiveFile, objList)
+
+	StatusMessage(VERBOSITY_DEFAULT, "Archiving %s\n", path.Base(archiveFile))
 
 	// Delete the old archive, if it exists.
 	err = os.Remove(archiveFile)
