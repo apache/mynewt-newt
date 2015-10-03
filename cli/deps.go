@@ -75,8 +75,8 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	depFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
 		".d"
 
-		// If the object was previously built with a different set of options, a
-		// rebuild is necessary.
+	// If the object was previously built with a different set of options, a
+	// rebuild is necessary.
 	cmd, err := tracker.compiler.CompileFileCmd(srcFile, compilerType)
 	if err != nil {
 		return false, err

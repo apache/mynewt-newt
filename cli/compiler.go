@@ -25,6 +25,11 @@ import (
 	"strings"
 )
 
+const (
+	COMPILER_TYPE_C   = 0
+	COMPILER_TYPE_ASM = 1
+)
+
 type Compiler struct {
 	ConfigPath   string
 	TargetName   string
@@ -137,7 +142,7 @@ func (c *Compiler) IncludesString() string {
 // or assembly file.
 //
 // @param file                  The filename of the source file to compile.
-// @param compilerType          0 = cc; 1 = as
+// @param compilerType          One of the COMPILER_TYPE_[...] constants.
 //
 // @return                      (success) The command string.
 func (c *Compiler) CompileFileCmd(file string,
@@ -151,9 +156,9 @@ func (c *Compiler) CompileFileCmd(file string,
 	var cmd string
 
 	switch compilerType {
-	case 0:
+	case COMPILER_TYPE_C:
 		cmd = c.ccPath
-	case 1:
+	case COMPILER_TYPE_ASM:
 		cmd = c.asPath
 	default:
 		return "", NewNewtError("Unknown compiler type")
@@ -220,7 +225,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 // Compile the specified C or assembly file.
 //
 // @param file                  The filename of the source file to compile.
-// @param compilerType          0 = cc; 1 = as
+// @param compilerType          One of the COMPILER_TYPE_[...] constants.
 func (c *Compiler) CompileFile(file string, compilerType int) error {
 	wd, _ := os.Getwd()
 	objDir := wd + "/obj/" + c.TargetName + "/"
@@ -240,9 +245,9 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	}
 
 	switch compilerType {
-	case 0:
+	case COMPILER_TYPE_C:
 		StatusMessage(VERBOSITY_DEFAULT, "Compiling %s\n", file)
-	case 1:
+	case COMPILER_TYPE_ASM:
 		StatusMessage(VERBOSITY_DEFAULT, "Assembling %s\n", file)
 	default:
 		return NewNewtError("Unknown compiler type")
@@ -281,7 +286,7 @@ func (c *Compiler) Compile(match string) error {
 			return err
 		}
 		if compileRequired {
-			err = c.CompileFile(file, 0)
+			err = c.CompileFile(file, COMPILER_TYPE_C)
 			if err != nil {
 				return err
 			}
@@ -313,7 +318,7 @@ func (c *Compiler) CompileAs(match string) error {
 			return err
 		}
 		if compileRequired {
-			err = c.CompileFile(file, 1)
+			err = c.CompileFile(file, COMPILER_TYPE_ASM)
 			if err != nil {
 				return err
 			}
