@@ -201,6 +201,9 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 	if err != nil {
 		return false, err
 	}
+	if tracker.compiler.LinkerScript != "" {
+		objFiles = append(objFiles, tracker.compiler.LinkerScript)
+	}
 	for _, obj := range objFiles {
 		objModTime, err := FileModificationTime(obj)
 		if err != nil {
