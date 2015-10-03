@@ -36,7 +36,7 @@ func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
 		sErr := err.(*cli.NewtError)
 		log.Printf("[DEBUG] %s", sErr.StackTrace)
-		fmt.Println("Error: ", sErr.Text)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", sErr.Text)
 	}
 
 	if cmd != nil {
@@ -140,7 +140,7 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 
 	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 
 	if len(args) > 1 && args[1] == "clean" {
@@ -154,7 +154,7 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	} else {
 		fmt.Println("Successfully run!")
 	}
@@ -184,7 +184,7 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 
 	t, err := cli.LoadTarget(NewtNest, args[0])
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 
 	if len(args) > 1 && args[1] == "clean" {
@@ -198,7 +198,7 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	} else {
 		fmt.Println("Successfully run!")
 	}

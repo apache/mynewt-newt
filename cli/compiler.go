@@ -253,8 +253,9 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return NewNewtError("Unknown compiler type")
 	}
 
-	_, err = ShellCommand(cmd)
+	rsp, err := ShellCommand(cmd)
 	if err != nil {
+		StatusMessage(VERBOSITY_QUIET, string(rsp))
 		return err
 	}
 
@@ -468,8 +469,9 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	StatusMessage(VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
-	_, err := ShellCommand(cmd)
+	rsp, err := ShellCommand(cmd)
 	if err != nil {
+		StatusMessage(VERBOSITY_QUIET, string(rsp))
 		return err
 	}
 
@@ -614,8 +616,9 @@ func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
 	}
 
 	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
-	_, err = ShellCommand(cmd)
+	rsp, err := ShellCommand(cmd)
 	if err != nil {
+		StatusMessage(VERBOSITY_QUIET, string(rsp))
 		return err
 	}
 

@@ -180,7 +180,6 @@ func EggIncludeDirs(egg *Egg, t *Target) []string {
 // Recursively compiles all the .c and .s files in the specified directory.
 // Architecture-specific files are also compiled.
 func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
-
 	var err error
 
 	log.Printf("[DEBUG] compiling src in base directory: %s", srcDir)
