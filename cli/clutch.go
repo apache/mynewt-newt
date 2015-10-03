@@ -412,7 +412,7 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	if err != nil {
 		return err
 	}
-	//XXX: This overwrites the PKG_TEST define
+
 	if err := egg.LoadConfig(t, false); err != nil {
 		return err
 	}

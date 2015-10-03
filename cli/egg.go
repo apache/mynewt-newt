@@ -441,9 +441,9 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 
 	egg.LinkerScript = GetStringIdentities(v, t, "egg.linkerscript")
 
-	egg.Cflags = GetStringIdentities(v, t, "egg.cflags")
-	egg.Lflags = GetStringIdentities(v, t, "egg.lflags")
-	egg.Aflags = GetStringIdentities(v, t, "egg.aflags")
+	egg.Cflags += GetStringIdentities(v, t, "egg.cflags")
+	egg.Lflags += GetStringIdentities(v, t, "egg.lflags")
+	egg.Aflags += GetStringIdentities(v, t, "egg.aflags")
 
 	// Append all the identities that this egg exposes to sub-eggs
 	if t != nil {
