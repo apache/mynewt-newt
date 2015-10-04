@@ -16,8 +16,11 @@
 package cli
 
 import (
+	"crypto/sha1"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -94,6 +97,7 @@ type Egg struct {
 type EggShell struct {
 	FullName string
 	Version  *Version
+	Hash     string
 	Deps     []*DependencyRequirement
 	Caps     []*DependencyRequirement
 	ReqCaps  []*DependencyRequirement
@@ -125,7 +129,7 @@ func (es *EggShell) Serialize(indent string) string {
 		es.Version = &Version{0, 0, 0}
 	}
 	esStr += fmt.Sprintf("%svers: %s\n", indent, es.Version)
-
+	esStr += fmt.Sprintf("%shash: %s\n", indent, es.Hash)
 	esStr += es.serializeDepReq("deps", es.Deps, indent)
 	esStr += es.serializeDepReq("caps", es.Caps, indent)
 	esStr += es.serializeDepReq("req_caps", es.ReqCaps, indent)
@@ -415,6 +419,42 @@ func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	}
 
 	return caps, nil
+}
+
+// Generate a hash of the contents of an egg.  This function recursively
+// processes the contents of a directory, ignoring hidden files and the
+// bin and obj directories.  It returns a hash of all the files, their
+// contents.
+func (egg *Egg) GetHash() (string, error) {
+	hash := sha1.New()
+
+	err := filepath.Walk(egg.BasePath,
+		func(path string, info os.FileInfo, err error) error {
+			name := info.Name()
+			if name == "bin" || name == "obj" || name[0] == '.' {
+				return filepath.SkipDir
+			}
+
+			if info.IsDir() {
+				// SHA the directory name into the hash
+				hash.Write([]byte(name))
+			} else {
+				// SHA the file name & contents into the hash
+				contents, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				hash.Write(contents)
+			}
+			return nil
+		})
+	if err != nil && err != filepath.SkipDir {
+		return "", NewNewtError(err.Error())
+	}
+
+	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
+
+	return hashStr, nil
 }
 
 // Load a egg's configuration.  This allocates & initializes a fair number of

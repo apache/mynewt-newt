@@ -728,6 +728,7 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 }
 
 func (cl *Clutch) LoadFromClutch(local *Clutch) error {
+	var err error
 	for _, egg := range local.Eggs {
 		if err := egg.LoadConfig(nil, false); err != nil {
 			return err
@@ -742,6 +743,10 @@ func (cl *Clutch) LoadFromClutch(local *Clutch) error {
 		eggShell.Caps = egg.Capabilities
 		eggShell.ReqCaps = egg.ReqCapabilities
 		eggShell.Version = egg.Version
+		eggShell.Hash, err = egg.GetHash()
+		if err != nil {
+			return err
+		}
 
 		cl.EggShells[eggShell.FullName] = eggShell
 	}
