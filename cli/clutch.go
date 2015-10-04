@@ -255,8 +255,13 @@ func (clutch *Clutch) loadEggs() error {
 
 // Initialize the package manager
 func (clutch *Clutch) Init() error {
-	err := clutch.loadEggs()
-	return err
+	if err := clutch.loadEggs(); err != nil {
+		return err
+	}
+
+	clutch.EggShells = map[string]*EggShell{}
+
+	return nil
 }
 
 // Resolve the package specified by eggName into a package structure.
@@ -727,6 +732,9 @@ func (cl *Clutch) LoadFromClutch(local *Clutch) error {
 		if err := egg.LoadConfig(nil, false); err != nil {
 			return err
 		}
+
+		log.Printf("[DEBUG] Egg %s loaded, putting it into clutch %s",
+			egg.FullName, local.Name)
 
 		eggShell := &EggShell{}
 		eggShell.FullName = egg.FullName
