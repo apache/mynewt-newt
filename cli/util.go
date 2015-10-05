@@ -63,7 +63,7 @@ func NewNewtError(msg string) *NewtError {
 }
 
 // Initialize the CLI module
-func Init(level string) {
+func Init(level string, silent bool, quiet bool, verbose bool) {
 	if level == "" {
 		level = "WARN"
 	}
@@ -76,6 +76,16 @@ func Init(level string) {
 	}
 
 	log.SetOutput(filter)
+
+	if silent {
+		Verbosity = VERBOSITY_SILENT
+	} else if quiet {
+		Verbosity = VERBOSITY_QUIET
+	} else if verbose {
+		Verbosity = VERBOSITY_VERBOSE
+	} else {
+		Verbosity = VERBOSITY_DEFAULT
+	}
 }
 
 func checkBoolMap(mapVar map[string]bool, item string) bool {

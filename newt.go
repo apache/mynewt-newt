@@ -31,6 +31,9 @@ var ImportAll bool = false
 var NewtVersion string = "0.1"
 var NewtLogLevel string = ""
 var NewtNest *cli.Nest
+var newtSilent bool
+var newtQuiet bool
+var newtVerbose bool
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -252,7 +255,7 @@ func targetAddCmds(base *cobra.Command) {
 		Use:   "target",
 		Short: "Set and view target information",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			cli.Init(NewtLogLevel)
+			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
 
 			var err error
 			NewtNest, err = cli.NewNest()
@@ -632,7 +635,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 		Use:   "egg",
 		Short: "Commands to list and inspect eggs on a nest",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			cli.Init(NewtLogLevel)
+			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
 
 			var err error
 			NewtNest, err = cli.NewNest()
@@ -835,7 +838,7 @@ func nestAddCmds(baseCmd *cobra.Command) {
 		Use:   "nest",
 		Short: "Commands to manage nests & clutches (remote egg repositories)",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			cli.Init(NewtLogLevel)
+			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
 
 			var err error
 
@@ -905,9 +908,12 @@ func parseCmds() *cobra.Command {
 		},
 	}
 
-	newtCmd.PersistentFlags().IntVarP(&cli.Verbosity, "verbosity", "v",
-		cli.VERBOSITY_DEFAULT, "How verbose the Newt tool should be "+
-			"about it's operation")
+	newtCmd.PersistentFlags().BoolVarP(&newtVerbose, "verbose", "v", false,
+		"Enable verbose output")
+	newtCmd.PersistentFlags().BoolVarP(&newtQuiet, "quiet", "q", false,
+		"Be quiet; only display error output")
+	newtCmd.PersistentFlags().BoolVarP(&newtSilent, "silent", "s", false,
+		"Be silent; don't output anything")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
 
