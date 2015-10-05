@@ -708,6 +708,7 @@ func nestShowClutchCmd(cmd *cobra.Command, args []string) {
 
 func nestAddCmds(baseCmd *cobra.Command) {
 	var nestCmd *cobra.Command
+	var createCmd *cobra.Command
 
 	nestCmd = &cobra.Command{
 		Use:   "nest",
@@ -717,7 +718,7 @@ func nestAddCmds(baseCmd *cobra.Command) {
 
 			var err error
 
-			if cmd != nestCmd {
+			if cmd != nestCmd && cmd != createCmd {
 				NewtNest, err = cli.NewNest()
 				if err != nil {
 					NewtUsage(cmd, err)
@@ -729,11 +730,10 @@ func nestAddCmds(baseCmd *cobra.Command) {
 		},
 	}
 
-	createCmd := &cobra.Command{
-		Use:              "create",
-		Short:            "Create a new nest",
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
-		Run:              nestCreateCmd,
+	createCmd = &cobra.Command{
+		Use:   "create",
+		Short: "Create a new nest",
+		Run:   nestCreateCmd,
 	}
 
 	nestCmd.AddCommand(createCmd)
