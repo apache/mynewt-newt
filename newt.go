@@ -575,11 +575,19 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 				eggName)))
 	}
 
-	err = eggShell.Download()
+	eggMgr, err := cli.NewClutch(NewtNest)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	fmt.Println("Installed successfully!")
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	err = eggShell.Install(eggMgr)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	fmt.Println("Installation was a success!")
 }
 
 func eggRemoveCmd(cmd *cobra.Command, args []string) {

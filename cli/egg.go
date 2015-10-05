@@ -17,7 +17,6 @@ package cli
 
 import (
 	"fmt"
-	"github.com/termie/go-shutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -524,42 +523,8 @@ func (egg *Egg) TestBinName() string {
 /*
  * Download egg from a clutch and stick it to nest.
  */
-func (eggShell *EggShell) Download() error {
-
-	dl, err := NewDownloader()
-	if err != nil {
-		return err
-	}
-
-	url := eggShell.Clutch.RemoteUrl
-
-	StatusMessage(VERBOSITY_DEFAULT, "Downloading %s from %s/"+
-		"master...", eggShell.Clutch.Name, url)
-
-	dir, err := dl.GetRepo(url, "master")
-	if err != nil {
-		return err
-	}
-
-	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
-
-	StatusMessage(VERBOSITY_DEFAULT, "Moving %s\n", eggShell.FullName)
-
-	dstdir := filepath.Join(eggShell.Clutch.Nest.BasePath, eggShell.FullName)
-
-	err = os.RemoveAll(dstdir)
-	if err != nil {
-		return err
-	}
-
-	err = shutil.CopyTree(filepath.Join(dir, eggShell.FullName), dstdir, nil)
-	if err != nil {
-		return err
-	}
-
-	err = os.RemoveAll(dir)
-
-	return err
+func (eggShell *EggShell) Install(eggMgr *Clutch) error {
+	return eggMgr.InstallEgg(eggShell.FullName, nil)
 }
 
 func (egg *Egg) Remove() error {
