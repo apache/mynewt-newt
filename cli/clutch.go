@@ -795,7 +795,7 @@ func (cl *Clutch) fileToEggList(cfg *viper.Viper) (map[string]*EggShell,
 	eggList := map[string]*EggShell{}
 
 	for name, _ := range eggMap {
-		eggShell, err := NewEggShell()
+		eggShell, err := NewEggShell(cl)
 		if err != nil {
 			return nil, err
 		}
@@ -892,4 +892,67 @@ func (cl *Clutch) Install(name string, url string) error {
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	return nil
+}
+
+func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) error {
+	log.Print("[VERBOSE] Looking for ", eggName)
+	egg, err := clutch.ResolveEggName(eggName)
+	if err == nil {
+		log.Printf("[VERBOSE] ", eggName, " installed already");
+		return nil
+	}
+	nest := clutch.Nest
+	for _, remoteNest := range downloaded {
+		egg, err = remoteNest.ResolveEggName(eggName)
+		if err == nil {
+			log.Print("[VERBOSE] ", eggName, " present in downloaded clutch ",
+				remoteNest.Name)
+
+			err = remoteNest.fetchEgg(eggName, nest.BasePath)
+			if err != nil {
+				return err
+			}
+
+			// update local clutch
+			err = clutch.loadEggDir(nest.BasePath, "", eggName)
+			if err != nil {
+				return err
+			}
+
+			deps, err := egg.GetDependencies()
+			if err != nil {
+				return err
+			}
+			for _, dep := range deps {
+				log.Print("[VERBOSE] ", eggName, " checking dependency ",
+					dep.Name)
+				err = clutch.InstallEgg(dep.Name, downloaded)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+
+	// Not in downloaded clutches
+	clutches, err := nest.GetClutches()
+	if err != nil {
+		return err
+	}
+	for _, remoteClutch := range clutches {
+		eggShell, err := remoteClutch.ResolveEggShellName(eggName)
+		if err == nil {
+			log.Print("[VERBOSE] ", eggName, " present in remote clutch ",
+				remoteClutch.Name)
+			remoteNest, err := NewRemoteNest(remoteClutch)
+			if err != nil {
+				return err
+			}
+			downloaded = append(downloaded, remoteNest)
+			return clutch.InstallEgg(eggShell.FullName, downloaded)
+		}
+	}
+
+	return NewNewtError(fmt.Sprintf("No package %s found\n", eggName))
 }

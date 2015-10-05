@@ -97,14 +97,18 @@ type Egg struct {
 type EggShell struct {
 	FullName string
 	Version  *Version
+	/* Clutch this eggshell belongs to */
+	Clutch  *Clutch
 	Hash     string
-	Deps     []*DependencyRequirement
-	Caps     []*DependencyRequirement
-	ReqCaps  []*DependencyRequirement
+	Deps    []*DependencyRequirement
+	Caps    []*DependencyRequirement
+	ReqCaps []*DependencyRequirement
 }
 
-func NewEggShell() (*EggShell, error) {
-	eShell := &EggShell{}
+func NewEggShell(clutch *Clutch) (*EggShell, error) {
+	eShell := &EggShell{
+		Clutch: clutch,
+	}
 
 	return eShell, nil
 }
@@ -554,4 +558,15 @@ func NewEgg(nest *Nest, basePath string) (*Egg, error) {
 
 func (egg *Egg) TestBinName() string {
 	return "test_" + egg.Name
+}
+
+/*
+ * Download egg from a clutch and stick it to nest.
+ */
+func (eggShell *EggShell) Install(eggMgr *Clutch) error {
+	return eggMgr.InstallEgg(eggShell.FullName, nil)
+}
+
+func (egg *Egg) Remove() error {
+	return os.RemoveAll(egg.BasePath)
 }

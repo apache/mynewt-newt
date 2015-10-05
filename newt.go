@@ -381,8 +381,8 @@ func dispEgg(egg *cli.Egg) error {
 }
 
 func dispEggShell(eggShell *cli.EggShell) error {
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Egg %s, version %s\n",
-		eggShell.FullName, eggShell.Version)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Egg %s from clutch %s, version %s\n",
+		eggShell.FullName, eggShell.Clutch.Name, eggShell.Version)
 
 	if eggShell.Caps != nil {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  capabilities: ")
@@ -443,7 +443,7 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 
 	if len(args) != 1 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify string to search for"))
+			cli.NewNewtError("Must specify string to hunt for"))
 	}
 
 	/*
@@ -498,7 +498,7 @@ func eggShowCmd(cmd *cobra.Command, args []string) {
 
 	if len(args) < 1 || len(args) > 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify string to search for"))
+			cli.NewNewtError("Must specify full name of the egg"))
 	}
 
 	if len(args) == 1 {
@@ -534,6 +534,97 @@ func eggShowCmd(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+}
+
+func eggInstallCmd(cmd *cobra.Command, args []string) {
+	var eggName string
+	var clutchName string = ""
+	var clutch *cli.Clutch
+	var eggShell *cli.EggShell
+
+	if len(args) < 1 || len(args) > 2 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify full name of the egg"))
+	}
+
+	if len(args) == 1 {
+		eggName = args[0]
+	} else {
+		clutchName = args[0]
+		eggName = args[1]
+	}
+
+	/*
+	 * Find the eggShell to install.
+	 */
+	clutches, err := NewtNest.GetClutches()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	eggShell = nil
+	for _, tmpClutch := range clutches {
+		if clutchName == "" || tmpClutch.Name == clutchName {
+			tmpEggShell, err := tmpClutch.ResolveEggShellName(eggName)
+			if err != nil && eggShell != nil {
+				NewtUsage(cmd,
+					cli.NewNewtError(fmt.Sprintf("Ambiguous source "+
+						"egg %s in clutches %s and %s",
+						eggName, clutch.Name, tmpClutch.Name)))
+			}
+			eggShell = tmpEggShell
+			clutch = tmpClutch
+		}
+	}
+
+	if eggShell == nil {
+		NewtUsage(cmd,
+			cli.NewNewtError(fmt.Sprintf("Can't find egg with name %s",
+				eggName)))
+	}
+
+	eggMgr, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	err = eggShell.Install(eggMgr)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	fmt.Println("Installation was a success!")
+}
+
+func eggRemoveCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 || len(args) > 2 {
+		NewtUsage(cmd,
+			cli.NewNewtError("Must specify full name of the egg"))
+	}
+
+	eggName := args[0]
+
+	eggMgr, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	egg, err := eggMgr.ResolveEggName(eggName)
+	if err != nil {
+		NewtUsage(cmd,
+			cli.NewNewtError(fmt.Sprintf("Egg %s has not been installed",
+				eggName)))
+	}
+	err = egg.Remove()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+	fmt.Println("Removed successfully!")
 }
 
 func eggAddCmds(baseCmd *cobra.Command) {
@@ -585,6 +676,22 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	}
 
 	eggCmd.AddCommand(showCmd)
+
+	installCmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install an egg",
+		Run:   eggInstallCmd,
+	}
+
+	eggCmd.AddCommand(installCmd)
+
+	removeCmd := &cobra.Command{
+		Use:   "remove",
+		Short: "Remove an egg",
+		Run:   eggRemoveCmd,
+	}
+
+	eggCmd.AddCommand(removeCmd)
 
 	baseCmd.AddCommand(eggCmd)
 }

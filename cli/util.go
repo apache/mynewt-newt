@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -192,7 +193,11 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 }
 
 func CopyFile(srcFile string, destFile string) error {
-	if _, err := ShellCommand(fmt.Sprintf("cp -rf %s %s", srcFile,
+	if _, err := ShellCommand(fmt.Sprintf("mkdir -p %s", filepath.Dir(destFile)));
+			err != nil {
+		return err
+	}
+	if _, err := ShellCommand(fmt.Sprintf("cp -Rf %s %s", srcFile,
 		destFile)); err != nil {
 		return err
 	}

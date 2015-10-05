@@ -64,6 +64,18 @@ func NewNest() (*Nest, error) {
 	return n, nil
 }
 
+// Create a Nest object constructed out of repo in given path
+func NewNestWithDir(srcDir string) (*Nest, error) {
+	n := &Nest{}
+
+	err := n.InitPath(srcDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
+}
+
 func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
 	if tadpoleUrl == "" {
 		tadpoleUrl = "https://www.github.com/mynewt/tadpole"
@@ -369,15 +381,16 @@ func (nest *Nest) LoadClutches() error {
 	return nil
 }
 
-// Initialze the repository
-// returns a NewtError on failure, and nil on success
-func (nest *Nest) Init() error {
-	var err error
-
+func (nest *Nest) InitPath(nestPath string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return NewNewtError(err.Error())
 	}
+
+	if err = os.Chdir(nestPath); err != nil {
+		return NewNewtError(err.Error())
+	}
+
 	log.Printf("[DEBUG] Searching for repository, starting in directory %s", cwd)
 
 	if nest.NestFile, err = nest.getNestFile(); err != nil {
@@ -390,6 +403,25 @@ func (nest *Nest) Init() error {
 	nest.BasePath = path.Clean(path.Dir(nest.NestFile))
 
 	if err = nest.loadConfig(); err != nil {
+		return err
+	}
+
+	if err = os.Chdir(cwd); err != nil {
+		return NewNewtError(err.Error())
+	}
+	return nil
+}
+
+// Initialze the repository
+// returns a NewtError on failure, and nil on success
+func (nest *Nest) Init() error {
+	var err error
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return NewNewtError(err.Error())
+	}
+	if err := nest.InitPath(cwd); err != nil {
 		return err
 	}
 
@@ -429,6 +461,7 @@ func (nest *Nest) Init() error {
 
 	return nil
 }
+
 func (nest *Nest) GetClutches() (map[string]*Clutch, error) {
 	return nest.Clutches, nil
 }
