@@ -38,7 +38,7 @@ func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 	log.Printf("[DEBUG] Git cloning URL %s branch %s into dest %s",
 		branch, url, dest)
 
-	_, err := ShellCommand(fmt.Sprintf("git clone -b %s %s %s", branch, url, dest))
+	_, err := ShellCommand(fmt.Sprintf("git clone --depth 1 -b %s %s %s", branch, url, dest))
 	if err != nil {
 		return err
 	}
