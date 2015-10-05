@@ -19,14 +19,21 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
+	"sort"
 	"strings"
+)
+
+const (
+	COMPILER_TYPE_C   = 0
+	COMPILER_TYPE_ASM = 1
 )
 
 type Compiler struct {
 	ConfigPath   string
 	TargetName   string
-	BaseIncludes []string
+	BaseIncludes map[string]bool
 	ObjPathList  map[string]bool
 	LinkerScript string
 
@@ -52,19 +59,22 @@ func NewCompiler(ccPath string, cDef string, tName string, includes []string) (
 	c := &Compiler{
 		ConfigPath:   ccPath,
 		TargetName:   tName,
-		BaseIncludes: includes,
+		BaseIncludes: map[string]bool{},
+		ObjPathList:  map[string]bool{},
 	}
 
 	c.depTracker = NewDepTracker(c)
+	for _, incl := range includes {
+		c.BaseIncludes[incl] = true
+	}
 
-	log.Printf("[INFO] Loading compiler %s, target %s, def %s", ccPath, tName, cDef)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Loading compiler %s, target %s, def %s\n", ccPath, tName, cDef)
 
 	err := c.ReadSettings(cDef)
 	if err != nil {
 		return nil, err
 	}
-
-	c.ObjPathList = make(map[string]bool)
 
 	return c, nil
 }
@@ -115,43 +125,54 @@ func (c *Compiler) SkipSourceFile(srcFile string) {
 	c.ObjPathList[objFile] = true
 }
 
-// file type 0 = cc, file type 1 = as
-func (c *Compiler) CompileFile(file string, compilerType int) error {
-	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + c.TargetName + "/"
-
-	if NodeNotExist(objDir) {
-		os.MkdirAll(objDir, 0755)
+// Generates a string consisting of all the necessary include path (-I)
+// options.  The result is sorted and contains no duplicate paths.
+func (c *Compiler) IncludesString() string {
+	includes := make([]string, 0, len(c.BaseIncludes))
+	for k, _ := range c.BaseIncludes {
+		includes = append(includes, k)
 	}
 
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
+	sort.Strings(includes)
 
+	return "-I" + strings.Join(includes, " -I")
+}
+
+// Calculates the command-line invocation necessary to compile the specified C
+// or assembly file.
+//
+// @param file                  The filename of the source file to compile.
+// @param compilerType          One of the COMPILER_TYPE_[...] constants.
+//
+// @return                      (success) The command string.
+func (c *Compiler) CompileFileCmd(file string,
+	compilerType int) (string, error) {
+
+	wd, _ := os.Getwd()
+	objDir := wd + "/obj/" + c.TargetName + "/"
+	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
 	objPath := objDir + objFile
-	c.ObjPathList[objPath] = true
 
 	var cmd string
 
 	switch compilerType {
-	case 0:
+	case COMPILER_TYPE_C:
 		cmd = c.ccPath
-	case 1:
+	case COMPILER_TYPE_ASM:
 		cmd = c.asPath
 	default:
-		return NewNewtError("Unknown compiler type")
+		return "", NewNewtError("Unknown compiler type")
 	}
 
 	cmd += " -c " + "-o " + objPath + " " + file +
-		" " + c.Cflags + " -I" + strings.Join(c.BaseIncludes, " -I")
+		" " + c.Cflags + " " + c.IncludesString()
 
-	_, err := ShellCommand(cmd)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return cmd, nil
 }
 
-// Generates a dependency Makefile (.d) for the specified source file.
+// Generates a dependency Makefile (.d) for the specified source C file.
+//
+// @param file                  The name of the source file.
 func (c *Compiler) GenDepsForFile(file string) error {
 	wd, _ := os.Getwd()
 	objDir := wd + "/obj/" + c.TargetName + "/"
@@ -162,7 +183,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 
 	depFile := objDir + strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
 	tmpFile := depFile + ".tmp"
-	cFlags := c.Cflags + " -I" + strings.Join(c.BaseIncludes, " -I")
+	cFlags := c.Cflags + " " + c.IncludesString()
 
 	var cmd string
 	var err error
@@ -201,6 +222,55 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	return nil
 }
 
+// Compile the specified C or assembly file.
+//
+// @param file                  The filename of the source file to compile.
+// @param compilerType          One of the COMPILER_TYPE_[...] constants.
+func (c *Compiler) CompileFile(file string, compilerType int) error {
+	wd, _ := os.Getwd()
+	objDir := wd + "/obj/" + c.TargetName + "/"
+
+	if NodeNotExist(objDir) {
+		os.MkdirAll(objDir, 0755)
+	}
+
+	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
+
+	objPath := objDir + objFile
+	c.ObjPathList[objPath] = true
+
+	cmd, err := c.CompileFileCmd(file, compilerType)
+	if err != nil {
+		return err
+	}
+
+	switch compilerType {
+	case COMPILER_TYPE_C:
+		StatusMessage(VERBOSITY_DEFAULT, "Compiling %s\n", file)
+	case COMPILER_TYPE_ASM:
+		StatusMessage(VERBOSITY_DEFAULT, "Assembling %s\n", file)
+	default:
+		return NewNewtError("Unknown compiler type")
+	}
+
+	rsp, err := ShellCommand(cmd)
+	if err != nil {
+		StatusMessage(VERBOSITY_QUIET, string(rsp))
+		return err
+	}
+
+	err = WriteCommandFile(objPath, cmd)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Compiles all C files matching the specified file glob.
+//
+// @param match                 The file glob specifying which C files to
+//                                  compile.
 func (c *Compiler) Compile(match string) error {
 	files, _ := filepath.Glob(match)
 
@@ -209,36 +279,30 @@ func (c *Compiler) Compile(match string) error {
 		return err
 	}
 
-	// Determine which files need to be compiled.
-	newFiles := []string{}
+	log.Printf("[INFO] Compiling C if outdated (%s/%s) %s", wd, match,
+		strings.Join(files, " "))
 	for _, file := range files {
-		doBuild, err := c.depTracker.CompileRequired(file)
+		compileRequired, err := c.depTracker.CompileRequired(file, 0)
 		if err != nil {
 			return err
 		}
-		if doBuild {
-			newFiles = append(newFiles, file)
-		} else {
-			c.SkipSourceFile(file)
-		}
-	}
-
-	// Compile new files.
-	if len(newFiles) != 0 {
-		log.Printf("[INFO] Compiling C (%s/%s) %s", wd, match,
-			strings.Join(files, " "))
-
-		for _, file := range newFiles {
-			err = c.CompileFile(file, 0)
+		if compileRequired {
+			err = c.CompileFile(file, COMPILER_TYPE_C)
 			if err != nil {
 				return err
 			}
+		} else {
+			c.SkipSourceFile(file)
 		}
 	}
 
 	return nil
 }
 
+// Compiles all assembly files matching the specified file glob.
+//
+// @param match                 The file glob specifying which assembly files
+//                                  to compile.
 func (c *Compiler) CompileAs(match string) error {
 	files, _ := filepath.Glob(match)
 
@@ -247,30 +311,20 @@ func (c *Compiler) CompileAs(match string) error {
 		return err
 	}
 
-	// Determine which files need to be compiled.
-	newFiles := []string{}
+	log.Printf("[INFO] Compiling assembly if outdated (%s/%s) %s", wd, match,
+		strings.Join(files, " "))
 	for _, file := range files {
-		doBuild, err := c.depTracker.CompileRequired(file)
+		compileRequired, err := c.depTracker.CompileRequired(file, 1)
 		if err != nil {
 			return err
 		}
-		if doBuild {
-			newFiles = append(newFiles, file)
-		} else {
-			c.SkipSourceFile(file)
-		}
-	}
-
-	// Compile new files.
-	if len(newFiles) != 0 {
-		log.Printf("[INFO] Compiling assembly (%s/%s) %s", wd, match,
-			strings.Join(files, " "))
-
-		for _, file := range newFiles {
-			err := c.CompileFile(file, 1)
+		if compileRequired {
+			err = c.CompileFile(file, COMPILER_TYPE_ASM)
 			if err != nil {
 				return err
 			}
+		} else {
+			c.SkipSourceFile(file)
 		}
 	}
 
@@ -278,8 +332,9 @@ func (c *Compiler) CompileAs(match string) error {
 }
 
 func (c *Compiler) RecursiveClean(path string, tName string) error {
-	// Find all the subdirectories of path that contain an "obj/" directory, and
-	// remove that directory either altogether, or just the arch specific directory.
+	// Find all the subdirectories of path that contain an "obj/" directory,
+	// and remove that directory either altogether, or just the arch specific
+	// directory.
 	dirList, err := ioutil.ReadDir(path)
 	if err != nil {
 		return NewNewtError(err.Error())
@@ -355,21 +410,30 @@ func (c *Compiler) RecursiveCompile(match string, cType int, ignDirs []string) e
 	}
 }
 
-func (c *Compiler) getObjFiles(baseObjFiles string) string {
-	objList := baseObjFiles
+func (c *Compiler) getObjFiles(baseObjFiles []string) string {
 	for objName, _ := range c.ObjPathList {
-		objList += " " + objName
+		baseObjFiles = append(baseObjFiles, objName)
 	}
+
+	sort.Strings(baseObjFiles)
+	objList := strings.Join(baseObjFiles, " ")
 	return objList
 }
 
-func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
-	objFiles []string) error {
-	objString := strings.Join(objFiles, " ")
-	objList := c.getObjFiles(objString)
+// Calculates the command-line invocation necessary to link the specified elf
+// file.
+//
+// @param dstFile               The filename of the destination elf file to
+//                                  link.
+// @param options               Some build options specifying how the elf file
+//                                  gets generated.
+// @param objFiles              An array of the source .o and .a filenames.
+//
+// @return                      (success) The command string.
+func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
+	objFiles []string) string {
 
-	log.Printf("[INFO] Compiling Binary %s with object files %s", dstFile,
-		objList)
+	objList := c.getObjFiles(UniqueStrings(objFiles))
 
 	cmd := c.ccPath + " -o " + dstFile + " " + c.ldFlags + " " + c.Cflags
 	if c.ldResolveCircularDeps {
@@ -385,7 +449,33 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 		cmd += " -Wl,-Map=" + dstFile + ".map"
 	}
 
-	_, err := ShellCommand(cmd)
+	return cmd
+}
+
+// Links the specified elf file.
+//
+// @param dstFile               The filename of the destination elf file to
+//                                  link.
+// @param options               Some build options specifying how the elf file
+//                                  gets generated.
+// @param objFiles              An array of the source .o and .a filenames.
+func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
+	objFiles []string) error {
+
+	objList := c.getObjFiles(UniqueStrings(objFiles))
+
+	StatusMessage(VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
+	StatusMessage(VERBOSITY_VERBOSE, "Linking %s with input files %s",
+		dstFile, objList)
+
+	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
+	rsp, err := ShellCommand(cmd)
+	if err != nil {
+		StatusMessage(VERBOSITY_QUIET, string(rsp))
+		return err
+	}
+
+	err = WriteCommandFile(dstFile, cmd)
 	if err != nil {
 		return err
 	}
@@ -397,6 +487,11 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 //    * lst file
 //    * map file
 //    * bin file
+//
+// @param elfFilename           The filename of the elf file corresponding to
+//                                  the artifacts to be generated.
+// @param options               Some build options specifying which artifacts
+//                                  get generated.
 func (c *Compiler) generateExtras(elfFilename string,
 	options map[string]bool) error {
 
@@ -421,7 +516,8 @@ func (c *Compiler) generateExtras(elfFilename string,
 
 		sects := []string{".text", ".rodata", ".data"}
 		for _, sect := range sects {
-			cmd = c.odPath + " -s -j " + sect + " " + elfFilename + " >> " + listFile
+			cmd = c.odPath + " -s -j " + sect + " " + elfFilename + " >> " +
+				listFile
 			ShellCommand(cmd)
 		}
 
@@ -445,18 +541,24 @@ func (c *Compiler) generateExtras(elfFilename string,
 	return nil
 }
 
+// Links the specified elf file and generates some associated artifacts (lst,
+// bin, and map files).
+//
+// @param binFile               The filename of the destination elf file to
+//                                  link.
+// @param options               Some build options specifying how the elf file
+//                                  gets generated.
+// @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileElf(binFile string, options map[string]bool,
 	objFiles []string) error {
 
 	binFile += ".elf"
 
-	linkRequired, err := LinkRequired(binFile, objFiles)
+	linkRequired, err := c.depTracker.LinkRequired(binFile, options, objFiles)
 	if err != nil {
 		return err
 	}
 	if linkRequired {
-		log.Printf("[DEBUG] Compiling a binary %s from libs %s", binFile,
-			strings.Join(objFiles, " "))
 		err := c.CompileBinary(binFile, options, objFiles)
 		if err != nil {
 			return err
@@ -471,8 +573,26 @@ func (c *Compiler) CompileElf(binFile string, options map[string]bool,
 	return nil
 }
 
+// Calculates the command-line invocation necessary to archive the specified
+// static library.
+//
+// @param archiveFile           The filename of the library to archive.
+// @param objFiles              An array of the source .o filenames.
+//
+// @return                      The command string.
+func (c *Compiler) CompileArchiveCmd(archiveFile string,
+	objFiles []string) string {
+
+	objList := c.getObjFiles(objFiles)
+	return c.arPath + " rcs " + archiveFile + " " + objList
+}
+
+// Archives the specified static library.
+//
+// @param archiveFile           The filename of the library to archive.
+// @param objFiles              An array of the source .o filenames.
 func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
-	arRequired, err := c.depTracker.ArchiveRequired(archiveFile)
+	arRequired, err := c.depTracker.ArchiveRequired(archiveFile, objFiles)
 	if err != nil {
 		return err
 	}
@@ -480,14 +600,29 @@ func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
 		return nil
 	}
 
-	objString := strings.Join(objFiles, " ")
-	objList := c.getObjFiles(objString)
+	objList := c.getObjFiles(objFiles)
 
-	log.Printf("[INFO] Compiling archive %s with object files %s",
+	StatusMessage(VERBOSITY_DEFAULT, "Archiving %s\n", path.Base(archiveFile))
+	StatusMessage(VERBOSITY_VERBOSE, "Archiving %s with object files %s",
 		archiveFile, objList)
 
-	cmd := c.arPath + " rcs " + archiveFile + " " + objList
+	// Delete the old archive, if it exists.
+	err = os.Remove(archiveFile)
+	if err != nil && !os.IsNotExist(err) {
+		return NewNewtError(err.Error())
+	}
 
-	_, err = ShellCommand(cmd)
-	return err
+	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
+	rsp, err := ShellCommand(cmd)
+	if err != nil {
+		StatusMessage(VERBOSITY_QUIET, string(rsp))
+		return err
+	}
+
+	err = WriteCommandFile(archiveFile, cmd)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

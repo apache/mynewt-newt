@@ -76,8 +76,8 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 			continue
 		}
 
-		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq,
-			egg.Name)
+		StatusMessage(VERBOSITY_VERBOSE,
+			"Checking dependency %s for package %s\n", depReq, egg.Name)
 		egg, ok := clutch.Eggs[depReq.Name]
 		if !ok {
 			return NewNewtError(
@@ -146,7 +146,7 @@ func (clutch *Clutch) CheckDeps() error {
 // this repository
 func (clutch *Clutch) loadEgg(eggDir string, eggPrefix string,
 	eggName string) error {
-	log.Println("[INFO] Loading Egg " + eggDir + "...")
+	StatusMessage(VERBOSITY_VERBOSE, "Loading Egg "+eggDir+"...\n")
 
 	if clutch.Eggs == nil {
 		clutch.Eggs = make(map[string]*Egg)
@@ -174,7 +174,7 @@ func (clutch *Clutch) String() string {
 // hw/bsp), and the base package name.
 func (clutch *Clutch) loadEggDir(baseDir string, eggPrefix string,
 	eggName string) error {
-	log.Printf("[DEBUG] Loading packages in %s, starting with package %s",
+	log.Printf("[DEBUG] Loading eggs in %s, starting with egg %s",
 		baseDir, eggName)
 
 	// first recurse and load subpackages
@@ -255,15 +255,20 @@ func (clutch *Clutch) loadEggs() error {
 
 // Initialize the package manager
 func (clutch *Clutch) Init() error {
-	err := clutch.loadEggs()
-	return err
+	if err := clutch.loadEggs(); err != nil {
+		return err
+	}
+
+	clutch.EggShells = map[string]*EggShell{}
+
+	return nil
 }
 
 // Resolve the package specified by eggName into a package structure.
 func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
 	egg, ok := clutch.Eggs[eggName]
 	if !ok {
-		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified "+
+		return nil, NewNewtError(fmt.Sprintf("Invalid egg '%s' specified "+
 			"(eggs = %s)", eggName, clutch))
 	}
 	return egg, nil
@@ -272,7 +277,7 @@ func (clutch *Clutch) ResolveEggName(eggName string) (*Egg, error) {
 func (clutch *Clutch) ResolveEggShellName(eggName string) (*EggShell, error) {
 	eggShell, ok := clutch.EggShells[eggName]
 	if !ok {
-		return nil, NewNewtError(fmt.Sprintf("Invalid package %s specified "+
+		return nil, NewNewtError(fmt.Sprintf("Invalid egg '%s' specified "+
 			"(eggs = %s)", eggName, clutch))
 	}
 	return eggShell, nil
@@ -350,8 +355,8 @@ func (clutch *Clutch) GetEggLib(t *Target, egg *Egg) string {
 func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 	libs *[]string) error {
 
-	log.Printf("[DEBUG] Building package dependencies for %s, target %s",
-		egg.Name, t.Name)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Building egg dependencies for %s, target %s\n", egg.Name, t.Name)
 
 	var err error
 
@@ -401,7 +406,7 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 // Build the package specified by eggName
 //
 // @param incls            Extra include paths that get specified during
-//                                  build.  Note: passed by value.
+//                             build.  Note: passed by value.
 // @param lib              List of libraries that have been built so far;
 //                             This function appends entries to this list.
 func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
@@ -412,12 +417,10 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	if err != nil {
 		return err
 	}
-	//XXX: This overwrites the PKG_TEST define
+
 	if err := egg.LoadConfig(t, false); err != nil {
 		return err
 	}
-
-	log.Println("[INFO] Building package " + eggName + " for arch " + t.Arch)
 
 	// already built the package, no need to rebuild.  This is to handle
 	// recursive calls to Build()
@@ -426,11 +429,12 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	}
 	egg.Built = true
 
-	StatusMessage(VERBOSITY_DEFAULT, "Building egg %s\n", eggName)
-
 	if err := clutch.buildDeps(egg, t, &incls, libs); err != nil {
 		return err
 	}
+
+	StatusMessage(VERBOSITY_VERBOSE, "Building egg %s for arch %s\n",
+		eggName, t.Arch)
 
 	// NOTE: this assignment must happen after the call to buildDeps(), as
 	// buildDeps() fills in the package includes.
@@ -454,8 +458,7 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	c.Lflags += " " + egg.Lflags + " " + t.Lflags
 	c.Aflags += " " + egg.Aflags + " " + t.Aflags
 
-	log.Printf("[DEBUG] compiling src packages in base package "+
-		"directories: %s", srcDir)
+	log.Printf("[DEBUG] compiling src eggs in base egg directory: %s", srcDir)
 
 	// For now, ignore test code.  Tests get built later if the test identity
 	// is in effect.
@@ -595,16 +598,27 @@ func (clutch *Clutch) linkTests(t *Target, egg *Egg,
 	c.Lflags += " " + egg.Lflags + " " + t.Lflags
 
 	testBinDir := egg.BasePath + "/src/test/bin/" + t.Name + "/"
-	if NodeNotExist(testBinDir) {
-		if err := os.MkdirAll(testBinDir, 0755); err != nil {
-			return NewNewtError(err.Error())
-		}
+	binFile := testBinDir + egg.TestBinName()
+	options := map[string]bool{}
+
+	// Determine if the test executable is already up to date.
+	linkRequired, err := c.depTracker.LinkRequired(binFile, options, *libs)
+	if err != nil {
+		return err
 	}
 
-	if err := c.CompileBinary(testBinDir+egg.TestBinName(), map[string]bool{},
-		*libs); err != nil {
+	// Build the test executable if necessary.
+	if linkRequired {
+		if NodeNotExist(testBinDir) {
+			if err := os.MkdirAll(testBinDir, 0755); err != nil {
+				return NewNewtError(err.Error())
+			}
+		}
 
-		return err
+		err = c.CompileBinary(binFile, options, *libs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -614,19 +628,23 @@ func (clutch *Clutch) linkTests(t *Target, egg *Egg,
 // the tests.  exitOnFailure specifies whether to exit immediately when a
 // test fails, or continue executing all tests.
 func (clutch *Clutch) runTests(t *Target, egg *Egg, exitOnFailure bool) error {
+	StatusMessage(VERBOSITY_DEFAULT, "Testing egg %s for arch %s\n",
+		egg.Name, t.Arch)
+
 	if err := os.Chdir(egg.BasePath + "/src/test/bin/" + t.Name +
 		"/"); err != nil {
 		return err
 	}
 	o, err := ShellCommand("./" + egg.TestBinName())
 	if err != nil {
-		log.Printf("[ERROR] Test %s failed, output: %s", egg.TestBinName(),
-			string(o))
+		StatusMessage(VERBOSITY_DEFAULT, "%s", string(o))
+		StatusMessage(VERBOSITY_QUIET, "Test %s failed\n", egg.TestBinName())
 		if exitOnFailure {
 			return NewNewtError("Unit tests failed to complete successfully.")
 		}
 	} else {
-		log.Printf("[INFO] Test %s ok!", egg.TestBinName())
+		StatusMessage(VERBOSITY_VERBOSE, "%s", string(o))
+		StatusMessage(VERBOSITY_DEFAULT, "Test %s ok!\n", egg.TestBinName())
 	}
 
 	return nil
@@ -648,7 +666,6 @@ func (clutch *Clutch) testsExist(egg *Egg) error {
 // fails.
 func (clutch *Clutch) Test(t *Target, eggName string,
 	exitOnFailure bool) error {
-	log.Printf("[INFO] Testing package %s for arch %s", eggName, t.Arch)
 
 	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
@@ -712,10 +729,14 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 }
 
 func (cl *Clutch) LoadFromClutch(local *Clutch) error {
+	var err error
 	for _, egg := range local.Eggs {
 		if err := egg.LoadConfig(nil, false); err != nil {
 			return err
 		}
+
+		log.Printf("[DEBUG] Egg %s loaded, putting it into clutch %s",
+			egg.FullName, local.Name)
 
 		eggShell := &EggShell{}
 		eggShell.FullName = egg.FullName
@@ -723,6 +744,10 @@ func (cl *Clutch) LoadFromClutch(local *Clutch) error {
 		eggShell.Caps = egg.Capabilities
 		eggShell.ReqCaps = egg.ReqCapabilities
 		eggShell.Version = egg.Version
+		eggShell.Hash, err = egg.GetHash()
+		if err != nil {
+			return err
+		}
 
 		cl.EggShells[eggShell.FullName] = eggShell
 	}

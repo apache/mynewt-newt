@@ -16,8 +16,6 @@
 package cli
 
 import (
-	"fmt"
-	"log"
 	"os"
 )
 
@@ -96,7 +94,6 @@ func BspIncludePaths(clutch *Clutch, t *Target) ([]string, error) {
 
 	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err != nil {
-		fmt.Println(clutch)
 		return nil, NewNewtError("No BSP package for " + t.Bsp + " exists")
 	}
 
@@ -180,10 +177,10 @@ func EggIncludeDirs(egg *Egg, t *Target) []string {
 // Recursively compiles all the .c and .s files in the specified directory.
 // Architecture-specific files are also compiled.
 func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
-
 	var err error
 
-	log.Printf("[DEBUG] compiling src in base directory: %s", srcDir)
+	StatusMessage(VERBOSITY_VERBOSE, "compiling src in base directory: %s\n",
+		srcDir)
 
 	// First change into the package src directory, and build all the objects
 	// there
@@ -194,7 +191,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 	ignDirs = append(ignDirs, "bin")
 
 	// Ignore architecture-specific source files for now.  Use a temporary
-	// string array here so that the "arch" director is not ignored in the
+	// string array here so that the "arch" directory is not ignored in the
 	// subsequent architecture-specific compile phase.
 	baseIgnDirs := append(ignDirs, "arch")
 
@@ -202,9 +199,11 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 		return err
 	}
 
-	log.Printf("[DEBUG] compiling architecture specific src packages")
-
 	archDir := srcDir + "/arch/" + t.Arch + "/"
+	StatusMessage(VERBOSITY_VERBOSE,
+		"compiling architecture specific src packages in directory: %s\n",
+		archDir)
+
 	if NodeExist(archDir) {
 		if err := os.Chdir(archDir); err != nil {
 			return NewNewtError(err.Error())
