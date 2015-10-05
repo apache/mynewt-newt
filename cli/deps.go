@@ -131,10 +131,15 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 
 	// Check if any dependencies are newer than the destination object file.
 	for _, dep := range deps {
-		depModTime, err := FileModificationTime(dep)
-		if err != nil {
-			return false, err
+		if NodeNotExist(dep) {
+			depModTime = time.Now()
+		} else {
+			depModTime, err = FileModificationTime(dep)
+			if err != nil {
+				return false, err
+			}
 		}
+
 		if depModTime.After(objModTime) {
 			tracker.MostRecent = time.Now()
 			return true, nil
