@@ -28,7 +28,7 @@ import (
 var ExitOnFailure bool = false
 var ExportAll bool = false
 var ImportAll bool = false
-var NewtVersion string = "1.0"
+var NewtVersion string = "0.1"
 var NewtLogLevel string = ""
 var NewtNest *cli.Nest
 
@@ -40,7 +40,7 @@ func NewtUsage(cmd *cobra.Command, err error) {
 	}
 
 	if cmd != nil {
-		cmd.Usage()
+		cmd.Help()
 	}
 	os.Exit(1)
 }
@@ -707,7 +707,9 @@ func nestShowClutchCmd(cmd *cobra.Command, args []string) {
 }
 
 func nestAddCmds(baseCmd *cobra.Command) {
-	nestCmd := &cobra.Command{
+	var nestCmd *cobra.Command
+
+	nestCmd = &cobra.Command{
 		Use:   "nest",
 		Short: "Commands to manage nests & clutches (remote egg repositories)",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -715,9 +717,11 @@ func nestAddCmds(baseCmd *cobra.Command) {
 
 			var err error
 
-			NewtNest, err = cli.NewNest()
-			if err != nil {
-				NewtUsage(nil, err)
+			if cmd != nestCmd {
+				NewtNest, err = cli.NewNest()
+				if err != nil {
+					NewtUsage(cmd, err)
+				}
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
