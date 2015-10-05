@@ -435,7 +435,7 @@ func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Dependencies successfully resolved!")
+		"Dependencies successfully resolved!\n")
 }
 
 func eggHuntCmd(cmd *cobra.Command, args []string) {
