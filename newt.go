@@ -595,7 +595,7 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	fmt.Println("Installation was a success!")
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installation was a success!\n")
 }
 
 func eggRemoveCmd(cmd *cobra.Command, args []string) {
@@ -624,7 +624,7 @@ func eggRemoveCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	fmt.Println("Removed successfully!")
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Removed successfully!\n")
 }
 
 func eggAddCmds(baseCmd *cobra.Command) {
