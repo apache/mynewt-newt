@@ -182,38 +182,12 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	}
 
 	depFile := objDir + strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
-	tmpFile := depFile + ".tmp"
 	cFlags := c.Cflags + " " + c.IncludesString()
 
 	var cmd string
 	var err error
 
 	cmd = c.ccPath + " " + cFlags + " -MM -MG " + file + " > " + depFile
-	_, err = ShellCommand(cmd)
-	if err != nil {
-		return err
-	}
-
-	cmd = "mv -f " + depFile + " " + tmpFile
-	_, err = ShellCommand(cmd)
-	if err != nil {
-		return err
-	}
-
-	cmd = "sed -e 's|.*:|" + depFile + ":|' < " + tmpFile + " > " + depFile
-	_, err = ShellCommand(cmd)
-	if err != nil {
-		return err
-	}
-
-	cmd = "sed -e 's/.*://' -e 's/\\\\$$//' < " + tmpFile + " | fmt -1 | " +
-		"sed -e 's/^ *//' -e 's/$$/:/' >> " + depFile
-	_, err = ShellCommand(cmd)
-	if err != nil {
-		return err
-	}
-
-	cmd = "rm -f " + tmpFile
 	_, err = ShellCommand(cmd)
 	if err != nil {
 		return err
