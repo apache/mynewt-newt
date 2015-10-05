@@ -63,8 +63,8 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Printf("Target %s successfully set %s to %s\n", args[0],
-		ar[0], ar[1])
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Target %s successfully set %s to %s\n", args[0], ar[0], ar[1])
 }
 
 func targetUnsetCmd(cmd *cobra.Command, args []string) {
@@ -82,7 +82,8 @@ func targetUnsetCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Printf("Target %s successfully unset %s\n", args[0], args[1])
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Target %s successfully unset %s\n", args[0], args[1])
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
@@ -98,10 +99,10 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 	for _, target := range targets {
 		if dispSect == "" || dispSect == target.Vars["name"] {
-			fmt.Println(target.Vars["name"])
+			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"])
 			vars := target.GetVars()
 			for k, v := range vars {
-				fmt.Printf("	%s: %s\n", k, v)
+				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s: %s\n", k, v)
 			}
 		}
 	}
@@ -112,7 +113,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Wrong number of args to create cmd."))
 	}
 
-	fmt.Println("Creating target " + args[0])
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+args[0])
 
 	if cli.TargetExists(NewtNest, args[0]) {
 		NewtUsage(cmd, cli.NewNewtError(
@@ -127,9 +128,10 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 
 	err := target.Save()
 	if err != nil {
-		fmt.Println(err)
+		NewtUsage(nil, err)
 	} else {
-		fmt.Printf("Target %s sucessfully created!\n", args[0])
+		cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+			"Target %s sucessfully created!\n", args[0])
 	}
 }
 
@@ -156,7 +158,7 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(nil, err)
 	} else {
-		fmt.Println("Successfully run!")
+		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
 	}
 }
 
@@ -174,7 +176,8 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Printf("Target %s successfully removed\n", args[0])
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Target %s successfully removed\n", args[0])
 }
 
 func targetTestCmd(cmd *cobra.Command, args []string) {
@@ -200,7 +203,7 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(nil, err)
 	} else {
-		fmt.Println("Successfully run!")
+		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
 	}
 }
 
@@ -240,7 +243,8 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Println("Target(s) successfully imported!")
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Target(s) successfully imported!")
 }
 
 func targetAddCmds(base *cobra.Command) {
@@ -343,59 +347,63 @@ func targetAddCmds(base *cobra.Command) {
 }
 
 func dispEgg(egg *cli.Egg) error {
-	fmt.Printf("Egg %s, version %s\n", egg.FullName, egg.Version)
-	fmt.Printf("  path: %s\n", filepath.Clean(egg.BasePath))
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Egg %s, version %s\n",
+		egg.FullName, egg.Version)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "  path: %s\n",
+		filepath.Clean(egg.BasePath))
 	if egg.Capabilities != nil {
-		fmt.Printf("  capabilities: ")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  capabilities: ")
 		caps, err := egg.GetCapabilities()
 		if err != nil {
 			return err
 		}
 		for _, capability := range caps {
-			fmt.Printf("%s ", capability)
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "%s ", capability)
 		}
-		fmt.Printf("\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
 	if len(egg.Deps) > 0 {
-		fmt.Printf("  deps: ")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  deps: ")
 		for _, dep := range egg.Deps {
 			if dep == nil {
 				continue
 			}
-			fmt.Printf("%s ", dep)
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "%s ", dep)
 		}
-		fmt.Printf("\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
 
 	if egg.LinkerScript != "" {
-		fmt.Printf("  linkerscript: %s\n", egg.LinkerScript)
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  linkerscript: %s\n",
+			egg.LinkerScript)
 	}
 	return nil
 }
 
 func dispEggShell(eggShell *cli.EggShell) error {
-	fmt.Printf("Egg %s, version %s\n", eggShell.FullName, eggShell.Version)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Egg %s, version %s\n",
+		eggShell.FullName, eggShell.Version)
 
 	if eggShell.Caps != nil {
-		fmt.Printf("  capabilities: ")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  capabilities: ")
 		caps, err := eggShell.GetCapabilities()
 		if err != nil {
 			return err
 		}
 		for _, capability := range caps {
-			fmt.Printf("%s ", capability)
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "%s ", capability)
 		}
-		fmt.Printf("\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
 	if len(eggShell.Deps) > 0 {
-		fmt.Printf("  deps: ")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  deps: ")
 		for _, dep := range eggShell.Deps {
 			if dep == nil {
 				continue
 			}
-			fmt.Printf("%s ", dep)
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "%s ", dep)
 		}
-		fmt.Printf("\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
 
 	return nil
@@ -426,7 +434,8 @@ func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Println("Dependencies successfully resolved!")
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Dependencies successfully resolved!")
 }
 
 func eggHuntCmd(cmd *cobra.Command, args []string) {
@@ -452,8 +461,8 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 	for _, egg := range eggMgr.Eggs {
 		contains := strings.Contains(egg.FullName, args[0])
 		if contains == true {
-			fmt.Printf("Installed egg %s@%s\n", egg.FullName,
-				egg.Version)
+			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installed egg %s@%s\n",
+				egg.FullName, egg.Version)
 			found = true
 		}
 	}
@@ -469,7 +478,8 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 		for _, eggShell := range clutch.EggShells {
 			contains := strings.Contains(eggShell.FullName, args[0])
 			if contains == true {
-				fmt.Printf("Clutch %s has egg %s@%s\n",
+				cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+					"Clutch %s has egg %s@%s\n",
 					clutch.Name, eggShell.FullName,
 					eggShell.Version)
 				found = true
@@ -478,7 +488,7 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if found == false {
-		fmt.Println("No egg found!")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "No egg found!")
 	}
 }
 
@@ -609,7 +619,7 @@ func nestGenerateClutchCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Print(clutchStr)
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", clutchStr)
 }
 
 func nestAddClutchCmd(cmd *cobra.Command, args []string) {
@@ -631,7 +641,8 @@ func nestAddClutchCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Println("Clutch " + name + " sucessfully installed to Nest.")
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Clutch "+name+" sucessfully installed to Nest.")
 }
 
 func nestListClutchesCmd(cmd *cobra.Command, args []string) {
@@ -641,8 +652,8 @@ func nestListClutchesCmd(cmd *cobra.Command, args []string) {
 	}
 
 	for name, clutch := range clutches {
-		fmt.Printf("Remote clutch %s (eggshells: %d)\n", name,
-			len(clutch.EggShells))
+		cli.StatusMessage(cli.VERBOSITY_QUIET,
+			"Remote clutch %s (eggshells: %d)\n", name, len(clutch.EggShells))
 	}
 }
 
@@ -671,7 +682,8 @@ func nestCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Printf("Nest %s successfully created in %s\n", args[0], nestDir)
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		"Nest %s successfully created in %s\n", args[0], nestDir)
 }
 
 func nestShowClutchCmd(cmd *cobra.Command, args []string) {
@@ -690,19 +702,21 @@ func nestShowClutchCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Clutch loaded, now print out clutch information
-	fmt.Printf("Clutch Name: %s\n", clutch.Name)
-	fmt.Printf("Clutch URL: %s\n", clutch.RemoteUrl)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Clutch Name: %s\n", clutch.Name)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Clutch URL: %s\n",
+		clutch.RemoteUrl)
 
 	i := 0
 	for _, eggShell := range clutch.EggShells {
 		i++
-		fmt.Printf(" %s@%s", eggShell.FullName, eggShell.Version)
+		cli.StatusMessage(cli.VERBOSITY_QUIET, " %s@%s", eggShell.FullName,
+			eggShell.Version)
 		if i%4 == 0 {
-			fmt.Printf("\n")
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 		}
 	}
 	if i%4 != 0 {
-		fmt.Printf("\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
 }
 
@@ -794,7 +808,8 @@ func parseCmds() *cobra.Command {
 		Use:   "version",
 		Short: "Print the Newt version number",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Newt version: ", NewtVersion)
+			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Newt version: ",
+				NewtVersion)
 		},
 	}
 

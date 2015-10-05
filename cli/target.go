@@ -175,9 +175,11 @@ func ImportTargets(nest *Nest, name string, importAll bool, fp *os.File) error {
 	targets := make([]*Target, 0, 10)
 
 	if importAll {
-		log.Printf("[DEBUG] Importing all targets from %s", fp.Name())
+		StatusMessage(VERBOSITY_VERBOSE, "Importing all targets from %s",
+			fp.Name())
 	} else {
-		log.Printf("[DEBUG] Importing target %s from %s", name, fp.Name())
+		StatusMessage(VERBOSITY_VERBOSE, "Importing target %s from %s",
+			name, fp.Name())
 	}
 
 	for s.Scan() {

@@ -68,8 +68,8 @@ func NewCompiler(ccPath string, cDef string, tName string, includes []string) (
 		c.BaseIncludes[incl] = true
 	}
 
-	log.Printf("[INFO] Loading compiler %s, target %s, def %s", ccPath, tName,
-		cDef)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Loading compiler %s, target %s, def %s\n", ccPath, tName, cDef)
 
 	err := c.ReadSettings(cDef)
 	if err != nil {
@@ -463,10 +463,10 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	objFiles []string) error {
 
 	objList := c.getObjFiles(UniqueStrings(objFiles))
-	log.Printf("[INFO] Compiling Binary %s with object files %s", dstFile,
-		objList)
 
 	StatusMessage(VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
+	StatusMessage(VERBOSITY_VERBOSE, "Linking %s with input files %s",
+		dstFile, objList)
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
 	rsp, err := ShellCommand(cmd)
@@ -559,8 +559,6 @@ func (c *Compiler) CompileElf(binFile string, options map[string]bool,
 		return err
 	}
 	if linkRequired {
-		log.Printf("[DEBUG] Compiling a binary %s from libs %s", binFile,
-			strings.Join(objFiles, " "))
 		err := c.CompileBinary(binFile, options, objFiles)
 		if err != nil {
 			return err
@@ -604,10 +602,9 @@ func (c *Compiler) CompileArchive(archiveFile string, objFiles []string) error {
 
 	objList := c.getObjFiles(objFiles)
 
-	log.Printf("[INFO] Compiling archive %s with object files %s",
-		archiveFile, objList)
-
 	StatusMessage(VERBOSITY_DEFAULT, "Archiving %s\n", path.Base(archiveFile))
+	StatusMessage(VERBOSITY_VERBOSE, "Archiving %s with object files %s",
+		archiveFile, objList)
 
 	// Delete the old archive, if it exists.
 	err = os.Remove(archiveFile)

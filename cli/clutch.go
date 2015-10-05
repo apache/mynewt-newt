@@ -76,8 +76,8 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 			continue
 		}
 
-		log.Printf("[DEBUG] Checking dependency %s for package %s", depReq,
-			egg.Name)
+		StatusMessage(VERBOSITY_VERBOSE,
+			"Checking dependency %s for package %s\n", depReq, egg.Name)
 		egg, ok := clutch.Eggs[depReq.Name]
 		if !ok {
 			return NewNewtError(
@@ -146,7 +146,7 @@ func (clutch *Clutch) CheckDeps() error {
 // this repository
 func (clutch *Clutch) loadEgg(eggDir string, eggPrefix string,
 	eggName string) error {
-	log.Println("[INFO] Loading Egg " + eggDir + "...")
+	StatusMessage(VERBOSITY_VERBOSE, "Loading Egg "+eggDir+"...\n")
 
 	if clutch.Eggs == nil {
 		clutch.Eggs = make(map[string]*Egg)
@@ -174,7 +174,7 @@ func (clutch *Clutch) String() string {
 // hw/bsp), and the base package name.
 func (clutch *Clutch) loadEggDir(baseDir string, eggPrefix string,
 	eggName string) error {
-	log.Printf("[DEBUG] Loading packages in %s, starting with package %s",
+	log.Printf("[DEBUG] Loading eggs in %s, starting with egg %s",
 		baseDir, eggName)
 
 	// first recurse and load subpackages
@@ -355,8 +355,8 @@ func (clutch *Clutch) GetEggLib(t *Target, egg *Egg) string {
 func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 	libs *[]string) error {
 
-	log.Printf("[DEBUG] Building package dependencies for %s, target %s",
-		egg.Name, t.Name)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Building egg dependencies for %s, target %s\n", egg.Name, t.Name)
 
 	var err error
 
@@ -422,8 +422,6 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 		return err
 	}
 
-	log.Println("[INFO] Building package " + eggName + " for arch " + t.Arch)
-
 	// already built the package, no need to rebuild.  This is to handle
 	// recursive calls to Build()
 	if egg.Built {
@@ -435,7 +433,8 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 		return err
 	}
 
-	StatusMessage(VERBOSITY_DEFAULT, "Building egg %s\n", eggName)
+	StatusMessage(VERBOSITY_VERBOSE, "Building egg %s for arch %s\n",
+		eggName, t.Arch)
 
 	// NOTE: this assignment must happen after the call to buildDeps(), as
 	// buildDeps() fills in the package includes.
@@ -459,8 +458,7 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	c.Lflags += " " + egg.Lflags + " " + t.Lflags
 	c.Aflags += " " + egg.Aflags + " " + t.Aflags
 
-	log.Printf("[DEBUG] compiling src packages in base package "+
-		"directories: %s", srcDir)
+	log.Printf("[DEBUG] compiling src eggs in base egg directory: %s", srcDir)
 
 	// For now, ignore test code.  Tests get built later if the test identity
 	// is in effect.
@@ -630,19 +628,23 @@ func (clutch *Clutch) linkTests(t *Target, egg *Egg,
 // the tests.  exitOnFailure specifies whether to exit immediately when a
 // test fails, or continue executing all tests.
 func (clutch *Clutch) runTests(t *Target, egg *Egg, exitOnFailure bool) error {
+	StatusMessage(VERBOSITY_DEFAULT, "Testing egg %s for arch %s\n",
+		egg.Name, t.Arch)
+
 	if err := os.Chdir(egg.BasePath + "/src/test/bin/" + t.Name +
 		"/"); err != nil {
 		return err
 	}
 	o, err := ShellCommand("./" + egg.TestBinName())
 	if err != nil {
-		log.Printf("[ERROR] Test %s failed, output: %s", egg.TestBinName(),
-			string(o))
+		StatusMessage(VERBOSITY_DEFAULT, "%s", string(o))
+		StatusMessage(VERBOSITY_QUIET, "Test %s failed\n", egg.TestBinName())
 		if exitOnFailure {
 			return NewNewtError("Unit tests failed to complete successfully.")
 		}
 	} else {
-		log.Printf("[INFO] Test %s ok!", egg.TestBinName())
+		StatusMessage(VERBOSITY_VERBOSE, "%s", string(o))
+		StatusMessage(VERBOSITY_DEFAULT, "Test %s ok!\n", egg.TestBinName())
 	}
 
 	return nil
@@ -664,7 +666,6 @@ func (clutch *Clutch) testsExist(egg *Egg) error {
 // fails.
 func (clutch *Clutch) Test(t *Target, eggName string,
 	exitOnFailure bool) error {
-	log.Printf("[INFO] Testing egg %s for arch %s", eggName, t.Arch)
 
 	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {

@@ -18,7 +18,6 @@ package cli
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
@@ -35,15 +34,16 @@ func NewDownloader() (*Downloader, error) {
 }
 
 func (dl *Downloader) gitClone(url string, branch string, dest string) error {
-	log.Printf("[DEBUG] Git cloning URL %s branch %s into dest %s",
-		branch, url, dest)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Git cloning URL %s branch %s into dest %s", branch, url, dest)
 
 	_, err := ShellCommand(fmt.Sprintf("git clone --depth 1 -b %s %s %s", branch, url, dest))
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] Git clone successful, removing .git directory")
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Git clone successful, removing .git directory")
 
 	if err := os.RemoveAll(dest + "/.git/"); err != nil {
 		return err

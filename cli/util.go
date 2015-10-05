@@ -40,10 +40,10 @@ var Verbosity int
 var OK_STRING = " ok!\n"
 
 const (
-	VERBOSITY_VERBOSE = 0
-	VERBOSITY_DEFAULT = 1
-	VERBOSITY_QUIET   = 2
-	VERBOSITY_SILENT  = 3
+	VERBOSITY_SILENT  = 0
+	VERBOSITY_QUIET   = 1
+	VERBOSITY_DEFAULT = 2
+	VERBOSITY_VERBOSE = 3
 )
 
 func (se *NewtError) Error() string {
@@ -205,7 +205,7 @@ func CopyDir(srcDir, destDir string) error {
 
 // Print Silent, Quiet and Verbose aware status messages
 func StatusMessage(level int, message string, args ...interface{}) {
-	if level >= Verbosity {
+	if Verbosity >= level {
 		fmt.Printf(message, args...)
 	}
 }

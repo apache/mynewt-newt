@@ -406,7 +406,8 @@ func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	// Allocate an array of capabilities
 	caps := make([]*DependencyRequirement, 0)
 
-	log.Printf("[DEBUG] Loading capabilities %s", strings.Join(capList, " "))
+	StatusMessage(VERBOSITY_VERBOSE, "Loading capabilities %s",
+		strings.Join(capList, " "))
 	for _, capItem := range capList {
 		dr, err := NewDependencyRequirementParseString(capItem)
 		if err != nil {

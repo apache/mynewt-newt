@@ -59,7 +59,8 @@ func LoadProject(nest *Nest, t *Target, name string) (*Project, error) {
 		Target: t,
 	}
 
-	log.Printf("[DEBUG] Loading project %s for repo %s, target %s",
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Loading project %s for repo %s, target %s",
 		name, nest.BasePath, t.Name)
 
 	if err := p.Init(); err != nil {
@@ -110,8 +111,8 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	}
 
 	// first, clean packages
-	log.Printf("[DEBUG] Cleaning all the packages associated with project %s",
-		p.Name)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Cleaning all the packages associated with project %s", p.Name)
 	for _, eggName := range p.GetEggs() {
 		err = clutch.BuildClean(p.Target, eggName, cleanAll)
 		if err != nil {
@@ -154,7 +155,8 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 		return nil
 	}
 
-	log.Printf("[INFO] Building package dependencies for project %s", p.Name)
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Building egg dependencies for project %s\n", p.Name)
 
 	t := p.Target
 
@@ -237,7 +239,8 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
 	libs *[]string) (string, error) {
 
-	log.Printf("[INFO] Building BSP %s for Project %s", p.Target.Bsp, p.Name)
+	StatusMessage(VERBOSITY_VERBOSE, "Building BSP %s for project %s\n",
+		p.Target.Bsp, p.Name)
 
 	if p.Target.Bsp == "" {
 		return "", NewNewtError("Must specify a BSP to build project")
@@ -248,8 +251,6 @@ func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
 
 // Build the project
 func (p *Project) Build() error {
-	log.Printf("[INFO] Building project %s", p.Name)
-
 	clutch, err := NewClutch(p.Nest)
 	if err != nil {
 		return err
@@ -270,7 +271,6 @@ func (p *Project) Build() error {
 	//        builds.
 	//     2. Build the BSP package.
 	if p.Target.Bsp != "" {
-		StatusMessage(VERBOSITY_DEFAULT, "Building BSP %s\n", p.Target.Bsp)
 		incls, err = BspIncludePaths(clutch, p.Target)
 		if err != nil {
 			return err
@@ -294,7 +294,6 @@ func (p *Project) Build() error {
 
 	incls = append(incls, projIncls...)
 
-	StatusMessage(VERBOSITY_DEFAULT, "Compiling project %s\n", p.Name)
 	c, err := NewCompiler(p.Target.GetCompiler(), p.Target.Cdef, p.Target.Name,
 		incls)
 	if err != nil {
