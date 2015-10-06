@@ -57,6 +57,22 @@ func ParseDepsFile(filename string) ([]string, error) {
 	return tokens[1:], nil
 }
 
+// Updates the dependency tracker's most recent timestamp according to the
+// modification time of the specified file.  If the specified file is older
+// than the tracker's currently most-recent time, this function has no effect.
+func (tracker *DepTracker) ProcessFileTime(file string) error {
+	modTime, err := FileModificationTime(file)
+	if err != nil {
+		return err
+	}
+
+	if modTime.After(tracker.MostRecent) {
+		tracker.MostRecent = modTime
+	}
+
+	return nil
+}
+
 // Determines if the specified C or assembly file needs to be built.  A compile
 // is required if any of the following is true:
 //     * The destination object file does not exist.
@@ -98,14 +114,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// If the object doesn't exist or is older than the source file, a build is
 	// required; no need to check dependencies.
 	if srcModTime.After(objModTime) {
-		tracker.MostRecent = time.Now()
 		return true, nil
-	}
-
-	// Cache the object modification time if it is more recent than the current
-	// one.
-	if objModTime.After(tracker.MostRecent) {
-		tracker.MostRecent = objModTime
 	}
 
 	// Determine if the dependency (.d) file needs to be generated.  If it
@@ -141,7 +150,6 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		}
 
 		if depModTime.After(objModTime) {
-			tracker.MostRecent = time.Now()
 			return true, nil
 		}
 	}

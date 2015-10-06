@@ -48,6 +48,21 @@ func NewtUsage(cmd *cobra.Command, err error) {
 	os.Exit(1)
 }
 
+// Extracts "<key>=<value>" strings from the supplied slice and inserts them
+// into the specified target's variable map.
+func extractTargetVars(args []string, t *cli.Target) error {
+	for i := 0; i < len(args); i++ {
+		pair := strings.SplitN(args[i], "=", 2)
+		if len(pair) != 2 {
+			return cli.NewNewtError("invalid argument: " + args[i])
+		}
+
+		t.Vars[pair[0]] = pair[1]
+	}
+
+	return nil
+}
+
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
@@ -154,15 +169,23 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 		} else {
 			err = t.BuildClean(false)
 		}
+		if err != nil {
+			NewtUsage(nil, err)
+		}
 	} else {
+		// Parse any remaining key-value pairs and insert them into the target.
+		err = extractTargetVars(args[1:], t)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+
 		err = t.Build()
+		if err != nil {
+			NewtUsage(nil, err)
+		}
 	}
 
-	if err != nil {
-		NewtUsage(nil, err)
-	} else {
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
-	}
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
 }
 
 func targetDelCmd(cmd *cobra.Command, args []string) {
@@ -199,15 +222,23 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 		} else {
 			err = t.Test("testclean", false)
 		}
+		if err != nil {
+			NewtUsage(nil, err)
+		}
 	} else {
+		// Parse any remaining key-value pairs and insert them into the target.
+		err = extractTargetVars(args[1:], t)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
 		err = t.Test("test", ExitOnFailure)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
 	}
 
-	if err != nil {
-		NewtUsage(nil, err)
-	} else {
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
-	}
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
 }
 
 func targetExportCmd(cmd *cobra.Command, args []string) {

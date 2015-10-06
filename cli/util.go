@@ -62,6 +62,13 @@ func NewNewtError(msg string) *NewtError {
 	return err
 }
 
+func NewtErrorNoTrace(msg string) *NewtError {
+	return &NewtError{
+		Text:       msg,
+		StackTrace: nil,
+	}
+}
+
 // Initialize the CLI module
 func Init(level string, silent bool, quiet bool, verbose bool) {
 	if level == "" {
@@ -203,8 +210,8 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 }
 
 func CopyFile(srcFile string, destFile string) error {
-	if _, err := ShellCommand(fmt.Sprintf("mkdir -p %s", filepath.Dir(destFile)));
-			err != nil {
+	_, err := ShellCommand(fmt.Sprintf("mkdir -p %s", filepath.Dir(destFile)))
+	if err != nil {
 		return err
 	}
 	if _, err := ShellCommand(fmt.Sprintf("cp -Rf %s %s", srcFile,

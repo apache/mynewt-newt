@@ -329,19 +329,19 @@ func (t *Target) BuildClean(cleanAll bool) error {
 
 func (t *Target) Test(cmd string, flag bool) error {
 	if t.Vars["project"] != "" {
-		return NewNewtError("Tests not supported on projects, only packages")
+		return NewNewtError("Tests not supported on projects, only eggs")
 	}
 
-	pm, err := NewClutch(t.Nest)
+	clutch, err := NewClutch(t.Nest)
 	if err != nil {
 		return err
 	}
 
 	switch cmd {
 	case "test":
-		err = pm.Test(t, t.Vars["egg"], flag)
+		err = clutch.Test(t, t.Vars["egg"], flag)
 	case "testclean":
-		err = pm.TestClean(t, t.Vars["egg"], flag)
+		err = clutch.TestClean(t, t.Vars["egg"], flag)
 	default:
 		err = NewNewtError("Unknown command to Test() " + cmd)
 	}
