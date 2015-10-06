@@ -898,7 +898,7 @@ func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) ([]*R
 	log.Print("[VERBOSE] Looking for ", eggName)
 	egg, err := clutch.ResolveEggName(eggName)
 	if err == nil {
-		log.Printf("[VERBOSE] ", eggName, " installed already");
+		log.Printf("[VERBOSE] ", eggName, " installed already")
 		return downloaded, nil
 	}
 	nest := clutch.Nest
