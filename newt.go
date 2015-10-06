@@ -117,7 +117,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 	for _, target := range targets {
 		if dispSect == "" || dispSect == target.Vars["name"] {
-			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"])
+			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"] + "\n")
 			vars := target.GetVars()
 			for k, v := range vars {
 				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s: %s\n", k, v)
@@ -278,7 +278,7 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Target(s) successfully imported!")
+		"Target(s) successfully imported!\n")
 }
 
 func targetAddCmds(base *cobra.Command) {
@@ -522,7 +522,7 @@ func eggHuntCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if found == false {
-		cli.StatusMessage(cli.VERBOSITY_QUIET, "No egg found!")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "No egg found!\n")
 	}
 }
 
