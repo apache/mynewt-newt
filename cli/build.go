@@ -19,7 +19,7 @@ import (
 	"os"
 )
 
-// Recursively iterates through a package's dependencies, adding each package
+// Recursively iterates through an egg's dependencies, adding each egg
 // encountered to the supplied set.
 func collectDepsAux(clutch *Clutch, egg *Egg, set *map[*Egg]bool) error {
 	if (*set)[egg] {
@@ -33,7 +33,7 @@ func collectDepsAux(clutch *Clutch, egg *Egg, set *map[*Egg]bool) error {
 			break
 		}
 
-		// Get package structure
+		// Get egg structure
 		degg, err := clutch.ResolveEggName(dep.Name)
 		if err != nil {
 			return err
@@ -45,8 +45,8 @@ func collectDepsAux(clutch *Clutch, egg *Egg, set *map[*Egg]bool) error {
 	return nil
 }
 
-// Recursively iterates through a package's dependencies.  The resulting array
-// contains a pointer to each encountered package.
+// Recursively iterates through an egg's dependencies.  The resulting array
+// contains a pointer to each encountered egg.
 func collectDeps(clutch *Clutch, egg *Egg) ([]*Egg, error) {
 	set := map[*Egg]bool{}
 
@@ -63,7 +63,7 @@ func collectDeps(clutch *Clutch, egg *Egg) ([]*Egg, error) {
 	return arr, nil
 }
 
-// Calculates the include paths exported by the specified package and all of
+// Calculates the include paths exported by the specified egg and all of
 // its recursive dependencies.
 func recursiveIncludePaths(clutch *Clutch, egg *Egg,
 	t *Target) ([]string, error) {
@@ -94,7 +94,7 @@ func BspIncludePaths(clutch *Clutch, t *Target) ([]string, error) {
 
 	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err != nil {
-		return nil, NewNewtError("No BSP package for " + t.Bsp + " exists")
+		return nil, NewNewtError("No BSP egg for " + t.Bsp + " exists")
 	}
 
 	return recursiveIncludePaths(clutch, bspEgg, t)
@@ -109,7 +109,7 @@ func buildBsp(t *Target, clutch *Clutch, incls *[]string,
 
 	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err != nil {
-		return "", NewNewtError("No BSP package for " + t.Bsp + " exists")
+		return "", NewNewtError("No BSP egg for " + t.Bsp + " exists")
 	}
 
 	if err = clutch.Build(t, t.Bsp, *incls, libs); err != nil {
@@ -134,22 +134,22 @@ func buildBsp(t *Target, clutch *Clutch, incls *[]string,
 
 // Creates the set of compiler flags that should be specified when building a
 // particular target-entity pair.  The "entity" is what is being built; either
-// a package or a project.
+// an egg or a project.
 func CreateCflags(clutch *Clutch, c *Compiler, t *Target,
 	entityCflags string) string {
 
 	cflags := c.Cflags + " " + entityCflags + " " + t.Cflags
 
 	// The 'test' identity causes the TEST symbol to be defined.  This allows
-	// package code to behave differently in test builds.
+	// egg code to behave differently in test builds.
 	if t.HasIdentity("test") {
 		cflags += " -DTEST"
 	}
 
 	cflags += " -DARCH_" + t.Arch
 
-	// If a non-BSP package is being built, add the BSP's C flags to the list.
-	// The BSP's compiler flags get exported to all packages.
+	// If a non-BSP egg is being built, add the BSP's C flags to the list.
+	// The BSP's compiler flags get exported to all eggs.
 	bspEgg, err := clutch.ResolveEggName(t.Bsp)
 	if err == nil && bspEgg.Cflags != entityCflags {
 		cflags += " " + bspEgg.Cflags
@@ -182,7 +182,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 	StatusMessage(VERBOSITY_VERBOSE, "compiling src in base directory: %s\n",
 		srcDir)
 
-	// First change into the package src directory, and build all the objects
+	// First change into the egg src directory, and build all the objects
 	// there
 	os.Chdir(srcDir)
 
@@ -201,7 +201,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 
 	archDir := srcDir + "/arch/" + t.Arch + "/"
 	StatusMessage(VERBOSITY_VERBOSE,
-		"compiling architecture specific src packages in directory: %s\n",
+		"compiling architecture specific src eggs in directory: %s\n",
 		archDir)
 
 	if NodeExist(archDir) {

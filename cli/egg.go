@@ -564,7 +564,11 @@ func (egg *Egg) TestBinName() string {
  * Download egg from a clutch and stick it to nest.
  */
 func (eggShell *EggShell) Install(eggMgr *Clutch) error {
-	return eggMgr.InstallEgg(eggShell.FullName, nil)
+	downloaded, err := eggMgr.InstallEgg(eggShell.FullName, nil)
+	for _, remoteNest := range downloaded {
+		remoteNest.Remove()
+	}
+	return err
 }
 
 func (egg *Egg) Remove() error {

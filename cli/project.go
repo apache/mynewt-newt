@@ -60,7 +60,7 @@ func LoadProject(nest *Nest, t *Target, name string) (*Project, error) {
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Loading project %s for repo %s, target %s",
+		"Loading project %s for repo %s, target %s\n",
 		name, nest.BasePath, t.Name)
 
 	if err := p.Init(); err != nil {

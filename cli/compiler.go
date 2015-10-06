@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 const (
@@ -117,12 +118,22 @@ func (c *Compiler) ReadSettings(cDef string) error {
 // date, so no compilation is necessary.  The name of the object file should
 // still be remembered so that it gets linked in to the final library or
 // executable.
-func (c *Compiler) SkipSourceFile(srcFile string) {
+func (c *Compiler) SkipSourceFile(srcFile string) error {
 	wd, _ := os.Getwd()
 	objDir := wd + "/obj/" + c.TargetName + "/"
 	objFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
 		".o"
 	c.ObjPathList[objFile] = true
+
+	// Update the dependency tracker with the object file's modification time.
+	// This is necessary later for determining if the library / executable
+	// needs to be rebuilt.
+	err := c.depTracker.ProcessFileTime(objFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Generates a string consisting of all the necessary include path (-I)
@@ -238,6 +249,9 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return err
 	}
 
+	// Tell the dependency tracker that an object file was just rebuilt.
+	c.depTracker.MostRecent = time.Now()
+
 	return nil
 }
 
@@ -262,11 +276,11 @@ func (c *Compiler) Compile(match string) error {
 		}
 		if compileRequired {
 			err = c.CompileFile(file, COMPILER_TYPE_C)
-			if err != nil {
-				return err
-			}
 		} else {
-			c.SkipSourceFile(file)
+			err = c.SkipSourceFile(file)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -294,11 +308,11 @@ func (c *Compiler) CompileAs(match string) error {
 		}
 		if compileRequired {
 			err = c.CompileFile(file, COMPILER_TYPE_ASM)
-			if err != nil {
-				return err
-			}
 		} else {
-			c.SkipSourceFile(file)
+			err = c.SkipSourceFile(file)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -439,7 +453,7 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	objList := c.getObjFiles(UniqueStrings(objFiles))
 
 	StatusMessage(VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
-	StatusMessage(VERBOSITY_VERBOSE, "Linking %s with input files %s",
+	StatusMessage(VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
 		dstFile, objList)
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
