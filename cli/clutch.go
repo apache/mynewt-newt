@@ -214,6 +214,7 @@ func (clutch *Clutch) loadEggs() error {
 
 	// Multiple package directories to be searched
 	searchDirs := []string{
+		"compiler/",
 		"libs/",
 		"hw/bsp/",
 		"hw/mcu/",
