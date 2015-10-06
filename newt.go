@@ -131,7 +131,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Wrong number of args to create cmd."))
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+args[0])
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+args[0]+"\n")
 
 	if cli.TargetExists(NewtNest, args[0]) {
 		NewtUsage(cmd, cli.NewNewtError(
@@ -149,7 +149,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	} else {
 		cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-			"Target %s sucessfully created!\n", args[0])
+			"Target %s successfully created!\n", args[0])
 	}
 }
 
@@ -783,7 +783,7 @@ func nestAddClutchCmd(cmd *cobra.Command, args []string) {
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Clutch "+name+" sucessfully installed to Nest.")
+		"Clutch "+name+" successfully installed to Nest.\n")
 }
 
 func nestListClutchesCmd(cmd *cobra.Command, args []string) {

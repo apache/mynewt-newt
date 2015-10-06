@@ -214,6 +214,7 @@ func (clutch *Clutch) loadEggs() error {
 
 	// Multiple package directories to be searched
 	searchDirs := []string{
+		"compiler/",
 		"libs/",
 		"hw/bsp/",
 		"hw/mcu/",
@@ -894,12 +895,12 @@ func (cl *Clutch) Install(name string, url string) error {
 	return nil
 }
 
-func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) error {
+func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) ([]*RemoteNest, error) {
 	log.Print("[VERBOSE] Looking for ", eggName)
 	egg, err := clutch.ResolveEggName(eggName)
 	if err == nil {
 		log.Printf("[VERBOSE] ", eggName, " installed already")
-		return nil
+		return downloaded, nil
 	}
 	nest := clutch.Nest
 	for _, remoteNest := range downloaded {
@@ -910,35 +911,35 @@ func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) error
 
 			err = remoteNest.fetchEgg(eggName, nest.BasePath)
 			if err != nil {
-				return err
+				return downloaded, err
 			}
 
 			// update local clutch
 			err = clutch.loadEggDir(nest.BasePath, "", eggName)
 			if err != nil {
-				return err
+				return downloaded, err
 			}
 
 			deps, err := egg.GetDependencies()
 			if err != nil {
-				return err
+				return downloaded, err
 			}
 			for _, dep := range deps {
 				log.Print("[VERBOSE] ", eggName, " checking dependency ",
 					dep.Name)
-				err = clutch.InstallEgg(dep.Name, downloaded)
+				downloaded, err = clutch.InstallEgg(dep.Name, downloaded)
 				if err != nil {
-					return err
+					return downloaded, err
 				}
 			}
-			return nil
+			return downloaded, nil
 		}
 	}
 
 	// Not in downloaded clutches
 	clutches, err := nest.GetClutches()
 	if err != nil {
-		return err
+		return downloaded, err
 	}
 	for _, remoteClutch := range clutches {
 		eggShell, err := remoteClutch.ResolveEggShellName(eggName)
@@ -947,12 +948,12 @@ func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) error
 				remoteClutch.Name)
 			remoteNest, err := NewRemoteNest(remoteClutch)
 			if err != nil {
-				return err
+				return downloaded, err
 			}
 			downloaded = append(downloaded, remoteNest)
 			return clutch.InstallEgg(eggShell.FullName, downloaded)
 		}
 	}
 
-	return NewNewtError(fmt.Sprintf("No package %s found\n", eggName))
+	return downloaded, NewNewtError(fmt.Sprintf("No package %s found\n", eggName))
 }
