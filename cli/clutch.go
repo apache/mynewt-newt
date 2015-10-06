@@ -221,6 +221,7 @@ func (clutch *Clutch) loadEggs() error {
 		"hw/mcu/stm",
 		"hw/drivers/",
 		"hw/",
+		"project/",
 	}
 
 	for _, eggDir := range searchDirs {
