@@ -1199,8 +1199,7 @@ func parseCmds() *cobra.Command {
 		Long:    versHelpText,
 		Example: versHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Newt version: ",
-				NewtVersion)
+			fmt.Printf("Newt version: %s\n", NewtVersion)
 		},
 	}
 
