@@ -439,7 +439,7 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	objList := c.getObjFiles(UniqueStrings(objFiles))
 
 	StatusMessage(VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
-	StatusMessage(VERBOSITY_VERBOSE, "Linking %s with input files %s",
+	StatusMessage(VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
 		dstFile, objList)
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)

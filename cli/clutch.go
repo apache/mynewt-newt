@@ -635,19 +635,19 @@ func (clutch *Clutch) runTests(t *Target, egg *Egg, exitOnFailure bool) error {
 		"/"); err != nil {
 		return err
 	}
+
 	o, err := ShellCommand("./" + egg.TestBinName())
 	if err != nil {
 		StatusMessage(VERBOSITY_DEFAULT, "%s", string(o))
-		StatusMessage(VERBOSITY_QUIET, "Test %s failed\n", egg.TestBinName())
-		if exitOnFailure {
-			return NewNewtError("Unit tests failed to complete successfully.")
-		}
+
+		// Always terminate on test failure since only one test is being run.
+		return NewtErrorNoTrace(fmt.Sprintf("Test %s failed",
+			egg.TestBinName()))
 	} else {
 		StatusMessage(VERBOSITY_VERBOSE, "%s", string(o))
 		StatusMessage(VERBOSITY_DEFAULT, "Test %s ok!\n", egg.TestBinName())
+		return nil
 	}
-
-	return nil
 }
 
 // Check to ensure tests exist.  Go through the array of tests specified by
@@ -898,7 +898,7 @@ func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) error
 	log.Print("[VERBOSE] Looking for ", eggName)
 	egg, err := clutch.ResolveEggName(eggName)
 	if err == nil {
-		log.Printf("[VERBOSE] ", eggName, " installed already");
+		log.Printf("[VERBOSE] ", eggName, " installed already")
 		return nil
 	}
 	nest := clutch.Nest
