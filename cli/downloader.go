@@ -39,7 +39,8 @@ func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 
 	_, err := ShellCommand(fmt.Sprintf("git clone --depth 1 -b %s %s %s", branch, url, dest))
 	if err != nil {
-		return err
+		return NewNewtError(fmt.Sprintf("Command git clone %s branch %s failed",
+			url, branch))
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
@@ -66,7 +67,7 @@ func (dl *Downloader) GetRepo(repoUrl string, branch string) (string, error) {
 
 	// Otherwise, get a temporary directory and place the repo there.
 	if err := dl.gitClone(repoUrl, branch, dir); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	dl.Repos[repoUrl+branch] = dir
