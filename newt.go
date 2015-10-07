@@ -762,7 +762,10 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 				eggName)))
 	}
 
-	eggShellInstall(eggShell)
+	err = eggShellInstall(eggShell)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installation was a success!\n")
 }
 
