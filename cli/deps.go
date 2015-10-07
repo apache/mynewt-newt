@@ -214,6 +214,13 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 	if err != nil {
 		return false, err
 	}
+
+	// Check timestamp of each .o file in the project.
+	if tracker.MostRecent.After(dstModTime) {
+		return true, nil
+	}
+
+	// Check timestamp of the linker script and all input libraries.
 	if tracker.compiler.LinkerScript != "" {
 		objFiles = append(objFiles, tracker.compiler.LinkerScript)
 	}
