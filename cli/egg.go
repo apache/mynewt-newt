@@ -331,6 +331,7 @@ func (dr *DependencyRequirement) SatisfiesDependency(egg *Egg) bool {
 // Convert the dependency requirement to branch name to look for
 func (dr *DependencyRequirement) BranchName() string {
 	if dr.Stability != "stable" {
+		// XXX should compare to latest
 		return dr.Stability
 	}
 	for _, versMatch := range dr.VersMatches {

@@ -35,15 +35,16 @@ func NewDownloader() (*Downloader, error) {
 
 func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Git cloning URL %s branch %s into dest %s", branch, url, dest)
+		"Git cloning URL %s branch %s into dest %s\n", branch, url, dest)
 
 	_, err := ShellCommand(fmt.Sprintf("git clone --depth 1 -b %s %s %s", branch, url, dest))
 	if err != nil {
-		return err
+		return NewNewtError(fmt.Sprintf("Command git clone %s branch %s failed",
+			url, branch))
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Git clone successful, removing .git directory")
+		"Git clone successful, removing .git directory\n")
 
 	if err := os.RemoveAll(dest + "/.git/"); err != nil {
 		return err
@@ -66,7 +67,7 @@ func (dl *Downloader) GetRepo(repoUrl string, branch string) (string, error) {
 
 	// Otherwise, get a temporary directory and place the repo there.
 	if err := dl.gitClone(repoUrl, branch, dir); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	dl.Repos[repoUrl+branch] = dir
