@@ -1038,9 +1038,9 @@ func nestAddCmds(baseCmd *cobra.Command) {
 	var createCmd *cobra.Command
 
 	nestHelpText := formatHelp(`The nest commands help manage the local nest.
-		A nest represents the local workspace, which is a collection of eggs 
-		(packages.)  In addition to containing eggs, a nest contains the 
-		target (build) definitions, and a list of clutches (remote nests, 
+		A nest represents the workspace for one or more projects, each project being a
+                collection of eggs (packages.)  In addition to containing eggs, a local nest contains the 
+		target (build) definitions, and a list of clutches (snapshots of remote nests 
 		which contain eggs that can be installed into the current nest.)`)
 	nestHelpEx := "  newt nest create <nest-name> [, <nest-skele-url>]\n"
 	nestHelpEx += "  newt nest list-clutches\n"
