@@ -35,6 +35,7 @@ var NewtNest *cli.Nest
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
+var NewtBranch string
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -705,7 +706,9 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-
+	if NewtBranch == "" {
+		NewtBranch = "master"
+	}
 	eggShell = nil
 	for _, tmpClutch := range clutches {
 		if clutchName == "" || tmpClutch.Name == clutchName {
@@ -715,9 +718,10 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 					cli.NewNewtError(fmt.Sprintf("Ambiguous source "+
 						"egg %s in clutches %s and %s",
 						eggName, clutch.Name, tmpClutch.Name)))
+			} else {
+				eggShell = tmpEggShell
+				clutch = tmpClutch
 			}
-			eggShell = tmpEggShell
-			clutch = tmpClutch
 		}
 	}
 
@@ -735,7 +739,7 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	err = eggShell.Install(eggMgr)
+	err = eggShell.Install(eggMgr, NewtBranch)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -874,6 +878,9 @@ func eggAddCmds(baseCmd *cobra.Command) {
 		Example: installHelpEx,
 		Run:     eggInstallCmd,
 	}
+
+	installCmd.Flags().StringVarP(&NewtBranch, "branch", "b", "",
+		"Branch (or tag) of the clutch to install from.")
 
 	eggCmd.AddCommand(installCmd)
 

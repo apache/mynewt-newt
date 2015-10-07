@@ -896,7 +896,8 @@ func (cl *Clutch) Install(name string, url string) error {
 	return nil
 }
 
-func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) ([]*RemoteNest, error) {
+func (clutch *Clutch) InstallEgg(eggName string, branch string,
+	downloaded []*RemoteNest) ([]*RemoteNest, error) {
 	log.Print("[VERBOSE] Looking for ", eggName)
 	egg, err := clutch.ResolveEggName(eggName)
 	if err == nil {
@@ -928,7 +929,9 @@ func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) ([]*R
 			for _, dep := range deps {
 				log.Print("[VERBOSE] ", eggName, " checking dependency ",
 					dep.Name)
-				downloaded, err = clutch.InstallEgg(dep.Name, downloaded)
+				depBranch := dep.BranchName()
+				downloaded, err = clutch.InstallEgg(dep.Name, depBranch,
+								downloaded)
 				if err != nil {
 					return downloaded, err
 				}
@@ -947,12 +950,12 @@ func (clutch *Clutch) InstallEgg(eggName string, downloaded []*RemoteNest) ([]*R
 		if err == nil {
 			log.Print("[VERBOSE] ", eggName, " present in remote clutch ",
 				remoteClutch.Name)
-			remoteNest, err := NewRemoteNest(remoteClutch)
+			remoteNest, err := NewRemoteNest(remoteClutch, branch)
 			if err != nil {
 				return downloaded, err
 			}
 			downloaded = append(downloaded, remoteNest)
-			return clutch.InstallEgg(eggShell.FullName, downloaded)
+			return clutch.InstallEgg(eggShell.FullName, branch, downloaded)
 		}
 	}
 

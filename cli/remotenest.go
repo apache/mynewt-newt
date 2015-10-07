@@ -35,14 +35,14 @@ type RemoteNest struct {
 }
 
 // Allocate a new  structure, and initialize it.
-func NewRemoteNest(clutch *Clutch) (*RemoteNest, error) {
+func NewRemoteNest(clutch *Clutch, branch string) (*RemoteNest, error) {
 	remoteNest := &RemoteNest{
 		Name : clutch.Name,
 		RemoteLoc: clutch.RemoteUrl,
 		LocalLoc: "",
 	}
 
-	err := remoteNest.Download()
+	err := remoteNest.Download(branch)
 	if err != nil {
 		return nil, err
 	}
@@ -50,16 +50,16 @@ func NewRemoteNest(clutch *Clutch) (*RemoteNest, error) {
 }
 
 // Download it
-func (remoteNest *RemoteNest) Download() error {
+func (remoteNest *RemoteNest) Download(branch string) error {
 	dl, err := NewDownloader()
 	if err != nil {
 		return err
 	}
 
 	StatusMessage(VERBOSITY_DEFAULT, "Downloading %s from %s/"+
-		"master...", remoteNest.Name, remoteNest.RemoteLoc)
+		"%s...", remoteNest.Name, remoteNest.RemoteLoc, branch)
 
-	dir, err := dl.GetRepo(remoteNest.RemoteLoc, "master")
+	dir, err := dl.GetRepo(remoteNest.RemoteLoc, branch)
 	if err != nil {
 		return err
 	}

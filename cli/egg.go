@@ -328,6 +328,28 @@ func (dr *DependencyRequirement) SatisfiesDependency(egg *Egg) bool {
 	return false
 }
 
+// Convert the dependency requirement to branch name to look for
+func (dr *DependencyRequirement) BranchName() string {
+	if dr.Stability != "stable" {
+		return dr.Stability
+	}
+	for _, versMatch := range dr.VersMatches {
+		if versMatch.CompareType == "==" || versMatch.CompareType == "<=" {
+			if versMatch.Vers.Minor == 0 && versMatch.Vers.Revision == 0 {
+				return fmt.Sprintf("%d", versMatch.Vers.Major)
+			} else if versMatch.Vers.Revision == 0 {
+				return fmt.Sprintf("%d.%d", versMatch.Vers.Major,
+					versMatch.Vers.Minor)
+			} else {
+				return fmt.Sprintf("%d.%d.%d", versMatch.Vers.Major,
+					versMatch.Vers.Minor, versMatch.Vers.Revision)
+			}
+		}
+		// XXX What to do with other version comparisons?
+	}
+	return "master"
+}
+
 // Create a New DependencyRequirement structure from the contents of the depReq
 // string that has been passed in as an argument.
 func NewDependencyRequirementParseString(depReq string) (*DependencyRequirement,
@@ -563,8 +585,8 @@ func (egg *Egg) TestBinName() string {
 /*
  * Download egg from a clutch and stick it to nest.
  */
-func (eggShell *EggShell) Install(eggMgr *Clutch) error {
-	downloaded, err := eggMgr.InstallEgg(eggShell.FullName, nil)
+func (eggShell *EggShell) Install(eggMgr *Clutch, branch string) error {
+	downloaded, err := eggMgr.InstallEgg(eggShell.FullName, branch, nil)
 	for _, remoteNest := range downloaded {
 		remoteNest.Remove()
 	}
