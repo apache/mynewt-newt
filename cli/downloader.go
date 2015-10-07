@@ -35,7 +35,7 @@ func NewDownloader() (*Downloader, error) {
 
 func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Git cloning URL %s branch %s into dest %s", branch, url, dest)
+		"Git cloning URL %s branch %s into dest %s\n", branch, url, dest)
 
 	_, err := ShellCommand(fmt.Sprintf("git clone --depth 1 -b %s %s %s", branch, url, dest))
 	if err != nil {
@@ -43,7 +43,7 @@ func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Git clone successful, removing .git directory")
+		"Git clone successful, removing .git directory\n")
 
 	if err := os.RemoveAll(dest + "/.git/"); err != nil {
 		return err
