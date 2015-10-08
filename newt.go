@@ -692,6 +692,11 @@ func eggShellInstall(eggShell *cli.EggShell) error {
 		return err
 	}
 
+	_, err = eggMgr.ResolveEggName(eggShell.FullName)
+	if err == nil {
+		return cli.NewNewtError(fmt.Sprintf("Egg %s already installed!",
+			eggShell.FullName))
+	}
 	err = eggShell.Install(eggMgr, NewtBranchEgg)
 	if err != nil {
 		return err;
