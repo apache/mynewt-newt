@@ -40,6 +40,8 @@ type Clutch struct {
 	LarvaFile string
 
 	RemoteUrl string
+
+	Branch string
 }
 
 // Allocate a new package manager structure, and initialize it.
@@ -834,25 +836,39 @@ func (cl *Clutch) fileToEggList(cfg *viper.Viper) (map[string]*EggShell,
 	return eggList, nil
 }
 
-// Create the manifest file name, it's the manifest dir + manifest name and a
-// .yml extension
-func (clutch *Clutch) GetClutchFile(name string) string {
-	return clutch.Nest.ClutchPath + name + ".yml"
+// Create the manifest file name, it's the manifest dir + manifest name +
+// branch and a.yml extension
+func (clutch *Clutch) GetClutchFile(name string, branch string) string {
+	return name + "@" + branch
+}
+
+func (clutch *Clutch) GetClutchFullFile(name string, branch string) string {
+	return clutch.Nest.ClutchPath + clutch.GetClutchFile(name, branch) + ".yml"
 }
 
 func (clutch *Clutch) Load(name string) error {
 	cfg, err := ReadConfig(clutch.Nest.ClutchPath, name)
 	if err != nil {
-		return nil
+		return err
 	}
 
-	if cfg.GetString("name") != name {
+	clutchName := name
+	branchName := "master"
+
+	parts := strings.Split(name, "@")
+	if len(parts) == 2 {
+		clutchName = parts[0]
+		branchName = parts[1]
+	}
+
+	if cfg.GetString("name") != clutchName {
 		return NewNewtError(
 			fmt.Sprintf("Wrong name %s in remote larva file (expected %s)",
-				cfg.GetString("name"), name))
+				cfg.GetString("name"), clutchName))
 	}
 
 	clutch.Name = cfg.GetString("name")
+	clutch.Branch = branchName
 	clutch.RemoteUrl = cfg.GetString("url")
 
 	clutch.EggShells, err = clutch.fileToEggList(cfg)
@@ -865,8 +881,8 @@ func (clutch *Clutch) Load(name string) error {
 	return nil
 }
 
-func (cl *Clutch) Install(name string, url string) error {
-	clutchFile := cl.GetClutchFile(name)
+func (cl *Clutch) Install(name string, url string, branch string) error {
+	clutchFile := cl.GetClutchFullFile(name, branch)
 
 	// XXX: Should warn if file already exists, and require force option
 	os.Remove(clutchFile)
@@ -878,9 +894,9 @@ func (cl *Clutch) Install(name string, url string) error {
 	}
 
 	StatusMessage(VERBOSITY_DEFAULT, "Downloading clutch.yml from %s/"+
-		"master...", url)
+		"%s...", url, branch)
 
-	if err := dl.DownloadFile(url, "master", "clutch.yml",
+	if err := dl.DownloadFile(url, branch, "clutch.yml",
 		clutchFile); err != nil {
 		return err
 	}
@@ -888,8 +904,9 @@ func (cl *Clutch) Install(name string, url string) error {
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	// Load the manifest, and ensure that it is in the correct format
-	StatusMessage(VERBOSITY_DEFAULT, "Verifying clutch.yml format...")
-	if err := cl.Load(name); err != nil {
+	StatusMessage(VERBOSITY_DEFAULT, "Verifying clutch.yml format...\n")
+	if err := cl.Load(cl.GetClutchFile(name, branch)); err != nil {
+		os.Remove(clutchFile)
 		return err
 	}
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
@@ -950,7 +967,10 @@ func (clutch *Clutch) InstallEgg(eggName string, branch string,
 		eggShell, err := remoteClutch.ResolveEggShellName(eggName)
 		if err == nil {
 			log.Print("[VERBOSE] ", eggName, " present in remote clutch ",
-				remoteClutch.Name)
+				remoteClutch.Name, remoteClutch.Branch)
+			if branch == "" {
+				branch = remoteClutch.Branch
+			}
 			remoteNest, err := NewRemoteNest(remoteClutch, branch)
 			if err != nil {
 				return downloaded, err

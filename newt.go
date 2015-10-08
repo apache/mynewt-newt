@@ -35,7 +35,8 @@ var NewtNest *cli.Nest
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
-var NewtBranch string
+var NewtBranchClutch string
+var NewtBranchEgg string
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -681,6 +682,28 @@ func eggShowCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func eggShellInstall(eggShell *cli.EggShell) error {
+	eggMgr, err := cli.NewClutch(NewtNest)
+	if err != nil {
+		return err
+	}
+
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		return err
+	}
+
+	_, err = eggMgr.ResolveEggName(eggShell.FullName)
+	if err == nil {
+		return cli.NewNewtError(fmt.Sprintf("Egg %s already installed!",
+			eggShell.FullName))
+	}
+	err = eggShell.Install(eggMgr, NewtBranchEgg)
+	if err != nil {
+		return err;
+	}
+	return nil
+}
+
 func eggInstallCmd(cmd *cobra.Command, args []string) {
 	var eggName string
 	var clutchName string = ""
@@ -706,8 +729,21 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	if NewtBranch == "" {
-		NewtBranch = "master"
+
+	if clutchName != "" {
+		clutch = clutches[clutchName]
+	}
+	if clutch != nil {
+		eggShell, err := clutch.ResolveEggShellName(eggName)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+		err = eggShellInstall(eggShell)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installation was a success!\n")
+		return
 	}
 	eggShell = nil
 	for _, tmpClutch := range clutches {
@@ -731,15 +767,7 @@ func eggInstallCmd(cmd *cobra.Command, args []string) {
 				eggName)))
 	}
 
-	eggMgr, err := cli.NewClutch(NewtNest)
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	err = eggShell.Install(eggMgr, NewtBranch)
+	err = eggShellInstall(eggShell)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -879,7 +907,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 		Run:     eggInstallCmd,
 	}
 
-	installCmd.Flags().StringVarP(&NewtBranch, "branch", "b", "",
+	installCmd.Flags().StringVarP(&NewtBranchEgg, "branch", "b", "",
 		"Branch (or tag) of the clutch to install from.")
 
 	eggCmd.AddCommand(installCmd)
@@ -950,7 +978,7 @@ func nestAddClutchCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	if err := clutch.Install(name, url); err != nil {
+	if err := clutch.Install(name, url, NewtBranchClutch); err != nil {
 		NewtUsage(cmd, err)
 	}
 
@@ -1123,6 +1151,9 @@ func nestAddCmds(baseCmd *cobra.Command) {
 		Example: addClutchHelpEx,
 		Run:     nestAddClutchCmd,
 	}
+
+	addClutchCmd.Flags().StringVarP(&NewtBranchClutch, "branch", "b", "master",
+		"Branch (or tag) of the clutch to install from.")
 
 	nestCmd.AddCommand(addClutchCmd)
 

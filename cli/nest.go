@@ -400,7 +400,7 @@ func (nest *Nest) InitPath(nestPath string) error {
 	log.Printf("[DEBUG] Nest file found, directory %s, loading configuration...",
 		nest.NestFile)
 
-	nest.BasePath = path.Clean(path.Dir(nest.NestFile))
+	nest.BasePath = filepath.ToSlash(path.Dir(nest.NestFile))
 
 	if err = nest.loadConfig(); err != nil {
 		return err

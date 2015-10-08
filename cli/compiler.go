@@ -123,7 +123,7 @@ func (c *Compiler) SkipSourceFile(srcFile string) error {
 	objDir := wd + "/obj/" + c.TargetName + "/"
 	objFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
 		".o"
-	c.ObjPathList[objFile] = true
+	c.ObjPathList[filepath.ToSlash(objFile)] = true
 
 	// Update the dependency tracker with the object file's modification time.
 	// This is necessary later for determining if the library / executable
@@ -141,7 +141,7 @@ func (c *Compiler) SkipSourceFile(srcFile string) error {
 func (c *Compiler) IncludesString() string {
 	includes := make([]string, 0, len(c.BaseIncludes))
 	for k, _ := range c.BaseIncludes {
-		includes = append(includes, k)
+		includes = append(includes, filepath.ToSlash(k))
 	}
 
 	sort.Strings(includes)
@@ -162,7 +162,7 @@ func (c *Compiler) CompileFileCmd(file string,
 	wd, _ := os.Getwd()
 	objDir := wd + "/obj/" + c.TargetName + "/"
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	objPath := objDir + objFile
+	objPath := filepath.ToSlash(objDir + objFile)
 
 	var cmd string
 
@@ -193,6 +193,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	}
 
 	depFile := objDir + strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
+	depFile = filepath.ToSlash(depFile)
 	cFlags := c.Cflags + " " + c.IncludesString()
 
 	var cmd string
@@ -222,7 +223,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
 
 	objPath := objDir + objFile
-	c.ObjPathList[objPath] = true
+	c.ObjPathList[filepath.ToSlash(objPath)] = true
 
 	cmd, err := c.CompileFileCmd(file, compilerType)
 	if err != nil {
@@ -270,6 +271,7 @@ func (c *Compiler) Compile(match string) error {
 	log.Printf("[INFO] Compiling C if outdated (%s/%s) %s", wd, match,
 		strings.Join(files, " "))
 	for _, file := range files {
+		file = filepath.ToSlash(file)
 		compileRequired, err := c.depTracker.CompileRequired(file, 0)
 		if err != nil {
 			return err
@@ -371,6 +373,7 @@ func (c *Compiler) RecursiveCompile(match string, cType int, ignDirs []string) e
 	if err != nil {
 		return NewNewtError(err.Error())
 	}
+	wd = filepath.ToSlash(wd)
 
 	dirList, err := ioutil.ReadDir(wd)
 	if err != nil {
