@@ -810,9 +810,9 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	eggHelpEx := "  newt egg list\n"
 	eggHelpEx += "  newt egg checkdeps\n"
 	eggHelpEx += "  newt egg hunt <egg-name>\n"
-	eggHelpEx += "  newt egg show [<clutch-name>, ] <egg-name>\n"
-	eggHelpEx += "  newt egg install [<clutch-name>, ] <egg-name>\n"
-	eggHelpEx += "  newt egg remove [<clutch-name>, ] <egg-name>"
+	eggHelpEx += "  newt egg show [<clutch-name> ] <egg-name>\n"
+	eggHelpEx += "  newt egg install [<clutch-name> ] <egg-name>\n"
+	eggHelpEx += "  newt egg remove [<clutch-name> ] <egg-name>"
 
 	eggCmd := &cobra.Command{
 		Use:     "egg",
@@ -881,7 +881,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 		<egg-name>.  <egg-name> is resolved using all the clutches installed
 		in the current nest or, if <clutch-name> is specified, only 
 		<clutch-name> will be searched.`)
-	showHelpEx := "  newt egg show [<clutch-name>, ] <egg-name>"
+	showHelpEx := "  newt egg show [<clutch-name> ] <egg-name>"
 
 	showCmd := &cobra.Command{
 		Use:     "show",
@@ -895,9 +895,9 @@ func eggAddCmds(baseCmd *cobra.Command) {
 
 	installHelpText := formatHelp(`Install the egg specified by <egg-name> to 
 		the local nest. <egg-name> is searched for throughout the clutches in 
-		the local nest.  If <clutch-name> is specified, than only <clutch-name>
+		the local nest.  If <clutch-name> is specified, then only <clutch-name>
 		is searched for <egg-name>.`)
-	installHelpEx := "  newt egg install [<clutch-name>, ] <egg-name>"
+	installHelpEx := "  newt egg install [<clutch-name> ] <egg-name>"
 
 	installCmd := &cobra.Command{
 		Use:     "install",
@@ -915,7 +915,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	removeHelpText := formatHelp(`Remove the egg, specified by <egg-name> from 
 		the local nest.  If present the egg is taking only from the clutch 
 		specified by <clutch-name>.`)
-	removeHelpEx := "  newt egg remove [<clutch-name>, ] <egg-name>"
+	removeHelpEx := "  newt egg remove [<clutch-name> ] <egg-name>"
 
 	removeCmd := &cobra.Command{
 		Use:     "remove",
