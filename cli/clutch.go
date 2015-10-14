@@ -218,6 +218,7 @@ func (clutch *Clutch) loadEggs() error {
 	searchDirs := []string{
 		"compiler/",
 		"libs/",
+		"net/",
 		"hw/bsp/",
 		"hw/mcu/",
 		"hw/mcu/stm",
@@ -948,7 +949,7 @@ func (clutch *Clutch) InstallEgg(eggName string, branch string,
 					dep.Name)
 				depBranch := dep.BranchName()
 				downloaded, err = clutch.InstallEgg(dep.Name, depBranch,
-								downloaded)
+					downloaded)
 				if err != nil {
 					return downloaded, err
 				}

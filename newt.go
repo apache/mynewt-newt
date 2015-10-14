@@ -139,7 +139,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 	for _, target := range targets {
 		if dispSect == "" || dispSect == target.Vars["name"] {
-			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"] + "\n")
+			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"]+"\n")
 			vars := target.GetVars()
 			for k, v := range vars {
 				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s: %s\n", k, v)
@@ -256,7 +256,7 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 
 		err = t.Test("test", ExitOnFailure)
 		if err != nil {
-			NewtUsage(cmd, err)
+			NewtUsage(nil, err)
 		}
 	}
 
@@ -699,7 +699,7 @@ func eggShellInstall(eggShell *cli.EggShell) error {
 	}
 	err = eggShell.Install(eggMgr, NewtBranchEgg)
 	if err != nil {
-		return err;
+		return err
 	}
 	return nil
 }
