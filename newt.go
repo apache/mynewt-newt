@@ -847,7 +847,7 @@ func eggAddCmds(baseCmd *cobra.Command) {
 	eggCmd.AddCommand(listCmd)
 
 	checkDepsHelpText := formatHelp(`Resolve all dependencies in the local 
-		nest.  This command goes through all eggs currently installe, checks
+		nest.  This command goes through all eggs currently installed, checks
 		their dependencies, and prints any unresolved dependencies between 
 		eggs.`)
 	checkDepsHelpEx := "  newt egg checkdeps"
