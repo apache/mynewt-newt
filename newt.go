@@ -576,6 +576,10 @@ func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
+	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+		NewtUsage(cmd, err)
+	}
+
 	if err := eggMgr.CheckDeps(); err != nil {
 		NewtUsage(cmd, err)
 	}
