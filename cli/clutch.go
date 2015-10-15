@@ -78,13 +78,14 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 			continue
 		}
 
+		eggName := egg.Name
 		StatusMessage(VERBOSITY_VERBOSE,
-			"Checking dependency %s for package %s\n", depReq, egg.Name)
+			"Checking dependency %s for package %s\n", depReq.Name, eggName)
 		egg, ok := clutch.Eggs[depReq.Name]
 		if !ok {
 			return NewNewtError(
 				fmt.Sprintf("No package dependency %s found for %s",
-					depReq.Name, egg.Name))
+					depReq.Name, eggName))
 		}
 
 		if ok := depReq.SatisfiesDependency(egg); !ok {
