@@ -69,11 +69,6 @@ func (t *Target) SetDefaults() error {
 
 	t.Name = t.Vars["name"]
 
-	if t.Vars["project"] != "" && t.Vars["egg"] != "" {
-		return NewNewtError("Target " + t.Vars["name"] + " cannot have a " +
-			"project and package set.")
-	}
-
 	// Must have an architecture set, default to sim.
 	if t.Vars["arch"] == "" {
 		t.Vars["arch"] = "sim"
@@ -328,10 +323,6 @@ func (t *Target) BuildClean(cleanAll bool) error {
 }
 
 func (t *Target) Test(cmd string, flag bool) error {
-	if t.Vars["project"] != "" {
-		return NewNewtError("Tests not supported on projects, only eggs")
-	}
-
 	clutch, err := NewClutch(t.Nest)
 	if err != nil {
 		return err
