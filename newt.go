@@ -314,8 +314,8 @@ func targetAddCmds(base *cobra.Command) {
 	targetHelpEx += "  newt target unset <target-name> <var-name>\n"
 	targetHelpEx += "  newt target show <target-name>\n"
 	targetHelpEx += "  newt target delete <target-name>\n"
-	targetHelpEx += "  newt target build <target-name> [clean[, all]]\n"
-	targetHelpEx += "  newt target test <target-name> [clean[, all]]\n"
+	targetHelpEx += "  newt target build <target-name> [clean[ all]]\n"
+	targetHelpEx += "  newt target test <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target export [-a -export-all] [<target-name>]\n"
 	targetHelpEx += "  newt target import [-a -import-all] [<target-name>]"
 
@@ -416,7 +416,7 @@ func targetAddCmds(base *cobra.Command) {
 		If clean is specified, then all the binaries and object files for this 
 		target will be removed.  If the all option is specified, all binaries 
 		and object files for all targets will be removed.`)
-	buildHelpEx := "  newt target build <target-name> [clean[, all]]\n"
+	buildHelpEx := "  newt target build <target-name> [clean[ all]]\n"
 	buildHelpEx += "  newt target build my_target1\n"
 	buildHelpEx += "  newt target build my_target1 clean\n"
 	buildHelpEx += "  newt target build my_target1 clean all\n"
