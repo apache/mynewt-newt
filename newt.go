@@ -220,6 +220,11 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
+	if err = t.BuildClean(false); err != nil {
+		cli.StatusMessage(cli.VERBOSITY_QUIET,
+			"Warning: Failed to clean target %s prior to deletion\n", args[0])
+	}
+
 	if err := t.Remove(); err != nil {
 		NewtUsage(cmd, err)
 	}
