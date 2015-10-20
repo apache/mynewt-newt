@@ -186,34 +186,37 @@ func ImportTargets(nest *Nest, name string, importAll bool, fp *os.File) error {
 			// save existing target if it exists
 			if currentTarget != nil {
 				targets = append(targets, currentTarget)
+				currentTarget = nil
 			}
 
 			// look either for an end of target definitions, or a new target definition
 			if line == "@endtargets" {
 				break
 			} else {
-				// create a current target
 				elements := strings.SplitN(line, "=", 2)
 				// name is elements[0], and value is elements[1]
-				currentTarget = &Target{
-					Nest: nest,
-				}
 
-				var err error
-				currentTarget.Vars = map[string]string{}
-				if err != nil {
-					return err
-				}
+				if importAll || elements[1] == name {
+					// create a current target
+					currentTarget = &Target{
+						Nest: nest,
+					}
 
-				currentTarget.Vars["name"] = elements[1]
+					var err error
+					currentTarget.Vars = map[string]string{}
+					if err != nil {
+						return err
+					}
+
+					currentTarget.Vars["name"] = elements[1]
+				}
 			}
 		} else {
-			if currentTarget == nil {
-				return NewNewtError("No target present when variables being set in import file")
+			if currentTarget != nil {
+				// target variables, set these on the current target
+				elements := strings.SplitN(line, "=", 2)
+				currentTarget.Vars[elements[0]] = elements[1]
 			}
-			// target variables, set these on the current target
-			elements := strings.SplitN(line, "=", 2)
-			currentTarget.Vars[elements[0]] = elements[1]
 		}
 	}
 
