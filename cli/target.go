@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -391,4 +393,240 @@ func (t *Target) Remove() error {
 	}
 
 	return nil
+}
+
+/*
+ * We accumulate the size of libraries to elements in this.
+ */
+type EggSize struct {
+	Name  string
+	Sizes map[string]uint32 /* Sizes indexed by mem section name */
+}
+
+func MakeEggSize(name string, memSections map[string]uint64) *EggSize {
+	eggSize := &EggSize{
+		Name: name,
+	}
+	eggSize.Sizes = make(map[string]uint32)
+	for secName, _ := range memSections {
+		eggSize.Sizes[secName] = 0
+	}
+	return eggSize
+}
+
+/*
+ * Go through GCC generated mapfile, and collect info about symbol sizes
+ */
+func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]uint64, error) {
+	var state int = 0
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	secOff := make(map[string]uint64)
+	secSize := make(map[string]uint64)
+	eggSizes := make(map[string]*EggSize)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		switch state {
+		case 0:
+			if strings.Contains(scanner.Text(), "Memory Configuration") {
+				state = 1
+			}
+		case 1:
+			if strings.Contains(scanner.Text(), "Origin") {
+				state = 2
+			}
+		case 2:
+			if strings.Contains(scanner.Text(), "*default*") {
+				state = 3
+				continue
+			}
+			array := strings.Fields(scanner.Text())
+			secOff[array[0]], err =
+				strconv.ParseUint(array[1], 0, 64)
+			if err != nil {
+				return nil, nil, NewNewtError("Can't parse mem info")
+			}
+			secSize[array[0]], err =
+				strconv.ParseUint(array[2], 0, 64)
+			if err != nil {
+				return nil, nil, NewNewtError("Can't parse mem info")
+			}
+		case 3:
+			if strings.Contains(scanner.Text(),
+				"Linker script and memory map") {
+				state = 4
+			}
+		case 4:
+			var addrStr string = ""
+			var sizeStr string = ""
+			var srcFile string = ""
+
+			if strings.Contains(scanner.Text(), "/DISCARD/") {
+				/*
+				 * After this there is only discarded symbols
+				 */
+				state = 5
+				continue
+			}
+
+			array := strings.Fields(scanner.Text())
+			switch len(array) {
+			case 1:
+				/*
+				 * section name on it's own, e.g.
+				 * *(.text*)
+				 *
+				 * section name + symbol name, e.g.
+				 * .text.Reset_Handler
+				 *
+				 * ignore these for now
+				 */
+				continue
+			case 2:
+				/*
+				 * Either stuff from beginning to first useful data e.g.
+				 * END GROUP
+				 *
+				 * or address of symbol + symbol name, e.g.
+				 * 0x00000000080002c8                SystemInit
+				 *
+				 * or section names with multiple input things, e.g.
+				 * *(.ARM.extab* .gnu.linkonce.armextab.*)
+				 *
+				 * or space set aside in linker script e.g.
+				 * 0x0000000020002e80      0x400
+				 * (that's the initial stack)
+				 *
+				 * ignore these for now
+				 */
+				continue
+			case 3:
+				/*
+				 * address, size, and name of file, e.g.
+				 * 0x000000000800bb04     0x1050 /Users/marko/foo/tadpole/hw//mcu/stm/stm32f3xx/bin/blinky_f3/libstm32f3xx.a(stm32f30x_syscfg.o)
+				 *
+				 * padding, or empty areas defined in linker script:
+				 * *fill*         0x000000000800cb71        0x3
+				 *
+				 * output section name, location, size, e.g.:
+				 * .bss            0x0000000020000ab0     0x23d0
+				 */
+				/*
+				 * Record addr, size and name to find library.
+				 */
+				if array[0] == "*fill*" {
+					addrStr = array[1]
+					sizeStr = array[2]
+					srcFile = array[0]
+				} else {
+					addrStr = array[0]
+					sizeStr = array[1]
+					srcFile = array[2]
+				}
+			case 4:
+				/*
+				 * section, address, size, name of file, e.g.
+				 * COMMON         0x0000000020002d28        0x8 /Users/marko/foo/tadpole/libs//os/bin/blinky_f3/libos.a(os_arch_arm.o)
+				 *
+				 * linker script symbol definitions:
+				 * 0x0000000020002e80                _ebss = .
+				 *
+				 * crud, e.g.:
+				 * 0x8 (size before relaxing)
+				 */
+				addrStr = array[1]
+				sizeStr = array[2]
+				srcFile = array[3]
+			default:
+				continue
+			}
+			addr, err := strconv.ParseUint(addrStr, 0, 64)
+			if err != nil {
+				continue
+			}
+			size, err := strconv.ParseUint(sizeStr, 0, 64)
+			if err != nil {
+				continue
+			}
+			if size == 0 {
+				continue
+			}
+			tmpStrArr := strings.Split(srcFile, "(")
+			srcLib := filepath.Base(tmpStrArr[0])
+			for name, offset := range secOff {
+				endAddr := offset + secSize[name]
+				if addr >= offset && addr < endAddr {
+					eggSize := eggSizes[srcLib]
+					if eggSize == nil {
+						eggSize = MakeEggSize(srcLib, secOff)
+						eggSizes[srcLib] = eggSize
+					}
+					eggSize.Sizes[name] += uint32(size)
+					break
+				}
+			}
+		default:
+		}
+	}
+	file.Close()
+	for name, offset := range secOff {
+		StatusMessage(VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n", name, offset,
+			offset+secSize[name])
+	}
+
+	return eggSizes, secOff, nil
+}
+
+func PrintSizes(libs map[string]*EggSize, memSections map[string]uint64) (string, error) {
+	ret := ""
+
+	secNames := make([]string, len(memSections))
+	var i int = 0
+	for sec, _ := range memSections {
+		secNames[i] = sec
+		i++
+		ret += fmt.Sprintf("%15s ", sec)
+	}
+	ret += "\n"
+	for name, es := range libs {
+		for i := 0; i < len(secNames); i++ {
+			ret += fmt.Sprintf("%15d ", es.Sizes[secNames[i]])
+		}
+		ret += fmt.Sprintf("%16s\n", name)
+	}
+	return ret, nil
+}
+
+func (t *Target) GetSize() (string, error) {
+	if t.Vars["project"] != "" {
+		StatusMessage(VERBOSITY_DEFAULT, "Inspecting target %s (project = %s)\n",
+			t.Name, t.Vars["project"])
+		// Now load the project, mapfile settings
+		p, err := LoadProject(t.Nest, t, t.Vars["project"])
+		if err != nil {
+			return "", err
+		}
+
+		c, err := NewCompiler(t.GetCompiler(), t.Cdef, t.Name, []string{})
+		if err != nil {
+			return "", err
+		}
+		if c.ldMapFile != true {
+			return "", NewNewtError("Build does not generate mapfile")
+		}
+		mapFile := p.BinPath() + p.Name + ".elf.map"
+
+		StatusMessage(VERBOSITY_DEFAULT, "compiler mapfile is %s\n", mapFile)
+		eggSizes, memSections, err := ParseMapFileSizes(mapFile)
+		if err != nil {
+			return "", err
+		}
+		return PrintSizes(eggSizes, memSections)
+	}
+	return "", NewNewtError("Target needs a project")
 }

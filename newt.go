@@ -266,6 +266,24 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Successfully run!\n")
 }
 
+func targetSizeCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, cli.NewNewtError("Must specify target for sizing"))
+	}
+
+	t, err := cli.LoadTarget(NewtNest, args[0])
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	txt, err := t.GetSize()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", txt)
+}
+
 func targetExportCmd(cmd *cobra.Command, args []string) {
 	var targetName string
 	if ExportAll {
@@ -316,6 +334,7 @@ func targetAddCmds(base *cobra.Command) {
 	targetHelpEx += "  newt target delete <target-name>\n"
 	targetHelpEx += "  newt target build <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target test <target-name> [clean[ all]]\n"
+	targetHelpEx += "  newt target size <target-name>\n"
 	targetHelpEx += "  newt target export [-a -export-all] [<target-name>]\n"
 	targetHelpEx += "  newt target import [-a -import-all] [<target-name>]"
 
@@ -449,6 +468,20 @@ func targetAddCmds(base *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(testCmd)
+
+	sizeHelpText := formatHelp(`Calculate the size of target components specified by
+		<target-name>.`)
+	sizeHelpEx := "  newt target size <target-name>\n"
+
+	sizeCmd := &cobra.Command{
+		Use:     "size",
+		Short:   "Size of the target",
+		Long:    sizeHelpText,
+		Example: sizeHelpEx,
+		Run:     targetSizeCmd,
+	}
+
+	targetCmd.AddCommand(sizeCmd)
 
 	exportHelpText := formatHelp(`Export build targets from the current nest, and 
 		print them to standard output.  If the -a (or -export-all) option is 

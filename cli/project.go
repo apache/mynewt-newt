@@ -321,7 +321,7 @@ func (p *Project) Build() error {
 
 	// Create binaries in the project bin/ directory, under:
 	// bin/<arch>/
-	binDir := p.BasePath + "/bin/" + p.Target.Name + "/"
+	binDir := p.BinPath()
 	if NodeNotExist(binDir) {
 		os.MkdirAll(binDir, 0755)
 	}
@@ -347,4 +347,9 @@ func (p *Project) Init() error {
 		return err
 	}
 	return nil
+}
+
+// Return path to target binary
+func (p *Project) BinPath() string {
+	return p.BasePath + "/bin/" + p.Target.Name + "/"
 }
