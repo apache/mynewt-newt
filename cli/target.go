@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -395,6 +396,42 @@ func (t *Target) Remove() error {
 	return nil
 }
 
+type MemSection struct {
+	Name   string
+	Offset uint64
+	EndOff uint64
+}
+type MemSectionArray []*MemSection
+
+func (array MemSectionArray) Len() int {
+	return len(array)
+}
+
+func (array MemSectionArray) Less(i, j int) bool {
+	return array[i].Offset < array[j].Offset
+}
+
+func (array MemSectionArray) Swap(i, j int) {
+	array[i], array[j] = array[j], array[i]
+}
+
+func MakeMemSection(name string, off uint64, size uint64) *MemSection {
+	memsection := &MemSection{
+		Name:   name,
+		Offset: off,
+		EndOff: off + size,
+	}
+	return memsection
+}
+
+func (m *MemSection) PartOf(addr uint64) bool {
+	if addr >= m.Offset && addr < m.EndOff {
+		return true
+	} else {
+		return false
+	}
+}
+
 /*
  * We accumulate the size of libraries to elements in this.
  */
@@ -403,7 +440,21 @@ type EggSize struct {
 	Sizes map[string]uint32 /* Sizes indexed by mem section name */
 }
 
-func MakeEggSize(name string, memSections map[string]uint64) *EggSize {
+type EggSizeArray []*EggSize
+
+func (array EggSizeArray) Len() int {
+	return len(array)
+}
+
+func (array EggSizeArray) Less(i, j int) bool {
+	return array[i].Name < array[j].Name
+}
+
+func (array EggSizeArray) Swap(i, j int) {
+	array[i], array[j] = array[j], array[i]
+}
+
+func MakeEggSize(name string, memSections map[string]*MemSection) *EggSize {
 	eggSize := &EggSize{
 		Name: name,
 	}
@@ -417,7 +468,8 @@ func MakeEggSize(name string, memSections map[string]uint64) *EggSize {
 /*
  * Go through GCC generated mapfile, and collect info about symbol sizes
  */
-func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]uint64, error) {
+func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]*MemSection,
+	error) {
 	var state int = 0
 
 	file, err := os.Open(fileName)
@@ -425,8 +477,7 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]uint64,
 		return nil, nil, err
 	}
 
-	secOff := make(map[string]uint64)
-	secSize := make(map[string]uint64)
+	memSections := make(map[string]*MemSection)
 	eggSizes := make(map[string]*EggSize)
 
 	scanner := bufio.NewScanner(file)
@@ -446,16 +497,16 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]uint64,
 				continue
 			}
 			array := strings.Fields(scanner.Text())
-			secOff[array[0]], err =
-				strconv.ParseUint(array[1], 0, 64)
+			offset, err := strconv.ParseUint(array[1], 0, 64)
 			if err != nil {
 				return nil, nil, NewNewtError("Can't parse mem info")
 			}
-			secSize[array[0]], err =
-				strconv.ParseUint(array[2], 0, 64)
+			size, err := strconv.ParseUint(array[2], 0, 64)
 			if err != nil {
 				return nil, nil, NewNewtError("Can't parse mem info")
 			}
+			memSections[array[0]] = MakeMemSection(array[0], offset,
+				size)
 		case 3:
 			if strings.Contains(scanner.Text(),
 				"Linker script and memory map") {
@@ -558,12 +609,12 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]uint64,
 			}
 			tmpStrArr := strings.Split(srcFile, "(")
 			srcLib := filepath.Base(tmpStrArr[0])
-			for name, offset := range secOff {
-				endAddr := offset + secSize[name]
-				if addr >= offset && addr < endAddr {
+			for name, section := range memSections {
+				if section.PartOf(addr) {
 					eggSize := eggSizes[srcLib]
 					if eggSize == nil {
-						eggSize = MakeEggSize(srcLib, secOff)
+						eggSize =
+							MakeEggSize(srcLib, memSections)
 						eggSizes[srcLib] = eggSize
 					}
 					eggSize.Sizes[name] += uint32(size)
@@ -574,30 +625,52 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]uint64,
 		}
 	}
 	file.Close()
-	for name, offset := range secOff {
-		StatusMessage(VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n", name, offset,
-			offset+secSize[name])
+	for name, section := range memSections {
+		StatusMessage(VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n",
+			name, section.Offset, section.EndOff)
 	}
 
-	return eggSizes, secOff, nil
+	return eggSizes, memSections, nil
 }
 
-func PrintSizes(libs map[string]*EggSize, memSections map[string]uint64) (string, error) {
+/*
+ * Return a printable string containing size data for the libraries
+ */
+func PrintSizes(libs map[string]*EggSize,
+	sectMap map[string]*MemSection) (string, error) {
 	ret := ""
 
-	secNames := make([]string, len(memSections))
+	/*
+	 * Order sections by offset, and display lib sizes in that order.
+	 */
+	memSections := make(MemSectionArray, len(sectMap))
 	var i int = 0
-	for sec, _ := range memSections {
-		secNames[i] = sec
+	for _, sec := range sectMap {
+		memSections[i] = sec
 		i++
-		ret += fmt.Sprintf("%15s ", sec)
+	}
+	sort.Sort(memSections)
+
+	/*
+	 * Order libraries by name, and display them in that order.
+	 */
+	eggSizes := make(EggSizeArray, len(libs))
+	i = 0
+	for _, es := range libs {
+		eggSizes[i] = es
+		i++
+	}
+	sort.Sort(eggSizes)
+
+	for _, sec := range memSections {
+		ret += fmt.Sprintf("%7s ", sec.Name)
 	}
 	ret += "\n"
-	for name, es := range libs {
-		for i := 0; i < len(secNames); i++ {
-			ret += fmt.Sprintf("%15d ", es.Sizes[secNames[i]])
+	for _, es := range eggSizes {
+		for i := 0; i < len(memSections); i++ {
+			ret += fmt.Sprintf("%7d ", es.Sizes[memSections[i].Name])
 		}
-		ret += fmt.Sprintf("%16s\n", name)
+		ret += fmt.Sprintf("%s\n", es.Name)
 	}
 	return ret, nil
 }
@@ -621,7 +694,6 @@ func (t *Target) GetSize() (string, error) {
 		}
 		mapFile := p.BinPath() + p.Name + ".elf.map"
 
-		StatusMessage(VERBOSITY_DEFAULT, "compiler mapfile is %s\n", mapFile)
 		eggSizes, memSections, err := ParseMapFileSizes(mapFile)
 		if err != nil {
 			return "", err
