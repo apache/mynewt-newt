@@ -517,7 +517,8 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]*MemSec
 			var sizeStr string = ""
 			var srcFile string = ""
 
-			if strings.Contains(scanner.Text(), "/DISCARD/") {
+			if strings.Contains(scanner.Text(), "/DISCARD/") ||
+				strings.HasPrefix(scanner.Text(), "OUTPUT(") {
 				/*
 				 * After this there is only discarded symbols
 				 */
