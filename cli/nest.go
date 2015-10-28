@@ -78,7 +78,7 @@ func NewNestWithDir(srcDir string) (*Nest, error) {
 
 func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
 	if tadpoleUrl == "" {
-		tadpoleUrl = "https://www.github.com/mynewt/tadpole"
+		tadpoleUrl = "https://git-wip-us.apache.org/repos/asf/incubator-mynewt-tadpole.git"
 	}
 
 	if NodeExist(destDir) {
