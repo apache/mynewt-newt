@@ -66,11 +66,8 @@ func (clutch *Clutch) LoadConfigs(t *Target, force bool) error {
 func (clutch *Clutch) CheckEggDeps(egg *Egg,
 	deps map[string]*DependencyRequirement,
 	reqcap map[string]*DependencyRequirement,
-	caps map[string]*DependencyRequirement) error {
-	// if no dependencies, then everything is ok!
-	if egg.Deps == nil || len(egg.Deps) == 0 {
-		return nil
-	}
+	caps map[string]*DependencyRequirement,
+	capEggs map[string]string) error {
 
 	for _, depReq := range egg.Deps {
 		// don't process this package if we've already processed it
@@ -97,6 +94,21 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 		deps[depReq.String()] = depReq
 	}
 
+	for _, reqCap := range egg.ReqCapabilities {
+		reqcap[reqCap.String()] = reqCap
+	}
+
+	for _, cap := range egg.Capabilities {
+		if caps[cap.String()] != nil && capEggs[cap.String()] != egg.FullName {
+			return NewNewtError(fmt.Sprintf("Multiple eggs with capability %s",
+				cap.String()))
+		}
+		caps[cap.String()] = cap
+		if capEggs != nil {
+			capEggs[cap.String()] = egg.FullName
+		}
+	}
+
 	// Now go through and recurse through the sub-package dependencies
 	for _, depReq := range egg.Deps {
 		if _, ok := deps[depReq.String()]; ok {
@@ -104,7 +116,7 @@ func (clutch *Clutch) CheckEggDeps(egg *Egg,
 		}
 
 		if err := clutch.CheckEggDeps(clutch.Eggs[depReq.Name], deps,
-			reqcap, caps); err != nil {
+			reqcap, caps, capEggs); err != nil {
 			return err
 		}
 	}
@@ -137,7 +149,7 @@ func (clutch *Clutch) CheckDeps() error {
 		reqcap := map[string]*DependencyRequirement{}
 		caps := map[string]*DependencyRequirement{}
 
-		if err := clutch.CheckEggDeps(egg, deps, reqcap, caps); err != nil {
+		if err := clutch.CheckEggDeps(egg, deps, reqcap, caps, nil); err != nil {
 			return err
 		}
 	}
@@ -359,7 +371,7 @@ func (clutch *Clutch) GetEggLib(t *Target, egg *Egg) string {
 // @param libs                  List of libraries that have been built so far;
 //                                  This function appends entries to this list.
 func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
-	libs *[]string) error {
+	libs *[]string, capEggs map[string]string) error {
 
 	StatusMessage(VERBOSITY_VERBOSE,
 		"Building egg dependencies for %s, target %s\n", egg.Name, t.Name)
@@ -377,6 +389,17 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 		libs = &[]string{}
 	}
 
+	for _, cap := range egg.ReqCapabilities {
+		if cap.Name == "" {
+			break
+		}
+		eggName := capEggs[cap.String()]
+		dr, err := NewDependencyRequirementParseString(eggName)
+		if err != nil {
+			return err
+		}
+		egg.Deps = append(egg.Deps, dr)
+	}
 	for _, dep := range egg.Deps {
 		if dep.Name == "" {
 			break
@@ -390,7 +413,7 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 		}
 
 		// Build the package
-		if err = clutch.Build(t, dep.Name, *incls, libs); err != nil {
+		if err = clutch.Build(t, dep.Name, *incls, libs, capEggs); err != nil {
 			return err
 		}
 
@@ -416,7 +439,7 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 // @param lib              List of libraries that have been built so far;
 //                             This function appends entries to this list.
 func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
-	libs *[]string) error {
+	libs *[]string, capEggs map[string]string) error {
 
 	// Look up package structure
 	egg, err := clutch.ResolveEggName(eggName)
@@ -435,7 +458,7 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	}
 	egg.Built = true
 
-	if err := clutch.buildDeps(egg, t, &incls, libs); err != nil {
+	if err := clutch.buildDeps(egg, t, &incls, libs, capEggs); err != nil {
 		return err
 	}
 
@@ -703,7 +726,7 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 		if err != nil {
 			return err
 		}
-		_, err = buildBsp(t, clutch, &incls, &libs)
+		_, err = buildBsp(t, clutch, &incls, &libs, nil)
 		if err != nil {
 			return err
 		}
@@ -712,7 +735,7 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 	// Build the package under test.  This must be compiled with the PKG_TEST
 	// symbol defined so that the appropriate main function gets built.
 	egg.Cflags += " -DPKG_TEST"
-	if err := clutch.Build(t, eggName, incls, &libs); err != nil {
+	if err := clutch.Build(t, eggName, incls, &libs, nil); err != nil {
 		return err
 	}
 	lib := clutch.GetEggLib(t, egg)

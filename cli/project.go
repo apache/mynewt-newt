@@ -149,10 +149,11 @@ func (p *Project) BuildClean(cleanAll bool) error {
 // append to (package includes get append as they are built)
 // libs is an array of archive files to append to (package libraries get
 // appended as they are built)
-func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) error {
+func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
+	libs *[]string) (map[string]string, error) {
 	eggList := p.GetEggs()
 	if eggList == nil {
-		return nil
+		return nil, nil
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
@@ -171,12 +172,13 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 	deps := map[string]*DependencyRequirement{}
 	reqcaps := map[string]*DependencyRequirement{}
 	caps := map[string]*DependencyRequirement{}
+	capEggs := map[string]string{}
 
 	// inherit project capabilities, mark these capabilities as supported.
 	for _, cName := range t.Capabilities {
 		dr, err := NewDependencyRequirementParseString(cName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		caps[dr.String()] = dr
@@ -189,18 +191,37 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 
 		egg, err := clutch.ResolveEggName(eggName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		if err := clutch.CheckEggDeps(egg, deps, reqcaps, caps); err != nil {
-			return err
+		if err := clutch.CheckEggDeps(egg, deps, reqcaps, caps, capEggs); err != nil {
+			return nil, err
+		}
+	}
+
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Reporting required capabilities for project %s\n", p.Name)
+	for dname, dep := range reqcaps {
+		StatusMessage(VERBOSITY_VERBOSE,
+			"	%s - %s\n", dname, dep.Name)
+	}
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Reporting actual capabilities for project %s\n", p.Name)
+	for dname, dep := range caps {
+		StatusMessage(VERBOSITY_VERBOSE,
+			"	%s - %s ", dname, dep.Name)
+		if capEggs[dname] != "" {
+			StatusMessage(VERBOSITY_VERBOSE,
+				"- %s\n", capEggs[dname])
+		} else {
+			StatusMessage(VERBOSITY_VERBOSE, "\n")
 		}
 	}
 
 	// After processing all the dependencies, verify that the package's
 	// capability requirements are satisfied as well
 	if err := clutch.VerifyCaps(reqcaps, caps); err != nil {
-		return err
+		return nil, err
 	}
 
 	// now go through and build everything
@@ -211,11 +232,11 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 
 		egg, err := clutch.ResolveEggName(eggName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		if err = clutch.Build(p.Target, eggName, *incls, libs); err != nil {
-			return err
+		if err = clutch.Build(p.Target, eggName, *incls, libs, capEggs); err != nil {
+			return nil, err
 		}
 
 		// Don't fail if package did not produce a library file; some packages
@@ -227,7 +248,7 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 		*incls = append(*incls, egg.Includes...)
 	}
 
-	return nil
+	return capEggs, nil
 }
 
 // Build the BSP for this project.
@@ -237,7 +258,7 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string, libs *[]string) err
 // builds the BSP, it appends the include directories for the BSP, and the archive file
 // to these variables.
 func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
-	libs *[]string) (string, error) {
+	libs *[]string, capEggs map[string]string) (string, error) {
 
 	StatusMessage(VERBOSITY_VERBOSE, "Building BSP %s for project %s\n",
 		p.Target.Bsp, p.Name)
@@ -246,7 +267,7 @@ func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
 		return "", NewNewtError("Must specify a BSP to build project")
 	}
 
-	return buildBsp(p.Target, clutch, incls, libs)
+	return buildBsp(p.Target, clutch, incls, libs, capEggs)
 }
 
 // Build the project
@@ -275,15 +296,19 @@ func (p *Project) Build() error {
 		if err != nil {
 			return err
 		}
-		linkerScript, err = p.buildBsp(clutch, &incls, &libs)
-		if err != nil {
-			return err
-		}
 	}
 
 	// Build the project dependencies.
-	if err := p.buildDeps(clutch, &incls, &libs); err != nil {
+	capEggs, err := p.buildDeps(clutch, &incls, &libs)
+	if err != nil {
 		return err
+	}
+
+	if p.Target.Bsp != "" {
+		linkerScript, err = p.buildBsp(clutch, &incls, &libs, capEggs)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Append project includes

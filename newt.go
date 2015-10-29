@@ -544,6 +544,17 @@ func dispEgg(egg *cli.Egg) error {
 		}
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
+	if egg.ReqCapabilities != nil {
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  required capabilities: ")
+		caps, err := egg.GetReqCapabilities()
+		if err != nil {
+			return err
+		}
+		for _, capability := range caps {
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "%s ", capability)
+		}
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
+	}
 	if len(egg.Deps) > 0 {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  deps: ")
 		for _, dep := range egg.Deps {
@@ -569,6 +580,17 @@ func dispEggShell(eggShell *cli.EggShell) error {
 	if eggShell.Caps != nil {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  capabilities: ")
 		caps, err := eggShell.GetCapabilities()
+		if err != nil {
+			return err
+		}
+		for _, capability := range caps {
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "%s ", capability)
+		}
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
+	}
+	if eggShell.ReqCaps != nil {
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "  required capabilities: ")
+		caps, err := eggShell.GetReqCapabilities()
 		if err != nil {
 			return err
 		}

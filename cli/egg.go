@@ -99,7 +99,7 @@ type EggShell struct {
 	Version  *Version
 	/* Clutch this eggshell belongs to */
 	Clutch  *Clutch
-	Hash     string
+	Hash    string
 	Deps    []*DependencyRequirement
 	Caps    []*DependencyRequirement
 	ReqCaps []*DependencyRequirement
@@ -397,6 +397,10 @@ func (egg *Egg) GetDependencies() ([]*DependencyRequirement, error) {
 	return egg.Deps, nil
 }
 
+func (egg *Egg) GetReqCapabilities() ([]*DependencyRequirement, error) {
+	return egg.ReqCapabilities, nil
+}
+
 func (eggShell *EggShell) GetCapabilities() ([]*DependencyRequirement, error) {
 	return eggShell.Caps, nil
 }
@@ -404,6 +408,10 @@ func (eggShell *EggShell) GetCapabilities() ([]*DependencyRequirement, error) {
 // Return the egg dependencies for this eggShell.
 func (eggShell *EggShell) GetDependencies() ([]*DependencyRequirement, error) {
 	return eggShell.Deps, nil
+}
+
+func (eggShell *EggShell) GetReqCapabilities() ([]*DependencyRequirement, error) {
+	return eggShell.ReqCaps, nil
 }
 
 // Load a egg's configuration information from the egg config
@@ -433,7 +441,7 @@ func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	// Allocate an array of capabilities
 	caps := make([]*DependencyRequirement, 0)
 
-	StatusMessage(VERBOSITY_VERBOSE, "Loading capabilities %s",
+	StatusMessage(VERBOSITY_VERBOSE, "Loading capabilities %s\n",
 		strings.Join(capList, " "))
 	for _, capItem := range capList {
 		dr, err := NewDependencyRequirementParseString(capItem)
@@ -447,6 +455,12 @@ func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	}
 
 	return caps, nil
+}
+
+// Create a dependency requirement out of an egg
+//
+func (egg *Egg) MakeDependency() (*DependencyRequirement, error) {
+	return NewDependencyRequirementParseString(egg.FullName)
 }
 
 // Generate a hash of the contents of an egg.  This function recursively
@@ -524,7 +538,7 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	if len(depList) > 0 {
 		egg.Deps = make([]*DependencyRequirement, 0, len(depList))
 		for _, depStr := range depList {
-			log.Printf("[DEBUG] Loading depedency %s from egg %s", depStr,
+			log.Printf("[DEBUG] Loading dependency %s from egg %s", depStr,
 				egg.FullName)
 			dr, err := NewDependencyRequirementParseString(depStr)
 			if err != nil {
@@ -548,7 +562,12 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	if err != nil {
 		return err
 	}
-
+	if len(egg.ReqCapabilities) > 0 {
+		for _, reqStr := range egg.ReqCapabilities {
+			log.Printf("[DEBUG] Loading reqCap %s from egg %s", reqStr,
+				egg.FullName)
+		}
+	}
 	egg.CfgLoaded = true
 
 	return nil

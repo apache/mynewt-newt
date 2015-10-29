@@ -101,7 +101,7 @@ func BspIncludePaths(clutch *Clutch, t *Target) ([]string, error) {
 }
 
 func buildBsp(t *Target, clutch *Clutch, incls *[]string,
-	libs *[]string) (string, error) {
+	libs *[]string, capEggs map[string]string) (string, error) {
 
 	if t.Bsp == "" {
 		return "", NewNewtError("Expected a BSP")
@@ -112,7 +112,7 @@ func buildBsp(t *Target, clutch *Clutch, incls *[]string,
 		return "", NewNewtError("No BSP egg for " + t.Bsp + " exists")
 	}
 
-	if err = clutch.Build(t, t.Bsp, *incls, libs); err != nil {
+	if err = clutch.Build(t, t.Bsp, *incls, libs, capEggs); err != nil {
 		return "", err
 	}
 

@@ -294,7 +294,7 @@ func (t *Target) Build() error {
 			return err
 		}
 
-		err = clutch.Build(t, t.Vars["egg"], nil, nil)
+		err = clutch.Build(t, t.Vars["egg"], nil, nil, nil)
 		if err != nil {
 			return err
 		}
