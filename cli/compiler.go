@@ -428,7 +428,7 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 
 	cmd := c.ccPath + " -o " + dstFile + " " + c.ldFlags + " " + c.Cflags
 	if c.ldResolveCircularDeps {
-		cmd += " -Wl,--start-group -lc " + objList + " -Wl,--end-group "
+		cmd += " -Wl,--start-group " + objList + " -Wl,--end-group "
 	} else {
 		cmd += " " + objList
 	}
