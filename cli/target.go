@@ -428,10 +428,9 @@ func (t *Target) Download() error {
 
 	os.Chdir(t.Nest.BasePath)
 
-	StatusMessage(VERBOSITY_DEFAULT, "Downloading with %s \n", downloadScript)
-
-	rsp, err := ShellCommand(fmt.Sprintf("%s %s", downloadScript,
-		filepath.Join(p.BinPath(), p.Name)))
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading with %s\n", downloadScript)
+	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s", downloadScript,
+		filepath.Join(p.BinPath(), p.Name), strings.Join(t.Identities, " ")))
 	if err != nil {
 		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
 		return err
@@ -474,8 +473,9 @@ func (t *Target) Debug() error {
 
 	StatusMessage(VERBOSITY_DEFAULT, "Debugging with %s %s\n", debugScript, p.Name)
 
-	err = ShellInteractiveCommand([]string{debugScript,
-		filepath.Join(p.BinPath(), p.Name)})
+	cmdLine := []string{debugScript, filepath.Join(p.BinPath(), p.Name)}
+	cmdLine = append(cmdLine, t.Identities...)
+	err = ShellInteractiveCommand(cmdLine)
 	if err != nil {
 		return err
 	}
