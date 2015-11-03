@@ -25,9 +25,11 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -207,6 +209,44 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 	} else {
 		return o, nil
 	}
+}
+
+// Run interactive shell command
+func ShellInteractiveCommand(cmdStr []string) error {
+	log.Print("[VERBOSE] " + cmdStr[0])
+
+	//
+	// Block SIGINT, at least.
+	// Otherwise Ctrl-C meant for gdb would kill newt.
+	//
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM)
+	go func(){
+		<-c
+	}()
+
+	// Transfer stdin, stdout, and stderr to the new process
+	// and also set target directory for the shell to start in.
+	pa := os.ProcAttr {
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	}
+
+	// Start up a new shell.
+	proc, err := os.StartProcess(cmdStr[0], cmdStr, &pa)
+	if err != nil {
+		signal.Stop(c)
+		return err
+	}
+
+	// Release and exit
+	_, err = proc.Wait()
+	if err != nil {
+		signal.Stop(c)
+		return err
+	}
+	signal.Stop(c)
+	return nil
 }
 
 func CopyFile(srcFile string, destFile string) error {

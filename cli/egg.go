@@ -58,6 +58,11 @@ type Egg struct {
 	// Type of egg
 	LinkerScript string
 
+	// For BSP egg, how to download
+	DownloadScript string
+	// For BSP egg, how to start debugger and attach it to target board
+	DebugScript string
+
 	// Has the configuration been loaded for this egg
 	CfgLoaded bool
 
@@ -522,6 +527,8 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	}
 
 	egg.LinkerScript = GetStringIdentities(v, t, "egg.linkerscript")
+	egg.DownloadScript = GetStringIdentities(v, t, "egg.downloadscript")
+	egg.DebugScript = GetStringIdentities(v, t, "egg.debugscript")
 
 	egg.Cflags += GetStringIdentities(v, t, "egg.cflags")
 	egg.Lflags += GetStringIdentities(v, t, "egg.lflags")

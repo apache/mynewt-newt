@@ -284,6 +284,38 @@ func targetSizeCmd(cmd *cobra.Command, args []string) {
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", txt)
 }
 
+func targetDownloadCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, cli.NewNewtError("Must specify target to download"))
+	}
+
+	t, err := cli.LoadTarget(NewtNest, args[0])
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	err = t.Download()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+}
+
+func targetDebugCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, cli.NewNewtError("Must specify target for debug"))
+	}
+
+	t, err := cli.LoadTarget(NewtNest, args[0])
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	err = t.Debug()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+}
+
 func targetExportCmd(cmd *cobra.Command, args []string) {
 	var targetName string
 	if ExportAll {
@@ -335,6 +367,8 @@ func targetAddCmds(base *cobra.Command) {
 	targetHelpEx += "  newt target build <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target test <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target size <target-name>\n"
+	targetHelpEx += "  newt target download <target-name>\n"
+	targetHelpEx += "  newt target debug <target-name>\n"
 	targetHelpEx += "  newt target export [-a -export-all] [<target-name>]\n"
 	targetHelpEx += "  newt target import [-a -import-all] [<target-name>]"
 
@@ -482,6 +516,32 @@ func targetAddCmds(base *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(sizeCmd)
+
+	downloadHelpText := formatHelp(`Download project image to target for
+		<target-name>.`)
+	downloadHelpEx := "  newt target download <target-name>\n"
+
+	downloadCmd := &cobra.Command{
+		Use:     "download",
+		Short:   "Download project to target",
+		Long:    downloadHelpText,
+		Example: downloadHelpEx,
+		Run:     targetDownloadCmd,
+	}
+	targetCmd.AddCommand(downloadCmd)
+
+	debugHelpText := formatHelp(`Download project image to target for
+		<target-name>.`)
+	debugHelpEx := "  newt target download <target-name>\n"
+
+	debugCmd := &cobra.Command{
+		Use:     "debug",
+		Short:   "Open debugger session to target",
+		Long:    debugHelpText,
+		Example: debugHelpEx,
+		Run:     targetDebugCmd,
+	}
+	targetCmd.AddCommand(debugCmd)
 
 	exportHelpText := formatHelp(`Export build targets from the current nest, and 
 		print them to standard output.  If the -a (or -export-all) option is 

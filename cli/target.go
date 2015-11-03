@@ -396,6 +396,93 @@ func (t *Target) Remove() error {
 	return nil
 }
 
+func (t *Target) Download() error {
+	clutch, err := NewClutch(t.Nest)
+	if err != nil {
+		return err
+	}
+
+	egg, err := clutch.ResolveEggName(t.Bsp)
+	if err != nil {
+		return err
+	}
+
+	err = egg.LoadConfig(t, false)
+	if err != nil {
+		return err
+	}
+	if egg.DownloadScript == "" {
+		return NewNewtError(fmt.Sprintf("No egg.downloadscript defined for %s",
+			egg.FullName))
+	}
+	downloadScript := filepath.Join(egg.BasePath, egg.DownloadScript)
+
+	if t.Vars["project"] == "" {
+		return NewNewtError(fmt.Sprintf("No project associated with target %s",
+			t.Name))
+	}
+	p, err := LoadProject(t.Nest, t, t.Vars["project"])
+	if err != nil {
+		return err
+	}
+
+	os.Chdir(t.Nest.BasePath)
+
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading with %s \n", downloadScript)
+
+	rsp, err := ShellCommand(fmt.Sprintf("%s %s", downloadScript,
+		filepath.Join(p.BinPath(), p.Name)))
+	if err != nil {
+		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
+		return err
+	}
+
+	return nil
+}
+
+func (t *Target) Debug() error {
+	clutch, err := NewClutch(t.Nest)
+	if err != nil {
+		return err
+	}
+
+	egg, err := clutch.ResolveEggName(t.Bsp)
+	if err != nil {
+		return err
+	}
+
+	err = egg.LoadConfig(t, false)
+	if err != nil {
+		return err
+	}
+	if egg.DebugScript == "" {
+		return NewNewtError(fmt.Sprintf("No egg.debugscript defined for %s",
+			egg.FullName))
+	}
+	debugScript := filepath.Join(egg.BasePath, egg.DebugScript)
+
+	if t.Vars["project"] == "" {
+		return NewNewtError(fmt.Sprintf("No project associated with target %s",
+			t.Name))
+	}
+	p, err := LoadProject(t.Nest, t, t.Vars["project"])
+	if err != nil {
+		return err
+	}
+
+	os.Chdir(t.Nest.BasePath)
+
+	StatusMessage(VERBOSITY_DEFAULT, "Debugging with %s %s\n", debugScript, p.Name)
+
+	err = ShellInteractiveCommand([]string{debugScript,
+		filepath.Join(p.BinPath(), p.Name)})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type MemSection struct {
 	Name   string
 	Offset uint64
