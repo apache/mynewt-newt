@@ -236,14 +236,14 @@ func ShellInteractiveCommand(cmdStr []string) error {
 	proc, err := os.StartProcess(cmdStr[0], cmdStr, &pa)
 	if err != nil {
 		signal.Stop(c)
-		return err
+		return NewNewtError(err.Error())
 	}
 
 	// Release and exit
 	_, err = proc.Wait()
 	if err != nil {
 		signal.Stop(c)
-		return err
+		return NewNewtError(err.Error())
 	}
 	signal.Stop(c)
 	return nil
