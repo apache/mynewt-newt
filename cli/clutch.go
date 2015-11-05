@@ -696,6 +696,9 @@ func (clutch *Clutch) testsExist(egg *Egg) error {
 func (clutch *Clutch) Test(t *Target, eggName string,
 	exitOnFailure bool) error {
 
+	// The 'test' identity is implicitly exported during a package test.
+	t.Identities = append(t.Identities, "test")
+
 	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
 		return err
@@ -712,9 +715,6 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 
 	incls := []string{}
 	libs := []string{}
-
-	// The 'test' identity is implicitly exported during a package test.
-	t.Identities = append(t.Identities, "test")
 
 	// If there is a BSP:
 	//     1. Calculate the include paths that it and its dependencies export.
