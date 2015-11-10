@@ -713,6 +713,10 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 		return err
 	}
 
+	// The egg under test must be compiled with the PKG_TEST symbol defined so
+	// that the appropriate main function gets built.
+	egg.Cflags += " -DPKG_TEST"
+
 	incls := []string{}
 	libs := []string{}
 
@@ -732,9 +736,7 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 		}
 	}
 
-	// Build the package under test.  This must be compiled with the PKG_TEST
-	// symbol defined so that the appropriate main function gets built.
-	egg.Cflags += " -DPKG_TEST"
+	// Build the package under test.
 	if err := clutch.Build(t, eggName, incls, &libs, nil); err != nil {
 		return err
 	}
