@@ -526,6 +526,14 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 		return err
 	}
 
+	// Append all the identities that this egg exposes to sub-eggs.  This must
+	// be done before the remainder of the settings, as some settings depend on
+	// identity.
+	if t != nil {
+		idents := GetStringSliceIdentities(v, t, "egg.identities")
+		t.Identities = append(t.Identities, idents...)
+	}
+
 	egg.LinkerScript = GetStringIdentities(v, t, "egg.linkerscript")
 	egg.DownloadScript = GetStringIdentities(v, t, "egg.downloadscript")
 	egg.DebugScript = GetStringIdentities(v, t, "egg.debugscript")
@@ -533,12 +541,6 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	egg.Cflags += GetStringIdentities(v, t, "egg.cflags")
 	egg.Lflags += GetStringIdentities(v, t, "egg.lflags")
 	egg.Aflags += GetStringIdentities(v, t, "egg.aflags")
-
-	// Append all the identities that this egg exposes to sub-eggs
-	if t != nil {
-		idents := GetStringSliceIdentities(v, t, "egg.identities")
-		t.Identities = append(t.Identities, idents...)
-	}
 
 	// Load egg dependencies
 	depList := GetStringSliceIdentities(v, t, "egg.deps")
