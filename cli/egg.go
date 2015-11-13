@@ -509,7 +509,7 @@ func (egg *Egg) GetHash() (string, error) {
 
 // Load egg's configuration, and collect required capabilities, dependencies, and
 // identities it provides, so we'll have this available when target is being built.
-func (egg *Egg) LoadDeps(identities map[string]string,
+func (egg *Egg) LoadDependencies(identities map[string]string,
 	capabilities map[string]string) error {
 
 	if egg.DepLoaded {
@@ -528,11 +528,6 @@ func (egg *Egg) LoadDeps(identities map[string]string,
 
 	// Add these to project identities
 	for _, item := range idents {
-		if identities[item] != "" && identities[item] != "item" {
-			return NewNewtError(fmt.Sprintf("Multiple eggs with "+
-				"identity %s (%s and %s)",
-				item, identities[item], egg.FullName))
-		}
 		StatusMessage(VERBOSITY_VERBOSE, "    Adding identity %s - %s\n", item,
 			egg.FullName)
 		identities[item] = egg.FullName
@@ -548,7 +543,7 @@ func (egg *Egg) LoadDeps(identities map[string]string,
 	// Add these to project capabilities
 	for _, cap := range egg.Capabilities {
 		if capabilities[cap.String()] != "" &&
-			capabilities[cap.String()] != "item" {
+			capabilities[cap.String()] != egg.FullName {
 
 			return NewNewtError(fmt.Sprintf("Multiple eggs with "+
 				"capability %s (%s and %s)",
@@ -605,6 +600,52 @@ func (egg *Egg) LoadDeps(identities map[string]string,
 	egg.DepLoaded = true
 
 	return nil
+}
+
+// Collect identities and capabilities that egg and it's dependencies provide
+func (egg *Egg) collectDependencies(clutch *Clutch,
+	identities map[string]string,
+	capabilities map[string]string) error {
+
+	if egg.DepLoaded {
+		return nil
+	}
+
+	StatusMessage(VERBOSITY_VERBOSE, "  Collecting egg %s dependencies\n", egg.Name)
+
+	err := egg.LoadDependencies(identities, capabilities)
+	if err != nil {
+		return err
+	}
+
+	for _, dep := range egg.Deps {
+		egg, err := clutch.ResolveEggName(dep.Name)
+		if err != nil {
+			return err
+		}
+		err = egg.collectDependencies(clutch, identities, capabilities)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Clear the var which says that dependencies have been checked for this egg and
+// it's dependencies
+func (egg *Egg) clearDependencyMarker(clutch *Clutch) {
+
+	if egg.DepLoaded == false {
+		return
+	}
+	egg.DepLoaded = false
+
+	for _, dep := range egg.Deps {
+		egg, err := clutch.ResolveEggName(dep.Name)
+		if err == nil {
+			egg.clearDependencyMarker(clutch)
+		}
+	}
 }
 
 // Load a egg's configuration.  This allocates & initializes a fair number of

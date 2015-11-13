@@ -145,45 +145,13 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	return nil
 }
 
-// Collect identities and capabilities that egg provides
-func (p *Project) collectEggDeps(clutch *Clutch, egg *Egg,
-	identities map[string]string,
-	capabilities map[string]string) error {
-
-	if egg.DepLoaded {
-		return nil
-	}
-
-	StatusMessage(VERBOSITY_VERBOSE, "  Collecting egg %s dependencies\n", egg.Name)
-
-	err := egg.LoadDeps(identities, capabilities)
-	if err != nil {
-		return err
-	}
-
-	for _, dep := range egg.Deps {
-		StatusMessage(VERBOSITY_VERBOSE, "   Egg %s dependency %s\n", egg.Name,
-			dep.Name)
-
-		egg, err := clutch.ResolveEggName(dep.Name)
-		if err != nil {
-			return err
-		}
-		err = p.collectEggDeps(clutch, egg, identities, capabilities)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Collect all identities and capabilities that project has
-func (p *Project) collectAllDeps(clutch *Clutch) (map[string]string, map[string]string,
-	error) {
+func (p *Project) collectAllDeps(clutch *Clutch, identities map[string]string,
+	capabilities map[string]string) error {
 
 	eggList := p.GetEggs()
 	if eggList == nil {
-		return nil, nil, nil
+		return nil
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE, " Collecting all project dependencies\n")
@@ -194,8 +162,6 @@ func (p *Project) collectAllDeps(clutch *Clutch) (map[string]string, map[string]
 	if t.Bsp != "" {
 		eggList = append(eggList, t.Bsp)
 	}
-	identities := map[string]string{}
-	capabilities := map[string]string{}
 
 	for _, eggName := range eggList {
 		if eggName == "" {
@@ -204,32 +170,15 @@ func (p *Project) collectAllDeps(clutch *Clutch) (map[string]string, map[string]
 
 		egg, err := clutch.ResolveEggName(eggName)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 
-		err = p.collectEggDeps(clutch, egg, identities,
-			capabilities)
+		err = egg.collectDependencies(clutch, identities, capabilities)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 	}
-	return identities, capabilities, nil
-}
-
-// Clear the fact that dependencies have been checked
-func (p *Project) clearEggDeps(clutch *Clutch, egg *Egg) {
-
-	if egg.DepLoaded == false {
-		return
-	}
-	egg.DepLoaded = false
-
-	for _, dep := range egg.Deps {
-		egg, err := clutch.ResolveEggName(dep.Name)
-		if err == nil {
-			p.clearEggDeps(clutch, egg)
-		}
-	}
+	return nil
 }
 
 func (p *Project) clearAllDeps(clutch *Clutch) {
@@ -253,7 +202,7 @@ func (p *Project) clearAllDeps(clutch *Clutch) {
 		if err != nil {
 			return
 		}
-		p.clearEggDeps(clutch, egg)
+		egg.clearDependencyMarker(clutch)
 	}
 }
 
@@ -270,8 +219,9 @@ func (p *Project) collectDeps(clutch *Clutch) error {
 	// Need to do this multiple times, until there are no new identities,
 	// capabilities which show up.
 	identities := map[string]string{}
+	capabilities := map[string]string{}
 	for {
-		identities, capabilities, err := p.collectAllDeps(clutch)
+		err := p.collectAllDeps(clutch, identities, capabilities)
 		if err != nil {
 			return err
 		}
@@ -386,7 +336,7 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
 			return nil, err
 		}
 
-		if err = clutch.Build(p.Target, eggName, *incls, libs, capEggs); err != nil {
+		if err = clutch.Build(p.Target, eggName, *incls, libs); err != nil {
 			return nil, err
 		}
 

@@ -371,7 +371,7 @@ func (clutch *Clutch) GetEggLib(t *Target, egg *Egg) string {
 // @param libs                  List of libraries that have been built so far;
 //                                  This function appends entries to this list.
 func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
-	libs *[]string, capEggs map[string]string) error {
+	libs *[]string) error {
 
 	StatusMessage(VERBOSITY_VERBOSE,
 		"Building egg dependencies for %s, target %s\n", egg.Name, t.Name)
@@ -389,17 +389,6 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 		libs = &[]string{}
 	}
 
-	for _, cap := range egg.ReqCapabilities {
-		if cap.Name == "" {
-			break
-		}
-		eggName := capEggs[cap.String()]
-		dr, err := NewDependencyRequirementParseString(eggName)
-		if err != nil {
-			return err
-		}
-		egg.Deps = append(egg.Deps, dr)
-	}
 	for _, dep := range egg.Deps {
 		if dep.Name == "" {
 			break
@@ -413,7 +402,7 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 		}
 
 		// Build the package
-		if err = clutch.Build(t, dep.Name, *incls, libs, capEggs); err != nil {
+		if err = clutch.Build(t, dep.Name, *incls, libs); err != nil {
 			return err
 		}
 
@@ -439,7 +428,7 @@ func (clutch *Clutch) buildDeps(egg *Egg, t *Target, incls *[]string,
 // @param lib              List of libraries that have been built so far;
 //                             This function appends entries to this list.
 func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
-	libs *[]string, capEggs map[string]string) error {
+	libs *[]string) error {
 
 	// Look up package structure
 	egg, err := clutch.ResolveEggName(eggName)
@@ -458,7 +447,7 @@ func (clutch *Clutch) Build(t *Target, eggName string, incls []string,
 	}
 	egg.Built = true
 
-	if err := clutch.buildDeps(egg, t, &incls, libs, capEggs); err != nil {
+	if err := clutch.buildDeps(egg, t, &incls, libs); err != nil {
 		return err
 	}
 
@@ -737,7 +726,7 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 	}
 
 	// Build the package under test.
-	if err := clutch.Build(t, eggName, incls, &libs, nil); err != nil {
+	if err := clutch.Build(t, eggName, incls, &libs); err != nil {
 		return err
 	}
 	lib := clutch.GetEggLib(t, egg)

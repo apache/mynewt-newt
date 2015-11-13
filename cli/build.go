@@ -112,7 +112,7 @@ func buildBsp(t *Target, clutch *Clutch, incls *[]string,
 		return "", NewNewtError("No BSP egg for " + t.Bsp + " exists")
 	}
 
-	if err = clutch.Build(t, t.Bsp, *incls, libs, capEggs); err != nil {
+	if err = clutch.Build(t, t.Bsp, *incls, libs); err != nil {
 		return "", err
 	}
 
