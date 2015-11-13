@@ -697,7 +697,7 @@ func (clutch *Clutch) Test(t *Target, eggName string,
 	exitOnFailure bool) error {
 
 	// The 'test' identity is implicitly exported during a package test.
-	t.Identities = append(t.Identities, "test")
+	t.Identities["test"] = "test";
 
 	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {

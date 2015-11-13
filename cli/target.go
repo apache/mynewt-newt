@@ -31,7 +31,7 @@ const TARGET_SECT_PREFIX = "_target_"
 type Target struct {
 	Vars map[string]string
 
-	Identities []string
+	Identities map[string]string
 
 	Capabilities []string
 
@@ -89,11 +89,15 @@ func (t *Target) SetDefaults() error {
 	t.Cflags = t.Vars["cflags"]
 	t.Lflags = t.Vars["lflags"]
 
-	t.Identities, err = parseTargetStringSlice(t.Vars["identities"])
+	identities, err := parseTargetStringSlice(t.Vars["identities"])
 	if err != nil {
 		return err
 	}
-
+	t.Identities = map[string]string{}
+	for _, ident := range identities {
+	StatusMessage(VERBOSITY_VERBOSE, "  set default ident %s\n", ident)
+		t.Identities[ident] = t.Name
+	}
 	t.Capabilities, err = parseTargetStringSlice(t.Vars["capabilities"])
 	if err != nil {
 		return err
@@ -428,9 +432,14 @@ func (t *Target) Download() error {
 
 	os.Chdir(t.Nest.BasePath)
 
+	identString := ""
+	for ident, _ := range t.Identities {
+		identString = identString + ident
+	}
+
 	StatusMessage(VERBOSITY_DEFAULT, "Downloading with %s\n", downloadScript)
 	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s", downloadScript,
-		filepath.Join(p.BinPath(), p.Name), strings.Join(t.Identities, " ")))
+		filepath.Join(p.BinPath(), p.Name), identString))
 	if err != nil {
 		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
 		return err
@@ -471,10 +480,15 @@ func (t *Target) Debug() error {
 
 	os.Chdir(t.Nest.BasePath)
 
+	identString := ""
+	for ident, _ := range t.Identities {
+		identString = identString + ident
+	}
+
 	StatusMessage(VERBOSITY_DEFAULT, "Debugging with %s %s\n", debugScript, p.Name)
 
 	cmdLine := []string{debugScript, filepath.Join(p.BinPath(), p.Name)}
-	cmdLine = append(cmdLine, t.Identities...)
+	cmdLine = append(cmdLine, identString)
 	err = ShellInteractiveCommand(cmdLine)
 	if err != nil {
 		return err

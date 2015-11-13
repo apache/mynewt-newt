@@ -63,6 +63,9 @@ type Egg struct {
 	// For BSP egg, how to start debugger and attach it to target board
 	DebugScript string
 
+	// Has the dependencies been loaded for this egg
+	DepLoaded bool
+
 	// Has the configuration been loaded for this egg
 	CfgLoaded bool
 
@@ -504,6 +507,106 @@ func (egg *Egg) GetHash() (string, error) {
 	return hashStr, nil
 }
 
+// Load egg's configuration, and collect required capabilities, dependencies, and
+// identities it provides, so we'll have this available when target is being built.
+func (egg *Egg) LoadDeps(identities map[string]string,
+	capabilities map[string]string) error {
+
+	if egg.DepLoaded {
+		return nil
+	}
+
+	log.Printf("[DEBUG] Loading dependencies for egg %s", egg.BasePath)
+
+	v, err := ReadConfig(egg.BasePath, "egg")
+	if err != nil {
+		return err
+	}
+
+	// Append all identities that this egg exposes.
+	idents := GetStringSliceIdentities(v, identities, "egg.identities")
+
+	// Add these to project identities
+	for _, item := range idents {
+		if identities[item] != "" && identities[item] != "item" {
+			return NewNewtError(fmt.Sprintf("Multiple eggs with "+
+				"identity %s (%s and %s)",
+				item, identities[item], egg.FullName))
+		}
+		StatusMessage(VERBOSITY_VERBOSE, "    Adding identity %s - %s\n", item,
+			egg.FullName)
+		identities[item] = egg.FullName
+	}
+
+	// Load the list of capabilities that this egg exposes
+	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
+		"egg.caps"))
+	if err != nil {
+		return err
+	}
+
+	// Add these to project capabilities
+	for _, cap := range egg.Capabilities {
+		if capabilities[cap.String()] != "" &&
+			capabilities[cap.String()] != "item" {
+
+			return NewNewtError(fmt.Sprintf("Multiple eggs with "+
+				"capability %s (%s and %s)",
+				cap.String(), capabilities[cap.String()], egg.FullName))
+		}
+		capabilities[cap.String()] = egg.FullName
+		StatusMessage(VERBOSITY_VERBOSE, "    Adding capability %s - %s\n",
+			cap.String(), egg.FullName)
+	}
+
+	// Load the list of capabilities that this egg requires
+	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
+		"egg.req_caps"))
+	if err != nil {
+		return err
+	}
+
+	// Load egg dependencies
+	depList := GetStringSliceIdentities(v, identities, "egg.deps")
+	if len(depList) > 0 {
+		egg.Deps = make([]*DependencyRequirement, 0, len(depList))
+		for _, depStr := range depList {
+			log.Printf("[DEBUG] Loading dependency %s from egg %s", depStr,
+				egg.FullName)
+			dr, err := NewDependencyRequirementParseString(depStr)
+			if err != nil {
+				return err
+			}
+
+			egg.Deps = append(egg.Deps, dr)
+		}
+	}
+	for _, cap := range egg.ReqCapabilities {
+		eggName := capabilities[cap.String()]
+		if eggName == "" {
+			continue
+		}
+		dr, err := NewDependencyRequirementParseString(eggName)
+		if err != nil {
+			return err
+		}
+		egg.Deps = append(egg.Deps, dr)
+	}
+
+	// Check these as well
+	egg.LinkerScript = GetStringIdentities(v, identities, "egg.linkerscript")
+	egg.DownloadScript = GetStringIdentities(v, identities, "egg.downloadscript")
+	egg.DebugScript = GetStringIdentities(v, identities, "egg.debugscript")
+
+	egg.Cflags = GetStringIdentities(v, identities, "egg.cflags")
+	egg.Lflags = GetStringIdentities(v, identities, "egg.lflags")
+	egg.Aflags = GetStringIdentities(v, identities, "egg.aflags")
+
+	egg.DepLoaded = true
+
+	return nil
+}
+
 // Load a egg's configuration.  This allocates & initializes a fair number of
 // the main data structures within the egg.
 func (egg *Egg) LoadConfig(t *Target, force bool) error {
@@ -529,21 +632,25 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	// Append all the identities that this egg exposes to sub-eggs.  This must
 	// be done before the remainder of the settings, as some settings depend on
 	// identity.
+	identities := map[string]string{}
 	if t != nil {
-		idents := GetStringSliceIdentities(v, t, "egg.identities")
-		t.Identities = append(t.Identities, idents...)
+		identities = t.Identities;
+		idents := GetStringSliceIdentities(v, identities, "egg.identities")
+		for _, item := range idents {
+		    identities[item] = egg.FullName;
+		}
 	}
 
-	egg.LinkerScript = GetStringIdentities(v, t, "egg.linkerscript")
-	egg.DownloadScript = GetStringIdentities(v, t, "egg.downloadscript")
-	egg.DebugScript = GetStringIdentities(v, t, "egg.debugscript")
+	egg.LinkerScript = GetStringIdentities(v, identities, "egg.linkerscript")
+	egg.DownloadScript = GetStringIdentities(v, identities, "egg.downloadscript")
+	egg.DebugScript = GetStringIdentities(v, identities, "egg.debugscript")
 
-	egg.Cflags += GetStringIdentities(v, t, "egg.cflags")
-	egg.Lflags += GetStringIdentities(v, t, "egg.lflags")
-	egg.Aflags += GetStringIdentities(v, t, "egg.aflags")
+	egg.Cflags += GetStringIdentities(v, identities, "egg.cflags")
+	egg.Lflags += GetStringIdentities(v, identities, "egg.lflags")
+	egg.Aflags += GetStringIdentities(v, identities, "egg.aflags")
 
 	// Load egg dependencies
-	depList := GetStringSliceIdentities(v, t, "egg.deps")
+	depList := GetStringSliceIdentities(v, identities, "egg.deps")
 	if len(depList) > 0 {
 		egg.Deps = make([]*DependencyRequirement, 0, len(depList))
 		for _, depStr := range depList {
@@ -559,14 +666,14 @@ func (egg *Egg) LoadConfig(t *Target, force bool) error {
 	}
 
 	// Load the list of capabilities that this egg exposes
-	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, t,
+	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
 		"egg.caps"))
 	if err != nil {
 		return err
 	}
 
 	// Load the list of capabilities that this egg requires
-	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, t,
+	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
 		"egg.req_caps"))
 	if err != nil {
 		return err

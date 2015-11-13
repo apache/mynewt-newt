@@ -87,16 +87,17 @@ func (p *Project) loadConfig() error {
 
 	t := p.Target
 
-	p.Eggs = GetStringSliceIdentities(v, t, "project.eggs")
+	p.Eggs = GetStringSliceIdentities(v, t.Identities, "project.eggs")
 
-	idents := GetStringSliceIdentities(v, t, "project.identities")
-	t.Identities = append(t.Identities, idents...)
+	idents := GetStringSliceIdentities(v, t.Identities, "project.identities")
+	for _, ident := range idents {
+		t.Identities[ident] = p.Name
+	}
+	p.Capabilities = GetStringSliceIdentities(v, t.Identities, "project.caps")
 
-	p.Capabilities = GetStringSliceIdentities(v, t, "project.caps")
-
-	p.Cflags = GetStringIdentities(v, t, "project.cflags")
-	p.Lflags = GetStringIdentities(v, t, "project.lflags")
-	p.Aflags = GetStringIdentities(v, t, "project.aflags")
+	p.Cflags = GetStringIdentities(v, t.Identities, "project.cflags")
+	p.Lflags = GetStringIdentities(v, t.Identities, "project.lflags")
+	p.Aflags = GetStringIdentities(v, t.Identities, "project.aflags")
 
 	return nil
 }
@@ -141,6 +142,156 @@ func (p *Project) BuildClean(cleanAll bool) error {
 		return err
 	}
 
+	return nil
+}
+
+// Collect identities and capabilities that egg provides
+func (p *Project) collectEggDeps(clutch *Clutch, egg *Egg,
+	identities map[string]string,
+	capabilities map[string]string) error {
+
+	if egg.DepLoaded {
+		return nil
+	}
+
+	StatusMessage(VERBOSITY_VERBOSE, "  Collecting egg %s dependencies\n", egg.Name)
+
+	err := egg.LoadDeps(identities, capabilities)
+	if err != nil {
+		return err
+	}
+
+	for _, dep := range egg.Deps {
+		StatusMessage(VERBOSITY_VERBOSE, "   Egg %s dependency %s\n", egg.Name,
+			dep.Name)
+
+		egg, err := clutch.ResolveEggName(dep.Name)
+		if err != nil {
+			return err
+		}
+		err = p.collectEggDeps(clutch, egg, identities, capabilities)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Collect all identities and capabilities that project has
+func (p *Project) collectAllDeps(clutch *Clutch) (map[string]string, map[string]string,
+	error) {
+
+	eggList := p.GetEggs()
+	if eggList == nil {
+		return nil, nil, nil
+	}
+
+	StatusMessage(VERBOSITY_VERBOSE, " Collecting all project dependencies\n")
+
+	t := p.Target
+
+	eggList = append(eggList, t.Dependencies...)
+	if t.Bsp != "" {
+		eggList = append(eggList, t.Bsp)
+	}
+	identities := map[string]string{}
+	capabilities := map[string]string{}
+
+	for _, eggName := range eggList {
+		if eggName == "" {
+			continue
+		}
+
+		egg, err := clutch.ResolveEggName(eggName)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		err = p.collectEggDeps(clutch, egg, identities,
+			capabilities)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return identities, capabilities, nil
+}
+
+// Clear the fact that dependencies have been checked
+func (p *Project) clearEggDeps(clutch *Clutch, egg *Egg) {
+
+	if egg.DepLoaded == false {
+		return
+	}
+	egg.DepLoaded = false
+
+	for _, dep := range egg.Deps {
+		egg, err := clutch.ResolveEggName(dep.Name)
+		if err == nil {
+			p.clearEggDeps(clutch, egg)
+		}
+	}
+}
+
+func (p *Project) clearAllDeps(clutch *Clutch) {
+	eggList := p.GetEggs()
+	if eggList == nil {
+		return
+	}
+
+	t := p.Target
+
+	eggList = append(eggList, t.Dependencies...)
+	if t.Bsp != "" {
+		eggList = append(eggList, t.Bsp)
+	}
+
+	for _, eggName := range eggList {
+		if eggName == "" {
+			continue
+		}
+		egg, err := clutch.ResolveEggName(eggName)
+		if err != nil {
+			return
+		}
+		p.clearEggDeps(clutch, egg)
+	}
+}
+
+// Collect project identities and capabilities, and make target ready for
+// building.
+func (p *Project) collectDeps(clutch *Clutch) error {
+
+	identCount := 0
+	capCount := 0
+
+	StatusMessage(VERBOSITY_VERBOSE,
+		"Collecting egg dependencies for project %s\n", p.Name)
+
+	// Need to do this multiple times, until there are no new identities,
+	// capabilities which show up.
+	identities := map[string]string{}
+	for {
+		identities, capabilities, err := p.collectAllDeps(clutch)
+		if err != nil {
+			return err
+		}
+		newIdentCount := len(identities)
+		newCapCount := len(capabilities)
+		StatusMessage(VERBOSITY_VERBOSE, "Collected idents %d caps %d\n",
+			newIdentCount, newCapCount)
+		if identCount == newIdentCount && capCount == newCapCount {
+			break
+		}
+		p.clearAllDeps(clutch)
+		identCount = newIdentCount
+		capCount = newCapCount
+	}
+
+	t := p.Target
+
+	for ident, name := range identities {
+		t.Identities[ident] = name
+	}
 	return nil
 }
 
@@ -278,13 +429,19 @@ func (p *Project) Build() error {
 	}
 
 	// Load the configuration for this target
-	if err := clutch.LoadConfigs(p.Target, false); err != nil {
+	if err := clutch.LoadConfigs(nil, false); err != nil {
 		return err
 	}
 
 	incls := []string{}
 	libs := []string{}
 	linkerScript := ""
+
+	// Collect target identities, libraries to include
+	err = p.collectDeps(clutch)
+	if err != nil {
+		return err
+	}
 
 	// If there is a BSP:
 	//     1. Calculate the include paths that it and its dependencies export.

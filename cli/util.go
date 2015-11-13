@@ -118,16 +118,10 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	}
 }
 
-func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
+func GetStringIdentities(v *viper.Viper, idents map[string]string, key string) string {
 	val := v.GetString(key)
 
-	if t == nil {
-		return val
-	}
-
-	idents := t.Identities
-
-	for _, ident := range idents {
+	for ident, _ := range idents {
 		overwriteVal := v.GetString(key + "." + ident + ".OVERWRITE")
 		if overwriteVal != "" {
 			val = strings.Trim(overwriteVal, "\n")
@@ -142,7 +136,9 @@ func GetStringIdentities(v *viper.Viper, t *Target, key string) string {
 	return strings.TrimSpace(val)
 }
 
-func GetStringSliceIdentities(v *viper.Viper, t *Target, key string) []string {
+func GetStringSliceIdentities(v *viper.Viper, idents map[string]string,
+	key string) []string {
+
 	val := v.GetStringSlice(key)
 
 	// string empty items
@@ -154,15 +150,10 @@ func GetStringSliceIdentities(v *viper.Viper, t *Target, key string) []string {
 		result = append(result, item)
 	}
 
-	if t == nil {
-		return result
+	for item, _ := range idents {
+		result = append(result, v.GetStringSlice(key+"."+item)...)
 	}
 
-	idents := t.Identities
-
-	for _, ident := range idents {
-		result = append(result, v.GetStringSlice(key+"."+ident)...)
-	}
 	return result
 }
 
