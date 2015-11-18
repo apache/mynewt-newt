@@ -213,12 +213,14 @@ func (p *Project) collectDeps(clutch *Clutch) error {
 	identCount := 0
 	capCount := 0
 
+	t := p.Target
+
 	StatusMessage(VERBOSITY_VERBOSE,
 		"Collecting egg dependencies for project %s\n", p.Name)
 
 	// Need to do this multiple times, until there are no new identities,
 	// capabilities which show up.
-	identities := map[string]string{}
+	identities := t.Identities
 	capabilities := map[string]string{}
 	for {
 		err := p.collectAllDeps(clutch, identities, capabilities)
@@ -237,11 +239,6 @@ func (p *Project) collectDeps(clutch *Clutch) error {
 		capCount = newCapCount
 	}
 
-	t := p.Target
-
-	for ident, name := range identities {
-		t.Identities[ident] = name
-	}
 	return nil
 }
 

@@ -112,7 +112,7 @@ func (t *Target) SetDefaults() error {
 }
 
 func (t *Target) HasIdentity(identity string) bool {
-	for _, cur := range t.Identities {
+	for cur, _ := range t.Identities {
 		if cur == identity {
 			return true
 		}
