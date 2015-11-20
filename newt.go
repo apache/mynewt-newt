@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -126,6 +127,13 @@ func targetUnsetCmd(cmd *cobra.Command, args []string) {
 		"Target %s successfully unset %s\n", args[0], args[1])
 }
 
+// Type for sorting an array of target pointers alphabetically by name.
+type ByName []*cli.Target
+
+func (a ByName) Len() int           { return len(a) }
+func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByName) Less(i, j int) bool { return a[i].Vars["name"] < a[j].Vars["name"] }
+
 func targetShowCmd(cmd *cobra.Command, args []string) {
 	dispSect := ""
 	if len(args) == 1 {
@@ -136,6 +144,8 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
+
+	sort.Sort(ByName(targets))
 
 	for _, target := range targets {
 		if dispSect == "" || dispSect == target.Vars["name"] {
