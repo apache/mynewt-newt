@@ -685,8 +685,11 @@ func (clutch *Clutch) testsExist(egg *Egg) error {
 func (clutch *Clutch) Test(t *Target, eggName string,
 	exitOnFailure bool) error {
 
-	// The 'test' identity is implicitly exported during a package test.
-	t.Identities["test"] = "test";
+	// A few identities are implicitly exported when the test command is used:
+	// *    test:       ensures that the test code gets compiled.
+	// *    selftest:   indicates that there is no project
+	t.Identities["test"] = "test"
+	t.Identities["selftest"] = "selftest"
 
 	egg, err := clutch.ResolveEggName(eggName)
 	if err != nil {
