@@ -150,9 +150,16 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	for _, target := range targets {
 		if dispSect == "" || dispSect == target.Vars["name"] {
 			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"]+"\n")
+
 			vars := target.GetVars()
-			for k, v := range vars {
-				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s: %s\n", k, v)
+			var keys []string
+			for k := range vars {
+				keys = append(keys, k)
+			}
+
+			sort.Strings(keys)
+			for _, k := range keys {
+				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s: %s\n", k, vars[k])
 			}
 		}
 	}
