@@ -588,6 +588,15 @@ func (egg *Egg) LoadDependencies(identities map[string]string,
 		egg.Deps = append(egg.Deps, dr)
 	}
 
+	eggName := identities["LIBC"]
+	if eggName != "" {
+		dr, err := NewDependencyRequirementParseString(eggName)
+		if err != nil {
+			return err
+		}
+		egg.Deps = append(egg.Deps, dr)
+	}
+
 	// Check these as well
 	egg.LinkerScript = GetStringIdentities(v, identities, "egg.linkerscript")
 	egg.DownloadScript = GetStringIdentities(v, identities, "egg.downloadscript")
