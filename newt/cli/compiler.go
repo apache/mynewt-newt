@@ -426,12 +426,14 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 
 	objList := c.getObjFiles(UniqueStrings(objFiles))
 
-	cmd := c.ccPath + " -o " + dstFile + " " + c.ldFlags + " " + c.Cflags
+	cmd := c.ccPath + " -o " + dstFile + " " + " " + c.Cflags
 	if c.ldResolveCircularDeps {
 		cmd += " -Wl,--start-group " + objList + " -Wl,--end-group "
 	} else {
 		cmd += " " + objList
 	}
+
+	cmd += c.ldFlags
 
 	if c.LinkerScript != "" {
 		cmd += " -T " + c.LinkerScript
