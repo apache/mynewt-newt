@@ -17,7 +17,7 @@ package main
 
 import (
 	"fmt"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newt/cli"
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt.git/newt/cli"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
