@@ -17,7 +17,7 @@ import (
 const debug bool = false
 const dockerMachineName string = "default"
 const newtvmImage = "mynewt/mynewt"
-const newtvmVersion = "0.0.2"
+const newtvmVersion = "0.0.3"
 
 // Sets the necessary environment variables to allow docker to run.
 func configEnv() error {
@@ -88,7 +88,8 @@ func buildCmd(args []string) (*exec.Cmd, error) {
 	}
 
 	fullArgs := []string{
-		"run", "--rm=true", "-v", fmt.Sprintf("%s:/larva", pwd),
+		"run", "--device=/dev/bus/usb", "--rm=true",
+		"-v", fmt.Sprintf("%s:/larva", pwd),
 		"-w", "/larva", fmt.Sprintf("%s:%s", newtvmImage, newtvmVersion),
 		"script", "-qc",
 		strings.Join(args, " "), "/dev/null"}
