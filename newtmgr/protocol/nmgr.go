@@ -17,6 +17,10 @@ package protocol
 
 import (
 	"encoding/binary"
+	"fmt"
+	"log"
+
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
 type NmgrReq struct {
@@ -44,8 +48,8 @@ func NewNmgrReq() (*NmgrReq, error) {
 
 func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 	if len(data) < 8 {
-		return nil, util.NewNewtError("Newtmgr request buffer too small " +
-			len(data) + " bytes.")
+		return nil, util.NewNewtError(fmt.Sprintf(
+			"Newtmgr request buffer too small %d bytes", len(data)))
 	}
 
 	nmr := &NmgrReq{}
@@ -61,17 +65,18 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 		return nil, util.NewNewtError("Newtmgr request length doesn't " +
 			"match data length.")
 	}
-
-	copy(nmr.Data, data)
+	nmr.Data = data
 
 	return nmr, nil
 }
 
 func (nmr *NmgrReq) SerializeRequest(data []byte) ([]byte, error) {
-	u16b := []byte{}
+	log.Printf("[DEBUG] Serializing request %s into buffer %s", nmr, data)
 
-	data = append(data, nmr.Op.(byte))
-	data = append(data, nmr.Flags.(byte))
+	u16b := make([]byte, 2)
+
+	data = append(data, byte(nmr.Op))
+	data = append(data, byte(nmr.Flags))
 
 	binary.BigEndian.PutUint16(u16b, nmr.Len)
 	data = append(data, u16b...)

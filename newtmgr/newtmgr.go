@@ -17,20 +17,36 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"strings"
+
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/cli"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/protocol"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/transport"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"github.com/hashicorp/logutils"
 	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
 var ConnProfileName string
+var LogLevel string = "WARN"
+
+func setupLog() {
+	filter := &logutils.LevelFilter{
+		Levels: []logutils.LogLevel{"DEBUG", "VERBOSE", "INFO",
+			"WARN", "ERROR"},
+		MinLevel: logutils.LogLevel(LogLevel),
+		Writer:   os.Stderr,
+	}
+
+	log.SetOutput(filter)
+}
 
 func nmUsage(cmd *cobra.Command, err error) {
 	if err != nil {
 		sErr := err.(*util.NewtError)
+		fmt.Printf("ERROR: %s\n", err.Error())
 		fmt.Fprintf(os.Stderr, "[DEBUG] %s", sErr.StackTrace)
 	}
 
@@ -163,18 +179,18 @@ func connProfileCmd() *cobra.Command {
 	return cpCmd
 }
 
-func statShowCmd(cmd *cobra.Command, args []string) {
+func echoRunCmd(cmd *cobra.Command, args []string) {
 	cpm, err := cli.NewCpMgr()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
 
-	cp, err := cpm.GetConnProfile(ConnProfileName)
+	profile, err := cpm.GetConnProfile(ConnProfileName)
 	if err != nil {
 		nmUsage(cmd, err)
 	}
 
-	conn, err := transport.NewConn(cp)
+	conn, err := transport.NewConn(profile)
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -184,22 +200,42 @@ func statShowCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	stats, err := runner.Read(protocol.Stats)
+	echo, err := protocol.NewEcho()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
 
-	stats.Display()
-}
+	echo.Message = args[0]
 
-func statCmd() *cobra.Command {
-	statCmd := &cobra.Command{
-		Use:   "stat",
-		Short: "Display statistics from a remote newtmgr device",
-		Run:   statShowCmd,
+	nmr, err := echo.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
 	}
 
-	return statCmd
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	ersp, err := protocol.DecodeEchoResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	fmt.Println(ersp.Message)
+}
+
+func echoCmd() *cobra.Command {
+	echoCmd := &cobra.Command{
+		Use:   "echo",
+		Short: "Send data to remote endpoint using newtmgr, and receive data back",
+		Run:   echoRunCmd,
+	}
+
+	return echoCmd
 }
 
 func parseCmds() *cobra.Command {
@@ -211,16 +247,20 @@ func parseCmds() *cobra.Command {
 		},
 	}
 
-	nmCmd.PersistentFlags().StringVar(&ConnProfileName, "conn", "c", "",
+	nmCmd.PersistentFlags().StringVarP(&ConnProfileName, "conn", "c", "",
 		"connection profile to use.")
 
+	nmCmd.PersistentFlags().StringVarP(&LogLevel, "loglevel", "l", "",
+		"log level to use (default WARN.)")
+
 	nmCmd.AddCommand(connProfileCmd())
-	nmCmd.AddCommand(statCmd())
+	nmCmd.AddCommand(echoCmd())
 
 	return nmCmd
 }
 
 func main() {
 	cmd := parseCmds()
+	setupLog()
 	cmd.Execute()
 }

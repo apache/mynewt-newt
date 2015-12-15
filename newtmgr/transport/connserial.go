@@ -19,10 +19,12 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/binary"
+	"fmt"
+	"log"
+
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/cli"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
-	"github.com/jacobsa/go-serial/serial"
-	"io"
+	"github.com/tarm/serial"
 )
 
 type ConnSerial struct {
@@ -30,25 +32,22 @@ type ConnSerial struct {
 	currentPacket *Packet
 
 	scanner       *bufio.Scanner
-	serialChannel io.ReadWriteCloser
+	serialChannel *serial.Port
 }
 
 func (cs *ConnSerial) Open(cp *cli.ConnProfile) error {
 	var err error
 
-	opts := serial.OpenOptions{
-		PortName:        cp.ConnString,
-		BaudRate:        9600,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
+	c := &serial.Config{
+		Name: cp.ConnString,
+		Baud: 9600,
 	}
 
-	cs.serialChannel, err = serial.Open(opts)
+	cs.serialChannel, err = serial.OpenPort(c)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
-	defer cs.serialChannel.Close()
+	//defer cs.serialChannel.Close()
 
 	// Most of the reading will be done line by line, use the
 	// bufio.Scanner to do this
@@ -60,32 +59,36 @@ func (cs *ConnSerial) Open(cp *cli.ConnProfile) error {
 func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 	scanner := cs.scanner
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := []byte(scanner.Text())
 
 		if len(line) < 2 || ((line[0] != 4 || line[1] != 20) &&
 			(line[0] != 6 || line[1] != 9)) {
 			continue
 		}
 
-		base64Data := line[2:]
+		base64Data := string(line[2:])
 
 		data, err := base64.StdEncoding.DecodeString(base64Data)
 		if err != nil {
-			return nil, util.NewNewtError("Couldn't decode base64 string: " +
-				line)
+			return nil, util.NewNewtError(fmt.Sprintf("Couldn't decode base64 string: %b",
+				line))
 		}
 
-		if line[0] == 4 && line[1] == 20 {
+		if line[0] == 6 && line[1] == 9 {
 			if len(data) < 2 {
 				continue
 			}
 
-			pktLen := binary.LittleEndian.Uint16(data[0:2])
+			pktLen := binary.BigEndian.Uint16(data[0:2])
 			cs.currentPacket, err = NewPacket(pktLen)
 			if err != nil {
 				return nil, err
 			}
 			data = data[2:]
+		}
+
+		if cs.currentPacket == nil {
+			continue
 		}
 
 		full := cs.currentPacket.AddBytes(data)
@@ -96,34 +99,41 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 		}
 	}
 
-	return nil, nil
+	return nil, util.NewNewtError("Scanning incoming data failed")
+}
+
+func (cs *ConnSerial) writeData(bytes []byte) {
+	log.Printf("[DEBUG] Writing %b to data channel", bytes)
+	cs.serialChannel.Write(bytes)
 }
 
 func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 	data := pkt.GetBytes()
 	dLen := uint16(len(data))
 
-	base64Data := []byte{}
-	pktData := []byte{}
+	pktData := make([]byte, 2)
 
-	binary.LittleEndian.PutUint16(pktData, dLen)
+	binary.BigEndian.PutUint16(pktData, dLen)
 	pktData = append(pktData, data...)
+
+	base64Data := make([]byte, base64.StdEncoding.EncodedLen(len(pktData)))
 
 	base64.StdEncoding.Encode(base64Data, pktData)
 
 	written := 0
 	totlen := len(base64Data)
+
 	for written < totlen {
 		if written == 0 {
-			cs.serialChannel.Write([]byte{4, 20})
+			cs.writeData([]byte{6, 9})
 		} else {
-			cs.serialChannel.Write([]byte{6, 9})
+			cs.writeData([]byte{4, 20})
 		}
 
 		writeLen := util.Min(122, totlen)
 		writeBytes := base64Data[:writeLen]
-		cs.serialChannel.Write(writeBytes)
-		cs.serialChannel.Write([]byte{'\n'})
+		cs.writeData(writeBytes)
+		cs.writeData([]byte{'\n'})
 
 		written += writeLen
 	}

@@ -15,10 +15,36 @@
 
 package protocol
 
-type Stats struct {
+type Echo struct {
+	Message string
 }
 
-func NewStats() (*Stats, error) {
-	s := &Stats{}
+func NewEcho() (*Echo, error) {
+	s := &Echo{}
 	return s, nil
+}
+
+func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
+	data := []byte(e.Message)
+
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
+
+	nmr.Op = NMGR_OP_WRITE
+	nmr.Flags = 0
+	nmr.Group = 0
+	nmr.Id = 0
+	nmr.Len = uint16(len(data))
+	nmr.Data = data
+
+	return nmr, nil
+}
+
+func DecodeEchoResponse(data []byte) (*Echo, error) {
+	e := &Echo{}
+	e.Message = string(data[:])
+
+	return e, nil
 }

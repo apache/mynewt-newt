@@ -16,12 +16,13 @@
 package protocol
 
 import (
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/protocol"
+	"log"
+
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/transport"
 )
 
 type CmdRunner struct {
-	conn *transport.Conn
+	conn transport.Conn
 }
 
 func (cr *CmdRunner) ReadReq() (*NmgrReq, error) {
@@ -41,26 +42,28 @@ func (cr *CmdRunner) ReadReq() (*NmgrReq, error) {
 func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 	data := []byte{}
 
+	log.Printf("[DEBUG] Writing netmgr request %s", nmr)
+
 	data, err := nmr.SerializeRequest(data)
 	if err != nil {
 		return err
 	}
 
-	pkt, err := NewPacket(len(data))
+	pkt, err := transport.NewPacket(uint16(len(data)))
 	if err != nil {
 		return err
 	}
 
 	pkt.AddBytes(data)
 
-	if err := cr.conn.Write(pkt); err != nil {
+	if err := cr.conn.WritePacket(pkt); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func NewCmdRunner(conn *transport.Conn) (*CmdRunner, error) {
+func NewCmdRunner(conn transport.Conn) (*CmdRunner, error) {
 	cmd := &CmdRunner{
 		conn: conn,
 	}

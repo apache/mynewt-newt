@@ -17,12 +17,13 @@ package transport
 
 import (
 	"bytes"
+
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/cli"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
 type Conn interface {
-	Open(cp *ConnProfile) error
+	Open(cp *cli.ConnProfile) error
 	ReadPacket() (*Packet, error)
 	WritePacket(pkt *Packet) error
 }
@@ -62,6 +63,9 @@ func NewConn(cp *cli.ConnProfile) (Conn, error) {
 	switch cp.Type {
 	case "serial":
 		c = &ConnSerial{}
+		if err := c.Open(cp); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, util.NewNewtError("Invalid conn profile " + cp.Type +
 			" not implemented")
