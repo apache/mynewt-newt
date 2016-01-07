@@ -40,7 +40,7 @@ func (cs *ConnSerial) Open(cp *cli.ConnProfile) error {
 
 	c := &serial.Config{
 		Name: cp.ConnString,
-		Baud: 9600,
+		Baud: 115200,
 	}
 
 	cs.serialChannel, err = serial.OpenPort(c)
@@ -61,6 +61,13 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 	for scanner.Scan() {
 		line := []byte(scanner.Text())
 
+		for {
+			if len(line) > 1 && line[0] == '\r' {
+				line = line[1:]
+			} else {
+				break
+			}
+		}
 		if len(line) < 2 || ((line[0] != 4 || line[1] != 20) &&
 			(line[0] != 6 || line[1] != 9)) {
 			continue
