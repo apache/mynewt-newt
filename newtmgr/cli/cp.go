@@ -108,6 +108,10 @@ func (cpm *CpMgr) AddConnProfile(cp *ConnProfile) error {
 func (cpm *CpMgr) GetConnProfile(pName string) (*ConnProfile, error) {
 	// Each section is a connection profile, key values are the contents
 	// of that section.
+	if pName == "" {
+		return nil, util.NewNewtError("Need to specify connection profile")
+	}
+
 	sectName := "_conn_profile_" + pName
 
 	cpVals, err := cpm.cDb.GetSect(sectName)
