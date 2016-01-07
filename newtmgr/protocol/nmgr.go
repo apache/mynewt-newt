@@ -39,6 +39,11 @@ const (
 	NMGR_OP_WRITE_RSP = 3
 )
 
+const (
+	NMGR_GROUP_ID_DEFAULT	= 0
+	NMGR_GROUP_ID_IMAGE	= 1
+)
+
 func NewNmgrReq() (*NmgrReq, error) {
 	nmr := &NmgrReq{}
 	nmr.Data = []byte{}

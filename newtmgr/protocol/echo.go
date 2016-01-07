@@ -34,7 +34,7 @@ func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
-	nmr.Group = 0
+	nmr.Group = NMGR_GROUP_ID_DEFAULT
 	nmr.Id = 0
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
