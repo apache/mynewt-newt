@@ -25,18 +25,21 @@ type CmdRunner struct {
 	conn transport.Conn
 }
 
-func (cr *CmdRunner) ReadReq() (*NmgrReq, error) {
-	pkt, err := cr.conn.ReadPacket()
-	if err != nil {
-		return nil, err
-	}
+func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {	
+	for {
+		pkt, err := cr.conn.ReadPacket()
+		if err != nil {
+			return nil, err
+		}
 
-	nmr, err := DeserializeNmgrReq(pkt.GetBytes())
-	if err != nil {
-		return nil, err
+		nmr, err := DeserializeNmgrReq(pkt.GetBytes())
+		if err != nil {
+			return nil, err
+		}
+		if nmr.Op == NMGR_OP_READ_RSP || nmr.Op == NMGR_OP_WRITE_RSP {
+			return nmr, nil
+		}
 	}
-
-	return nmr, nil
 }
 
 func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {

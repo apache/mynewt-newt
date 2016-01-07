@@ -17,6 +17,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -216,7 +217,7 @@ func echoRunCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	rsp, err := runner.ReadReq()
+	rsp, err := runner.ReadResp()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
