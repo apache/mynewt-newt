@@ -239,6 +239,153 @@ func echoCmd() *cobra.Command {
 	return echoCmd
 }
 
+func imageRunCmd(cmd *cobra.Command, args []string) {
+}
+
+func imageListCmd(cmd *cobra.Command, args []string) {
+	cpm, err := cli.NewCpMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	imageList, err := protocol.NewImageList()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := imageList.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	iRsp, err := protocol.DecodeImageListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	for i := 0; i < len(iRsp.Images); i++ {
+		fmt.Println(iRsp.Images[i])
+	}
+}
+
+func imageUploadCmd(cmd *cobra.Command, args []string) {
+	if (len(args) < 1) {
+		nmUsage(cmd, util.NewNewtError("Need to specify image to upload"))
+	}
+
+	imageFile, err := ioutil.ReadFile(args[0])
+	if err != nil {
+		nmUsage(cmd, util.NewNewtError(err.Error()))
+	}
+
+	cpm, err := cli.NewCpMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	var currOff uint32 = 0
+	imageSz := uint32(len(imageFile))
+
+	for currOff < imageSz {
+		imageUpload, err := protocol.NewImageUpload()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+
+		blockSz := imageSz - currOff
+		if (blockSz > 64) {
+			blockSz = 64
+		}
+
+		imageUpload.Offset = currOff
+		imageUpload.Data = imageFile[currOff:currOff + blockSz]
+
+		nmr, err := imageUpload.EncodeWriteRequest()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+
+		if err := runner.WriteReq(nmr); err != nil {
+			nmUsage(cmd, err)
+		}
+
+		rsp, err := runner.ReadResp()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+
+		ersp, err := protocol.DecodeImageUploadResponse(rsp.Data)
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+		currOff = ersp.Offset
+		fmt.Println(currOff)
+	}
+	fmt.Println("Done")
+}
+
+func imageCmd() *cobra.Command {
+	imageCmd := &cobra.Command{
+		Use:   "image",
+		Short: "Manage images on remote instance",
+		Run:   imageRunCmd,
+	}
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "Show target images",
+		Run:   imageListCmd,
+	}
+	imageCmd.AddCommand(listCmd)
+
+	uploadCmd := &cobra.Command{
+		Use:   "upload",
+		Short: "Upload image to a target",
+		Run:   imageUploadCmd,
+	}
+	imageCmd.AddCommand(uploadCmd)
+
+	return imageCmd
+}
+
 func parseCmds() *cobra.Command {
 	nmCmd := &cobra.Command{
 		Use:   "newtmgr",
@@ -256,6 +403,7 @@ func parseCmds() *cobra.Command {
 
 	nmCmd.AddCommand(connProfileCmd())
 	nmCmd.AddCommand(echoCmd())
+	nmCmd.AddCommand(imageCmd())
 
 	return nmCmd
 }
