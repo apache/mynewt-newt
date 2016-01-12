@@ -285,7 +285,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	}
 	fmt.Println("Images:")
 	for i := 0; i < len(iRsp.Images); i++ {
-		fmt.Println("   ", i, ": " + iRsp.Images[i])
+		fmt.Println("   ", i, ": "+iRsp.Images[i])
 	}
 }
 
@@ -407,9 +407,11 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-	fmt.Println("    Test image :", iRsp.TestImage)
-	fmt.Println("    Main image :", iRsp.MainImage)
-	fmt.Println("    Active img :", iRsp.ActiveImage)
+	if len(args) == 0 {
+		fmt.Println("    Test image :", iRsp.TestImage)
+		fmt.Println("    Main image :", iRsp.MainImage)
+		fmt.Println("    Active img :", iRsp.ActiveImage)
+	}
 }
 
 func imageCmd() *cobra.Command {
