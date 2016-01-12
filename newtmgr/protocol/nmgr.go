@@ -40,8 +40,8 @@ const (
 )
 
 const (
-	NMGR_GROUP_ID_DEFAULT	= 0
-	NMGR_GROUP_ID_IMAGE	= 1
+	NMGR_GROUP_ID_DEFAULT = 0
+	NMGR_GROUP_ID_IMAGE   = 1
 )
 
 func NewNmgrReq() (*NmgrReq, error) {

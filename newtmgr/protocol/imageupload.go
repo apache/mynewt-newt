@@ -20,8 +20,8 @@ import (
 )
 
 type ImageUpload struct {
-	Offset	uint32
-	Data	[]byte
+	Offset uint32
+	Data   []byte
 }
 
 func NewImageUpload() (*ImageUpload, error) {

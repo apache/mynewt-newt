@@ -25,7 +25,7 @@ type CmdRunner struct {
 	conn transport.Conn
 }
 
-func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {	
+func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 	for {
 		pkt, err := cr.conn.ReadPacket()
 		if err != nil {
