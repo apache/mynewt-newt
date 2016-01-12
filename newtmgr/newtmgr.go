@@ -239,9 +239,6 @@ func echoCmd() *cobra.Command {
 	return echoCmd
 }
 
-func imageRunCmd(cmd *cobra.Command, args []string) {
-}
-
 func imageListCmd(cmd *cobra.Command, args []string) {
 	cpm, err := cli.NewCpMgr()
 	if err != nil {
@@ -286,13 +283,14 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	fmt.Println("Images:")
 	for i := 0; i < len(iRsp.Images); i++ {
-		fmt.Println(iRsp.Images[i])
+		fmt.Println("   ", i, ": " + iRsp.Images[i])
 	}
 }
 
 func imageUploadCmd(cmd *cobra.Command, args []string) {
-	if (len(args) < 1) {
+	if len(args) < 1 {
 		nmUsage(cmd, util.NewNewtError("Need to specify image to upload"))
 	}
 
@@ -331,12 +329,12 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 
 		blockSz := imageSz - currOff
-		if (blockSz > 64) {
+		if blockSz > 64 {
 			blockSz = 64
 		}
 
 		imageUpload.Offset = currOff
-		imageUpload.Data = imageFile[currOff:currOff + blockSz]
+		imageUpload.Data = imageFile[currOff : currOff+blockSz]
 
 		nmr, err := imageUpload.EncodeWriteRequest()
 		if err != nil {
@@ -362,11 +360,63 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Done")
 }
 
+func imageBootCmd(cmd *cobra.Command, args []string) {
+	cpm, err := cli.NewCpMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	imageBoot, err := protocol.NewImageBoot()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if len(args) >= 1 {
+		imageBoot.BootTarget = args[0]
+	}
+	nmr, err := imageBoot.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	iRsp, err := protocol.DecodeImageBootResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	fmt.Println("    Test image :", iRsp.TestImage)
+	fmt.Println("    Main image :", iRsp.MainImage)
+	fmt.Println("    Active img :", iRsp.ActiveImage)
+}
+
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
 		Short: "Manage images on remote instance",
-		Run:   imageRunCmd,
+		Run:   imageListCmd,
 	}
 
 	listCmd := &cobra.Command{
@@ -382,6 +432,13 @@ func imageCmd() *cobra.Command {
 		Run:   imageUploadCmd,
 	}
 	imageCmd.AddCommand(uploadCmd)
+
+	bootCmd := &cobra.Command{
+		Use:   "boot",
+		Short: "Which image to boot",
+		Run:   imageBootCmd,
+	}
+	imageCmd.AddCommand(bootCmd)
 
 	return imageCmd
 }

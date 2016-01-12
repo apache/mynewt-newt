@@ -30,6 +30,16 @@ func NewImageList() (*ImageList, error) {
 	return s, nil
 }
 
+func ImageVersStr(major uint8, minor uint8, revision uint16, buildNum uint32) string {
+	if major == 0xff && minor == 0xff && revision == 0xffff &&
+		buildNum == 0xffffffff {
+		return "Not set"
+	} else {
+		versStr := fmt.Sprintf("%d.%d.%d.%d", major, minor, revision, buildNum)
+		return versStr
+	}
+}
+
 func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -55,9 +65,9 @@ func DecodeImageListResponse(data []byte) (*ImageList, error) {
 		buildNum := binary.BigEndian.Uint32(data[4:8])
 		data = data[8:]
 
-		versStr := fmt.Sprintf("%d.%d.%d.%d", major, minor, revision, buildNum)
+		versStr := ImageVersStr(major, minor, revision, buildNum)
 		i.Images = append(i.Images, versStr)
-	}	
+	}
 
 	return i, nil
 }
