@@ -19,6 +19,11 @@ type Echo struct {
 	Message string
 }
 
+const (
+	NMGR_ID_ECHO           = 0
+	NMGR_ID_CONS_ECHO_CTRL = 1
+)
+
 func NewEcho() (*Echo, error) {
 	s := &Echo{}
 	return s, nil
@@ -35,7 +40,25 @@ func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_DEFAULT
-	nmr.Id = 0
+	nmr.Id = NMGR_ID_ECHO
+	nmr.Len = uint16(len(data))
+	nmr.Data = data
+
+	return nmr, nil
+}
+
+func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
+	data := []byte(e.Message)
+
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
+
+	nmr.Op = NMGR_OP_WRITE
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_DEFAULT
+	nmr.Id = NMGR_ID_CONS_ECHO_CTRL
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
 

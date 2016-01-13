@@ -289,6 +289,30 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func echoCtrl(runner *protocol.CmdRunner, on int) error {
+	echo := string(on)
+	echoCtrl, err := protocol.NewEcho()
+	if err != nil {
+		return err
+	}
+	echoCtrl.Message = echo
+
+	nmr, err := echoCtrl.EncodeEchoCtrl()
+	if err != nil {
+		return err
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		return err
+	}
+
+	_, err = runner.ReadResp()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		nmUsage(cmd, util.NewNewtError("Need to specify image to upload"))
@@ -315,6 +339,11 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	}
 
 	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	err = echoCtrl(runner, 0)
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -356,6 +385,10 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 		currOff = ersp.Offset
 		fmt.Println(currOff)
+	}
+	err = echoCtrl(runner, 1)
+	if err != nil {
+		nmUsage(cmd, err)
 	}
 	fmt.Println("Done")
 }
