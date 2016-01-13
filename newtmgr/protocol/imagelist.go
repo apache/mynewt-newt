@@ -24,6 +24,12 @@ type ImageList struct {
 	Images []string
 }
 
+const (
+	IMGMGR_NMGR_OP_LIST   = 0
+	IMGMGR_NMGR_OP_UPLOAD = 1
+	IMGMGR_NMGR_OP_BOOT   = 2
+)
+
 func NewImageList() (*ImageList, error) {
 	s := &ImageList{}
 	s.Images = []string{}
@@ -49,7 +55,7 @@ func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = 0
+	nmr.Id = IMGMGR_NMGR_OP_LIST
 	nmr.Len = 0
 
 	return nmr, nil

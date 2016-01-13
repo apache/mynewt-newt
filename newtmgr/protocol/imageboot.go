@@ -48,7 +48,7 @@ func (i *ImageBoot) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = 2
+	nmr.Id = IMGMGR_NMGR_OP_BOOT
 	nmr.Len = 0
 
 	if i.BootTarget != "" {

@@ -54,7 +54,7 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = 1
+	nmr.Id = IMGMGR_NMGR_OP_UPLOAD
 	nmr.Len = uint16(len(data) + 4)
 	data, err = i.SerializeImageUploadReq([]byte{})
 	if err != nil {
