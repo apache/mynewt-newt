@@ -28,6 +28,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -121,7 +122,15 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 func GetStringIdentities(v *viper.Viper, idents map[string]string, key string) string {
 	val := v.GetString(key)
 
+	// Process the identities in alphabetical order to ensure consistent
+	// results across repeated runs.
+	var identKeys []string
 	for ident, _ := range idents {
+		identKeys = append(identKeys, ident)
+	}
+	sort.Strings(identKeys)
+
+	for _, ident := range identKeys {
 		overwriteVal := v.GetString(key + "." + ident + ".OVERWRITE")
 		if overwriteVal != "" {
 			val = strings.Trim(overwriteVal, "\n")
@@ -213,13 +222,13 @@ func ShellInteractiveCommand(cmdStr []string) error {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	signal.Notify(c, syscall.SIGTERM)
-	go func(){
+	go func() {
 		<-c
 	}()
 
 	// Transfer stdin, stdout, and stderr to the new process
 	// and also set target directory for the shell to start in.
-	pa := os.ProcAttr {
+	pa := os.ProcAttr{
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	}
 
