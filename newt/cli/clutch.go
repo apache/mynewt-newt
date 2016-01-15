@@ -230,6 +230,7 @@ func (clutch *Clutch) loadEggs() error {
 	// Multiple package directories to be searched
 	searchDirs := []string{
 		"compiler/",
+		"fs/",
 		"libs/",
 		"net/",
 		"hw/bsp/",
@@ -238,6 +239,7 @@ func (clutch *Clutch) loadEggs() error {
 		"hw/drivers/",
 		"hw/",
 		"project/",
+		"sys/",
 	}
 
 	for _, eggDir := range searchDirs {
