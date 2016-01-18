@@ -16,26 +16,25 @@
 package protocol
 
 import (
-	"encoding/binary"
-	"strconv"
-	"strings"
+	"encoding/json"
 
+	"fmt"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
 type ImageBoot struct {
-	BootTarget  string
-	TestImage   string
-	MainImage   string
-	ActiveImage string
+	BootTarget string
+	Test       string
+	Main       string
+	Active     string
 }
 
 func NewImageBoot() (*ImageBoot, error) {
 	s := &ImageBoot{}
 	s.BootTarget = ""
-	s.TestImage = ""
-	s.MainImage = ""
-	s.ActiveImage = ""
+	s.Test = ""
+	s.Main = ""
+	s.Active = ""
 	return s, nil
 }
 
@@ -52,51 +51,16 @@ func (i *ImageBoot) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Len = 0
 
 	if i.BootTarget != "" {
-		verArray := strings.Split(i.BootTarget, ".")
-		major, err := strconv.ParseUint(verArray[0], 10, 8)
-		if err != nil {
-			return nil, util.NewNewtError("Invalid version string")
-		}
-		minor, err := strconv.ParseUint(verArray[1], 10, 8)
-		if err != nil {
-			return nil, util.NewNewtError("Invalid version string")
+		type BootReq struct {
+			Test string `json:"test"`
 		}
 
-		var revision uint64 = 0
-		if len(verArray) > 2 {
-			revision, err = strconv.ParseUint(verArray[2], 10, 16)
-			if err != nil {
-				return nil, util.NewNewtError("Invalid version string")
-			}
+		bReq := &BootReq{
+			Test: i.BootTarget,
 		}
-
-		var buildNum uint64 = 0
-		if len(verArray) > 3 {
-			buildNum, err = strconv.ParseUint(verArray[3], 10, 32)
-			if err != nil {
-				return nil, util.NewNewtError("Invalid version string")
-			}
-		}
-
-		u8b := make([]byte, 1)
-		u16b := make([]byte, 2)
-		u32b := make([]byte, 4)
-		data := make([]byte, 0)
-
-		u8b[0] = byte(major)
-		data = append(data, u8b...)
-
-		u8b[0] = byte(minor)
-		data = append(data, u8b...)
-
-		binary.BigEndian.PutUint16(u16b, uint16(revision))
-		data = append(data, u16b...)
-
-		binary.BigEndian.PutUint32(u32b, uint32(buildNum))
-		data = append(data, u32b...)
-
+		data, _ := json.Marshal(bReq)
 		nmr.Data = data
-		nmr.Len = 8
+		nmr.Len = uint16(len(data))
 		nmr.Op = NMGR_OP_WRITE
 	}
 	return nmr, nil
@@ -105,27 +69,13 @@ func (i *ImageBoot) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeImageBootResponse(data []byte) (*ImageBoot, error) {
 	i := &ImageBoot{}
 
-	var idx int = 0
-	for len(data) >= 8 {
-		major := uint8(data[0])
-		minor := uint8(data[1])
-		revision := binary.BigEndian.Uint16(data[2:4])
-		buildNum := binary.BigEndian.Uint32(data[4:8])
-		data = data[8:]
-
-		versStr := ImageVersStr(major, minor, revision, buildNum)
-		switch idx {
-		case 0:
-			i.TestImage = versStr
-		case 1:
-			i.MainImage = versStr
-		case 2:
-			i.ActiveImage = versStr
-		default:
-			/* XXXX? */
-		}
-		idx++
+	if len(data) == 0 {
+		return i, nil
 	}
-
+	err := json.Unmarshal(data, &i)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
 	return i, nil
 }

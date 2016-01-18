@@ -441,9 +441,9 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 	if len(args) == 0 {
-		fmt.Println("    Test image :", iRsp.TestImage)
-		fmt.Println("    Main image :", iRsp.MainImage)
-		fmt.Println("    Active img :", iRsp.ActiveImage)
+		fmt.Println("    Test image :", iRsp.Test)
+		fmt.Println("    Main image :", iRsp.Main)
+		fmt.Println("    Active img :", iRsp.Active)
 	}
 }
 

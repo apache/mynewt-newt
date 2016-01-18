@@ -16,8 +16,10 @@
 package protocol
 
 import (
-	"encoding/binary"
+	"encoding/json"
 	"fmt"
+
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
 type ImageList struct {
@@ -62,18 +64,12 @@ func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
 }
 
 func DecodeImageListResponse(data []byte) (*ImageList, error) {
-	i := &ImageList{}
+	list := &ImageList{}
 
-	for len(data) >= 8 {
-		major := uint8(data[0])
-		minor := uint8(data[1])
-		revision := binary.BigEndian.Uint16(data[2:4])
-		buildNum := binary.BigEndian.Uint32(data[4:8])
-		data = data[8:]
-
-		versStr := ImageVersStr(major, minor, revision, buildNum)
-		i.Images = append(i.Images, versStr)
+	err := json.Unmarshal(data, &list)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
 	}
-
-	return i, nil
+	return list, nil
 }
