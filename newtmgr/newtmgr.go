@@ -358,8 +358,8 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 
 		blockSz := imageSz - currOff
-		if blockSz > 64 {
-			blockSz = 64
+		if blockSz > 32 {
+			blockSz = 32
 		}
 
 		imageUpload.Offset = currOff
