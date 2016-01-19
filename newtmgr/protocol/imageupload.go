@@ -16,36 +16,29 @@
 package protocol
 
 import (
-	"encoding/binary"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
 type ImageUpload struct {
-	Offset uint32
-	Data   []byte
+	Offset  uint32	`json:"off"`
+	Data []byte
 }
 
 func NewImageUpload() (*ImageUpload, error) {
 	s := &ImageUpload{}
 	s.Offset = 0
-	s.Data = []byte{}
 
 	return s, nil
 }
 
-func (i *ImageUpload) SerializeImageUploadReq(data []byte) ([]byte, error) {
-	u32b := make([]byte, 4)
-
-	binary.BigEndian.PutUint32(u32b, i.Offset)
-	data = append(data, u32b...)
-
-	data = append(data, i.Data...)
-
-	return data, nil
-}
-
 func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
-	data := []byte(i.Data)
-
+	type UploadReq struct {
+		Off uint32 `json:"off"`
+		Data string `json:"data"`
+	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -55,11 +48,13 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
 	nmr.Id = IMGMGR_NMGR_OP_UPLOAD
-	nmr.Len = uint16(len(data) + 4)
-	data, err = i.SerializeImageUploadReq([]byte{})
-	if err != nil {
-		return nil, err
+
+	uploadReq := &UploadReq{
+		Off : i.Offset,
+		Data : base64.StdEncoding.EncodeToString(i.Data),
 	}
+	data, _ := json.Marshal(uploadReq)
+	nmr.Len = uint16(len(data))
 	nmr.Data = data
 
 	return nmr, nil
@@ -67,8 +62,11 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 
 func DecodeImageUploadResponse(data []byte) (*ImageUpload, error) {
 	i := &ImageUpload{}
-	i.Offset = binary.BigEndian.Uint32(data[0:4])
-	i.Data = data[4:]
 
+	err := json.Unmarshal(data, &i)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
 	return i, nil
 }
