@@ -30,7 +30,11 @@ func NewEcho() (*Echo, error) {
 }
 
 func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
-	data := []byte(e.Message)
+	msg := "{\"d\": \""
+	msg += e.Message
+	msg += "\"}"
+
+	data := []byte(msg)
 
 	nmr, err := NewNmgrReq()
 	if err != nil {
