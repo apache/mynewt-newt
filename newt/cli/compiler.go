@@ -433,7 +433,7 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 		cmd += " " + objList
 	}
 
-	cmd += c.ldFlags
+	cmd += " " + c.ldFlags
 
 	if c.LinkerScript != "" {
 		cmd += " -T " + c.LinkerScript
