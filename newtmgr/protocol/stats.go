@@ -15,10 +15,66 @@
 
 package protocol
 
-type Stats struct {
+import (
+	"encoding/json"
+	"fmt"
+
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+)
+
+const (
+	STATS_NMGR_OP_READ = 0
+)
+
+const (
+	NMGR_GROUP_ID_STATS = 2
+)
+
+type StatsReadReq struct {
+	Name string `json:"n"`
 }
 
-func NewStats() (*Stats, error) {
-	s := &Stats{}
+type StatsReadRsp struct {
+	Name   string                 `json:"n"`
+	Fields map[string]interface{} `json:"f"`
+}
+
+func NewStatsReadReq() (*StatsReadReq, error) {
+	s := &StatsReadReq{}
+	s.Name = ""
+
 	return s, nil
+}
+
+func (sr *StatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
+
+	nmr.Op = NMGR_OP_READ
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_STATS
+	nmr.Id = STATS_NMGR_OP_READ
+
+	srr := &StatsReadReq{
+		Name: sr.Name,
+	}
+
+	data, _ := json.Marshal(srr)
+	nmr.Data = data
+	nmr.Len = uint16(len(data))
+
+	return nmr, nil
+}
+
+func DecodeStatsReadResponse(data []byte) (*StatsReadRsp, error) {
+	var sr StatsReadRsp
+	err := json.Unmarshal(data, &sr)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
+
+	return &sr, nil
 }

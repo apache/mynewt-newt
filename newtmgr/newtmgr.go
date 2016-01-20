@@ -239,6 +239,69 @@ func echoCmd() *cobra.Command {
 	return echoCmd
 }
 
+func statsRunCmd(cmd *cobra.Command, args []string) {
+	cpm, err := cli.NewCpMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	srr, err := protocol.NewStatsReadReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	srr.Name = args[0]
+
+	nmr, err := srr.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	srrsp, err := protocol.DecodeStatsReadResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	fmt.Printf("Stats Name: %s\n", srr.Name)
+	for k, v := range srrsp.Fields {
+		fmt.Printf("  %s: %d\n", k, int(v.(float64)))
+	}
+}
+
+func statsCmd() *cobra.Command {
+	statsCmd := &cobra.Command{
+		Use:   "stat",
+		Short: "Read statistics from a remote endpoint",
+		Run:   statsRunCmd,
+	}
+
+	return statsCmd
+}
+
 func imageListCmd(cmd *cobra.Command, args []string) {
 	cpm, err := cli.NewCpMgr()
 	if err != nil {
@@ -493,6 +556,7 @@ func parseCmds() *cobra.Command {
 	nmCmd.AddCommand(connProfileCmd())
 	nmCmd.AddCommand(echoCmd())
 	nmCmd.AddCommand(imageCmd())
+	nmCmd.AddCommand(statsCmd())
 
 	return nmCmd
 }
