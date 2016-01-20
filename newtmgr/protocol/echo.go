@@ -15,6 +15,14 @@
 
 package protocol
 
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+)
+
 type Echo struct {
 	Message string
 }
@@ -52,7 +60,18 @@ func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 }
 
 func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
-	data := []byte(e.Message)
+	type SerialEchoCtl struct {
+		Echo int `json:"echo"`
+	}
+
+	integer, err := strconv.Atoi(e.Message)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid echo ctrl setting %s",
+			err.Error()))
+	}
+	echoCtl := &SerialEchoCtl{
+		Echo: integer,
+	}
 
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -63,6 +82,8 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_DEFAULT
 	nmr.Id = NMGR_ID_CONS_ECHO_CTRL
+
+	data, _ := json.Marshal(echoCtl)
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
 

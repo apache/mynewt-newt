@@ -289,13 +289,12 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func echoCtrl(runner *protocol.CmdRunner, on int) error {
-	echo := string(on)
+func echoCtrl(runner *protocol.CmdRunner, echoOn string) error {
 	echoCtrl, err := protocol.NewEcho()
 	if err != nil {
 		return err
 	}
-	echoCtrl.Message = echo
+	echoCtrl.Message = echoOn
 
 	nmr, err := echoCtrl.EncodeEchoCtrl()
 	if err != nil {
@@ -342,12 +341,10 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-
-	err = echoCtrl(runner, 0)
+	err = echoCtrl(runner, "0")
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-
 	var currOff uint32 = 0
 	imageSz := uint32(len(imageFile))
 
@@ -386,7 +383,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		currOff = ersp.Offset
 		fmt.Println(currOff)
 	}
-	err = echoCtrl(runner, 1)
+	err = echoCtrl(runner, "1")
 	if err != nil {
 		nmUsage(cmd, err)
 	}
