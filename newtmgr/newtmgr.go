@@ -286,9 +286,12 @@ func statsRunCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	fmt.Printf("Stats Name: %s\n", srr.Name)
-	for k, v := range srrsp.Fields {
-		fmt.Printf("  %s: %d\n", k, int(v.(float64)))
+	fmt.Printf("Return Code = %d\n", srrsp.ReturnCode)
+	if srrsp.ReturnCode == 0 {
+		fmt.Printf("Stats Name: %s\n", srrsp.Name)
+		for k, v := range srrsp.Fields {
+			fmt.Printf("  %s: %d\n", k, int(v.(float64)))
+		}
 	}
 }
 

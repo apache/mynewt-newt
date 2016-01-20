@@ -35,8 +35,9 @@ type StatsReadReq struct {
 }
 
 type StatsReadRsp struct {
-	Name   string                 `json:"n"`
-	Fields map[string]interface{} `json:"f"`
+	ReturnCode int                    `json:"r"`
+	Name       string                 `json:"n"`
+	Fields     map[string]interface{} `json:"f"`
 }
 
 func NewStatsReadReq() (*StatsReadReq, error) {
