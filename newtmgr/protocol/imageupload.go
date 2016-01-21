@@ -23,8 +23,8 @@ import (
 )
 
 type ImageUpload struct {
-	Offset  uint32	`json:"off"`
-	Data []byte
+	Offset uint32 `json:"off"`
+	Data   []byte
 }
 
 func NewImageUpload() (*ImageUpload, error) {
@@ -36,7 +36,7 @@ func NewImageUpload() (*ImageUpload, error) {
 
 func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	type UploadReq struct {
-		Off uint32 `json:"off"`
+		Off  uint32 `json:"off"`
 		Data string `json:"data"`
 	}
 	nmr, err := NewNmgrReq()
@@ -50,8 +50,8 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Id = IMGMGR_NMGR_OP_UPLOAD
 
 	uploadReq := &UploadReq{
-		Off : i.Offset,
-		Data : base64.StdEncoding.EncodeToString(i.Data),
+		Off:  i.Offset,
+		Data: base64.StdEncoding.EncodeToString(i.Data),
 	}
 	data, _ := json.Marshal(uploadReq)
 	nmr.Len = uint16(len(data))
