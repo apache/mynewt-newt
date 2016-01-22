@@ -426,6 +426,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 
 		imageUpload.Offset = currOff
+		imageUpload.Size = imageSz
 		imageUpload.Data = imageFile[currOff : currOff+blockSz]
 
 		nmr, err := imageUpload.EncodeWriteRequest()
