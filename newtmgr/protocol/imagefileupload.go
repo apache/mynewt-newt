@@ -76,7 +76,6 @@ func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	}
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
-	fmt.Printf("File upload %s\n", data)
 
 	return nmr, nil
 }
