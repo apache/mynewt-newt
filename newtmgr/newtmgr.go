@@ -421,8 +421,8 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 
 		blockSz := imageSz - currOff
-		if blockSz > 32 {
-			blockSz = 32
+		if blockSz > 36 {
+			blockSz = 36
 		}
 
 		imageUpload.Offset = currOff
@@ -511,6 +511,96 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func fileUploadCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
+		nmUsage(cmd, util.NewNewtError(
+			"Need to specify file and target filename to upload"))
+	}
+
+	file, err := ioutil.ReadFile(args[0])
+	if err != nil {
+		nmUsage(cmd, util.NewNewtError(err.Error()))
+	}
+
+	filename := args[1]
+	if len(filename) > 64 {
+		nmUsage(cmd, util.NewNewtError("Target filename too long"))
+	}
+
+	cpm, err := cli.NewCpMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	err = echoCtrl(runner, "0")
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	var currOff uint32 = 0
+	fileSz := uint32(len(file))
+
+	for currOff < fileSz {
+		fileUpload, err := protocol.NewFileUpload()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+
+		blockSz := fileSz - currOff
+		if currOff == 0 {
+			blockSz = 3
+		} else {
+			if blockSz > 36 {
+				blockSz = 36
+			}
+		}
+
+		fileUpload.Offset = currOff
+		fileUpload.Size = fileSz
+		fileUpload.Name = filename
+		fileUpload.Data = file[currOff : currOff+blockSz]
+
+		nmr, err := fileUpload.EncodeWriteRequest()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+
+		if err := runner.WriteReq(nmr); err != nil {
+			nmUsage(cmd, err)
+		}
+
+		rsp, err := runner.ReadResp()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+
+		ersp, err := protocol.DecodeFileUploadResponse(rsp.Data)
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+		currOff = ersp.Offset
+		fmt.Println(currOff)
+	}
+	err = echoCtrl(runner, "1")
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	fmt.Println("Done")
+}
+
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
@@ -527,7 +617,7 @@ func imageCmd() *cobra.Command {
 
 	uploadCmd := &cobra.Command{
 		Use:   "upload",
-		Short: "Upload image to a target",
+		Short: "Upload image to target",
 		Run:   imageUploadCmd,
 	}
 	imageCmd.AddCommand(uploadCmd)
@@ -538,6 +628,13 @@ func imageCmd() *cobra.Command {
 		Run:   imageBootCmd,
 	}
 	imageCmd.AddCommand(bootCmd)
+
+	fileUploadCmd := &cobra.Command{
+		Use:   "fileupload",
+		Short: "Upload file to target",
+		Run:   fileUploadCmd,
+	}
+	imageCmd.AddCommand(fileUploadCmd)
 
 	return imageCmd
 }

@@ -30,6 +30,7 @@ const (
 	IMGMGR_NMGR_OP_LIST   = 0
 	IMGMGR_NMGR_OP_UPLOAD = 1
 	IMGMGR_NMGR_OP_BOOT   = 2
+	IMGMGR_NMGR_OP_FILE   = 3
 )
 
 func NewImageList() (*ImageList, error) {
