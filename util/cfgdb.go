@@ -18,8 +18,9 @@ package util
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type CfgDb struct {
@@ -99,6 +100,28 @@ func (c *CfgDb) Init(prefix string, dbPath string) error {
 	}
 
 	return nil
+}
+
+func (c *CfgDb) HasSect(sect string) bool {
+	_, ok := c.Config[sect]
+	if !ok {
+		return false
+	}
+	return true
+}
+
+func (c *CfgDb) HasKey(sect string, key string) bool {
+	sMap, ok := c.Config[sect]
+	if !ok {
+		return false
+	}
+
+	_, ok = sMap[key]
+	if !ok {
+		return false
+	}
+
+	return true
 }
 
 func (c *CfgDb) GetKey(sect string, key string) (string, error) {
