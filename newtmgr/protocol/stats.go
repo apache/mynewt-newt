@@ -31,13 +31,14 @@ const (
 )
 
 type StatsReadReq struct {
-	Name string `json:"n"`
+	Name string `json:"name"`
 }
 
 type StatsReadRsp struct {
-	ReturnCode int                    `json:"r"`
-	Name       string                 `json:"n"`
-	Fields     map[string]interface{} `json:"f"`
+	ReturnCode int                    `json:"rc"`
+	Name       string                 `json:"name"`
+	Group      string                 `json:"group"`
+	Fields     map[string]interface{} `json:"fields"`
 }
 
 func NewStatsReadReq() (*StatsReadReq, error) {

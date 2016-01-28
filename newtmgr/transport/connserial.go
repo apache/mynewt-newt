@@ -28,18 +28,18 @@ import (
 )
 
 type ConnSerial struct {
-	cp            *cli.ConnProfile
+	cp            cli.NewtmgrConnProfile
 	currentPacket *Packet
 
 	scanner       *bufio.Scanner
 	serialChannel *serial.Port
 }
 
-func (cs *ConnSerial) Open(cp *cli.ConnProfile) error {
+func (cs *ConnSerial) Open(cp cli.NewtmgrConnProfile) error {
 	var err error
 
 	c := &serial.Config{
-		Name: cp.ConnString,
+		Name: cp.ConnString(),
 		Baud: 115200,
 	}
 
@@ -77,8 +77,9 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 
 		data, err := base64.StdEncoding.DecodeString(base64Data)
 		if err != nil {
-			return nil, util.NewNewtError(fmt.Sprintf("Couldn't decode base64 string: %b",
-				line))
+			return nil, util.NewNewtError(
+				fmt.Sprintf("Couldn't decode base64 string: %b",
+					line))
 		}
 
 		if line[0] == 6 && line[1] == 9 {

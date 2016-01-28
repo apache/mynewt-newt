@@ -23,7 +23,7 @@ import (
 )
 
 type Conn interface {
-	Open(cp *cli.ConnProfile) error
+	Open(cp cli.NewtmgrConnProfile) error
 	ReadPacket() (*Packet, error)
 	WritePacket(pkt *Packet) error
 }
@@ -56,18 +56,18 @@ func (pkt *Packet) GetBytes() []byte {
 	return pkt.buffer.Bytes()
 }
 
-func NewConn(cp *cli.ConnProfile) (Conn, error) {
+func NewConn(cp cli.NewtmgrConnProfile) (Conn, error) {
 	// Based on ConnProfile, instantiate the right type of conn object, that
 	// implements the conn interface.
 	var c Conn
-	switch cp.Type {
+	switch cp.Type() {
 	case "serial":
 		c = &ConnSerial{}
 		if err := c.Open(cp); err != nil {
 			return nil, err
 		}
 	default:
-		return nil, util.NewNewtError("Invalid conn profile " + cp.Type +
+		return nil, util.NewNewtError("Invalid conn profile " + cp.Type() +
 			" not implemented")
 	}
 

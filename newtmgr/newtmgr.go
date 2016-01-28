@@ -75,11 +75,11 @@ func connProfileAddCmd(cmd *cobra.Command, args []string) {
 		s := strings.Split(vdef, "=")
 		switch s[0] {
 		case "name":
-			cp.Name = s[1]
+			cp.MyName = s[1]
 		case "type":
-			cp.Type = s[1]
+			cp.MyType = s[1]
 		case "connstring":
-			cp.ConnString = s[1]
+			cp.MyConnString = s[1]
 		default:
 			nmUsage(cmd, util.NewNewtError("Unknown variable "+s[0]))
 		}
@@ -112,7 +112,7 @@ func connProfileShowCmd(cmd *cobra.Command, args []string) {
 	for _, cp := range cpList {
 		// Print out the connection profile, if name is "" or name
 		// matches cp.Name
-		if name != "" && cp.Name != name {
+		if name != "" && cp.Name() != name {
 			continue
 		}
 
@@ -120,8 +120,8 @@ func connProfileShowCmd(cmd *cobra.Command, args []string) {
 			found = true
 			fmt.Printf("Connection profiles: \n")
 		}
-		fmt.Printf("  %s: type=%s, connstring='%s'\n", cp.Name, cp.Type,
-			cp.ConnString)
+		fmt.Printf("  %s: type=%s, connstring='%s'\n", cp.MyName, cp.MyType,
+			cp.MyConnString)
 	}
 
 	if !found {
@@ -697,7 +697,9 @@ func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
 		Short: "Manage images on remote instance",
-		Run:   imageListCmd,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
 	}
 
 	listCmd := &cobra.Command{

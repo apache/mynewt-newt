@@ -16,19 +16,26 @@
 package cli
 
 import (
+	"log"
+
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 	"github.com/mitchellh/go-homedir"
-	"log"
 )
 
 type CpMgr struct {
 	cDb *util.CfgDb
 }
 
+type NewtmgrConnProfile interface {
+	Name() string
+	Type() string
+	ConnString() string
+}
+
 type ConnProfile struct {
-	Name       string
-	Type       string
-	ConnString string
+	MyName       string
+	MyType       string
+	MyConnString string
 }
 
 func NewCpMgr() (*CpMgr, error) {
@@ -91,16 +98,16 @@ func (cpm *CpMgr) DeleteConnProfile(name string) error {
 }
 
 func (cpm *CpMgr) AddConnProfile(cp *ConnProfile) error {
-	sect := "_conn_profile_" + cp.Name
+	sect := "_conn_profile_" + cp.Name()
 	cDb := cpm.cDb
 
 	// First serialize the conn profile into the configuration database
-	cDb.SetKey(sect, "name", cp.Name)
-	cDb.SetKey(sect, "type", cp.Type)
-	cDb.SetKey(sect, "connstring", cp.ConnString)
+	cDb.SetKey(sect, "name", cp.Name())
+	cDb.SetKey(sect, "type", cp.Type())
+	cDb.SetKey(sect, "connstring", cp.ConnString())
 
 	// Then write the ConnProfile to the ConnProfileList
-	cDb.SetKey("conn_profile_list", cp.Name, cp.Name)
+	cDb.SetKey("conn_profile_list", cp.Name(), cp.Name())
 
 	return nil
 }
@@ -127,11 +134,11 @@ func (cpm *CpMgr) GetConnProfile(pName string) (*ConnProfile, error) {
 	for k, v := range cpVals {
 		switch k {
 		case "name":
-			cp.Name = v
+			cp.MyName = v
 		case "type":
-			cp.Type = v
+			cp.MyType = v
 		case "connstring":
-			cp.ConnString = v
+			cp.MyConnString = v
 		default:
 			return nil, util.NewNewtError(
 				"Invalid key " + k + " with val " + v)
@@ -141,9 +148,21 @@ func (cpm *CpMgr) GetConnProfile(pName string) (*ConnProfile, error) {
 	return cp, nil
 }
 
+func (cp *ConnProfile) Name() string {
+	return cp.MyName
+}
+
+func (cp *ConnProfile) Type() string {
+	return cp.MyType
+}
+
+func (cp *ConnProfile) ConnString() string {
+	return cp.MyConnString
+}
+
 func NewConnProfile(pName string) (*ConnProfile, error) {
 	cp := &ConnProfile{}
-	cp.Name = pName
+	cp.MyName = pName
 
 	return cp, nil
 }
