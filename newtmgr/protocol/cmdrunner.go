@@ -32,6 +32,9 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 			return nil, err
 		}
 
+		bytes := pkt.GetBytes()
+		bytes = bytes[8:]
+
 		nmr, err := DeserializeNmgrReq(pkt.GetBytes())
 		if err != nil {
 			return nil, err

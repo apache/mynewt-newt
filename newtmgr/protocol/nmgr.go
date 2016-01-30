@@ -68,8 +68,10 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 
 	data = data[8:]
 	if int(nmr.Len) != len(data) {
-		return nil, util.NewNewtError("Newtmgr request length doesn't " +
-			"match data length.")
+		return nil, util.NewNewtError(
+			fmt.Sprintf("Newtmgr request length doesn't match data length."+
+				"  Newtmgr length = %d, Data length = %d\n", nmr.Len,
+				len(data)))
 	}
 	nmr.Data = data
 

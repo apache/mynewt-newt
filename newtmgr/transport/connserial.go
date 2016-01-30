@@ -79,7 +79,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 		if err != nil {
 			return nil, util.NewNewtError(
 				fmt.Sprintf("Couldn't decode base64 string: %b",
-					line))
+					base64Data))
 		}
 
 		if line[0] == 6 && line[1] == 9 {

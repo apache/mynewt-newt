@@ -30,7 +30,6 @@ type Conn interface {
 
 type Packet struct {
 	expectedLen uint16
-	readLen     uint16
 	buffer      *bytes.Buffer
 }
 
