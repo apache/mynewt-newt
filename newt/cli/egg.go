@@ -602,7 +602,12 @@ func (egg *Egg) LoadDependencies(identities map[string]string,
 	egg.DownloadScript = GetStringIdentities(v, identities, "egg.downloadscript")
 	egg.DebugScript = GetStringIdentities(v, identities, "egg.debugscript")
 
-	egg.Cflags = GetStringIdentities(v, identities, "egg.cflags")
+	egg.Cflags = ""
+	cflags := GetStringSliceIdentities(v, identities, "egg.cflags")
+	for _, name := range cflags {
+		fmt.Printf("Egg %s Cflag >%s<\n", egg.Name, name)
+		egg.Cflags += " " + name
+	}
 	egg.Lflags = GetStringIdentities(v, identities, "egg.lflags")
 	egg.Aflags = GetStringIdentities(v, identities, "egg.aflags")
 
