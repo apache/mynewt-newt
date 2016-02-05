@@ -96,7 +96,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	ar := strings.Split(args[1], "=")
+	ar := strings.SplitN(args[1], "=", 2)
 
 	t.Vars[ar[0]] = ar[1]
 
