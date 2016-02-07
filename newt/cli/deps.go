@@ -98,6 +98,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		return false, err
 	}
 	if CommandHasChanged(objFile, cmd) {
+		StatusMessage(VERBOSITY_VERBOSE, "%s - rebuild required; different command\n", srcFile)
 		return true, nil
 	}
 
@@ -114,6 +115,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// If the object doesn't exist or is older than the source file, a build is
 	// required; no need to check dependencies.
 	if srcModTime.After(objModTime) {
+		StatusMessage(VERBOSITY_VERBOSE, "%s - rebuild required; source newer than obj\n", srcFile)
 		return true, nil
 	}
 
@@ -141,7 +143,14 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// Check if any dependencies are newer than the destination object file.
 	for _, dep := range deps {
 		if NodeNotExist(dep) {
-			depModTime = time.Now()
+			// The dependency has been deleted; the .d file is out of date.
+			// Recreate the dependency file and repeat this entire function.
+			err := tracker.compiler.GenDepsForFile(srcFile)
+			if err != nil {
+				return false, err
+			}
+
+			return tracker.CompileRequired(srcFile, compilerType)
 		} else {
 			depModTime, err = FileModificationTime(dep)
 			if err != nil {
@@ -150,6 +159,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		}
 
 		if depModTime.After(objModTime) {
+			StatusMessage(VERBOSITY_VERBOSE, "%s - rebuild required; obj older than dependency (%s)\n", srcFile, dep)
 			return true, nil
 		}
 	}
