@@ -44,84 +44,84 @@ type DependencyRequirement struct {
 	VersMatches []*VersMatch
 }
 
-type Egg struct {
-	// Base directory of the egg
+type Pkg struct {
+	// Base directory of the pkg
 	BasePath string
-	// Name of the egg
+	// Name of the pkg
 	Name string
-	// Full Name of the egg include prefix dir
+	// Full Name of the pkg include prefix dir
 	FullName string
-	// Nest this egg belongs to
-	Nest *Nest
-	// Egg version
+	// Repo this pkg belongs to
+	Repo *Repo
+	// Pkg version
 	Version *Version
-	// Type of egg
+	// Type of pkg
 	LinkerScript string
 
-	// For BSP egg, how to download
+	// For BSP pkg, how to download
 	DownloadScript string
-	// For BSP egg, how to start debugger and attach it to target board
+	// For BSP pkg, how to start debugger and attach it to target board
 	DebugScript string
 
-	// Has the dependencies been loaded for this egg
+	// Has the dependencies been loaded for this pkg
 	DepLoaded bool
 
-	// Has the configuration been loaded for this egg
+	// Has the configuration been loaded for this pkg
 	CfgLoaded bool
 
-	// Egg sources
+	// Pkg sources
 	Sources []string
-	// Egg include directories
+	// Pkg include directories
 	Includes []string
 
-	// Egg compiler flags
+	// Pkg compiler flags
 	Cflags string
 
-	// Egg linker flags
+	// Pkg linker flags
 	Lflags string
 
-	// Egg assembler flags
+	// Pkg assembler flags
 	Aflags string
 
-	// Whether or not this egg is a BSP
+	// Whether or not this pkg is a BSP
 	IsBsp bool
 
-	// Capabilities that this egg exports
+	// Capabilities that this pkg exports
 	Capabilities []*DependencyRequirement
 
-	// Capabilities that this egg requires
+	// Capabilities that this pkg requires
 	ReqCapabilities []*DependencyRequirement
 
-	// Whether or not we've already compiled this egg
+	// Whether or not we've already compiled this pkg
 	Built bool
 
-	// Whether or not we've already cleaned this egg
+	// Whether or not we've already cleaned this pkg
 	Clean bool
 
-	// Eggs that this egg depends on
+	// Pkgs that this pkg depends on
 	Deps []*DependencyRequirement
 }
 
-type EggShell struct {
+type PkgDesc struct {
 	FullName string
 	Version  *Version
-	/* Clutch this eggshell belongs to */
-	Clutch  *Clutch
+	/* PkgList this pkgshell belongs to */
+	PkgList  *PkgList
 	Hash    string
 	Deps    []*DependencyRequirement
 	Caps    []*DependencyRequirement
 	ReqCaps []*DependencyRequirement
 }
 
-func NewEggShell(clutch *Clutch) (*EggShell, error) {
-	eShell := &EggShell{
-		Clutch: clutch,
+func NewPkgDesc(pkgList *PkgList) (*PkgDesc, error) {
+	eShell := &PkgDesc{
+		PkgList: pkgList,
 	}
 
 	return eShell, nil
 }
 
-func (es *EggShell) serializeDepReq(name string,
+func (es *PkgDesc) serializeDepReq(name string,
 	drList []*DependencyRequirement, indent string) string {
 	drStr := ""
 	if len(drList) > 0 {
@@ -134,7 +134,7 @@ func (es *EggShell) serializeDepReq(name string,
 	return drStr
 }
 
-func (es *EggShell) Serialize(indent string) string {
+func (es *PkgDesc) Serialize(indent string) string {
 	esStr := fmt.Sprintf("%s%s:\n", indent, es.FullName)
 	indent += "    "
 	if es.Version == nil {
@@ -323,13 +323,13 @@ func (dr *DependencyRequirement) SatisfiesCapability(
 	return nil
 }
 
-// Check whether the passed in egg satisfies the current dependency requirement
-func (dr *DependencyRequirement) SatisfiesDependency(egg *Egg) bool {
-	if egg.FullName != dr.Name {
+// Check whether the passed in pkg satisfies the current dependency requirement
+func (dr *DependencyRequirement) SatisfiesDependency(pkg *Pkg) bool {
+	if pkg.FullName != dr.Name {
 		return false
 	}
 
-	if egg.Version.SatisfiesVersion(dr.VersMatches) {
+	if pkg.Version.SatisfiesVersion(dr.VersMatches) {
 		return true
 	}
 
@@ -393,42 +393,42 @@ func NewDependencyRequirementParseString(depReq string) (*DependencyRequirement,
 	return dr, nil
 }
 
-// Get a map of egg capabilities.  The returned map contains the name of the
+// Get a map of pkg capabilities.  The returned map contains the name of the
 // capability, and its version as the key, and a pointer to the
 // Capability structure associated with that name.
-func (egg *Egg) GetCapabilities() ([]*DependencyRequirement, error) {
-	return egg.Capabilities, nil
+func (pkg *Pkg) GetCapabilities() ([]*DependencyRequirement, error) {
+	return pkg.Capabilities, nil
 }
 
-// Return the egg dependencies for this egg.
-func (egg *Egg) GetDependencies() ([]*DependencyRequirement, error) {
-	return egg.Deps, nil
+// Return the pkg dependencies for this pkg.
+func (pkg *Pkg) GetDependencies() ([]*DependencyRequirement, error) {
+	return pkg.Deps, nil
 }
 
-func (egg *Egg) GetReqCapabilities() ([]*DependencyRequirement, error) {
-	return egg.ReqCapabilities, nil
+func (pkg *Pkg) GetReqCapabilities() ([]*DependencyRequirement, error) {
+	return pkg.ReqCapabilities, nil
 }
 
-func (eggShell *EggShell) GetCapabilities() ([]*DependencyRequirement, error) {
-	return eggShell.Caps, nil
+func (pkgDesc *PkgDesc) GetCapabilities() ([]*DependencyRequirement, error) {
+	return pkgDesc.Caps, nil
 }
 
-// Return the egg dependencies for this eggShell.
-func (eggShell *EggShell) GetDependencies() ([]*DependencyRequirement, error) {
-	return eggShell.Deps, nil
+// Return the pkg dependencies for this pkgDesc.
+func (pkgDesc *PkgDesc) GetDependencies() ([]*DependencyRequirement, error) {
+	return pkgDesc.Deps, nil
 }
 
-func (eggShell *EggShell) GetReqCapabilities() ([]*DependencyRequirement, error) {
-	return eggShell.ReqCaps, nil
+func (pkgDesc *PkgDesc) GetReqCapabilities() ([]*DependencyRequirement, error) {
+	return pkgDesc.ReqCaps, nil
 }
 
-// Load a egg's configuration information from the egg config
+// Load a pkg's configuration information from the pkg config
 // file.
-func (egg *Egg) GetIncludes(t *Target) ([]string, error) {
-	// Return the include directories for just this egg
+func (pkg *Pkg) GetIncludes(t *Target) ([]string, error) {
+	// Return the include directories for just this pkg
 	incls := []string{
-		egg.BasePath + "/include/",
-		egg.BasePath + "/include/" + egg.Name + "/arch/" + t.Arch + "/",
+		pkg.BasePath + "/include/",
+		pkg.BasePath + "/include/" + pkg.Name + "/arch/" + t.Arch + "/",
 	}
 
 	return incls, nil
@@ -441,7 +441,7 @@ func (egg *Egg) GetIncludes(t *Target) ([]string, error) {
 // @param capList An array of capability strings
 // @return On success error is nil, and a list of capabilities is returned,
 // on failure error is non-nil
-func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
+func (pkg *Pkg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 	if len(capList) == 0 {
 		return nil, nil
 	}
@@ -458,27 +458,27 @@ func (egg *Egg) loadCaps(capList []string) ([]*DependencyRequirement, error) {
 		}
 
 		caps = append(caps, dr)
-		log.Printf("[DEBUG] Appending new capability egg: %s, cap:%s",
-			egg.Name, dr)
+		log.Printf("[DEBUG] Appending new capability pkg: %s, cap:%s",
+			pkg.Name, dr)
 	}
 
 	return caps, nil
 }
 
-// Create a dependency requirement out of an egg
+// Create a dependency requirement out of an pkg
 //
-func (egg *Egg) MakeDependency() (*DependencyRequirement, error) {
-	return NewDependencyRequirementParseString(egg.FullName)
+func (pkg *Pkg) MakeDependency() (*DependencyRequirement, error) {
+	return NewDependencyRequirementParseString(pkg.FullName)
 }
 
-// Generate a hash of the contents of an egg.  This function recursively
+// Generate a hash of the contents of an pkg.  This function recursively
 // processes the contents of a directory, ignoring hidden files and the
 // bin and obj directories.  It returns a hash of all the files, their
 // contents.
-func (egg *Egg) GetHash() (string, error) {
+func (pkg *Pkg) GetHash() (string, error) {
 	hash := sha1.New()
 
-	err := filepath.Walk(egg.BasePath,
+	err := filepath.Walk(pkg.BasePath,
 		func(path string, info os.FileInfo, err error) error {
 			name := info.Name()
 			if name == "bin" || name == "obj" || name[0] == '.' {
@@ -507,136 +507,136 @@ func (egg *Egg) GetHash() (string, error) {
 	return hashStr, nil
 }
 
-// Load egg's configuration, and collect required capabilities, dependencies, and
+// Load pkg's configuration, and collect required capabilities, dependencies, and
 // identities it provides, so we'll have this available when target is being built.
-func (egg *Egg) LoadDependencies(identities map[string]string,
+func (pkg *Pkg) LoadDependencies(identities map[string]string,
 	capabilities map[string]string) error {
 
-	if egg.DepLoaded {
+	if pkg.DepLoaded {
 		return nil
 	}
 
-	log.Printf("[DEBUG] Loading dependencies for egg %s", egg.BasePath)
+	log.Printf("[DEBUG] Loading dependencies for pkg %s", pkg.BasePath)
 
-	v, err := ReadConfig(egg.BasePath, "egg")
+	v, err := ReadConfig(pkg.BasePath, "pkg")
 	if err != nil {
 		return err
 	}
 
-	// Append all identities that this egg exposes.
-	idents := GetStringSliceIdentities(v, identities, "egg.identities")
+	// Append all identities that this pkg exposes.
+	idents := GetStringSliceIdentities(v, identities, "pkg.identities")
 
 	// Add these to project identities
 	for _, item := range idents {
 		StatusMessage(VERBOSITY_VERBOSE, "    Adding identity %s - %s\n", item,
-			egg.FullName)
-		identities[item] = egg.FullName
+			pkg.FullName)
+		identities[item] = pkg.FullName
 	}
 
-	// Load the list of capabilities that this egg exposes
-	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
-		"egg.caps"))
+	// Load the list of capabilities that this pkg exposes
+	pkg.Capabilities, err = pkg.loadCaps(GetStringSliceIdentities(v, identities,
+		"pkg.caps"))
 	if err != nil {
 		return err
 	}
 
 	// Add these to project capabilities
-	for _, cap := range egg.Capabilities {
+	for _, cap := range pkg.Capabilities {
 		if capabilities[cap.String()] != "" &&
-			capabilities[cap.String()] != egg.FullName {
+			capabilities[cap.String()] != pkg.FullName {
 
-			return NewNewtError(fmt.Sprintf("Multiple eggs with "+
+			return NewNewtError(fmt.Sprintf("Multiple pkgs with "+
 				"capability %s (%s and %s)",
-				cap.String(), capabilities[cap.String()], egg.FullName))
+				cap.String(), capabilities[cap.String()], pkg.FullName))
 		}
-		capabilities[cap.String()] = egg.FullName
+		capabilities[cap.String()] = pkg.FullName
 		StatusMessage(VERBOSITY_VERBOSE, "    Adding capability %s - %s\n",
-			cap.String(), egg.FullName)
+			cap.String(), pkg.FullName)
 	}
 
-	// Load the list of capabilities that this egg requires
-	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
-		"egg.req_caps"))
+	// Load the list of capabilities that this pkg requires
+	pkg.ReqCapabilities, err = pkg.loadCaps(GetStringSliceIdentities(v, identities,
+		"pkg.req_caps"))
 	if err != nil {
 		return err
 	}
 
-	// Load egg dependencies
-	depList := GetStringSliceIdentities(v, identities, "egg.deps")
+	// Load pkg dependencies
+	depList := GetStringSliceIdentities(v, identities, "pkg.deps")
 	if len(depList) > 0 {
-		egg.Deps = make([]*DependencyRequirement, 0, len(depList))
+		pkg.Deps = make([]*DependencyRequirement, 0, len(depList))
 		for _, depStr := range depList {
-			log.Printf("[DEBUG] Loading dependency %s from egg %s", depStr,
-				egg.FullName)
+			log.Printf("[DEBUG] Loading dependency %s from pkg %s", depStr,
+				pkg.FullName)
 			dr, err := NewDependencyRequirementParseString(depStr)
 			if err != nil {
 				return err
 			}
 
-			egg.Deps = append(egg.Deps, dr)
+			pkg.Deps = append(pkg.Deps, dr)
 		}
 	}
-	for _, cap := range egg.ReqCapabilities {
-		eggName := capabilities[cap.String()]
-		if eggName == "" {
+	for _, cap := range pkg.ReqCapabilities {
+		pkgName := capabilities[cap.String()]
+		if pkgName == "" {
 			continue
 		}
-		dr, err := NewDependencyRequirementParseString(eggName)
+		dr, err := NewDependencyRequirementParseString(pkgName)
 		if err != nil {
 			return err
 		}
-		egg.Deps = append(egg.Deps, dr)
+		pkg.Deps = append(pkg.Deps, dr)
 	}
 
-	eggName := identities["LIBC"]
-	if eggName != "" {
-		dr, err := NewDependencyRequirementParseString(eggName)
+	pkgName := identities["LIBC"]
+	if pkgName != "" {
+		dr, err := NewDependencyRequirementParseString(pkgName)
 		if err != nil {
 			return err
 		}
-		egg.Deps = append(egg.Deps, dr)
+		pkg.Deps = append(pkg.Deps, dr)
 	}
 
 	// Check these as well
-	egg.LinkerScript = GetStringIdentities(v, identities, "egg.linkerscript")
-	egg.DownloadScript = GetStringIdentities(v, identities, "egg.downloadscript")
-	egg.DebugScript = GetStringIdentities(v, identities, "egg.debugscript")
+	pkg.LinkerScript = GetStringIdentities(v, identities, "pkg.linkerscript")
+	pkg.DownloadScript = GetStringIdentities(v, identities, "pkg.downloadscript")
+	pkg.DebugScript = GetStringIdentities(v, identities, "pkg.debugscript")
 
-	egg.Cflags = ""
-	cflags := GetStringSliceIdentities(v, identities, "egg.cflags")
+	pkg.Cflags = ""
+	cflags := GetStringSliceIdentities(v, identities, "pkg.cflags")
 	for _, name := range cflags {
-		egg.Cflags += " " + name
+		pkg.Cflags += " " + name
 	}
-	egg.Lflags = GetStringIdentities(v, identities, "egg.lflags")
-	egg.Aflags = GetStringIdentities(v, identities, "egg.aflags")
+	pkg.Lflags = GetStringIdentities(v, identities, "pkg.lflags")
+	pkg.Aflags = GetStringIdentities(v, identities, "pkg.aflags")
 
-	egg.DepLoaded = true
+	pkg.DepLoaded = true
 
 	return nil
 }
 
-// Collect identities and capabilities that egg and it's dependencies provide
-func (egg *Egg) collectDependencies(clutch *Clutch,
+// Collect identities and capabilities that pkg and it's dependencies provide
+func (pkg *Pkg) collectDependencies(pkgList *PkgList,
 	identities map[string]string,
 	capabilities map[string]string) error {
 
-	if egg.DepLoaded {
+	if pkg.DepLoaded {
 		return nil
 	}
 
-	StatusMessage(VERBOSITY_VERBOSE, "  Collecting egg %s dependencies\n", egg.Name)
+	StatusMessage(VERBOSITY_VERBOSE, "  Collecting pkg %s dependencies\n", pkg.Name)
 
-	err := egg.LoadDependencies(identities, capabilities)
+	err := pkg.LoadDependencies(identities, capabilities)
 	if err != nil {
 		return err
 	}
 
-	for _, dep := range egg.Deps {
-		egg, err := clutch.ResolveEggName(dep.Name)
+	for _, dep := range pkg.Deps {
+		pkg, err := pkgList.ResolvePkgName(dep.Name)
 		if err != nil {
 			return err
 		}
-		err = egg.collectDependencies(clutch, identities, capabilities)
+		err = pkg.collectDependencies(pkgList, identities, capabilities)
 		if err != nil {
 			return err
 		}
@@ -644,145 +644,145 @@ func (egg *Egg) collectDependencies(clutch *Clutch,
 	return nil
 }
 
-// Clear the var which says that dependencies have been checked for this egg and
+// Clear the var which says that dependencies have been checked for this pkg and
 // it's dependencies
-func (egg *Egg) clearDependencyMarker(clutch *Clutch) {
+func (pkg *Pkg) clearDependencyMarker(pkgList *PkgList) {
 
-	if egg.DepLoaded == false {
+	if pkg.DepLoaded == false {
 		return
 	}
-	egg.DepLoaded = false
+	pkg.DepLoaded = false
 
-	for _, dep := range egg.Deps {
-		egg, err := clutch.ResolveEggName(dep.Name)
+	for _, dep := range pkg.Deps {
+		pkg, err := pkgList.ResolvePkgName(dep.Name)
 		if err == nil {
-			egg.clearDependencyMarker(clutch)
+			pkg.clearDependencyMarker(pkgList)
 		}
 	}
 }
 
-// Load a egg's configuration.  This allocates & initializes a fair number of
-// the main data structures within the egg.
-func (egg *Egg) LoadConfig(t *Target, force bool) error {
-	if egg.CfgLoaded && !force {
+// Load a pkg's configuration.  This allocates & initializes a fair number of
+// the main data structures within the pkg.
+func (pkg *Pkg) LoadConfig(t *Target, force bool) error {
+	if pkg.CfgLoaded && !force {
 		return nil
 	}
 
-	log.Printf("[DEBUG] Loading configuration for egg %s", egg.BasePath)
+	log.Printf("[DEBUG] Loading configuration for pkg %s", pkg.BasePath)
 
-	v, err := ReadConfig(egg.BasePath, "egg")
+	v, err := ReadConfig(pkg.BasePath, "pkg")
 	if err != nil {
 		return err
 	}
 
-	egg.FullName = v.GetString("egg.name")
-	egg.Name = filepath.Base(egg.FullName)
+	pkg.FullName = v.GetString("pkg.name")
+	pkg.Name = filepath.Base(pkg.FullName)
 
-	egg.Version, err = NewVersParseString(v.GetString("egg.vers"))
+	pkg.Version, err = NewVersParseString(v.GetString("pkg.vers"))
 	if err != nil {
 		return err
 	}
 
-	// Append all the identities that this egg exposes to sub-eggs.  This must
+	// Append all the identities that this pkg exposes to sub-pkgs.  This must
 	// be done before the remainder of the settings, as some settings depend on
 	// identity.
 	identities := map[string]string{}
 	if t != nil {
 		identities = t.Identities;
-		idents := GetStringSliceIdentities(v, identities, "egg.identities")
+		idents := GetStringSliceIdentities(v, identities, "pkg.identities")
 		for _, item := range idents {
-		    identities[item] = egg.FullName;
+		    identities[item] = pkg.FullName;
 		}
 	}
 
-	egg.LinkerScript = GetStringIdentities(v, identities, "egg.linkerscript")
-	egg.DownloadScript = GetStringIdentities(v, identities, "egg.downloadscript")
-	egg.DebugScript = GetStringIdentities(v, identities, "egg.debugscript")
+	pkg.LinkerScript = GetStringIdentities(v, identities, "pkg.linkerscript")
+	pkg.DownloadScript = GetStringIdentities(v, identities, "pkg.downloadscript")
+	pkg.DebugScript = GetStringIdentities(v, identities, "pkg.debugscript")
 
-	egg.Cflags += GetStringIdentities(v, identities, "egg.cflags")
-	egg.Lflags += GetStringIdentities(v, identities, "egg.lflags")
-	egg.Aflags += GetStringIdentities(v, identities, "egg.aflags")
+	pkg.Cflags += GetStringIdentities(v, identities, "pkg.cflags")
+	pkg.Lflags += GetStringIdentities(v, identities, "pkg.lflags")
+	pkg.Aflags += GetStringIdentities(v, identities, "pkg.aflags")
 
-	// Load egg dependencies
-	depList := GetStringSliceIdentities(v, identities, "egg.deps")
+	// Load pkg dependencies
+	depList := GetStringSliceIdentities(v, identities, "pkg.deps")
 	if len(depList) > 0 {
-		egg.Deps = make([]*DependencyRequirement, 0, len(depList))
+		pkg.Deps = make([]*DependencyRequirement, 0, len(depList))
 		for _, depStr := range depList {
-			log.Printf("[DEBUG] Loading dependency %s from egg %s", depStr,
-				egg.FullName)
+			log.Printf("[DEBUG] Loading dependency %s from pkg %s", depStr,
+				pkg.FullName)
 			dr, err := NewDependencyRequirementParseString(depStr)
 			if err != nil {
 				return err
 			}
 
-			egg.Deps = append(egg.Deps, dr)
+			pkg.Deps = append(pkg.Deps, dr)
 		}
 	}
 
-	// Load the list of capabilities that this egg exposes
-	egg.Capabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
-		"egg.caps"))
+	// Load the list of capabilities that this pkg exposes
+	pkg.Capabilities, err = pkg.loadCaps(GetStringSliceIdentities(v, identities,
+		"pkg.caps"))
 	if err != nil {
 		return err
 	}
 
-	// Load the list of capabilities that this egg requires
-	egg.ReqCapabilities, err = egg.loadCaps(GetStringSliceIdentities(v, identities,
-		"egg.req_caps"))
+	// Load the list of capabilities that this pkg requires
+	pkg.ReqCapabilities, err = pkg.loadCaps(GetStringSliceIdentities(v, identities,
+		"pkg.req_caps"))
 	if err != nil {
 		return err
 	}
-	if len(egg.ReqCapabilities) > 0 {
-		for _, reqStr := range egg.ReqCapabilities {
-			log.Printf("[DEBUG] Loading reqCap %s from egg %s", reqStr,
-				egg.FullName)
+	if len(pkg.ReqCapabilities) > 0 {
+		for _, reqStr := range pkg.ReqCapabilities {
+			log.Printf("[DEBUG] Loading reqCap %s from pkg %s", reqStr,
+				pkg.FullName)
 		}
 	}
-	egg.CfgLoaded = true
+	pkg.CfgLoaded = true
 
 	return nil
 }
 
-// Initialize a egg: loads the egg configuration, and sets up egg data
-// structures.  Should only be called from NewEgg
-func (egg *Egg) Init() error {
+// Initialize a pkg: loads the pkg configuration, and sets up pkg data
+// structures.  Should only be called from NewPkg
+func (pkg *Pkg) Init() error {
 	return nil
 }
 
-// Allocate and initialize a new egg, and return a fully initialized Egg
+// Allocate and initialize a new pkg, and return a fully initialized Pkg
 //     structure.
-// @param nest The Nest this egg is located in
-// @param basePath The path to this egg, within the specified nest
-// @return On success, error is nil, and a Egg is returned.  on failure,
+// @param repo The Repo this pkg is located in
+// @param basePath The path to this pkg, within the specified repo
+// @return On success, error is nil, and a Pkg is returned.  on failure,
 //         error is not nil.
-func NewEgg(nest *Nest, basePath string) (*Egg, error) {
-	egg := &Egg{
+func NewPkg(repo *Repo, basePath string) (*Pkg, error) {
+	pkg := &Pkg{
 		BasePath: basePath,
-		Nest:     nest,
+		Repo:     repo,
 	}
 
-	if err := egg.Init(); err != nil {
+	if err := pkg.Init(); err != nil {
 		return nil, err
 	}
 
-	return egg, nil
+	return pkg, nil
 }
 
-func (egg *Egg) TestBinName() string {
-	return "test_" + egg.Name
+func (pkg *Pkg) TestBinName() string {
+	return "test_" + pkg.Name
 }
 
 /*
- * Download egg from a clutch and stick it to nest.
+ * Download pkg from a pkgList and stick it to repo.
  */
-func (eggShell *EggShell) Install(eggMgr *Clutch, branch string) error {
-	downloaded, err := eggMgr.InstallEgg(eggShell.FullName, branch, nil)
-	for _, remoteNest := range downloaded {
-		remoteNest.Remove()
+func (pkgDesc *PkgDesc) Install(pkgMgr *PkgList, branch string) error {
+	downloaded, err := pkgMgr.InstallPkg(pkgDesc.FullName, branch, nil)
+	for _, remoteRepo := range downloaded {
+		remoteRepo.Remove()
 	}
 	return err
 }
 
-func (egg *Egg) Remove() error {
-	return os.RemoveAll(egg.BasePath)
+func (pkg *Pkg) Remove() error {
+	return os.RemoveAll(pkg.BasePath)
 }

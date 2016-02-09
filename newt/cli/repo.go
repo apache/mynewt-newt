@@ -26,24 +26,24 @@ import (
 	"path/filepath"
 )
 
-type Nest struct {
-	// Name of the Nest
+type Repo struct {
+	// Name of the Repo
 	Name string
 
-	// Path to the Nest Store
+	// Path to the Repo Store
 	StorePath string
 
-	// Path to the Nest Clutches
-	ClutchPath string
+	// Path to the Repo PkgLists
+	PkgListPath string
 
-	// Nest File
-	NestFile string
+	// Repo File
+	RepoFile string
 
 	// Base path of the nest
 	BasePath string
 
-	// Store of Clutches
-	Clutches map[string]*Clutch
+	// Store of PkgLists
+	PkgLists map[string]*PkgList
 
 	// Configuration
 	Config map[string]map[string]string
@@ -52,9 +52,9 @@ type Nest struct {
 	db *sql.DB
 }
 
-// Create a new Nest object and initialize it
-func NewNest() (*Nest, error) {
-	n := &Nest{}
+// Create a new Repo object and initialize it
+func NewRepo() (*Repo, error) {
+	n := &Repo{}
 
 	err := n.Init()
 	if err != nil {
@@ -64,9 +64,9 @@ func NewNest() (*Nest, error) {
 	return n, nil
 }
 
-// Create a Nest object constructed out of repo in given path
-func NewNestWithDir(srcDir string) (*Nest, error) {
-	n := &Nest{}
+// Create a Repo object constructed out of repo in given path
+func NewRepoWithDir(srcDir string) (*Repo, error) {
+	n := &Repo{}
 
 	err := n.InitPath(srcDir)
 	if err != nil {
@@ -76,7 +76,7 @@ func NewNestWithDir(srcDir string) (*Nest, error) {
 	return n, nil
 }
 
-func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
+func CreateRepo(nestName string, destDir string, tadpoleUrl string) error {
 	if tadpoleUrl == "" {
 		tadpoleUrl = "https://git-wip-us.apache.org/repos/asf/incubator-mynewt-tadpole.git"
 	}
@@ -112,7 +112,7 @@ func CreateNest(nestName string, destDir string, tadpoleUrl string) error {
 }
 
 // Get a temporary directory to stick stuff in
-func (nest *Nest) GetTmpDir(dirName string, prefix string) (string, error) {
+func (nest *Repo) GetTmpDir(dirName string, prefix string) (string, error) {
 	tmpDir := dirName
 	if NodeNotExist(tmpDir) {
 		if err := os.MkdirAll(tmpDir, 0700); err != nil {
@@ -131,7 +131,7 @@ func (nest *Nest) GetTmpDir(dirName string, prefix string) (string, error) {
 // Find the repo file.  Searches the current directory, and then recurses
 // parent directories until it finds a file named .repo.yml
 // if no repo file found in the directory heirarchy, an error is returned
-func (nest *Nest) getNestFile() (string, error) {
+func (nest *Repo) getRepoFile() (string, error) {
 	rFile := ""
 
 	curDir, err := os.Getwd()
@@ -159,7 +159,7 @@ func (nest *Nest) getNestFile() (string, error) {
 }
 
 // Create the contents of the configuration database
-func (nest *Nest) createDb(db *sql.DB) error {
+func (nest *Repo) createDb(db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS newt_cfg (
 		cfg_name VARCHAR(255) NOT NULL,
@@ -177,7 +177,7 @@ func (nest *Nest) createDb(db *sql.DB) error {
 
 // Initialize the configuration database specified by dbName.  If the database
 // doesn't exist, create it.
-func (nest *Nest) initDb(dbName string) error {
+func (nest *Repo) initDb(dbName string) error {
 	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func (nest *Nest) initDb(dbName string) error {
 	}
 
 	// Populate repo configuration
-	log.Printf("[DEBUG] Populating Nest configuration from %s", dbName)
+	log.Printf("[DEBUG] Populating Repo configuration from %s", dbName)
 
 	rows, err := db.Query("SELECT * FROM newt_cfg")
 	if err != nil {
@@ -224,7 +224,7 @@ func (nest *Nest) initDb(dbName string) error {
 
 // Get a configuration variable in section sect, with key
 // error is populated if variable doesn't exist
-func (nest *Nest) GetConfig(sect string, key string) (string, error) {
+func (nest *Repo) GetConfig(sect string, key string) (string, error) {
 	sectMap, ok := nest.Config[sect]
 	if !ok {
 		return "", NewNewtError("No configuration section exists")
@@ -238,7 +238,7 @@ func (nest *Nest) GetConfig(sect string, key string) (string, error) {
 	return val, nil
 }
 
-func (nest *Nest) GetConfigSect(sect string) (map[string]string, error) {
+func (nest *Repo) GetConfigSect(sect string) (map[string]string, error) {
 	sm, ok := nest.Config[sect]
 	if !ok {
 		return nil, NewNewtError("No configuration section exists")
@@ -250,7 +250,7 @@ func (nest *Nest) GetConfigSect(sect string) (map[string]string, error) {
 // Delete a configuration variable in section sect with key and val
 // Returns an error if configuration variable cannot be deleted
 // (most likely due to database error or key not existing)
-func (nest *Nest) DelConfig(sect string, key string) error {
+func (nest *Repo) DelConfig(sect string, key string) error {
 	db := nest.db
 
 	log.Printf("[DEBUG] Deleting sect %s, key %s", sect, key)
@@ -287,7 +287,7 @@ func (nest *Nest) DelConfig(sect string, key string) error {
 // Set a configuration variable in section sect with key, and val
 // Returns an error if configuration variable cannot be set
 // (most likely not able to set it in database.)
-func (nest *Nest) SetConfig(sect string, key string, val string) error {
+func (nest *Repo) SetConfig(sect string, key string, val string) error {
 	_, ok := nest.Config[sect]
 	if !ok {
 		nest.Config[sect] = make(map[string]string)
@@ -345,7 +345,7 @@ func (nest *Nest) SetConfig(sect string, key string, val string) error {
 }
 
 // Load the repo configuration file
-func (nest *Nest) loadConfig() error {
+func (nest *Repo) loadConfig() error {
 	v, err := ReadConfig(nest.BasePath, "nest")
 	if err != nil {
 		return NewNewtError(err.Error())
@@ -353,14 +353,14 @@ func (nest *Nest) loadConfig() error {
 
 	nest.Name = v.GetString("nest.name")
 	if nest.Name == "" {
-		return NewNewtError("Nest file must specify nest name")
+		return NewNewtError("Repo file must specify nest name")
 	}
 
 	return nil
 }
 
-func (nest *Nest) LoadClutches() error {
-	files, err := ioutil.ReadDir(nest.ClutchPath)
+func (nest *Repo) LoadPkgLists() error {
+	files, err := ioutil.ReadDir(nest.PkgListPath)
 	if err != nil {
 		return err
 	}
@@ -368,12 +368,12 @@ func (nest *Nest) LoadClutches() error {
 		file := fileInfo.Name()
 		if filepath.Ext(file) == ".yml" {
 			name := file[:len(filepath.Base(file))-len(".yml")]
-			log.Printf("[DEBUG] Loading Clutch %s", name)
-			clutch, err := NewClutch(nest)
+			log.Printf("[DEBUG] Loading PkgList %s", name)
+			pkgList, err := NewPkgList(nest)
 			if err != nil {
 				return err
 			}
-			if err := clutch.Load(name); err != nil {
+			if err := pkgList.Load(name); err != nil {
 				return err
 			}
 		}
@@ -381,7 +381,7 @@ func (nest *Nest) LoadClutches() error {
 	return nil
 }
 
-func (nest *Nest) InitPath(nestPath string) error {
+func (nest *Repo) InitPath(nestPath string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return NewNewtError(err.Error())
@@ -393,14 +393,14 @@ func (nest *Nest) InitPath(nestPath string) error {
 
 	log.Printf("[DEBUG] Searching for repository, starting in directory %s", cwd)
 
-	if nest.NestFile, err = nest.getNestFile(); err != nil {
+	if nest.RepoFile, err = nest.getRepoFile(); err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] Nest file found, directory %s, loading configuration...",
-		nest.NestFile)
+	log.Printf("[DEBUG] Repo file found, directory %s, loading configuration...",
+		nest.RepoFile)
 
-	nest.BasePath = filepath.ToSlash(path.Dir(nest.NestFile))
+	nest.BasePath = filepath.ToSlash(path.Dir(nest.RepoFile))
 
 	if err = nest.loadConfig(); err != nil {
 		return err
@@ -414,7 +414,7 @@ func (nest *Nest) InitPath(nestPath string) error {
 
 // Initialze the repository
 // returns a NewtError on failure, and nil on success
-func (nest *Nest) Init() error {
+func (nest *Repo) Init() error {
 	var err error
 
 	cwd, err := os.Getwd()
@@ -427,7 +427,7 @@ func (nest *Nest) Init() error {
 
 	log.Printf("[DEBUG] Configuration loaded!  Initializing .nest database")
 
-	// Create Nest store directory
+	// Create Repo store directory
 	nest.StorePath = nest.BasePath + "/.nest/"
 	if NodeNotExist(nest.StorePath) {
 		if err := os.MkdirAll(nest.StorePath, 0755); err != nil {
@@ -435,7 +435,7 @@ func (nest *Nest) Init() error {
 		}
 	}
 
-	// Create Nest configuration database
+	// Create Repo configuration database
 	nest.Config = make(map[string]map[string]string)
 
 	dbName := nest.StorePath + "/nest.db"
@@ -445,23 +445,23 @@ func (nest *Nest) Init() error {
 
 	log.Printf("[DEBUG] Database initialized.")
 
-	// Load Clutches for the current Nest
-	nest.ClutchPath = nest.StorePath + "/clutches/"
-	if NodeNotExist(nest.ClutchPath) {
-		if err := os.MkdirAll(nest.ClutchPath, 0755); err != nil {
+	// Load PkgLists for the current Repo
+	nest.PkgListPath = nest.StorePath + "/pkgLists/"
+	if NodeNotExist(nest.PkgListPath) {
+		if err := os.MkdirAll(nest.PkgListPath, 0755); err != nil {
 			return NewNewtError(err.Error())
 		}
 	}
 
-	nest.Clutches = map[string]*Clutch{}
+	nest.PkgLists = map[string]*PkgList{}
 
-	if err := nest.LoadClutches(); err != nil {
+	if err := nest.LoadPkgLists(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (nest *Nest) GetClutches() (map[string]*Clutch, error) {
-	return nest.Clutches, nil
+func (nest *Repo) GetPkgLists() (map[string]*PkgList, error) {
+	return nest.PkgLists, nil
 }

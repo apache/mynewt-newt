@@ -28,8 +28,8 @@ type Project struct {
 	// Base path of project
 	BasePath string
 
-	// Eggs
-	Eggs []string
+	// Pkgs
+	Pkgs []string
 
 	// Capabilities
 	Capabilities []string
@@ -44,24 +44,24 @@ type Project struct {
 	Lflags string
 
 	// The repository the project is located in
-	Nest *Nest
+	Repo *Repo
 
 	// The target associated with this project
 	Target *Target
 }
 
 // Load and initialize a project specified by name
-// nest & t are the nest and target to associate the project with
-func LoadProject(nest *Nest, t *Target, name string) (*Project, error) {
+// repo & t are the repo and target to associate the project with
+func LoadProject(repo *Repo, t *Target, name string) (*Project, error) {
 	p := &Project{
 		Name:   name,
-		Nest:   nest,
+		Repo:   repo,
 		Target: t,
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
 		"Loading project %s for repo %s, target %s\n",
-		name, nest.BasePath, t.Name)
+		name, repo.BasePath, t.Name)
 
 	if err := p.Init(); err != nil {
 		return nil, err
@@ -71,8 +71,8 @@ func LoadProject(nest *Nest, t *Target, name string) (*Project, error) {
 }
 
 // Get the packages associated with the project
-func (p *Project) GetEggs() []string {
-	return p.Eggs
+func (p *Project) GetPkgs() []string {
+	return p.Pkgs
 }
 
 // Load project configuration
@@ -87,7 +87,7 @@ func (p *Project) loadConfig() error {
 
 	t := p.Target
 
-	p.Eggs = GetStringSliceIdentities(v, t.Identities, "project.eggs")
+	p.Pkgs = GetStringSliceIdentities(v, t.Identities, "project.pkgs")
 
 	idents := GetStringSliceIdentities(v, t.Identities, "project.identities")
 	for _, ident := range idents {
@@ -106,7 +106,7 @@ func (p *Project) loadConfig() error {
 // project, if cleanAll is true, then clean everything, not just the current
 // architecture
 func (p *Project) BuildClean(cleanAll bool) error {
-	clutch, err := NewClutch(p.Nest)
+	pkgList, err := NewPkgList(p.Repo)
 	if err != nil {
 		return err
 	}
@@ -114,8 +114,8 @@ func (p *Project) BuildClean(cleanAll bool) error {
 	// first, clean packages
 	StatusMessage(VERBOSITY_VERBOSE,
 		"Cleaning all the packages associated with project %s", p.Name)
-	for _, eggName := range p.GetEggs() {
-		err = clutch.BuildClean(p.Target, eggName, cleanAll)
+	for _, pkgName := range p.GetPkgs() {
+		err = pkgList.BuildClean(p.Target, pkgName, cleanAll)
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ func (p *Project) BuildClean(cleanAll bool) error {
 
 	// clean the BSP, if it exists
 	if p.Target.Bsp != "" {
-		if err := clutch.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
+		if err := pkgList.BuildClean(p.Target, p.Target.Bsp, cleanAll); err != nil {
 			return err
 		}
 	}
@@ -146,11 +146,11 @@ func (p *Project) BuildClean(cleanAll bool) error {
 }
 
 // Collect all identities and capabilities that project has
-func (p *Project) collectAllDeps(clutch *Clutch, identities map[string]string,
+func (p *Project) collectAllDeps(pkgList *PkgList, identities map[string]string,
 	capabilities map[string]string) error {
 
-	eggList := p.GetEggs()
-	if eggList == nil {
+	pkgDepList := p.GetPkgs()
+	if pkgList == nil {
 		return nil
 	}
 
@@ -158,22 +158,22 @@ func (p *Project) collectAllDeps(clutch *Clutch, identities map[string]string,
 
 	t := p.Target
 
-	eggList = append(eggList, t.Dependencies...)
+	pkgDepList = append(pkgDepList, t.Dependencies...)
 	if t.Bsp != "" {
-		eggList = append(eggList, t.Bsp)
+		pkgDepList = append(pkgDepList, t.Bsp)
 	}
 
-	for _, eggName := range eggList {
-		if eggName == "" {
+	for _, pkgName := range pkgDepList {
+		if pkgName == "" {
 			continue
 		}
 
-		egg, err := clutch.ResolveEggName(eggName)
+		pkg, err := pkgList.ResolvePkgName(pkgName)
 		if err != nil {
 			return err
 		}
 
-		err = egg.collectDependencies(clutch, identities, capabilities)
+		err = pkg.collectDependencies(pkgList, identities, capabilities)
 		if err != nil {
 			return err
 		}
@@ -181,34 +181,34 @@ func (p *Project) collectAllDeps(clutch *Clutch, identities map[string]string,
 	return nil
 }
 
-func (p *Project) clearAllDeps(clutch *Clutch) {
-	eggList := p.GetEggs()
-	if eggList == nil {
+func (p *Project) clearAllDeps(pkgList *PkgList) {
+	pkgDepList := p.GetPkgs()
+	if pkgDepList == nil {
 		return
 	}
 
 	t := p.Target
 
-	eggList = append(eggList, t.Dependencies...)
+	pkgDepList = append(pkgDepList, t.Dependencies...)
 	if t.Bsp != "" {
-		eggList = append(eggList, t.Bsp)
+		pkgDepList = append(pkgDepList, t.Bsp)
 	}
 
-	for _, eggName := range eggList {
-		if eggName == "" {
+	for _, pkgName := range pkgDepList {
+		if pkgName == "" {
 			continue
 		}
-		egg, err := clutch.ResolveEggName(eggName)
+		pkg, err := pkgList.ResolvePkgName(pkgName)
 		if err != nil {
 			return
 		}
-		egg.clearDependencyMarker(clutch)
+		pkg.clearDependencyMarker(pkgList)
 	}
 }
 
 // Collect project identities and capabilities, and make target ready for
 // building.
-func (p *Project) collectDeps(clutch *Clutch) error {
+func (p *Project) collectDeps(pkgList *PkgList) error {
 
 	identCount := 0
 	capCount := 0
@@ -216,14 +216,14 @@ func (p *Project) collectDeps(clutch *Clutch) error {
 	t := p.Target
 
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Collecting egg dependencies for project %s\n", p.Name)
+		"Collecting pkg dependencies for project %s\n", p.Name)
 
 	// Need to do this multiple times, until there are no new identities,
 	// capabilities which show up.
 	identities := t.Identities
 	capabilities := map[string]string{}
 	for {
-		err := p.collectAllDeps(clutch, identities, capabilities)
+		err := p.collectAllDeps(pkgList, identities, capabilities)
 		if err != nil {
 			return err
 		}
@@ -234,7 +234,7 @@ func (p *Project) collectDeps(clutch *Clutch) error {
 		if identCount == newIdentCount && capCount == newCapCount {
 			break
 		}
-		p.clearAllDeps(clutch)
+		p.clearAllDeps(pkgList)
 		identCount = newIdentCount
 		capCount = newCapCount
 	}
@@ -243,25 +243,25 @@ func (p *Project) collectDeps(clutch *Clutch) error {
 }
 
 // Build the packages that this project depends on
-// clutch is an initialized package manager, incls is an array of includes to
+// pkgList is an initialized package manager, incls is an array of includes to
 // append to (package includes get append as they are built)
 // libs is an array of archive files to append to (package libraries get
 // appended as they are built)
-func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
+func (p *Project) buildDeps(pkgList *PkgList, incls *[]string,
 	libs *[]string) (map[string]string, error) {
-	eggList := p.GetEggs()
-	if eggList == nil {
+	pkgDepList := p.GetPkgs()
+	if pkgDepList == nil {
 		return nil, nil
 	}
 
 	StatusMessage(VERBOSITY_VERBOSE,
-		"Building egg dependencies for project %s\n", p.Name)
+		"Building pkg dependencies for project %s\n", p.Name)
 
 	t := p.Target
 
 	// Append project variables to target variables, so that all package builds
 	// inherit from them
-	eggList = append(eggList, t.Dependencies...)
+	pkgDepList = append(pkgDepList, t.Dependencies...)
 	t.Capabilities = append(t.Capabilities, p.Capabilities...)
 	t.Cflags += " " + p.Cflags
 	t.Lflags += " " + p.Lflags
@@ -270,7 +270,7 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
 	deps := map[string]*DependencyRequirement{}
 	reqcaps := map[string]*DependencyRequirement{}
 	caps := map[string]*DependencyRequirement{}
-	capEggs := map[string]string{}
+	capPkgs := map[string]string{}
 
 	// inherit project capabilities, mark these capabilities as supported.
 	for _, cName := range t.Capabilities {
@@ -282,17 +282,17 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
 		caps[dr.String()] = dr
 	}
 
-	for _, eggName := range eggList {
-		if eggName == "" {
+	for _, pkgName := range pkgDepList {
+		if pkgName == "" {
 			continue
 		}
 
-		egg, err := clutch.ResolveEggName(eggName)
+		pkg, err := pkgList.ResolvePkgName(pkgName)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := clutch.CheckEggDeps(egg, deps, reqcaps, caps, capEggs); err != nil {
+		if err := pkgList.CheckPkgDeps(pkg, deps, reqcaps, caps, capPkgs); err != nil {
 			return nil, err
 		}
 	}
@@ -308,9 +308,9 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
 	for dname, dep := range caps {
 		StatusMessage(VERBOSITY_VERBOSE,
 			"	%s - %s ", dname, dep.Name)
-		if capEggs[dname] != "" {
+		if capPkgs[dname] != "" {
 			StatusMessage(VERBOSITY_VERBOSE,
-				"- %s\n", capEggs[dname])
+				"- %s\n", capPkgs[dname])
 		} else {
 			StatusMessage(VERBOSITY_VERBOSE, "\n")
 		}
@@ -318,45 +318,45 @@ func (p *Project) buildDeps(clutch *Clutch, incls *[]string,
 
 	// After processing all the dependencies, verify that the package's
 	// capability requirements are satisfied as well
-	if err := clutch.VerifyCaps(reqcaps, caps); err != nil {
+	if err := pkgList.VerifyCaps(reqcaps, caps); err != nil {
 		return nil, err
 	}
 
 	// now go through and build everything
-	for _, eggName := range eggList {
-		if eggName == "" {
+	for _, pkgName := range pkgDepList {
+		if pkgName == "" {
 			continue
 		}
 
-		egg, err := clutch.ResolveEggName(eggName)
+		pkg, err := pkgList.ResolvePkgName(pkgName)
 		if err != nil {
 			return nil, err
 		}
 
-		if err = clutch.Build(p.Target, eggName, *incls, libs); err != nil {
+		if err = pkgList.Build(p.Target, pkgName, *incls, libs); err != nil {
 			return nil, err
 		}
 
 		// Don't fail if package did not produce a library file; some packages
 		// are header-only.
-		if lib := clutch.GetEggLib(p.Target, egg); NodeExist(lib) {
+		if lib := pkgList.GetPkgLib(p.Target, pkg); NodeExist(lib) {
 			*libs = append(*libs, lib)
 		}
 
-		*incls = append(*incls, egg.Includes...)
+		*incls = append(*incls, pkg.Includes...)
 	}
 
-	return capEggs, nil
+	return capPkgs, nil
 }
 
 // Build the BSP for this project.
 // The BSP is specified by the Target attached to the project.
-// clutch is an initialized egg mgr, containing all the packages
+// pkgList is an initialized pkg mgr, containing all the packages
 // incls and libs are pointers to an array of includes and libraries, when buildBsp()
 // builds the BSP, it appends the include directories for the BSP, and the archive file
 // to these variables.
-func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
-	libs *[]string, capEggs map[string]string) (string, error) {
+func (p *Project) buildBsp(pkgList *PkgList, incls *[]string,
+	libs *[]string, capPkgs map[string]string) (string, error) {
 
 	StatusMessage(VERBOSITY_VERBOSE, "Building BSP %s for project %s\n",
 		p.Target.Bsp, p.Name)
@@ -365,18 +365,18 @@ func (p *Project) buildBsp(clutch *Clutch, incls *[]string,
 		return "", NewNewtError("Must specify a BSP to build project")
 	}
 
-	return buildBsp(p.Target, clutch, incls, libs, capEggs)
+	return buildBsp(p.Target, pkgList, incls, libs, capPkgs)
 }
 
 // Build the project
 func (p *Project) Build() error {
-	clutch, err := NewClutch(p.Nest)
+	pkgList, err := NewPkgList(p.Repo)
 	if err != nil {
 		return err
 	}
 
 	// Load the configuration for this target
-	if err := clutch.LoadConfigs(nil, false); err != nil {
+	if err := pkgList.LoadConfigs(nil, false); err != nil {
 		return err
 	}
 
@@ -385,7 +385,7 @@ func (p *Project) Build() error {
 	linkerScript := ""
 
 	// Collect target identities, libraries to include
-	err = p.collectDeps(clutch)
+	err = p.collectDeps(pkgList)
 	if err != nil {
 		return err
 	}
@@ -396,20 +396,20 @@ func (p *Project) Build() error {
 	//        builds.
 	//     2. Build the BSP package.
 	if p.Target.Bsp != "" {
-		incls, err = BspIncludePaths(clutch, p.Target)
+		incls, err = BspIncludePaths(pkgList, p.Target)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Build the project dependencies.
-	capEggs, err := p.buildDeps(clutch, &incls, &libs)
+	capPkgs, err := p.buildDeps(pkgList, &incls, &libs)
 	if err != nil {
 		return err
 	}
 
 	if p.Target.Bsp != "" {
-		linkerScript, err = p.buildBsp(clutch, &incls, &libs, capEggs)
+		linkerScript, err = p.buildBsp(pkgList, &incls, &libs, capPkgs)
 		if err != nil {
 			return err
 		}
@@ -432,7 +432,7 @@ func (p *Project) Build() error {
 	c.LinkerScript = linkerScript
 
 	// Add target C flags
-	c.Cflags = CreateCflags(clutch, c, p.Target, p.Cflags)
+	c.Cflags = CreateCflags(pkgList, c, p.Target, p.Cflags)
 
 	os.Chdir(p.BasePath + "/src/")
 	if err = c.Compile("*.c"); err != nil {
@@ -467,7 +467,7 @@ func (p *Project) Build() error {
 
 // Initialize the project, and project definition
 func (p *Project) Init() error {
-	p.BasePath = p.Nest.BasePath + "/project/" + p.Name + "/"
+	p.BasePath = p.Repo.BasePath + "/project/" + p.Name + "/"
 	if NodeNotExist(p.BasePath) {
 		return NewNewtError("Project directory does not exist")
 	}

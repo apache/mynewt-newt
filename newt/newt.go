@@ -17,14 +17,15 @@ package main
 
 import (
 	"fmt"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt.git/newt/cli"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newt/cli"
+	"github.com/spf13/cobra"
 )
 
 var ExitOnFailure bool = false
@@ -32,13 +33,13 @@ var ExportAll bool = false
 var ImportAll bool = false
 var NewtVersion string = "0.1"
 var NewtLogLevel string = ""
-var NewtNest *cli.Nest
+var NewtRepo *cli.Repo
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
-var NewtBranchClutch string
-var NewtBranchEgg string
 var AutoTargets string = "autotargets"
+var NewtBranchPkgList string
+var NewtBranchPkg string
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -93,7 +94,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 			cli.NewNewtError("Must specify two arguments (sect & k=v) to set"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -115,7 +116,7 @@ func targetUnsetCmd(cmd *cobra.Command, args []string) {
 			cli.NewNewtError("Must specify two arguments (sect & k) to unset"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -141,7 +142,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		dispSect = args[0]
 	}
 
-	targets, err := cli.GetTargets(NewtNest)
+	targets, err := cli.GetTargets(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -173,13 +174,13 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+args[0]+"\n")
 
-	if cli.TargetExists(NewtNest, args[0]) {
+	if cli.TargetExists(NewtRepo, args[0]) {
 		NewtUsage(cmd, cli.NewNewtError(
 			"Target already exists, cannot create target with same name."))
 	}
 
 	target := &cli.Target{
-		Nest: NewtNest,
+		Repo: NewtRepo,
 		Vars: map[string]string{},
 	}
 	target.Vars["name"] = args[0]
@@ -198,7 +199,7 @@ func targetBuildCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to build"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -233,7 +234,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to delete"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -254,7 +255,7 @@ func targetTestCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to build"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -289,7 +290,7 @@ func targetSizeCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target for sizing"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -307,7 +308,7 @@ func targetDownloadCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target to download"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -323,7 +324,7 @@ func targetDebugCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target for debug"))
 	}
 
-	t, err := cli.LoadTarget(NewtNest, args[0])
+	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -346,7 +347,7 @@ func targetExportCmd(cmd *cobra.Command, args []string) {
 		targetName = args[0]
 	}
 
-	err := cli.ExportTargets(NewtNest, targetName, ExportAll, os.Stdout)
+	err := cli.ExportTargets(NewtRepo, targetName, ExportAll, os.Stdout)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -365,7 +366,7 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 		targetName = args[0]
 	}
 
-	err := cli.ImportTargets(NewtNest, targetName, ImportAll, os.Stdin)
+	err := cli.ImportTargets(NewtRepo, targetName, ImportAll, os.Stdin)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -376,7 +377,7 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 
 func targetAddCmds(base *cobra.Command) {
 	targetHelpText := formatHelp(`Targets tell the newt tool how to build the source
-		code within a given nest.`)
+		code within a given repo.`)
 	targetHelpEx := "  newt target create <target-name>\n"
 	targetHelpEx += "  newt target set <target-name> <var-name>=<value>\n"
 	targetHelpEx += "  newt target unset <target-name> <var-name>\n"
@@ -399,7 +400,7 @@ func targetAddCmds(base *cobra.Command) {
 			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
 
 			var err error
-			NewtNest, err = cli.NewNest()
+			NewtRepo, err = cli.NewRepo()
 			if err != nil {
 				NewtUsage(nil, err)
 			}
@@ -408,12 +409,12 @@ func targetAddCmds(base *cobra.Command) {
 			if err == nil {
 				err = cli.ImportTargets(NewtNest, "", true, file)
 				if err != nil {
-					log.Printf("[DEBUG] failed to import automatic " +
+					log.Printf("[DEBUG] failed to import automatic "+
 						"targets %s", err.Error())
 				}
 				file.Close()
 			} else {
-				log.Printf("[DEBUG] failed to import automatic " +
+				log.Printf("[DEBUG] failed to import automatic "+
 					"targets %s", err.Error())
 			}
 		},
@@ -574,7 +575,7 @@ func targetAddCmds(base *cobra.Command) {
 	}
 	targetCmd.AddCommand(debugCmd)
 
-	exportHelpText := formatHelp(`Export build targets from the current nest, and 
+	exportHelpText := formatHelp(`Export build targets from the current repo, and 
 		print them to standard output.  If the -a (or -export-all) option is 
 		specified, then all targets will be exported.  Otherwise, <target-name> 
 		must be specified, and only that target will be exported.`)
@@ -619,14 +620,14 @@ func targetAddCmds(base *cobra.Command) {
 	base.AddCommand(targetCmd)
 }
 
-func dispEgg(egg *cli.Egg) error {
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Egg %s, version %s\n",
-		egg.FullName, egg.Version)
+func dispPkg(pkg *cli.Pkg) error {
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Pkg %s, version %s\n",
+		pkg.FullName, pkg.Version)
 	cli.StatusMessage(cli.VERBOSITY_QUIET, "  path: %s\n",
-		filepath.Clean(egg.BasePath))
-	if egg.Capabilities != nil {
+		filepath.Clean(pkg.BasePath))
+	if pkg.Capabilities != nil {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  capabilities: ")
-		caps, err := egg.GetCapabilities()
+		caps, err := pkg.GetCapabilities()
 		if err != nil {
 			return err
 		}
@@ -635,9 +636,9 @@ func dispEgg(egg *cli.Egg) error {
 		}
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
-	if egg.ReqCapabilities != nil {
+	if pkg.ReqCapabilities != nil {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  required capabilities: ")
-		caps, err := egg.GetReqCapabilities()
+		caps, err := pkg.GetReqCapabilities()
 		if err != nil {
 			return err
 		}
@@ -646,9 +647,9 @@ func dispEgg(egg *cli.Egg) error {
 		}
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
-	if len(egg.Deps) > 0 {
+	if len(pkg.Deps) > 0 {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  deps: ")
-		for _, dep := range egg.Deps {
+		for _, dep := range pkg.Deps {
 			if dep == nil {
 				continue
 			}
@@ -657,20 +658,20 @@ func dispEgg(egg *cli.Egg) error {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
 
-	if egg.LinkerScript != "" {
+	if pkg.LinkerScript != "" {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  linkerscript: %s\n",
-			egg.LinkerScript)
+			pkg.LinkerScript)
 	}
 	return nil
 }
 
-func dispEggShell(eggShell *cli.EggShell) error {
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Egg %s from clutch %s, version %s\n",
-		eggShell.FullName, eggShell.Clutch.Name, eggShell.Version)
+func dispPkgDesc(pkgDesc *cli.PkgDesc) error {
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Pkg %s from pkgList %s, version %s\n",
+		pkgDesc.FullName, pkgDesc.PkgList.Name, pkgDesc.Version)
 
-	if eggShell.Caps != nil {
+	if pkgDesc.Caps != nil {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  capabilities: ")
-		caps, err := eggShell.GetCapabilities()
+		caps, err := pkgDesc.GetCapabilities()
 		if err != nil {
 			return err
 		}
@@ -679,9 +680,9 @@ func dispEggShell(eggShell *cli.EggShell) error {
 		}
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
-	if eggShell.ReqCaps != nil {
+	if pkgDesc.ReqCaps != nil {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  required capabilities: ")
-		caps, err := eggShell.GetReqCapabilities()
+		caps, err := pkgDesc.GetReqCapabilities()
 		if err != nil {
 			return err
 		}
@@ -690,9 +691,9 @@ func dispEggShell(eggShell *cli.EggShell) error {
 		}
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 	}
-	if len(eggShell.Deps) > 0 {
+	if len(pkgDesc.Deps) > 0 {
 		cli.StatusMessage(cli.VERBOSITY_QUIET, "  deps: ")
-		for _, dep := range eggShell.Deps {
+		for _, dep := range pkgDesc.Deps {
 			if dep == nil {
 				continue
 			}
@@ -704,32 +705,32 @@ func dispEggShell(eggShell *cli.EggShell) error {
 	return nil
 }
 
-func eggListCmd(cmd *cobra.Command, args []string) {
-	eggMgr, err := cli.NewClutch(NewtNest)
+func pkgListCmd(cmd *cobra.Command, args []string) {
+	pkgMgr, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+	if err := pkgMgr.LoadConfigs(nil, false); err != nil {
 		NewtUsage(cmd, err)
 	}
-	for _, egg := range eggMgr.Eggs {
-		if err := dispEgg(egg); err != nil {
+	for _, pkg := range pkgMgr.Pkgs {
+		if err := dispPkg(pkg); err != nil {
 			NewtUsage(cmd, err)
 		}
 	}
 }
 
-func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
-	eggMgr, err := cli.NewClutch(NewtNest)
+func pkgCheckDepsCmd(cmd *cobra.Command, args []string) {
+	pkgMgr, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+	if err := pkgMgr.LoadConfigs(nil, false); err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if err := eggMgr.CheckDeps(); err != nil {
+	if err := pkgMgr.CheckDeps(); err != nil {
 		NewtUsage(cmd, err)
 	}
 
@@ -737,246 +738,245 @@ func eggCheckDepsCmd(cmd *cobra.Command, args []string) {
 		"Dependencies successfully resolved!\n")
 }
 
-func eggHuntCmd(cmd *cobra.Command, args []string) {
+func pkgSearchCmd(cmd *cobra.Command, args []string) {
 	var err error
 
 	if len(args) != 1 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify string to hunt for"))
+			cli.NewNewtError("Must specify string to search for"))
 	}
 
 	/*
 	 * First check local.
 	 */
-	eggMgr, err := cli.NewClutch(NewtNest)
+	pkgMgr, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+	if err := pkgMgr.LoadConfigs(nil, false); err != nil {
 		NewtUsage(cmd, err)
 	}
 
 	found := false
-	for _, egg := range eggMgr.Eggs {
-		contains := strings.Contains(egg.FullName, args[0])
+	for _, pkg := range pkgMgr.Pkgs {
+		contains := strings.Contains(pkg.FullName, args[0])
 		if contains == true {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installed egg %s@%s\n",
-				egg.FullName, egg.Version)
+			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installed package %s@%s\n",
+				pkg.FullName, pkg.Version)
 			found = true
 		}
 	}
 
 	/*
-	 * Then check remote clutches.
+	 * Then check remote pkgLists.
 	 */
-	clutches, err := NewtNest.GetClutches()
+	pkgLists, err := NewtRepo.GetPkgLists()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	for _, clutch := range clutches {
-		for _, eggShell := range clutch.EggShells {
-			contains := strings.Contains(eggShell.FullName, args[0])
+	for _, pkgList := range pkgLists {
+		for _, pkgDesc := range pkgList.PkgDescs {
+			contains := strings.Contains(pkgDesc.FullName, args[0])
 			if contains == true {
 				cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-					"Clutch %s has egg %s@%s\n",
-					clutch.Name, eggShell.FullName,
-					eggShell.Version)
+					"Package list %s has package %s@%s\n",
+					pkgList.Name, pkgDesc.FullName,
+					pkgDesc.Version)
 				found = true
 			}
 		}
 	}
 
 	if found == false {
-		cli.StatusMessage(cli.VERBOSITY_QUIET, "No egg found!\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, "No package found!\n")
 	}
 }
 
-func eggShowCmd(cmd *cobra.Command, args []string) {
-	var eggName string
-	var clutchName string = ""
+func pkgShowCmd(cmd *cobra.Command, args []string) {
+	var pkgName string
+	var pkgListName string = ""
 
 	if len(args) < 1 || len(args) > 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify full name of the egg"))
+			cli.NewNewtError("Must specify full name of the package"))
 	}
 
 	if len(args) == 1 {
-		eggName = args[0]
+		pkgName = args[0]
 	} else {
-		clutchName = args[0]
-		eggName = args[1]
+		pkgListName = args[0]
+		pkgName = args[1]
 	}
 
-	eggMgr, err := cli.NewClutch(NewtNest)
+	pkgMgr, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+	if err := pkgMgr.LoadConfigs(nil, false); err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	egg, err := eggMgr.ResolveEggName(eggName)
+	pkg, err := pkgMgr.ResolvePkgName(pkgName)
 	if err == nil {
-		egg.LoadConfig(nil, false)
-		dispEgg(egg)
+		pkg.LoadConfig(nil, false)
+		dispPkg(pkg)
 	}
 
-	clutches, err := NewtNest.GetClutches()
+	pkgLists, err := NewtRepo.GetPkgLists()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	for _, clutch := range clutches {
-		if clutchName == "" || clutch.Name == clutchName {
-			eggShell, err := clutch.ResolveEggShellName(eggName)
+	for _, pkgList := range pkgLists {
+		if pkgListName == "" || pkgList.Name == pkgListName {
+			pkgDesc, err := pkgList.ResolvePkgDescName(pkgName)
 			if err == nil {
-				dispEggShell(eggShell)
+				dispPkgDesc(pkgDesc)
 			}
 		}
 	}
 }
 
-func eggShellInstall(eggShell *cli.EggShell) error {
-	eggMgr, err := cli.NewClutch(NewtNest)
+func pkgDescInstall(pkgDesc *cli.PkgDesc) error {
+	pkgMgr, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		return err
 	}
 
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+	if err := pkgMgr.LoadConfigs(nil, false); err != nil {
 		return err
 	}
 
-	_, err = eggMgr.ResolveEggName(eggShell.FullName)
+	_, err = pkgMgr.ResolvePkgName(pkgDesc.FullName)
 	if err == nil {
-		return cli.NewNewtError(fmt.Sprintf("Egg %s already installed!",
-			eggShell.FullName))
+		return cli.NewNewtError(fmt.Sprintf("Package %s already installed!",
+			pkgDesc.FullName))
 	}
-	err = eggShell.Install(eggMgr, NewtBranchEgg)
+	err = pkgDesc.Install(pkgMgr, NewtBranchPkg)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func eggInstallCmd(cmd *cobra.Command, args []string) {
-	var eggName string
-	var clutchName string = ""
-	var clutch *cli.Clutch
-	var eggShell *cli.EggShell
+func pkgInstallCmd(cmd *cobra.Command, args []string) {
+	var pkgName string
+	var pkgListName string = ""
+	var pkgList *cli.PkgList
+	var pkgDesc *cli.PkgDesc
 
 	if len(args) < 1 || len(args) > 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify full name of the egg"))
+			cli.NewNewtError("Must specify full name of the package"))
 	}
 
 	if len(args) == 1 {
-		eggName = args[0]
+		pkgName = args[0]
 	} else {
-		clutchName = args[0]
-		eggName = args[1]
+		pkgListName = args[0]
+		pkgName = args[1]
 	}
 
 	/*
-	 * Find the eggShell to install.
+	 * Find the pkgDesc to install.
 	 */
-	clutches, err := NewtNest.GetClutches()
+	pkgLists, err := NewtRepo.GetPkgLists()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if clutchName != "" {
-		clutch = clutches[clutchName]
+	if pkgListName != "" {
+		pkgList = pkgLists[pkgListName]
 	}
-	if clutch != nil {
-		eggShell, err := clutch.ResolveEggShellName(eggName)
+	if pkgList != nil {
+		pkgDesc, err := pkgList.ResolvePkgDescName(pkgName)
 		if err != nil {
 			NewtUsage(cmd, err)
 		}
-		err = eggShellInstall(eggShell)
+		err = pkgDescInstall(pkgDesc)
 		if err != nil {
 			NewtUsage(cmd, err)
 		}
 		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installation was a success!\n")
 		return
 	}
-	eggShell = nil
-	for _, tmpClutch := range clutches {
-		if clutchName == "" || tmpClutch.Name == clutchName {
-			tmpEggShell, err := tmpClutch.ResolveEggShellName(eggName)
-			if err != nil && eggShell != nil {
+	pkgDesc = nil
+	for _, tmpPkgList := range pkgLists {
+		if pkgListName == "" || tmpPkgList.Name == pkgListName {
+			tmpPkgDesc, err := tmpPkgList.ResolvePkgDescName(pkgName)
+			if err != nil && pkgDesc != nil {
 				NewtUsage(cmd,
 					cli.NewNewtError(fmt.Sprintf("Ambiguous source "+
-						"egg %s in clutches %s and %s",
-						eggName, clutch.Name, tmpClutch.Name)))
+						"pkg %s in package-list %s and %s",
+						pkgName, pkgList.Name, tmpPkgList.Name)))
 			} else {
-				eggShell = tmpEggShell
-				clutch = tmpClutch
+				pkgDesc = tmpPkgDesc
+				pkgList = tmpPkgList
 			}
 		}
 	}
 
-	if eggShell == nil {
+	if pkgDesc == nil {
 		NewtUsage(cmd,
-			cli.NewNewtError(fmt.Sprintf("Can't find egg with name %s",
-				eggName)))
+			cli.NewNewtError(fmt.Sprintf("Can't find package with name %s",
+				pkgName)))
 	}
 
-	err = eggShellInstall(eggShell)
+	err = pkgDescInstall(pkgDesc)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Installation was a success!\n")
 }
 
-func eggRemoveCmd(cmd *cobra.Command, args []string) {
+func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 || len(args) > 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify full name of the egg"))
+			cli.NewNewtError("Must specify full name of the package"))
 	}
 
-	eggName := args[0]
+	pkgName := args[0]
 
-	eggMgr, err := cli.NewClutch(NewtNest)
+	pkgMgr, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	if err := eggMgr.LoadConfigs(nil, false); err != nil {
+	if err := pkgMgr.LoadConfigs(nil, false); err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	egg, err := eggMgr.ResolveEggName(eggName)
+	pkg, err := pkgMgr.ResolvePkgName(pkgName)
 	if err != nil {
 		NewtUsage(cmd,
-			cli.NewNewtError(fmt.Sprintf("Egg %s has not been installed",
-				eggName)))
+			cli.NewNewtError(fmt.Sprintf("Package %s has not been installed",
+				pkgName)))
 	}
-	err = egg.Remove()
+	err = pkg.Remove()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Removed successfully!\n")
 }
 
-func eggAddCmds(baseCmd *cobra.Command) {
-	eggHelpText := formatHelp(`Commands to search, display and install eggs
-		in the current nest.  Eggs are newt's version of packages, and are 
-		the fundamental building blocks of nests.`)
-	eggHelpEx := "  newt egg list\n"
-	eggHelpEx += "  newt egg checkdeps\n"
-	eggHelpEx += "  newt egg hunt <egg-name>\n"
-	eggHelpEx += "  newt egg show [<clutch-name> ] <egg-name>\n"
-	eggHelpEx += "  newt egg install [<clutch-name> ] <egg-name>\n"
-	eggHelpEx += "  newt egg remove [<clutch-name> ] <egg-name>"
+func pkgAddCmds(baseCmd *cobra.Command) {
+	pkgHelpText := formatHelp(`Commands to search, display and install packages
+		in the current repository.`)
+	pkgHelpEx := "  newt pkg list\n"
+	pkgHelpEx += "  newt pkg checkdeps\n"
+	pkgHelpEx += "  newt pkg search <pkg-name>\n"
+	pkgHelpEx += "  newt pkg show [<pkg-list> ] <pkg-name>\n"
+	pkgHelpEx += "  newt pkg install [<pkg-list> ] <pkg-name>\n"
+	pkgHelpEx += "  newt pkg remove [<pkg-list> ] <pkg-name>"
 
-	eggCmd := &cobra.Command{
-		Use:     "egg",
-		Short:   "Commands to list and inspect eggs on a nest",
-		Long:    eggHelpText,
-		Example: eggHelpEx,
+	pkgCmd := &cobra.Command{
+		Use:     "pkg",
+		Short:   "Commands to list and inspect packages on a repository",
+		Long:    pkgHelpText,
+		Example: pkgHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
 
 			var err error
-			NewtNest, err = cli.NewNest()
+			NewtRepo, err = cli.NewRepo()
 			if err != nil {
 				NewtUsage(nil, err)
 			}
@@ -986,137 +986,137 @@ func eggAddCmds(baseCmd *cobra.Command) {
 		},
 	}
 
-	listHelpText := formatHelp(`List all of the eggs in the current nest.`)
-	listHelpEx := "  newt egg list"
+	listHelpText := formatHelp(`List all of the packages in the current repo.`)
+	listHelpEx := "  newt pkg list"
 
 	listCmd := &cobra.Command{
 		Use:     "list",
-		Short:   "List eggs in the current nest",
+		Short:   "List packages in the current repo",
 		Long:    listHelpText,
 		Example: listHelpEx,
-		Run:     eggListCmd,
+		Run:     pkgListCmd,
 	}
 
-	eggCmd.AddCommand(listCmd)
+	pkgCmd.AddCommand(listCmd)
 
 	checkDepsHelpText := formatHelp(`Resolve all dependencies in the local 
-		nest.  This command goes through all eggs currently installed, checks
-		their dependencies, and prints any unresolved dependencies between 
-		eggs.`)
-	checkDepsHelpEx := "  newt egg checkdeps"
+		repository.  This command goes through all packages currently 
+		installed, checks their dependencies, and prints any unresolved 
+		dependencies between packages.`)
+	checkDepsHelpEx := "  newt pkg checkdeps"
 
 	checkDepsCmd := &cobra.Command{
 		Use:     "checkdeps",
-		Short:   "Check egg dependencies",
+		Short:   "Check package dependencies",
 		Long:    checkDepsHelpText,
 		Example: checkDepsHelpEx,
-		Run:     eggCheckDepsCmd,
+		Run:     pkgCheckDepsCmd,
 	}
 
-	eggCmd.AddCommand(checkDepsCmd)
+	pkgCmd.AddCommand(checkDepsCmd)
 
-	huntHelpText := formatHelp(`Hunt for an egg, specified by <egg-name>.  
-		The local nest, along with all remote nests (clutches) are 
-		searched.  All matched eggs are shown.`)
-	huntHelpEx := "  newt egg hunt <egg-name>"
+	searchHelpText := formatHelp(`Search for an package, specified by <pkg-name>.  
+		The local repo, along with all remote repos (pkgLists) are 
+		searched.  All matched packages are shown.`)
+	searchHelpEx := "  newt pkg search <pkg-name>"
 
-	huntCmd := &cobra.Command{
-		Use:     "hunt",
-		Short:   "Search for egg from clutches",
-		Long:    huntHelpText,
-		Example: huntHelpEx,
-		Run:     eggHuntCmd,
+	searchCmd := &cobra.Command{
+		Use:     "search",
+		Short:   "Search for pkg from pkgLists",
+		Long:    searchHelpText,
+		Example: searchHelpEx,
+		Run:     pkgSearchCmd,
 	}
 
-	eggCmd.AddCommand(huntCmd)
+	pkgCmd.AddCommand(searchCmd)
 
-	showHelpText := formatHelp(`Show the contents of the egg, specified by 
-		<egg-name>.  <egg-name> is resolved using all the clutches installed
-		in the current nest or, if <clutch-name> is specified, only 
-		<clutch-name> will be searched.`)
-	showHelpEx := "  newt egg show [<clutch-name> ] <egg-name>"
+	showHelpText := formatHelp(`Show the contents of the pkg, specified by 
+		<pkg-name>.  <pkg-name> is resolved using all the pkgLists installed
+		in the current repo or, if <pkgList-name> is specified, only 
+		<pkgList-name> will be searched.`)
+	showHelpEx := "  newt pkg show [<pkgList-name> ] <pkg-name>"
 
 	showCmd := &cobra.Command{
 		Use:     "show",
-		Short:   "Show the contents of an egg.",
+		Short:   "Show the contents of an pkg.",
 		Long:    showHelpText,
 		Example: showHelpEx,
-		Run:     eggShowCmd,
+		Run:     pkgShowCmd,
 	}
 
-	eggCmd.AddCommand(showCmd)
+	pkgCmd.AddCommand(showCmd)
 
-	installHelpText := formatHelp(`Install the egg specified by <egg-name> to 
-		the local nest. <egg-name> is searched for throughout the clutches in 
-		the local nest.  If <clutch-name> is specified, then only <clutch-name>
-		is searched for <egg-name>.`)
-	installHelpEx := "  newt egg install [<clutch-name> ] <egg-name>"
+	installHelpText := formatHelp(`Install the pkg specified by <pkg-name> to 
+		the local repo. <pkg-name> is searched for throughout the pkgLists in 
+		the local repo.  If <pkgList-name> is specified, then only <pkgList-name>
+		is searched for <pkg-name>.`)
+	installHelpEx := "  newt pkg install [<pkgList-name> ] <pkg-name>"
 
 	installCmd := &cobra.Command{
 		Use:     "install",
-		Short:   "Install an egg",
+		Short:   "Install an pkg",
 		Long:    installHelpText,
 		Example: installHelpEx,
-		Run:     eggInstallCmd,
+		Run:     pkgInstallCmd,
 	}
 
-	installCmd.Flags().StringVarP(&NewtBranchEgg, "branch", "b", "",
-		"Branch (or tag) of the clutch to install from.")
+	installCmd.Flags().StringVarP(&NewtBranchPkg, "branch", "b", "",
+		"Branch (or tag) of the pkgList to install from.")
 
-	eggCmd.AddCommand(installCmd)
+	pkgCmd.AddCommand(installCmd)
 
-	removeHelpText := formatHelp(`Remove the egg, specified by <egg-name> from 
-		the local nest.  If present the egg is taking only from the clutch 
-		specified by <clutch-name>.`)
-	removeHelpEx := "  newt egg remove [<clutch-name> ] <egg-name>"
+	removeHelpText := formatHelp(`Remove the pkg, specified by <pkg-name> from 
+		the local repo.  If present the pkg is taking only from the pkgList 
+		specified by <pkgList-name>.`)
+	removeHelpEx := "  newt pkg remove [<pkgList-name> ] <pkg-name>"
 
 	removeCmd := &cobra.Command{
 		Use:     "remove",
-		Short:   "Remove an egg",
+		Short:   "Remove an pkg",
 		Long:    removeHelpText,
 		Example: removeHelpEx,
-		Run:     eggRemoveCmd,
+		Run:     pkgRemoveCmd,
 	}
 
-	eggCmd.AddCommand(removeCmd)
+	pkgCmd.AddCommand(removeCmd)
 
-	baseCmd.AddCommand(eggCmd)
+	baseCmd.AddCommand(pkgCmd)
 }
 
-func nestGenerateClutchCmd(cmd *cobra.Command, args []string) {
+func repoGeneratePkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify name and URL to lay clutch file"))
+			cli.NewNewtError("Must specify name and URL to lay pkgList file"))
 	}
 
-	clutchName := args[0]
-	clutchUrl := args[1]
+	pkgListName := args[0]
+	pkgListUrl := args[1]
 
-	clutch, err := cli.NewClutch(NewtNest)
+	pkgList, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	clutch.Name = clutchName
-	clutch.RemoteUrl = clutchUrl
+	pkgList.Name = pkgListName
+	pkgList.RemoteUrl = pkgListUrl
 
-	local, err := cli.NewClutch(NewtNest)
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	if err := clutch.LoadFromClutch(local); err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	clutchStr, err := clutch.Serialize()
+	local, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", clutchStr)
+	if err := pkgList.LoadFromPkgList(local); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	pkgListStr, err := pkgList.Serialize()
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", pkgListStr)
 }
 
-func nestAddClutchCmd(cmd *cobra.Command, args []string) {
+func repoAddPkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
 			cli.NewNewtError("Must specify both name and URL to "+
@@ -1126,35 +1126,35 @@ func nestAddClutchCmd(cmd *cobra.Command, args []string) {
 	name := args[0]
 	url := args[1]
 
-	clutch, err := cli.NewClutch(NewtNest)
+	pkgList, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if err := clutch.Install(name, url, NewtBranchClutch); err != nil {
+	if err := pkgList.Install(name, url, NewtBranchPkgList); err != nil {
 		NewtUsage(cmd, err)
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Clutch "+name+" successfully installed to Nest.\n")
+		"PkgList "+name+" successfully installed to Repo.\n")
 }
 
-func nestListClutchesCmd(cmd *cobra.Command, args []string) {
-	clutches, err := NewtNest.GetClutches()
+func repoListPkgListsCmd(cmd *cobra.Command, args []string) {
+	pkgLists, err := NewtRepo.GetPkgLists()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	for name, clutch := range clutches {
+	for name, pkgList := range pkgLists {
 		cli.StatusMessage(cli.VERBOSITY_QUIET,
-			"Remote clutch %s (eggshells: %d)\n", name, len(clutch.EggShells))
+			"Remote pkgList %s (pkgshells: %d)\n", name, len(pkgList.PkgDescs))
 	}
 }
 
-func nestCreateCmd(cmd *cobra.Command, args []string) {
+func repoCreateCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify a nest name to create"))
+			cli.NewNewtError("Must specify a repo name to create"))
 	}
 
 	wd, err := os.Getwd()
@@ -1162,9 +1162,9 @@ func nestCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, cli.NewNewtError(err.Error()))
 	}
 
-	nestDir := wd + "/" + args[0]
+	repoDir := wd + "/" + args[0]
 	if len(args) > 1 {
-		nestDir = args[1]
+		repoDir = args[1]
 	}
 
 	tadpoleUrl := ""
@@ -1172,39 +1172,39 @@ func nestCreateCmd(cmd *cobra.Command, args []string) {
 		tadpoleUrl = args[2]
 	}
 
-	if err := cli.CreateNest(args[0], nestDir, tadpoleUrl); err != nil {
+	if err := cli.CreateRepo(args[0], repoDir, tadpoleUrl); err != nil {
 		NewtUsage(cmd, err)
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Nest %s successfully created in %s\n", args[0], nestDir)
+		"Repo %s successfully created in %s\n", args[0], repoDir)
 }
 
-func nestShowClutchCmd(cmd *cobra.Command, args []string) {
+func repoShowPkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify a clutch name to show-clutch command"))
+			cli.NewNewtError("Must specify a pkgList name to show-pkgList command"))
 	}
 
-	clutch, err := cli.NewClutch(NewtNest)
+	pkgList, err := cli.NewPkgList(NewtRepo)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if err := clutch.Load(args[0]); err != nil {
+	if err := pkgList.Load(args[0]); err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	// Clutch loaded, now print out clutch information
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Clutch Name: %s\n", clutch.Name)
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Clutch URL: %s\n",
-		clutch.RemoteUrl)
+	// PkgList loaded, now print out pkgList information
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "PkgList Name: %s\n", pkgList.Name)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "PkgList URL: %s\n",
+		pkgList.RemoteUrl)
 
 	i := 0
-	for _, eggShell := range clutch.EggShells {
+	for _, pkgDesc := range pkgList.PkgDescs {
 		i++
-		cli.StatusMessage(cli.VERBOSITY_QUIET, " %s@%s", eggShell.FullName,
-			eggShell.Version)
+		cli.StatusMessage(cli.VERBOSITY_QUIET, " %s@%s", pkgDesc.FullName,
+			pkgDesc.Version)
 		if i%4 == 0 {
 			cli.StatusMessage(cli.VERBOSITY_QUIET, "\n")
 		}
@@ -1214,33 +1214,33 @@ func nestShowClutchCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func nestAddCmds(baseCmd *cobra.Command) {
-	var nestCmd *cobra.Command
+func repoAddCmds(baseCmd *cobra.Command) {
+	var repoCmd *cobra.Command
 	var createCmd *cobra.Command
 
-	nestHelpText := formatHelp(`The nest commands help manage the local nest.
-		A nest represents the workspace for one or more projects, each project being a
-                collection of eggs (packages.)  In addition to containing eggs, a local nest contains the 
-		target (build) definitions, and a list of clutches (snapshots of remote nests 
-		which contain eggs that can be installed into the current nest.)`)
-	nestHelpEx := "  newt nest create <nest-name> [, <nest-skele-url>]\n"
-	nestHelpEx += "  newt nest list-clutches\n"
-	nestHelpEx += "  newt nest show-clutch <clutch-name>\n"
-	nestHelpEx += "  newt nest add-clutch <clutch-name> <clutch-url>\n"
-	nestHelpEx += "  newt nest generate-clutch <clutch-name> <clutch-url>"
+	repoHelpText := formatHelp(`The repo commands help manage the local repo.
+		A repo represents the workspace for one or more projects, each project being a
+                collection of pkgs (packages.)  In addition to containing pkgs, a local repo contains the 
+		target (build) definitions, and a list of pkgLists (snapshots of remote repos 
+		which contain pkgs that can be installed into the current repo.)`)
+	repoHelpEx := "  newt repo create <repo-name> [, <repo-skele-url>]\n"
+	repoHelpEx += "  newt repo list-pkgLists\n"
+	repoHelpEx += "  newt repo show-pkg-list <pkg-list-name>\n"
+	repoHelpEx += "  newt repo add-pkg-list <pkg-list-name> <pkg-list-url>\n"
+	repoHelpEx += "  newt repo generate-pkg-list <pkg-list-name> <pkg-list-url>"
 
-	nestCmd = &cobra.Command{
-		Use:     "nest",
-		Short:   "Commands to manage nests & clutches (remote egg repositories)",
-		Long:    nestHelpText,
-		Example: nestHelpEx,
+	repoCmd = &cobra.Command{
+		Use:     "repo",
+		Short:   "Commands to manage repos & pkg-lists",
+		Long:    repoHelpText,
+		Example: repoHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
 
 			var err error
 
-			if cmd != nestCmd && cmd != createCmd {
-				NewtNest, err = cli.NewNest()
+			if cmd != repoCmd && cmd != createCmd {
+				NewtRepo, err = cli.NewRepo()
 				if err != nil {
 					NewtUsage(cmd, err)
 				}
@@ -1251,100 +1251,100 @@ func nestAddCmds(baseCmd *cobra.Command) {
 		},
 	}
 
-	createHelpText := formatHelp(`Create a new nest, specified by <nest-name>. 
-		If the optional <nest-url> parameter is specified, then download the 
-		skeleton of the nest file from that URL, instead of using the default.`)
+	createHelpText := formatHelp(`Create a new repo, specified by <repo-name>. 
+		If the optional <repo-url> parameter is specified, then download the 
+		skeleton of the repo file from that URL, instead of using the default.`)
 
-	createHelpEx := "  newt nest create <nest-name> [, <nest-url>]\n"
-	createHelpEx += "  newt nest create mynest"
+	createHelpEx := "  newt repo create <repo-name> [, <repo-url>]\n"
+	createHelpEx += "  newt repo create myrepo"
 
 	createCmd = &cobra.Command{
 		Use:     "create",
-		Short:   "Create a new nest",
+		Short:   "Create a new repo",
 		Long:    createHelpText,
 		Example: createHelpEx,
-		Run:     nestCreateCmd,
+		Run:     repoCreateCmd,
 	}
 
-	nestCmd.AddCommand(createCmd)
+	repoCmd.AddCommand(createCmd)
 
-	generateHelpText := formatHelp(`Generate a clutch file from a snapshot 
-	    of the eggs in the current directory.  generate-clutch takes two 
-		arguments, the name of the current nest and the URL at which 
-		the nest is located.`)
+	generateHelpText := formatHelp(`Generate a pkg-list file from a snapshot 
+	    of the packeges in the current directory.  generate-pkg-list takes two 
+		arguments, the name of the current repo and the URL at which 
+		the repo is located.`)
 
-	generateHelpEx := "  newt nest generate-clutch <name> <url>\n"
-	generateHelpEx += "  newt nest generate-clutch larva " +
+	generateHelpEx := "  newt repo generate-pkg-list <name> <url>\n"
+	generateHelpEx += "  newt repo generate-pkg-list larva " +
 		"https://www.github.com/mynewt/larva"
 
 	generateCmd := &cobra.Command{
-		Use:     "generate-clutch",
-		Short:   "Generate a clutch file from the eggs in the current directory",
+		Use:     "generate-pkg-list",
+		Short:   "Generate a pkg-list file from the packages in the current directory",
 		Long:    generateHelpText,
 		Example: generateHelpEx,
-		Run:     nestGenerateClutchCmd,
+		Run:     repoGeneratePkgListCmd,
 	}
 
-	nestCmd.AddCommand(generateCmd)
+	repoCmd.AddCommand(generateCmd)
 
-	addClutchHelpText := formatHelp(`Add a remote clutch to the current nest.
-	    When search for eggs to install, the clutch specified by clutch-name
-		and clutch-url will be searched for eggs that match the search.  This
-		includes both direct searches with newt egg hunt, as well as resolving
-		dependencies in egg.yml files.`)
+	addPkgListHelpText := formatHelp(`Add a remote pkg-list to the current repo.
+	    When search for pkgs to install, the pkg-list specified by pkg-list-name
+		and pkg-list-url will be searched for packages that match the search.  This
+		includes both direct searches with newt package search, as well as resolving
+		dependencies in pkg.yml files.`)
 
-	addClutchHelpEx := "  newt nest add-clutch <clutch-name> <clutch-url>\n"
-	addClutchHelpEx += "  newt nest add-clutch larva " +
+	addPkgListHelpEx := "  newt repo add-pkg-list <pkg-list-name> <pkg-list-url>\n"
+	addPkgListHelpEx += "  newt repo add-pkg-list larva " +
 		"https://www.github.com/mynewt/larva"
 
-	addClutchCmd := &cobra.Command{
-		Use:     "add-clutch",
-		Short:   "Add a remote clutch, and put it in the current nest",
-		Long:    addClutchHelpText,
-		Example: addClutchHelpEx,
-		Run:     nestAddClutchCmd,
+	addPkgListCmd := &cobra.Command{
+		Use:     "add-pkg-list",
+		Short:   "Add a remote pkg-list, and put it in the current repo",
+		Long:    addPkgListHelpText,
+		Example: addPkgListHelpEx,
+		Run:     repoAddPkgListCmd,
 	}
 
-	addClutchCmd.Flags().StringVarP(&NewtBranchClutch, "branch", "b", "master",
-		"Branch (or tag) of the clutch to install from.")
+	addPkgListCmd.Flags().StringVarP(&NewtBranchPkgList, "branch", "b", "master",
+		"Branch (or tag) of the pkg-list to install from.")
 
-	nestCmd.AddCommand(addClutchCmd)
+	repoCmd.AddCommand(addPkgListCmd)
 
-	listClutchesHelpText := formatHelp(`List the clutches installed in the current
-		nest.  A clutch represents a collection of eggs in a nest.  List clutches
-		includes the current nest, along with any remote clutches that have been 
-		added using the add-clutch command.`)
+	listPkgListsHelpText := formatHelp(`List the pkgLists installed in the current
+		repo.  A pkgList represents a collection of pkgs in a repo.  List pkgLists
+		includes the current repo, along with any remote pkgLists that have been 
+		added using the add-pkgList command.`)
 
-	listClutchesHelpEx := "  newt nest list-clutches"
+	listPkgListsHelpEx := "  newt repo list-pkg-lists"
 
-	listClutchesCmd := &cobra.Command{
-		Use:     "list-clutches",
-		Short:   "List the clutches installed in the current nest",
-		Long:    listClutchesHelpText,
-		Example: listClutchesHelpEx,
-		Run:     nestListClutchesCmd,
+	listPkgListsCmd := &cobra.Command{
+		Use:     "list-pkg-lists",
+		Short:   "List the pkg-lists installed in the current repo",
+		Long:    listPkgListsHelpText,
+		Example: listPkgListsHelpEx,
+		Run:     repoListPkgListsCmd,
 	}
 
-	nestCmd.AddCommand(listClutchesCmd)
+	repoCmd.AddCommand(listPkgListsCmd)
 
-	showClutchHelpText := formatHelp(`Show information about a clutch, given by the 
-		<clutch-name> parameter.  Displays the clutch name, URL and packages 
-		associated with a given clutch.`)
+	showPkgListHelpText := formatHelp(`Show information about a pkg-list, given by the 
+		<pkgList-name> parameter.  Displays the pkg-list name, URL and packages 
+		associated with a given pkg-list.`)
 
-	showClutchHelpEx := "  newt nest show-clutch <clutch-name>\n"
-	showClutchHelpEx += "  newt nest show-clutch larva"
+	showPkgListHelpEx := "  newt repo show-pkg-list <pkg-list-name>\n"
+	showPkgListHelpEx += "  newt repo show-pkg-list larva"
 
-	showClutchCmd := &cobra.Command{
-		Use:     "show-clutch",
-		Short:   "Show an individual clutch in the current nest",
-		Long:    showClutchHelpText,
-		Example: showClutchHelpEx,
-		Run:     nestShowClutchCmd,
+	showPkgListCmd := &cobra.Command{
+		Use:     "show-pkg-list",
+		Short:   "Show an individual pkg-list in the current repo",
+		Long:    showPkgListHelpText,
+		Example: showPkgListHelpEx,
+		Run:     repoShowPkgListCmd,
 	}
 
-	nestCmd.AddCommand(showClutchCmd)
+	repoCmd.AddCommand(showPkgListCmd)
 
-	baseCmd.AddCommand(nestCmd)
+	baseCmd.AddCommand(repoCmd)
 }
 
 func parseCmds() *cobra.Command {
@@ -1397,8 +1397,8 @@ func parseCmds() *cobra.Command {
 	newtCmd.AddCommand(versCmd)
 
 	targetAddCmds(newtCmd)
-	eggAddCmds(newtCmd)
-	nestAddCmds(newtCmd)
+	pkgAddCmds(newtCmd)
+	repoAddCmds(newtCmd)
 
 	return newtCmd
 }

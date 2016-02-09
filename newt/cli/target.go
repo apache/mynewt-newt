@@ -48,13 +48,13 @@ type Target struct {
 
 	Bsp string
 
-	Nest *Nest
+	Repo *Repo
 }
 
-// Check if the target specified by name exists for the Nest specified by
+// Check if the target specified by name exists for the Repo specified by
 // r
-func TargetExists(nest *Nest, name string) bool {
-	_, err := nest.GetConfig(TARGET_SECT_PREFIX+name, "name")
+func TargetExists(repo *Repo, name string) bool {
+	_, err := repo.GetConfig(TARGET_SECT_PREFIX+name, "name")
 	if err == nil {
 		return true
 	} else {
@@ -122,14 +122,14 @@ func (t *Target) HasIdentity(identity string) bool {
 }
 
 // Load the target specified by name for the repository specified by r
-func LoadTarget(nest *Nest, name string) (*Target, error) {
+func LoadTarget(repo *Repo, name string) (*Target, error) {
 	t := &Target{
-		Nest: nest,
+		Repo: repo,
 	}
 
 	var err error
 
-	t.Vars, err = nest.GetConfigSect(TARGET_SECT_PREFIX + name)
+	t.Vars, err = repo.GetConfigSect(TARGET_SECT_PREFIX + name)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +145,8 @@ func LoadTarget(nest *Nest, name string) (*Target, error) {
 
 // Export a target, or all targets.  If exportAll is true, then all targets are exported, if false,
 // then only the target represented by targetName is exported
-func ExportTargets(nest *Nest, name string, exportAll bool, fp *os.File) error {
-	targets, err := GetTargets(nest)
+func ExportTargets(repo *Repo, name string, exportAll bool, fp *os.File) error {
+	targets, err := GetTargets(repo)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func ExportTargets(nest *Nest, name string, exportAll bool, fp *os.File) error {
 	return nil
 }
 
-func ImportTargets(nest *Nest, name string, importAll bool, fp *os.File) error {
+func ImportTargets(repo *Repo, name string, importAll bool, fp *os.File) error {
 	s := bufio.NewScanner(fp)
 
 	var currentTarget *Target = nil
@@ -206,7 +206,7 @@ func ImportTargets(nest *Nest, name string, importAll bool, fp *os.File) error {
 				if importAll || elements[1] == name {
 					// create a current target
 					currentTarget = &Target{
-						Nest: nest,
+						Repo: repo,
 					}
 
 					var err error
@@ -245,11 +245,11 @@ func ImportTargets(nest *Nest, name string, importAll bool, fp *os.File) error {
 }
 
 // Get a list of targets for the repository specified by r
-func GetTargets(nest *Nest) ([]*Target, error) {
+func GetTargets(repo *Repo) ([]*Target, error) {
 	targets := []*Target{}
-	for sect, _ := range nest.Config {
+	for sect, _ := range repo.Config {
 		if strings.HasPrefix(sect, TARGET_SECT_PREFIX) {
-			target, err := LoadTarget(nest, sect[len(TARGET_SECT_PREFIX):len(sect)])
+			target, err := LoadTarget(repo, sect[len(TARGET_SECT_PREFIX):len(sect)])
 			if err != nil {
 				return nil, err
 			}
@@ -267,7 +267,7 @@ func (t *Target) GetVars() map[string]string {
 
 // Return the compiler definition file for this target
 func (t *Target) GetCompiler() string {
-	path := t.Nest.BasePath + "/compiler/"
+	path := t.Repo.BasePath + "/compiler/"
 	if t.Vars["compiler"] != "" {
 		path += t.Vars["compiler"]
 	} else {
@@ -284,7 +284,7 @@ func (t *Target) Build() error {
 		StatusMessage(VERBOSITY_DEFAULT, "Building target %s (project = %s)\n",
 			t.Name, t.Vars["project"])
 		// Now load and build the project.
-		p, err := LoadProject(t.Nest, t, t.Vars["project"])
+		p, err := LoadProject(t.Repo, t, t.Vars["project"])
 		if err != nil {
 			return err
 		}
@@ -292,13 +292,13 @@ func (t *Target) Build() error {
 		if err = p.Build(); err != nil {
 			return err
 		}
-	} else if t.Vars["egg"] != "" {
-		clutch, err := NewClutch(t.Nest)
+	} else if t.Vars["pkg"] != "" {
+		pkgList, err := NewPkgList(t.Repo)
 		if err != nil {
 			return err
 		}
 
-		err = clutch.Build(t, t.Vars["egg"], nil, nil)
+		err = pkgList.Build(t, t.Vars["pkg"], nil, nil)
 		if err != nil {
 			return err
 		}
@@ -309,7 +309,7 @@ func (t *Target) Build() error {
 
 func (t *Target) BuildClean(cleanAll bool) error {
 	if t.Vars["project"] != "" {
-		p, err := LoadProject(t.Nest, t, t.Vars["project"])
+		p, err := LoadProject(t.Repo, t, t.Vars["project"])
 		if err != nil {
 			return err
 		}
@@ -318,12 +318,12 @@ func (t *Target) BuildClean(cleanAll bool) error {
 		if err = p.BuildClean(cleanAll); err != nil {
 			return err
 		}
-	} else if t.Vars["egg"] != "" {
-		clutch, err := NewClutch(t.Nest)
+	} else if t.Vars["pkg"] != "" {
+		pkgList, err := NewPkgList(t.Repo)
 		if err != nil {
 			return err
 		}
-		err = clutch.BuildClean(t, t.Vars["egg"], cleanAll)
+		err = pkgList.BuildClean(t, t.Vars["pkg"], cleanAll)
 		if err != nil {
 			return err
 		}
@@ -333,16 +333,16 @@ func (t *Target) BuildClean(cleanAll bool) error {
 }
 
 func (t *Target) Test(cmd string, flag bool) error {
-	clutch, err := NewClutch(t.Nest)
+	pkgList, err := NewPkgList(t.Repo)
 	if err != nil {
 		return err
 	}
 
 	switch cmd {
 	case "test":
-		err = clutch.Test(t, t.Vars["egg"], flag)
+		err = pkgList.Test(t, t.Vars["pkg"], flag)
 	case "testclean":
-		err = clutch.TestClean(t, t.Vars["egg"], flag)
+		err = pkgList.TestClean(t, t.Vars["pkg"], flag)
 	default:
 		err = NewNewtError("Unknown command to Test() " + cmd)
 	}
@@ -356,7 +356,7 @@ func (t *Target) Test(cmd string, flag bool) error {
 func (t *Target) DeleteVar(name string) error {
 	targetCfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
 
-	if err := t.Nest.DelConfig(targetCfgSect, name); err != nil {
+	if err := t.Repo.DelConfig(targetCfgSect, name); err != nil {
 		return err
 	}
 
@@ -365,7 +365,7 @@ func (t *Target) DeleteVar(name string) error {
 
 // Save the target's configuration elements
 func (t *Target) Save() error {
-	nest := t.Nest
+	repo := t.Repo
 
 	if _, ok := t.Vars["name"]; !ok {
 		return NewNewtError("Cannot save a target without a name")
@@ -374,7 +374,7 @@ func (t *Target) Save() error {
 	targetCfg := TARGET_SECT_PREFIX + t.Vars["name"]
 
 	for k, v := range t.Vars {
-		if err := nest.SetConfig(targetCfg, k, v); err != nil {
+		if err := repo.SetConfig(targetCfg, k, v); err != nil {
 			return err
 		}
 	}
@@ -383,7 +383,7 @@ func (t *Target) Save() error {
 }
 
 func (t *Target) Remove() error {
-	nest := t.Nest
+	repo := t.Repo
 
 	if _, ok := t.Vars["name"]; !ok {
 		return NewNewtError("Cannot remove a target without a name")
@@ -392,7 +392,7 @@ func (t *Target) Remove() error {
 	cfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
 
 	for k, _ := range t.Vars {
-		if err := nest.DelConfig(cfgSect, k); err != nil {
+		if err := repo.DelConfig(cfgSect, k); err != nil {
 			return err
 		}
 	}
@@ -401,36 +401,36 @@ func (t *Target) Remove() error {
 }
 
 func (t *Target) Download() error {
-	clutch, err := NewClutch(t.Nest)
+	pkgList, err := NewPkgList(t.Repo)
 	if err != nil {
 		return err
 	}
 
-	egg, err := clutch.ResolveEggName(t.Bsp)
+	pkg, err := pkgList.ResolvePkgName(t.Bsp)
 	if err != nil {
 		return err
 	}
 
-	err = egg.LoadConfig(t, false)
+	err = pkg.LoadConfig(t, false)
 	if err != nil {
 		return err
 	}
-	if egg.DownloadScript == "" {
-		return NewNewtError(fmt.Sprintf("No egg.downloadscript defined for %s",
-			egg.FullName))
+	if pkg.DownloadScript == "" {
+		return NewNewtError(fmt.Sprintf("No pkg.downloadscript defined for %s",
+			pkg.FullName))
 	}
-	downloadScript := filepath.Join(egg.BasePath, egg.DownloadScript)
+	downloadScript := filepath.Join(pkg.BasePath, pkg.DownloadScript)
 
 	if t.Vars["project"] == "" {
 		return NewNewtError(fmt.Sprintf("No project associated with target %s",
 			t.Name))
 	}
-	p, err := LoadProject(t.Nest, t, t.Vars["project"])
+	p, err := LoadProject(t.Repo, t, t.Vars["project"])
 	if err != nil {
 		return err
 	}
 
-	os.Chdir(t.Nest.BasePath)
+	os.Chdir(t.Repo.BasePath)
 
 	identString := ""
 	for ident, _ := range t.Identities {
@@ -449,36 +449,36 @@ func (t *Target) Download() error {
 }
 
 func (t *Target) Debug() error {
-	clutch, err := NewClutch(t.Nest)
+	pkgList, err := NewPkgList(t.Repo)
 	if err != nil {
 		return err
 	}
 
-	egg, err := clutch.ResolveEggName(t.Bsp)
+	pkg, err := pkgList.ResolvePkgName(t.Bsp)
 	if err != nil {
 		return err
 	}
 
-	err = egg.LoadConfig(t, false)
+	err = pkg.LoadConfig(t, false)
 	if err != nil {
 		return err
 	}
-	if egg.DebugScript == "" {
-		return NewNewtError(fmt.Sprintf("No egg.debugscript defined for %s",
-			egg.FullName))
+	if pkg.DebugScript == "" {
+		return NewNewtError(fmt.Sprintf("No pkg.debugscript defined for %s",
+			pkg.FullName))
 	}
-	debugScript := filepath.Join(egg.BasePath, egg.DebugScript)
+	debugScript := filepath.Join(pkg.BasePath, pkg.DebugScript)
 
 	if t.Vars["project"] == "" {
 		return NewNewtError(fmt.Sprintf("No project associated with target %s",
 			t.Name))
 	}
-	p, err := LoadProject(t.Nest, t, t.Vars["project"])
+	p, err := LoadProject(t.Repo, t, t.Vars["project"])
 	if err != nil {
 		return err
 	}
 
-	os.Chdir(t.Nest.BasePath)
+	os.Chdir(t.Repo.BasePath)
 
 	identString := ""
 	for ident, _ := range t.Identities {
@@ -536,40 +536,40 @@ func (m *MemSection) PartOf(addr uint64) bool {
 /*
  * We accumulate the size of libraries to elements in this.
  */
-type EggSize struct {
+type PkgSize struct {
 	Name  string
 	Sizes map[string]uint32 /* Sizes indexed by mem section name */
 }
 
-type EggSizeArray []*EggSize
+type PkgSizeArray []*PkgSize
 
-func (array EggSizeArray) Len() int {
+func (array PkgSizeArray) Len() int {
 	return len(array)
 }
 
-func (array EggSizeArray) Less(i, j int) bool {
+func (array PkgSizeArray) Less(i, j int) bool {
 	return array[i].Name < array[j].Name
 }
 
-func (array EggSizeArray) Swap(i, j int) {
+func (array PkgSizeArray) Swap(i, j int) {
 	array[i], array[j] = array[j], array[i]
 }
 
-func MakeEggSize(name string, memSections map[string]*MemSection) *EggSize {
-	eggSize := &EggSize{
+func MakePkgSize(name string, memSections map[string]*MemSection) *PkgSize {
+	pkgSize := &PkgSize{
 		Name: name,
 	}
-	eggSize.Sizes = make(map[string]uint32)
+	pkgSize.Sizes = make(map[string]uint32)
 	for secName, _ := range memSections {
-		eggSize.Sizes[secName] = 0
+		pkgSize.Sizes[secName] = 0
 	}
-	return eggSize
+	return pkgSize
 }
 
 /*
  * Go through GCC generated mapfile, and collect info about symbol sizes
  */
-func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]*MemSection,
+func ParseMapFileSizes(fileName string) (map[string]*PkgSize, map[string]*MemSection,
 	error) {
 	var state int = 0
 
@@ -579,7 +579,7 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]*MemSec
 	}
 
 	memSections := make(map[string]*MemSection)
-	eggSizes := make(map[string]*EggSize)
+	pkgSizes := make(map[string]*PkgSize)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -713,13 +713,13 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]*MemSec
 			srcLib := filepath.Base(tmpStrArr[0])
 			for name, section := range memSections {
 				if section.PartOf(addr) {
-					eggSize := eggSizes[srcLib]
-					if eggSize == nil {
-						eggSize =
-							MakeEggSize(srcLib, memSections)
-						eggSizes[srcLib] = eggSize
+					pkgSize := pkgSizes[srcLib]
+					if pkgSize == nil {
+						pkgSize =
+							MakePkgSize(srcLib, memSections)
+						pkgSizes[srcLib] = pkgSize
 					}
-					eggSize.Sizes[name] += uint32(size)
+					pkgSize.Sizes[name] += uint32(size)
 					break
 				}
 			}
@@ -732,13 +732,13 @@ func ParseMapFileSizes(fileName string) (map[string]*EggSize, map[string]*MemSec
 			name, section.Offset, section.EndOff)
 	}
 
-	return eggSizes, memSections, nil
+	return pkgSizes, memSections, nil
 }
 
 /*
  * Return a printable string containing size data for the libraries
  */
-func PrintSizes(libs map[string]*EggSize,
+func PrintSizes(libs map[string]*PkgSize,
 	sectMap map[string]*MemSection) (string, error) {
 	ret := ""
 
@@ -756,19 +756,19 @@ func PrintSizes(libs map[string]*EggSize,
 	/*
 	 * Order libraries by name, and display them in that order.
 	 */
-	eggSizes := make(EggSizeArray, len(libs))
+	pkgSizes := make(PkgSizeArray, len(libs))
 	i = 0
 	for _, es := range libs {
-		eggSizes[i] = es
+		pkgSizes[i] = es
 		i++
 	}
-	sort.Sort(eggSizes)
+	sort.Sort(pkgSizes)
 
 	for _, sec := range memSections {
 		ret += fmt.Sprintf("%7s ", sec.Name)
 	}
 	ret += "\n"
-	for _, es := range eggSizes {
+	for _, es := range pkgSizes {
 		for i := 0; i < len(memSections); i++ {
 			ret += fmt.Sprintf("%7d ", es.Sizes[memSections[i].Name])
 		}
@@ -782,7 +782,7 @@ func (t *Target) GetSize() (string, error) {
 		StatusMessage(VERBOSITY_DEFAULT, "Inspecting target %s (project = %s)\n",
 			t.Name, t.Vars["project"])
 		// Now load the project, mapfile settings
-		p, err := LoadProject(t.Nest, t, t.Vars["project"])
+		p, err := LoadProject(t.Repo, t, t.Vars["project"])
 		if err != nil {
 			return "", err
 		}
@@ -796,11 +796,11 @@ func (t *Target) GetSize() (string, error) {
 		}
 		mapFile := p.BinPath() + p.Name + ".elf.map"
 
-		eggSizes, memSections, err := ParseMapFileSizes(mapFile)
+		pkgSizes, memSections, err := ParseMapFileSizes(mapFile)
 		if err != nil {
 			return "", err
 		}
-		return PrintSizes(eggSizes, memSections)
+		return PrintSizes(pkgSizes, memSections)
 	}
 	return "", NewNewtError("Target needs a project")
 }

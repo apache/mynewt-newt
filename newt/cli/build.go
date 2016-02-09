@@ -19,43 +19,43 @@ import (
 	"os"
 )
 
-// Recursively iterates through an egg's dependencies, adding each egg
+// Recursively iterates through an pkg's dependencies, adding each pkg
 // encountered to the supplied set.
-func collectDepsAux(clutch *Clutch, egg *Egg, set *map[*Egg]bool) error {
-	if (*set)[egg] {
+func collectDepsAux(pkgList *PkgList, pkg *Pkg, set *map[*Pkg]bool) error {
+	if (*set)[pkg] {
 		return nil
 	}
 
-	(*set)[egg] = true
+	(*set)[pkg] = true
 
-	for _, dep := range egg.Deps {
+	for _, dep := range pkg.Deps {
 		if dep.Name == "" {
 			break
 		}
 
-		// Get egg structure
-		degg, err := clutch.ResolveEggName(dep.Name)
+		// Get pkg structure
+		dpkg, err := pkgList.ResolvePkgName(dep.Name)
 		if err != nil {
 			return err
 		}
 
-		collectDepsAux(clutch, degg, set)
+		collectDepsAux(pkgList, dpkg, set)
 	}
 
 	return nil
 }
 
-// Recursively iterates through an egg's dependencies.  The resulting array
-// contains a pointer to each encountered egg.
-func collectDeps(clutch *Clutch, egg *Egg) ([]*Egg, error) {
-	set := map[*Egg]bool{}
+// Recursively iterates through an pkg's dependencies.  The resulting array
+// contains a pointer to each encountered pkg.
+func collectDeps(pkgList *PkgList, pkg *Pkg) ([]*Pkg, error) {
+	set := map[*Pkg]bool{}
 
-	err := collectDepsAux(clutch, egg, &set)
+	err := collectDepsAux(pkgList, pkg, &set)
 	if err != nil {
 		return nil, err
 	}
 
-	arr := []*Egg{}
+	arr := []*Pkg{}
 	for p, _ := range set {
 		arr = append(arr, p)
 	}
@@ -63,23 +63,23 @@ func collectDeps(clutch *Clutch, egg *Egg) ([]*Egg, error) {
 	return arr, nil
 }
 
-// Calculates the include paths exported by the specified egg and all of
+// Calculates the include paths exported by the specified pkg and all of
 // its recursive dependencies.
-func recursiveIncludePaths(clutch *Clutch, egg *Egg,
+func recursiveIncludePaths(pkgList *PkgList, pkg *Pkg,
 	t *Target) ([]string, error) {
 
-	deps, err := collectDeps(clutch, egg)
+	deps, err := collectDeps(pkgList, pkg)
 	if err != nil {
 		return nil, err
 	}
 
 	incls := []string{}
 	for _, p := range deps {
-		eggIncls, err := p.GetIncludes(t)
+		pkgIncls, err := p.GetIncludes(t)
 		if err != nil {
 			return nil, err
 		}
-		incls = append(incls, eggIncls...)
+		incls = append(incls, pkgIncls...)
 	}
 
 	return incls, nil
@@ -87,44 +87,44 @@ func recursiveIncludePaths(clutch *Clutch, egg *Egg,
 
 // Calculates the include paths exported by the specified target's BSP and all
 // of its recursive dependencies.
-func BspIncludePaths(clutch *Clutch, t *Target) ([]string, error) {
+func BspIncludePaths(pkgList *PkgList, t *Target) ([]string, error) {
 	if t.Bsp == "" {
 		return nil, NewNewtError("Expected a BSP")
 	}
 
-	bspEgg, err := clutch.ResolveEggName(t.Bsp)
+	bspPkg, err := pkgList.ResolvePkgName(t.Bsp)
 	if err != nil {
-		return nil, NewNewtError("No BSP egg for " + t.Bsp + " exists")
+		return nil, NewNewtError("No BSP pkg for " + t.Bsp + " exists")
 	}
 
-	return recursiveIncludePaths(clutch, bspEgg, t)
+	return recursiveIncludePaths(pkgList, bspPkg, t)
 }
 
-func buildBsp(t *Target, clutch *Clutch, incls *[]string,
-	libs *[]string, capEggs map[string]string) (string, error) {
+func buildBsp(t *Target, pkgList *PkgList, incls *[]string,
+	libs *[]string, capPkgs map[string]string) (string, error) {
 
 	if t.Bsp == "" {
 		return "", NewNewtError("Expected a BSP")
 	}
 
-	bspEgg, err := clutch.ResolveEggName(t.Bsp)
+	bspPkg, err := pkgList.ResolvePkgName(t.Bsp)
 	if err != nil {
-		return "", NewNewtError("No BSP egg for " + t.Bsp + " exists")
+		return "", NewNewtError("No BSP pkg for " + t.Bsp + " exists")
 	}
 
-	if err = clutch.Build(t, t.Bsp, *incls, libs); err != nil {
+	if err = pkgList.Build(t, t.Bsp, *incls, libs); err != nil {
 		return "", err
 	}
 
 	// A BSP doesn't have to contain source; don't fail if no library was
 	// built.
-	if lib := clutch.GetEggLib(t, bspEgg); NodeExist(lib) {
+	if lib := pkgList.GetPkgLib(t, bspPkg); NodeExist(lib) {
 		*libs = append(*libs, lib)
 	}
 
 	var linkerScript string
-	if bspEgg.LinkerScript != "" {
-		linkerScript = bspEgg.BasePath + "/" + bspEgg.LinkerScript
+	if bspPkg.LinkerScript != "" {
+		linkerScript = bspPkg.BasePath + "/" + bspPkg.LinkerScript
 	} else {
 		linkerScript = ""
 	}
@@ -134,34 +134,34 @@ func buildBsp(t *Target, clutch *Clutch, incls *[]string,
 
 // Creates the set of compiler flags that should be specified when building a
 // particular target-entity pair.  The "entity" is what is being built; either
-// an egg or a project.
-func CreateCflags(clutch *Clutch, c *Compiler, t *Target,
+// an pkg or a project.
+func CreateCflags(pkgList *PkgList, c *Compiler, t *Target,
 	entityCflags string) string {
 
 	cflags := c.Cflags + " " + entityCflags + " " + t.Cflags
 
 	// The 'test' identity causes the TEST symbol to be defined.  This allows
-	// egg code to behave differently in test builds.
+	// pkg code to behave differently in test builds.
 	if t.HasIdentity("test") {
 		cflags += " -DTEST"
 	}
 
 	cflags += " -DARCH_" + t.Arch
 
-	// If a non-BSP egg is being built, add the BSP's C flags to the list.
-	// The BSP's compiler flags get exported to all eggs.
-	bspEgg, err := clutch.ResolveEggName(t.Bsp)
-	if err == nil && bspEgg.Cflags != entityCflags {
-		cflags += " " + bspEgg.Cflags
+	// If a non-BSP pkg is being built, add the BSP's C flags to the list.
+	// The BSP's compiler flags get exported to all pkgs.
+	bspPkg, err := pkgList.ResolvePkgName(t.Bsp)
+	if err == nil && bspPkg.Cflags != entityCflags {
+		cflags += " " + bspPkg.Cflags
 	}
 
 	return cflags
 }
 
-func EggIncludeDirs(egg *Egg, t *Target) []string {
-	srcDir := egg.BasePath + "/src/"
+func PkgIncludeDirs(pkg *Pkg, t *Target) []string {
+	srcDir := pkg.BasePath + "/src/"
 
-	incls := egg.Includes
+	incls := pkg.Includes
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+t.Arch)
 
@@ -182,7 +182,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 	StatusMessage(VERBOSITY_VERBOSE, "compiling src in base directory: %s\n",
 		srcDir)
 
-	// First change into the egg src directory, and build all the objects
+	// First change into the pkg src directory, and build all the objects
 	// there
 	os.Chdir(srcDir)
 
@@ -201,7 +201,7 @@ func BuildDir(srcDir string, c *Compiler, t *Target, ignDirs []string) error {
 
 	archDir := srcDir + "/arch/" + t.Arch + "/"
 	StatusMessage(VERBOSITY_VERBOSE,
-		"compiling architecture specific src eggs in directory: %s\n",
+		"compiling architecture specific src pkgs in directory: %s\n",
 		archDir)
 
 	if NodeExist(archDir) {
