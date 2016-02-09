@@ -106,7 +106,7 @@ type PkgDesc struct {
 	FullName string
 	Version  *Version
 	/* PkgList this pkgshell belongs to */
-	PkgList  *PkgList
+	PkgList *PkgList
 	Hash    string
 	Deps    []*DependencyRequirement
 	Caps    []*DependencyRequirement
@@ -518,7 +518,7 @@ func (pkg *Pkg) LoadDependencies(identities map[string]string,
 
 	log.Printf("[DEBUG] Loading dependencies for pkg %s", pkg.BasePath)
 
-	v, err := ReadConfig(pkg.BasePath, "pkg")
+	v, err := ReadConfig(pkg.BasePath, "package")
 	if err != nil {
 		return err
 	}
@@ -670,7 +670,7 @@ func (pkg *Pkg) LoadConfig(t *Target, force bool) error {
 
 	log.Printf("[DEBUG] Loading configuration for pkg %s", pkg.BasePath)
 
-	v, err := ReadConfig(pkg.BasePath, "pkg")
+	v, err := ReadConfig(pkg.BasePath, "package")
 	if err != nil {
 		return err
 	}
@@ -688,10 +688,10 @@ func (pkg *Pkg) LoadConfig(t *Target, force bool) error {
 	// identity.
 	identities := map[string]string{}
 	if t != nil {
-		identities = t.Identities;
+		identities = t.Identities
 		idents := GetStringSliceIdentities(v, identities, "pkg.identities")
 		for _, item := range idents {
-		    identities[item] = pkg.FullName;
+			identities[item] = pkg.FullName
 		}
 	}
 

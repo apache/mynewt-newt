@@ -150,7 +150,7 @@ func (p *Project) collectAllDeps(pkgList *PkgList, identities map[string]string,
 	capabilities map[string]string) error {
 
 	pkgDepList := p.GetPkgs()
-	if pkgList == nil {
+	if pkgDepList == nil {
 		return nil
 	}
 

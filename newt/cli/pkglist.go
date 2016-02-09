@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+
 	"github.com/spf13/viper"
 )
 
@@ -170,7 +172,8 @@ func (pkgList *PkgList) loadPkg(pkgDir string, pkgPrefix string,
 
 	pkg, err := NewPkg(pkgList.Repo, pkgDir)
 	if err != nil {
-		return nil
+		return util.NewNewtError(fmt.Sprintf("Cannot load package %s, error %s",
+			pkgDir, err.Error()))
 	}
 
 	pkgList.Pkgs[pkgPrefix+pkgName] = pkg
@@ -217,7 +220,7 @@ func (pkgList *PkgList) loadPkgDir(baseDir string, pkgPrefix string,
 		}
 	}
 
-	if NodeNotExist(baseDir + "/" + pkgName + "/pkg.yml") {
+	if NodeNotExist(baseDir + "/" + pkgName + "/package.yml") {
 		return nil
 	}
 
@@ -299,7 +302,7 @@ func (pkgList *PkgList) ResolvePkgName(pkgName string) (*Pkg, error) {
 	pkg, ok := pkgList.Pkgs[pkgName]
 	if !ok {
 		return nil, NewNewtError(fmt.Sprintf("Invalid pkg '%s' specified "+
-			"(pkgs = %s)", pkgName, pkgList))
+			"(pkgs = %s)", pkgName, pkgList.Pkgs))
 	}
 	return pkg, nil
 }
