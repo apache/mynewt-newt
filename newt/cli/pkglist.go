@@ -46,9 +46,9 @@ type PkgList struct {
 }
 
 // Allocate a new package manager structure, and initialize it.
-func NewPkgList(nest *Repo) (*PkgList, error) {
+func NewPkgList(repo *Repo) (*PkgList, error) {
 	pkgList := &PkgList{
-		Repo: nest,
+		Repo: repo,
 	}
 	err := pkgList.Init()
 
@@ -226,10 +226,15 @@ func (pkgList *PkgList) loadPkgDir(baseDir string, pkgPrefix string,
 
 // Load all the packages in the repository into the package structure
 func (pkgList *PkgList) loadPkgs() error {
-	nest := pkgList.Repo
+	repo := pkgList.Repo
+
+	// XXX: Get additional package search directories from the repo
+	// configuration
+	// If empty, use the default set.
 
 	// Multiple package directories to be searched
 	searchDirs := []string{
+		"app/",
 		"compiler/",
 		"fs/",
 		"libs/",
@@ -243,8 +248,12 @@ func (pkgList *PkgList) loadPkgs() error {
 		"sys/",
 	}
 
+	if len(repo.AddlPackagePaths) > 0 {
+		searchDirs = append(searchDirs, repo.AddlPackagePaths...)
+	}
+
 	for _, pkgDir := range searchDirs {
-		pkgBaseDir := nest.BasePath + "/" + pkgDir
+		pkgBaseDir := repo.BasePath + "/" + pkgDir
 
 		if NodeNotExist(pkgBaseDir) {
 			continue
@@ -943,20 +952,20 @@ func (pkgList *PkgList) InstallPkg(pkgName string, branch string,
 		log.Printf("[VERBOSE] ", pkgName, " installed already")
 		return downloaded, nil
 	}
-	nest := pkgList.Repo
+	repo := pkgList.Repo
 	for _, remoteRepo := range downloaded {
 		pkg, err = remoteRepo.ResolvePkgName(pkgName)
 		if err == nil {
 			log.Print("[VERBOSE] ", pkgName, " present in downloaded pkgList ",
 				remoteRepo.Name)
 
-			err = remoteRepo.fetchPkg(pkgName, nest.BasePath)
+			err = remoteRepo.fetchPkg(pkgName, repo.BasePath)
 			if err != nil {
 				return downloaded, err
 			}
 
 			// update local pkgList
-			err = pkgList.loadPkgDir(nest.BasePath, "", pkgName)
+			err = pkgList.loadPkgDir(repo.BasePath, "", pkgName)
 			if err != nil {
 				return downloaded, err
 			}
@@ -980,7 +989,7 @@ func (pkgList *PkgList) InstallPkg(pkgName string, branch string,
 	}
 
 	// Not in downloaded pkgLists
-	pkgLists, err := nest.GetPkgLists()
+	pkgLists, err := repo.GetPkgLists()
 	if err != nil {
 		return downloaded, err
 	}
