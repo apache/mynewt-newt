@@ -38,6 +38,7 @@ var newtQuiet bool
 var newtVerbose bool
 var NewtBranchClutch string
 var NewtBranchEgg string
+var AutoTargets string = "autotargets"
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -401,6 +402,19 @@ func targetAddCmds(base *cobra.Command) {
 			NewtNest, err = cli.NewNest()
 			if err != nil {
 				NewtUsage(nil, err)
+			}
+
+			file, err := os.Open(NewtNest.BasePath + "/" + AutoTargets)
+			if err == nil {
+				err = cli.ImportTargets(NewtNest, "", true, file)
+				if err != nil {
+					log.Printf("[DEBUG] failed to import automatic " +
+						"targets %s", err.Error())
+				}
+				file.Close()
+			} else {
+				log.Printf("[DEBUG] failed to import automatic " +
+					"targets %s", err.Error())
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
