@@ -102,9 +102,9 @@ func CreateRepo(repoName string, destDir string, tadpoleUrl string) error {
 	}
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
-	// Overwrite repo.yml
+	// Overwrite app.yml
 	contents := []byte(fmt.Sprintf("repo.name: %s\n", repoName))
-	if err := ioutil.WriteFile(destDir+"/repo.yml",
+	if err := ioutil.WriteFile(destDir+"/app.yml",
 		contents, 0644); err != nil {
 		return NewNewtError(err.Error())
 	}
@@ -132,7 +132,7 @@ func (repo *Repo) GetTmpDir(dirName string, prefix string) (string, error) {
 }
 
 // Find the repo file.  Searches the current directory, and then recurses
-// parent directories until it finds a file named .repo.yml
+// parent directories until it finds a file named app.yml
 // if no repo file found in the directory heirarchy, an error is returned
 func (repo *Repo) getRepoFile() (string, error) {
 	rFile := ""
@@ -143,7 +143,7 @@ func (repo *Repo) getRepoFile() (string, error) {
 	}
 
 	for {
-		rFile = curDir + "/repo.yml"
+		rFile = curDir + "/app.yml"
 		log.Printf("[DEBUG] Searching for repo file at %s", rFile)
 		if _, err := os.Stat(rFile); err == nil {
 			log.Printf("[DEBUG] Found repo file at %s!", rFile)
@@ -349,17 +349,17 @@ func (repo *Repo) SetConfig(sect string, key string, val string) error {
 
 // Load the repo configuration file
 func (repo *Repo) loadConfig() error {
-	v, err := ReadConfig(repo.BasePath, "repo")
+	v, err := ReadConfig(repo.BasePath, "app")
 	if err != nil {
 		return NewNewtError(err.Error())
 	}
 
-	repo.Name = v.GetString("repo.name")
+	repo.Name = v.GetString("app.name")
 	if repo.Name == "" {
-		return NewNewtError("Repo file must specify repo name")
+		return NewNewtError("Application file must specify application name")
 	}
 
-	repo.AddlPackagePaths = v.GetStringSlice("repo.additional_package_paths")
+	repo.AddlPackagePaths = v.GetStringSlice("app.additional_package_paths")
 
 	return nil
 }
@@ -430,10 +430,10 @@ func (repo *Repo) Init() error {
 		return err
 	}
 
-	log.Printf("[DEBUG] Configuration loaded!  Initializing .repo database")
+	log.Printf("[DEBUG] Configuration loaded!  Initializing .app database")
 
 	// Create Repo store directory
-	repo.StorePath = repo.BasePath + "/.repo/"
+	repo.StorePath = repo.BasePath + "/.app/"
 	if NodeNotExist(repo.StorePath) {
 		if err := os.MkdirAll(repo.StorePath, 0755); err != nil {
 			return NewNewtError(err.Error())
@@ -443,7 +443,7 @@ func (repo *Repo) Init() error {
 	// Create Repo configuration database
 	repo.Config = make(map[string]map[string]string)
 
-	dbName := repo.StorePath + "/repo.db"
+	dbName := repo.StorePath + "/app.db"
 	if err := repo.initDb(dbName); err != nil {
 		return err
 	}
