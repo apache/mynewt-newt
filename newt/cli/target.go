@@ -400,6 +400,52 @@ func (t *Target) Remove() error {
 	return nil
 }
 
+func (t *Target) binPath() (string, error) {
+	if t.Vars["project"] == "" {
+		return "", NewNewtError(fmt.Sprintf("No project associated with " +
+			"target %s", t.Name))
+	}
+	p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(p.BinPath(), p.Name), nil
+}
+
+func (t *Target) Label(versionStr string) error {
+	bin2img, err := LoadTarget(t.Repo, "bin2img")
+	if err != nil {
+		return NewNewtError("Cannot label with bin2img target")
+	}
+
+	err = bin2img.Build()
+	if err != nil {
+		return err
+	}
+
+	bin2imgBase, err := bin2img.binPath()
+	if err != nil {
+		return err
+	}
+
+	bin2imgPath := bin2imgBase + ".elf"
+
+	binBaseName, err := t.binPath()
+	if err != nil {
+		return err
+	}
+
+	os.Chdir(t.Repo.BasePath)
+
+	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s %s", bin2imgPath,
+		binBaseName + ".elf.bin", binBaseName + ".img", versionStr))
+	if err != nil {
+		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
+		return err
+	}
+	return nil
+}
+
 func (t *Target) Download() error {
 	pkgList, err := NewPkgList(t.Repo)
 	if err != nil {
@@ -421,11 +467,7 @@ func (t *Target) Download() error {
 	}
 	downloadScript := filepath.Join(pkg.BasePath, pkg.DownloadScript)
 
-	if t.Vars["project"] == "" {
-		return NewNewtError(fmt.Sprintf("No project associated with target %s",
-			t.Name))
-	}
-	p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	binBaseName, err := t.binPath()
 	if err != nil {
 		return err
 	}
@@ -439,7 +481,7 @@ func (t *Target) Download() error {
 
 	StatusMessage(VERBOSITY_DEFAULT, "Downloading with %s\n", downloadScript)
 	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s", downloadScript,
-		filepath.Join(p.BinPath(), p.Name), identString))
+		binBaseName, identString))
 	if err != nil {
 		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
 		return err
@@ -469,11 +511,7 @@ func (t *Target) Debug() error {
 	}
 	debugScript := filepath.Join(pkg.BasePath, pkg.DebugScript)
 
-	if t.Vars["project"] == "" {
-		return NewNewtError(fmt.Sprintf("No project associated with target %s",
-			t.Name))
-	}
-	p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	binBaseName, err := t.binPath()
 	if err != nil {
 		return err
 	}
@@ -485,9 +523,10 @@ func (t *Target) Debug() error {
 		identString = identString + ident
 	}
 
-	StatusMessage(VERBOSITY_DEFAULT, "Debugging with %s %s\n", debugScript, p.Name)
+	StatusMessage(VERBOSITY_DEFAULT, "Debugging with %s %s\n", debugScript,
+		binBaseName)
 
-	cmdLine := []string{debugScript, filepath.Join(p.BinPath(), p.Name)}
+	cmdLine := []string{debugScript, binBaseName}
 	cmdLine = append(cmdLine, identString)
 	err = ShellInteractiveCommand(cmdLine)
 	if err != nil {
