@@ -1,17 +1,21 @@
-/*
- Copyright 2015 Runtime Inc.
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-*/
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package cli
 
@@ -95,7 +99,7 @@ func (t *Target) SetDefaults() error {
 	}
 	t.Identities = map[string]string{}
 	for _, ident := range identities {
-	StatusMessage(VERBOSITY_VERBOSE, "  set default ident %s\n", ident)
+		StatusMessage(VERBOSITY_VERBOSE, "  set default ident %s\n", ident)
 		t.Identities[ident] = t.Name
 	}
 	t.Capabilities, err = parseTargetStringSlice(t.Vars["capabilities"])
@@ -402,7 +406,7 @@ func (t *Target) Remove() error {
 
 func (t *Target) binPath() (string, error) {
 	if t.Vars["project"] == "" {
-		return "", NewNewtError(fmt.Sprintf("No project associated with " +
+		return "", NewNewtError(fmt.Sprintf("No project associated with "+
 			"target %s", t.Name))
 	}
 	p, err := LoadProject(t.Repo, t, t.Vars["project"])
@@ -438,9 +442,9 @@ func (t *Target) Label(versionStr string) error {
 	os.Chdir(t.Repo.BasePath)
 
 	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s %s", bin2imgPath,
-		binBaseName + ".elf.bin", binBaseName + ".img", versionStr))
+		binBaseName+".elf.bin", binBaseName+".img", versionStr))
 	if err != nil {
-		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
+		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp)
 		return err
 	}
 	return nil
@@ -483,7 +487,7 @@ func (t *Target) Download() error {
 	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s", downloadScript,
 		binBaseName, identString))
 	if err != nil {
-		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp);
+		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp)
 		return err
 	}
 
