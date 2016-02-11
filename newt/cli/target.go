@@ -417,23 +417,6 @@ func (t *Target) binPath() (string, error) {
 }
 
 func (t *Target) Label(versionStr string) error {
-	bin2img, err := LoadTarget(t.Repo, "bin2img")
-	if err != nil {
-		return NewNewtError("Cannot label with bin2img target")
-	}
-
-	err = bin2img.Build()
-	if err != nil {
-		return err
-	}
-
-	bin2imgBase, err := bin2img.binPath()
-	if err != nil {
-		return err
-	}
-
-	bin2imgPath := bin2imgBase + ".elf"
-
 	binBaseName, err := t.binPath()
 	if err != nil {
 		return err
@@ -441,10 +424,20 @@ func (t *Target) Label(versionStr string) error {
 
 	os.Chdir(t.Repo.BasePath)
 
-	rsp, err := ShellCommand(fmt.Sprintf("%s %s %s %s", bin2imgPath,
-		binBaseName+".elf.bin", binBaseName+".img", versionStr))
+	image, err := NewImage(t)
 	if err != nil {
-		StatusMessage(VERBOSITY_DEFAULT, "%s", rsp)
+		return err
+	}
+	image.SourceBin = binBaseName+".elf.bin"
+	image.TargetImg = binBaseName+".img"
+
+	err = image.SetVersion(versionStr)
+	if err != nil {
+		return err
+	}
+
+	err = image.Generate()
+	if err != nil {
 		return err
 	}
 	return nil
