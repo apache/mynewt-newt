@@ -161,7 +161,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 			sort.Strings(keys)
 			for _, k := range keys {
-				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s: %s\n", k, vars[k])
+				cli.StatusMessage(cli.VERBOSITY_QUIET, "	%s=%s\n", k, vars[k])
 			}
 		}
 	}
@@ -377,7 +377,7 @@ func targetImportCmd(cmd *cobra.Command, args []string) {
 
 func targetAddCmds(base *cobra.Command) {
 	targetHelpText := formatHelp(`Targets tell the newt tool how to build the source
-		code within a given repo.`)
+		code within a given application.`)
 	targetHelpEx := "  newt target create <target-name>\n"
 	targetHelpEx += "  newt target set <target-name> <var-name>=<value>\n"
 	targetHelpEx += "  newt target unset <target-name> <var-name>\n"
@@ -575,7 +575,7 @@ func targetAddCmds(base *cobra.Command) {
 	}
 	targetCmd.AddCommand(debugCmd)
 
-	exportHelpText := formatHelp(`Export build targets from the current repo, and 
+	exportHelpText := formatHelp(`Export build targets from the current application, and 
 		print them to standard output.  If the -a (or -export-all) option is 
 		specified, then all targets will be exported.  Otherwise, <target-name> 
 		must be specified, and only that target will be exported.`)
@@ -621,7 +621,7 @@ func targetAddCmds(base *cobra.Command) {
 }
 
 func dispPkg(pkg *cli.Pkg) error {
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Pkg %s, version %s\n",
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Package %s, version %s\n",
 		pkg.FullName, pkg.Version)
 	cli.StatusMessage(cli.VERBOSITY_QUIET, "  path: %s\n",
 		filepath.Clean(pkg.BasePath))
@@ -666,7 +666,7 @@ func dispPkg(pkg *cli.Pkg) error {
 }
 
 func dispPkgDesc(pkgDesc *cli.PkgDesc) error {
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "Pkg %s from pkgList %s, version %s\n",
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Package %s from pkg-list %s, version %s\n",
 		pkgDesc.FullName, pkgDesc.PkgList.Name, pkgDesc.Version)
 
 	if pkgDesc.Caps != nil {
@@ -959,7 +959,7 @@ func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 
 func pkgAddCmds(baseCmd *cobra.Command) {
 	pkgHelpText := formatHelp(`Commands to search, display and install packages
-		in the current repository.`)
+		in the current application.`)
 	pkgHelpEx := "  newt pkg list\n"
 	pkgHelpEx += "  newt pkg checkdeps\n"
 	pkgHelpEx += "  newt pkg search <pkg-name>\n"
@@ -969,7 +969,7 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 
 	pkgCmd := &cobra.Command{
 		Use:     "pkg",
-		Short:   "Commands to list and inspect packages on a repository",
+		Short:   "Commands to list and inspect packages on a application",
 		Long:    pkgHelpText,
 		Example: pkgHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -986,12 +986,12 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 		},
 	}
 
-	listHelpText := formatHelp(`List all of the packages in the current repo.`)
+	listHelpText := formatHelp(`List all of the packages in the current application.`)
 	listHelpEx := "  newt pkg list"
 
 	listCmd := &cobra.Command{
 		Use:     "list",
-		Short:   "List packages in the current repo",
+		Short:   "List packages in the current application",
 		Long:    listHelpText,
 		Example: listHelpEx,
 		Run:     pkgListCmd,
@@ -1000,7 +1000,7 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 	pkgCmd.AddCommand(listCmd)
 
 	checkDepsHelpText := formatHelp(`Resolve all dependencies in the local 
-		repository.  This command goes through all packages currently 
+		application.  This command goes through all packages currently 
 		installed, checks their dependencies, and prints any unresolved 
 		dependencies between packages.`)
 	checkDepsHelpEx := "  newt pkg checkdeps"
@@ -1016,13 +1016,13 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 	pkgCmd.AddCommand(checkDepsCmd)
 
 	searchHelpText := formatHelp(`Search for an package, specified by <pkg-name>.  
-		The local repo, along with all remote repos (pkgLists) are 
+		The local application, along with all remote applications are 
 		searched.  All matched packages are shown.`)
 	searchHelpEx := "  newt pkg search <pkg-name>"
 
 	searchCmd := &cobra.Command{
 		Use:     "search",
-		Short:   "Search for pkg from pkgLists",
+		Short:   "Search for package",
 		Long:    searchHelpText,
 		Example: searchHelpEx,
 		Run:     pkgSearchCmd,
@@ -1030,15 +1030,15 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 
 	pkgCmd.AddCommand(searchCmd)
 
-	showHelpText := formatHelp(`Show the contents of the pkg, specified by 
-		<pkg-name>.  <pkg-name> is resolved using all the pkgLists installed
-		in the current repo or, if <pkgList-name> is specified, only 
-		<pkgList-name> will be searched.`)
-	showHelpEx := "  newt pkg show [<pkgList-name> ] <pkg-name>"
+	showHelpText := formatHelp(`Show the contents of the package, specified by 
+		<pkg-name>.  <pkg-name> is resolved using all the pkg-lists installed
+		in the current application or, if <pkg-list-name> is specified, only 
+		<pkg-list-name> will be searched.`)
+	showHelpEx := "  newt pkg show [<pkg-list-name> ] <pkg-name>"
 
 	showCmd := &cobra.Command{
 		Use:     "show",
-		Short:   "Show the contents of an pkg.",
+		Short:   "Show the contents of a package.",
 		Long:    showHelpText,
 		Example: showHelpEx,
 		Run:     pkgShowCmd,
@@ -1046,33 +1046,33 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 
 	pkgCmd.AddCommand(showCmd)
 
-	installHelpText := formatHelp(`Install the pkg specified by <pkg-name> to 
-		the local repo. <pkg-name> is searched for throughout the pkgLists in 
-		the local repo.  If <pkgList-name> is specified, then only <pkgList-name>
+	installHelpText := formatHelp(`Install the package specified by <pkg-name> to 
+		the local application. <pkg-name> is searched for throughout the pkg-lists in 
+		the local application.  If <pkg-list-name> is specified, then only <pkg-list-name>
 		is searched for <pkg-name>.`)
 	installHelpEx := "  newt pkg install [<pkgList-name> ] <pkg-name>"
 
 	installCmd := &cobra.Command{
 		Use:     "install",
-		Short:   "Install an pkg",
+		Short:   "Install a package",
 		Long:    installHelpText,
 		Example: installHelpEx,
 		Run:     pkgInstallCmd,
 	}
 
 	installCmd.Flags().StringVarP(&NewtBranchPkg, "branch", "b", "",
-		"Branch (or tag) of the pkgList to install from.")
+		"Branch (or tag) of the pkg-list to install from.")
 
 	pkgCmd.AddCommand(installCmd)
 
-	removeHelpText := formatHelp(`Remove the pkg, specified by <pkg-name> from 
-		the local repo.  If present the pkg is taking only from the pkgList 
-		specified by <pkgList-name>.`)
-	removeHelpEx := "  newt pkg remove [<pkgList-name> ] <pkg-name>"
+	removeHelpText := formatHelp(`Remove the package, specified by <pkg-name> from 
+		the local application.  If present the package is resolved from the package
+		list specified by <pkg-list-name>.`)
+	removeHelpEx := "  newt pkg remove [<pkg-list-name> ] <pkg-name>"
 
 	removeCmd := &cobra.Command{
 		Use:     "remove",
-		Short:   "Remove an pkg",
+		Short:   "Remove a package",
 		Long:    removeHelpText,
 		Example: removeHelpEx,
 		Run:     pkgRemoveCmd,
@@ -1086,7 +1086,7 @@ func pkgAddCmds(baseCmd *cobra.Command) {
 func repoGeneratePkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify name and URL to lay pkgList file"))
+			cli.NewNewtError("Must specify name and URL to generate a pkg-list file"))
 	}
 
 	pkgListName := args[0]
@@ -1136,7 +1136,7 @@ func repoAddPkgListCmd(cmd *cobra.Command, args []string) {
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"PkgList "+name+" successfully installed to Repo.\n")
+		"Package list "+name+" successfully installed to application.\n")
 }
 
 func repoListPkgListsCmd(cmd *cobra.Command, args []string) {
@@ -1147,14 +1147,14 @@ func repoListPkgListsCmd(cmd *cobra.Command, args []string) {
 
 	for name, pkgList := range pkgLists {
 		cli.StatusMessage(cli.VERBOSITY_QUIET,
-			"Remote pkgList %s (pkgshells: %d)\n", name, len(pkgList.PkgDescs))
+			"Remote package list %s (num_pkgs: %d)\n", name, len(pkgList.PkgDescs))
 	}
 }
 
 func repoCreateCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify a repo name to create"))
+			cli.NewNewtError("Must specify an application name to create"))
 	}
 
 	wd, err := os.Getwd()
@@ -1177,13 +1177,13 @@ func repoCreateCmd(cmd *cobra.Command, args []string) {
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Repo %s successfully created in %s\n", args[0], repoDir)
+		"Application %s successfully created in %s\n", args[0], repoDir)
 }
 
 func repoShowPkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		NewtUsage(cmd,
-			cli.NewNewtError("Must specify a pkgList name to show-pkgList command"))
+			cli.NewNewtError("Must specify a pkg-list name to show-pkg-list command"))
 	}
 
 	pkgList, err := cli.NewPkgList(NewtRepo)
@@ -1196,8 +1196,8 @@ func repoShowPkgListCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// PkgList loaded, now print out pkgList information
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "PkgList Name: %s\n", pkgList.Name)
-	cli.StatusMessage(cli.VERBOSITY_QUIET, "PkgList URL: %s\n",
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Package List Name: %s\n", pkgList.Name)
+	cli.StatusMessage(cli.VERBOSITY_QUIET, "Package List URL: %s\n",
 		pkgList.RemoteUrl)
 
 	i := 0
@@ -1218,20 +1218,19 @@ func repoAddCmds(baseCmd *cobra.Command) {
 	var repoCmd *cobra.Command
 	var createCmd *cobra.Command
 
-	repoHelpText := formatHelp(`The repo commands help manage the local repo.
-		A repo represents the workspace for one or more projects, each project being a
-                collection of pkgs (packages.)  In addition to containing pkgs, a local repo contains the 
-		target (build) definitions, and a list of pkgLists (snapshots of remote repos 
-		which contain pkgs that can be installed into the current repo.)`)
-	repoHelpEx := "  newt repo create <repo-name> [, <repo-skele-url>]\n"
-	repoHelpEx += "  newt repo list-pkgLists\n"
-	repoHelpEx += "  newt repo show-pkg-list <pkg-list-name>\n"
-	repoHelpEx += "  newt repo add-pkg-list <pkg-list-name> <pkg-list-url>\n"
-	repoHelpEx += "  newt repo generate-pkg-list <pkg-list-name> <pkg-list-url>"
+	repoHelpText := formatHelp(`The app commands help manage the local application.
+		An application represents the workspace for one or more projects, each project being a
+                collection of packages.  In addition to containing packages, an application contains the 
+		target (build) definitions, and a list of pkg-lists (snapshots of remote applications, 
+		which contain packages that can be installed into the current application.)`)
+	repoHelpEx := "  newt app list-pkg-lists\n"
+	repoHelpEx += "  newt app show-pkg-list <pkg-list-name>\n"
+	repoHelpEx += "  newt app add-pkg-list <pkg-list-name> <pkg-list-url>\n"
+	repoHelpEx += "  newt app generate-pkg-list <pkg-list-name> <pkg-list-url>"
 
 	repoCmd = &cobra.Command{
-		Use:     "repo",
-		Short:   "Commands to manage repos & pkg-lists",
+		Use:     "app",
+		Short:   "Commands to manage application",
 		Long:    repoHelpText,
 		Example: repoHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -1239,7 +1238,7 @@ func repoAddCmds(baseCmd *cobra.Command) {
 
 			var err error
 
-			if cmd != repoCmd && cmd != createCmd {
+			if cmd != repoCmd {
 				NewtRepo, err = cli.NewRepo()
 				if err != nil {
 					NewtUsage(cmd, err)
@@ -1251,31 +1250,31 @@ func repoAddCmds(baseCmd *cobra.Command) {
 		},
 	}
 
-	createHelpText := formatHelp(`Create a new repo, specified by <repo-name>. 
-		If the optional <repo-url> parameter is specified, then download the 
-		skeleton of the repo file from that URL, instead of using the default.`)
+	createHelpText := formatHelp(`Create a new application, specified by <app-name>. 
+		If the optional <app-url> parameter is specified, then download the 
+		skeleton of the application from that URL, instead of using the default.`)
 
-	createHelpEx := "  newt repo create <repo-name> [, <repo-url>]\n"
-	createHelpEx += "  newt repo create myrepo"
+	createHelpEx := "  newt new <app-name> [, <app-url>]\n"
+	createHelpEx += "  newt new myapp"
 
 	createCmd = &cobra.Command{
-		Use:     "create",
-		Short:   "Create a new repo",
+		Use:     "new",
+		Short:   "Create a new application",
 		Long:    createHelpText,
 		Example: createHelpEx,
 		Run:     repoCreateCmd,
 	}
 
-	repoCmd.AddCommand(createCmd)
+	baseCmd.AddCommand(createCmd)
 
 	generateHelpText := formatHelp(`Generate a pkg-list file from a snapshot 
 	    of the packeges in the current directory.  generate-pkg-list takes two 
-		arguments, the name of the current repo and the URL at which 
-		the repo is located.`)
+		arguments, the name of the current application and the URL at which 
+		the application is located.`)
 
-	generateHelpEx := "  newt repo generate-pkg-list <name> <url>\n"
-	generateHelpEx += "  newt repo generate-pkg-list larva " +
-		"https://www.github.com/mynewt/larva"
+	generateHelpEx := "  newt app generate-pkg-list <name> <url>\n"
+	generateHelpEx += "  newt app generate-pkg-list larva " +
+		"https://git-wip-us.apache.org/repos/asf/incubator-mynewt-larva"
 
 	generateCmd := &cobra.Command{
 		Use:     "generate-pkg-list",
@@ -1287,19 +1286,19 @@ func repoAddCmds(baseCmd *cobra.Command) {
 
 	repoCmd.AddCommand(generateCmd)
 
-	addPkgListHelpText := formatHelp(`Add a remote pkg-list to the current repo.
+	addPkgListHelpText := formatHelp(`Add a remote pkg-list to the current application.
 	    When search for pkgs to install, the pkg-list specified by pkg-list-name
 		and pkg-list-url will be searched for packages that match the search.  This
 		includes both direct searches with newt package search, as well as resolving
 		dependencies in pkg.yml files.`)
 
-	addPkgListHelpEx := "  newt repo add-pkg-list <pkg-list-name> <pkg-list-url>\n"
-	addPkgListHelpEx += "  newt repo add-pkg-list larva " +
-		"https://www.github.com/mynewt/larva"
+	addPkgListHelpEx := "  newt app add-pkg-list <pkg-list-name> <pkg-list-url>\n"
+	addPkgListHelpEx += "  newt app add-pkg-list larva " +
+		"https://git-wip-us.apache.org/repos/asf/incubator-mynewt-larva"
 
 	addPkgListCmd := &cobra.Command{
 		Use:     "add-pkg-list",
-		Short:   "Add a remote pkg-list, and put it in the current repo",
+		Short:   "Add a remote pkg-list, and put it in the current application",
 		Long:    addPkgListHelpText,
 		Example: addPkgListHelpEx,
 		Run:     repoAddPkgListCmd,
@@ -1310,16 +1309,16 @@ func repoAddCmds(baseCmd *cobra.Command) {
 
 	repoCmd.AddCommand(addPkgListCmd)
 
-	listPkgListsHelpText := formatHelp(`List the pkgLists installed in the current
-		repo.  A pkgList represents a collection of pkgs in a repo.  List pkgLists
-		includes the current repo, along with any remote pkgLists that have been 
-		added using the add-pkgList command.`)
+	listPkgListsHelpText := formatHelp(`List the pkg-lists installed in the current
+		application.  A pkg-list represents a collection of packages in an application.  List pkg-lists
+		includes the current application, along with any remote pkgLists that have been 
+		added using the add-pkg-list command.`)
 
-	listPkgListsHelpEx := "  newt repo list-pkg-lists"
+	listPkgListsHelpEx := "  newt app list-pkg-lists"
 
 	listPkgListsCmd := &cobra.Command{
 		Use:     "list-pkg-lists",
-		Short:   "List the pkg-lists installed in the current repo",
+		Short:   "List the pkg-lists installed in the current application",
 		Long:    listPkgListsHelpText,
 		Example: listPkgListsHelpEx,
 		Run:     repoListPkgListsCmd,
@@ -1328,15 +1327,15 @@ func repoAddCmds(baseCmd *cobra.Command) {
 	repoCmd.AddCommand(listPkgListsCmd)
 
 	showPkgListHelpText := formatHelp(`Show information about a pkg-list, given by the 
-		<pkgList-name> parameter.  Displays the pkg-list name, URL and packages 
+		<pkg-list-name> parameter.  Displays the pkg-list name, URL and packages 
 		associated with a given pkg-list.`)
 
-	showPkgListHelpEx := "  newt repo show-pkg-list <pkg-list-name>\n"
-	showPkgListHelpEx += "  newt repo show-pkg-list larva"
+	showPkgListHelpEx := "  newt app show-pkg-list <pkg-list-name>\n"
+	showPkgListHelpEx += "  newt app show-pkg-list larva"
 
 	showPkgListCmd := &cobra.Command{
 		Use:     "show-pkg-list",
-		Short:   "Show an individual pkg-list in the current repo",
+		Short:   "Show an individual pkg-list in the current application",
 		Long:    showPkgListHelpText,
 		Example: showPkgListHelpEx,
 		Run:     repoShowPkgListCmd,
@@ -1349,12 +1348,12 @@ func repoAddCmds(baseCmd *cobra.Command) {
 
 func parseCmds() *cobra.Command {
 	newtHelpText := formatHelp(`Newt allows you to create your own embedded 
-		project based on the Mynewt operating system.  Newt provides both 
+		application based on the Mynewt operating system.  Newt provides both 
 		build and package management in a single tool, which allows you to 
-		compose an embedded workspace, and set of projects, and then build
+		compose an embedded application, and set of projects, and then build
 		the necessary artifacts from those projects.  For more information 
 		on the Mynewt operating system, please visit 
-		https://www.github.com/mynewt/documentation.`)
+		https://mynewt.apache.org/.`)
 	newtHelpText += "\n\n" + formatHelp(`Please use the newt help command, 
 		and specify the name of the command you want help for, for help on 
 		how to use a specific command`)

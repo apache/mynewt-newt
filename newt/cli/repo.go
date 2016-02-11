@@ -451,7 +451,7 @@ func (repo *Repo) Init() error {
 	log.Printf("[DEBUG] Database initialized.")
 
 	// Load PkgLists for the current Repo
-	repo.PkgListPath = repo.StorePath + "/pkgLists/"
+	repo.PkgListPath = repo.StorePath + "/pkg-lists/"
 	if NodeNotExist(repo.PkgListPath) {
 		if err := os.MkdirAll(repo.PkgListPath, 0755); err != nil {
 			return NewNewtError(err.Error())

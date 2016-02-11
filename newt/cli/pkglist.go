@@ -220,7 +220,7 @@ func (pkgList *PkgList) loadPkgDir(baseDir string, pkgPrefix string,
 		}
 	}
 
-	if NodeNotExist(baseDir + "/" + pkgName + "/package.yml") {
+	if NodeNotExist(baseDir + "/" + pkgName + "/pkg.yml") {
 		return nil
 	}
 

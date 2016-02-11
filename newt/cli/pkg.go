@@ -518,7 +518,7 @@ func (pkg *Pkg) LoadDependencies(identities map[string]string,
 
 	log.Printf("[DEBUG] Loading dependencies for pkg %s", pkg.BasePath)
 
-	v, err := ReadConfig(pkg.BasePath, "package")
+	v, err := ReadConfig(pkg.BasePath, "pkg")
 	if err != nil {
 		return err
 	}
@@ -670,7 +670,7 @@ func (pkg *Pkg) LoadConfig(t *Target, force bool) error {
 
 	log.Printf("[DEBUG] Loading configuration for pkg %s", pkg.BasePath)
 
-	v, err := ReadConfig(pkg.BasePath, "package")
+	v, err := ReadConfig(pkg.BasePath, "pkg")
 	if err != nil {
 		return err
 	}
