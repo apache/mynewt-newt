@@ -405,9 +405,9 @@ func targetAddCmds(base *cobra.Command) {
 				NewtUsage(nil, err)
 			}
 
-			file, err := os.Open(NewtNest.BasePath + "/" + AutoTargets)
+			file, err := os.Open(NewtRepo.BasePath + "/" + AutoTargets)
 			if err == nil {
-				err = cli.ImportTargets(NewtNest, "", true, file)
+				err = cli.ImportTargets(NewtRepo, "", true, file)
 				if err != nil {
 					log.Printf("[DEBUG] failed to import automatic "+
 						"targets %s", err.Error())
