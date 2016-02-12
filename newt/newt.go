@@ -317,6 +317,11 @@ func targetLabelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
+	err = t.Build()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
 	err = t.Label(args[1])
 	if err != nil {
 		NewtUsage(nil, err)
@@ -329,6 +334,11 @@ func targetDownloadCmd(cmd *cobra.Command, args []string) {
 	}
 
 	t, err := cli.LoadTarget(NewtRepo, args[0])
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	err = t.Build()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
