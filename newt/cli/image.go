@@ -305,9 +305,14 @@ func (image *Image) CreateManifest() error {
 		return NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",
 			image.ManifestFile, err.Error()))
 	}
+	defer file.Close()
 
-	encoder := json.NewEncoder(file)
-	err = encoder.Encode(manifest)
+	buffer, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return NewNewtError(fmt.Sprintf("Cannot encode manifest: %s",
+			err.Error()))
+	}
+	_, err = file.Write(buffer)
 	if err != nil {
 		return NewNewtError(fmt.Sprintf("Cannot write manifest file: %s",
 			err.Error()))
