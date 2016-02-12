@@ -21,14 +21,17 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"io"
 	"os"
-//	"path/filepath"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type ImageVersion struct {
@@ -39,12 +42,14 @@ type ImageVersion struct {
 }
 
 type Image struct {
-	target    *Target
+	target       *Target
 
-	SourceBin string
-	TargetImg string
+	SourceBin    string
+	TargetImg    string
+	ManifestFile string
+	version      ImageVersion
 
-	version   ImageVersion
+	hash         []byte
 }
 
 type ImageHdr struct {
@@ -85,6 +90,16 @@ const (
 const (
         IMAGE_TLV_SHA256 = 1
 )
+
+/*
+ * Data that's going to go to build manifest file
+ */
+type ImageManifest struct {
+	Date    string `json:"build_time"`
+	Version string `json:"build_version"`
+	Hash    string `json:"id"`
+	Image   string `json:"image"`
+}
 
 func NewImage(t *Target) (*Image, error) {
 	image := &Image{
@@ -130,7 +145,7 @@ func (image *Image) SetVersion(versStr string) error {
 	image.version.Minor = uint8(minor)
 	image.version.Rev = uint16(rev)
 	image.version.BuildNum = uint32(buildNum)
-	log.Printf("[VERBOSE] Version number %d.%d.%d.%d\n",
+	log.Printf("[VERBOSE] Assigning version number %d.%d.%d.%d\n",
 		image.version.Major, image.version.Minor,
 		image.version.Rev, image.version.BuildNum)
 
@@ -150,6 +165,8 @@ func (image *Image) Generate() error {
 		return NewNewtError(fmt.Sprintf("Can't open target binary: %s",
 			err.Error()))
 	}
+	defer binFile.Close()
+
 	binInfo, err := binFile.Stat()
 	if err != nil {
 		return NewNewtError(fmt.Sprintf("Can't stat target binary: %s",
@@ -162,6 +179,12 @@ func (image *Image) Generate() error {
 		return NewNewtError(fmt.Sprintf("Can't open target image: %s",
 			err.Error()))
 	}
+	defer imgFile.Close()
+
+	/*
+	 * Compute hash while updating the file.
+	 */
+	hash := sha256.New()
 
 	/*
 	 * First the header
@@ -171,7 +194,7 @@ func (image *Image) Generate() error {
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
 		ImgSz: uint32(binInfo.Size()),
-		Flags: 0,
+		Flags: IMAGE_F_HAS_SHA256,
 		Vers:  image.version,
 		Pad2:  0,
 	}
@@ -179,6 +202,11 @@ func (image *Image) Generate() error {
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
 	if err != nil {
 		return NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
+			err.Error()))
+	}
+	err = binary.Write(hash, binary.LittleEndian, hdr)
+	if err != nil {
+		return NewNewtError(fmt.Sprintf("Failed to hash data: %s",
 			err.Error()))
 	}
 
@@ -200,9 +228,63 @@ func (image *Image) Generate() error {
 			return NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
 				image.TargetImg, err.Error()))
 		}
+		_, err = hash.Write(dataBuf[0:cnt])
+		if err != nil {
+			return NewNewtError(fmt.Sprintf("Failed to hash data: %s",
+				err.Error()))
+		}
 	}
-	binFile.Close()
-	imgFile.Close()
+
+	image.hash = hash.Sum(nil)
+
+	/*
+	 * Trailer with hash of the data
+	 */
+	tlv := &ImageTrailerTlv{
+		Type: IMAGE_TLV_SHA256,
+		Pad:  0,
+		Len:  uint16(len(image.hash)),
+	}
+	err = binary.Write(imgFile, binary.LittleEndian, tlv)
+	if err != nil {
+		return NewNewtError(fmt.Sprintf("Failed to serialize image trailer: %s",
+			err.Error()))
+	}
+	_, err = imgFile.Write(image.hash)
+	if err != nil {
+		return NewNewtError(fmt.Sprintf("Failed to append hash: %s",
+			err.Error()))
+	}
+
+	return nil
+}
+
+func (image *Image) CreateManifest() error {
+	versionStr := fmt.Sprintf("%d.%d.%d.%d",
+		image.version.Major, image.version.Minor,
+		image.version.Rev, image.version.BuildNum)
+	hashStr := fmt.Sprintf("%x", image.hash)
+	timeStr := time.Now().Format(time.RFC3339)
+
+	manifest := &ImageManifest{
+		Version: versionStr,
+		Hash:    hashStr,
+		Image:   filepath.Base(image.TargetImg),
+		Date:    timeStr,
+	}
+
+	file, err := os.Create(image.ManifestFile);
+	if err != nil {
+		return NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",
+			image.ManifestFile, err.Error()))
+	}
+
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(manifest)
+	if err != nil {
+		return NewNewtError(fmt.Sprintf("Cannot write manifest file: %s",
+			err.Error()))
+	}
 
 	return nil
 }

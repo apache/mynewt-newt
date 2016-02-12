@@ -404,7 +404,19 @@ func (t *Target) Remove() error {
 	return nil
 }
 
-func (t *Target) binPath() (string, error) {
+func (t *Target) projectPath() (string, error) {
+	if t.Vars["project"] == "" {
+		return "", NewNewtError(fmt.Sprintf("No project associated with "+
+			"target %s", t.Name))
+	}
+	p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	if err != nil {
+		return "", err
+	}
+	return p.BinPath(), nil
+}
+
+func (t *Target) binBaseName() (string, error) {
 	if t.Vars["project"] == "" {
 		return "", NewNewtError(fmt.Sprintf("No project associated with "+
 			"target %s", t.Name))
@@ -417,7 +429,11 @@ func (t *Target) binPath() (string, error) {
 }
 
 func (t *Target) Label(versionStr string) error {
-	binBaseName, err := t.binPath()
+	binBaseName, err := t.binBaseName()
+	if err != nil {
+		return err
+	}
+	projectBase, err := t.projectPath()
 	if err != nil {
 		return err
 	}
@@ -429,7 +445,8 @@ func (t *Target) Label(versionStr string) error {
 		return err
 	}
 	image.SourceBin = binBaseName+".elf.bin"
-	image.TargetImg = binBaseName+".img"
+	image.TargetImg = binBaseName+".img"	
+	image.ManifestFile = filepath.Join(projectBase, "manifest.json")
 
 	err = image.SetVersion(versionStr)
 	if err != nil {
@@ -440,6 +457,12 @@ func (t *Target) Label(versionStr string) error {
 	if err != nil {
 		return err
 	}
+
+	err = image.CreateManifest()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -464,7 +487,7 @@ func (t *Target) Download() error {
 	}
 	downloadScript := filepath.Join(pkg.BasePath, pkg.DownloadScript)
 
-	binBaseName, err := t.binPath()
+	binBaseName, err := t.binBaseName()
 	if err != nil {
 		return err
 	}
@@ -508,7 +531,7 @@ func (t *Target) Debug() error {
 	}
 	debugScript := filepath.Join(pkg.BasePath, pkg.DebugScript)
 
-	binBaseName, err := t.binPath()
+	binBaseName, err := t.binBaseName()
 	if err != nil {
 		return err
 	}
