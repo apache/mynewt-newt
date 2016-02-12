@@ -450,6 +450,11 @@ func (p *Project) Build() error {
 		}
 	}
 
+	// Mark package for this project as built
+	projectPkg, err := pkgList.ResolvePkgName("project/"+p.Name)
+	if projectPkg != nil {
+		projectPkg.Built = true
+	}
 	StatusMessage(VERBOSITY_DEFAULT, "Building project %s\n", p.Name)
 
 	// Create binaries in the project bin/ directory, under:
