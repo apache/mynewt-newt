@@ -444,8 +444,8 @@ func (t *Target) Label(versionStr string) error {
 	if err != nil {
 		return err
 	}
-	image.SourceBin = binBaseName+".elf.bin"
-	image.TargetImg = binBaseName+".img"	
+	image.SourceBin = binBaseName + ".elf.bin"
+	image.TargetImg = binBaseName + ".img"
 	image.ManifestFile = filepath.Join(projectBase, "manifest.json")
 
 	err = image.SetVersion(versionStr)
@@ -496,7 +496,7 @@ func (t *Target) Download() error {
 
 	identString := ""
 	for ident, _ := range t.Identities {
-		identString = identString + ident
+		identString = identString + " " + ident
 	}
 
 	StatusMessage(VERBOSITY_DEFAULT, "Downloading with %s\n", downloadScript)
@@ -540,7 +540,7 @@ func (t *Target) Debug() error {
 
 	identString := ""
 	for ident, _ := range t.Identities {
-		identString = identString + ident
+		identString = identString + " " + ident
 	}
 
 	StatusMessage(VERBOSITY_DEFAULT, "Debugging with %s %s\n", debugScript,
