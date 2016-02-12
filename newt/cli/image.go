@@ -29,6 +29,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +101,7 @@ type ImageManifest struct {
 	Hash    string `json:"id"`
 	Image   string `json:"image"`
 	Pkgs	[]*ImageManifestPkg `json:"pkgs"`
+	TgtVars []string `json:"target"`
 }
 
 type ImageManifestPkg struct {
@@ -287,6 +289,16 @@ func (image *Image) CreateManifest() error {
 			Hash:    builtPkg.Hash,
 		}
 		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
+	}
+
+	vars := image.target.GetVars()
+	var keys []string
+	for k := range vars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
 	file, err := os.Create(image.ManifestFile);
 	if err != nil {
