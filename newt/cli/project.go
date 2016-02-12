@@ -451,7 +451,7 @@ func (p *Project) Build() error {
 	}
 
 	// Mark package for this project as built
-	projectPkg, err := pkgList.ResolvePkgName("project/"+p.Name)
+	projectPkg, err := pkgList.ResolvePkgName("project/" + p.Name)
 	if projectPkg != nil {
 		projectPkg.Built = true
 	}

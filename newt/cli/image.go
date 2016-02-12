@@ -25,8 +25,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -54,13 +54,13 @@ type Image struct {
 }
 
 type ImageHdr struct {
-        Magic uint32
-        Pad1  uint32
-        HdrSz uint32
-        ImgSz uint32
-        Flags uint32
-        Vers  ImageVersion
-        Pad2  uint32
+	Magic uint32
+	Pad1  uint32
+	HdrSz uint32
+	ImgSz uint32
+	Flags uint32
+	Vers  ImageVersion
+	Pad2  uint32
 }
 
 type ImageTrailerTlv struct {
@@ -70,7 +70,7 @@ type ImageTrailerTlv struct {
 }
 
 const (
-        IMAGE_MAGIC = 0x96f3b83c /* Image header magic */
+	IMAGE_MAGIC = 0x96f3b83c /* Image header magic */
 )
 
 const (
@@ -81,27 +81,27 @@ const (
  * Image header flags.
  */
 const (
-        IMAGE_F_PIC        = 0x00000001
-        IMAGE_F_HAS_SHA256 = 0x00000002 /* Image contains hash TLV */
+	IMAGE_F_PIC        = 0x00000001
+	IMAGE_F_HAS_SHA256 = 0x00000002 /* Image contains hash TLV */
 )
 
 /*
  * Image trailer TLV types.
  */
 const (
-        IMAGE_TLV_SHA256 = 1
+	IMAGE_TLV_SHA256 = 1
 )
 
 /*
  * Data that's going to go to build manifest file
  */
 type ImageManifest struct {
-	Date    string `json:"build_time"`
-	Version string `json:"build_version"`
-	Hash    string `json:"id"`
-	Image   string `json:"image"`
-	Pkgs	[]*ImageManifestPkg `json:"pkgs"`
-	TgtVars []string `json:"target"`
+	Date    string              `json:"build_time"`
+	Version string              `json:"build_version"`
+	Hash    string              `json:"id"`
+	Image   string              `json:"image"`
+	Pkgs    []*ImageManifestPkg `json:"pkgs"`
+	TgtVars []string            `json:"target"`
 }
 
 type ImageManifestPkg struct {
@@ -183,7 +183,7 @@ func (image *Image) Generate() error {
 	}
 
 	imgFile, err := os.OpenFile(image.TargetImg,
-		os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0777)
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
 	if err != nil {
 		return NewNewtError(fmt.Sprintf("Can't open target image: %s",
 			err.Error()))
@@ -198,7 +198,7 @@ func (image *Image) Generate() error {
 	/*
 	 * First the header
 	 */
-	hdr := &ImageHdr {
+	hdr := &ImageHdr{
 		Magic: IMAGE_MAGIC,
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
@@ -300,7 +300,7 @@ func (image *Image) CreateManifest() error {
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
-	file, err := os.Create(image.ManifestFile);
+	file, err := os.Create(image.ManifestFile)
 	if err != nil {
 		return NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",
 			image.ManifestFile, err.Error()))

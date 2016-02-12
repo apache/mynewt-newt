@@ -24,8 +24,8 @@ import (
 )
 
 type BuiltPkg struct {
-	Name string
-	Hash string
+	Name    string
+	Hash    string
 	Version string
 }
 
@@ -43,7 +43,7 @@ func NewBuiltPkg(pkg *Pkg) (*BuiltPkg, error) {
 	} else {
 		verStr = ""
 	}
-		
+
 	builtpkg := &BuiltPkg{
 		Name:    pkg.FullName,
 		Hash:    hash,
