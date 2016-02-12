@@ -99,6 +99,13 @@ type ImageManifest struct {
 	Version string `json:"build_version"`
 	Hash    string `json:"id"`
 	Image   string `json:"image"`
+	Pkgs	[]*ImageManifestPkg `json:"pkgs"`
+}
+
+type ImageManifestPkg struct {
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+	Hash    string `json:"hash"`
 }
 
 func NewImage(t *Target) (*Image, error) {
@@ -273,6 +280,14 @@ func (image *Image) CreateManifest() error {
 		Date:    timeStr,
 	}
 
+	for _, builtPkg := range BuiltPkgs {
+		imgPkg := &ImageManifestPkg{
+			Name:    builtPkg.Name,
+			Version: builtPkg.Version,
+			Hash:    builtPkg.Hash,
+		}
+		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
+	}
 	file, err := os.Create(image.ManifestFile);
 	if err != nil {
 		return NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",

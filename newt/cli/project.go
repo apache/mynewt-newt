@@ -465,7 +465,15 @@ func (p *Project) Build() error {
 	if err != nil {
 		return err
 	}
-
+	for _, pkg := range pkgList.Pkgs {
+		if pkg.Built == true {
+			builtPkg, err := NewBuiltPkg(pkg)
+			if err != nil {
+				return err
+			}
+			BuiltPkgs = append(BuiltPkgs, builtPkg)
+		}
+	}
 	return nil
 }
 
