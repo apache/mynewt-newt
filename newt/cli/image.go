@@ -55,12 +55,12 @@ type Image struct {
 
 type ImageHdr struct {
 	Magic uint32
-	Pad1  uint32
+	TlvSz uint32
 	HdrSz uint32
 	ImgSz uint32
 	Flags uint32
 	Vers  ImageVersion
-	Pad2  uint32
+	Pad   uint32
 }
 
 type ImageTrailerTlv struct {
@@ -200,12 +200,12 @@ func (image *Image) Generate() error {
 	 */
 	hdr := &ImageHdr{
 		Magic: IMAGE_MAGIC,
-		Pad1:  0,
+		TlvSz: 4 + 32,
 		HdrSz: IMAGE_HEADER_SIZE,
 		ImgSz: uint32(binInfo.Size()),
 		Flags: IMAGE_F_HAS_SHA256,
 		Vers:  image.version,
-		Pad2:  0,
+		Pad:   0,
 	}
 
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)

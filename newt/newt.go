@@ -1167,7 +1167,7 @@ func repoAddPkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
 			cli.NewNewtError("Must specify both name and URL to "+
-				"larva install command"))
+				"app add-pkg-list command"))
 	}
 
 	name := args[0]
