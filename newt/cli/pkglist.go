@@ -930,10 +930,10 @@ func (cl *PkgList) Install(name string, url string, branch string) error {
 		return err
 	}
 
-	StatusMessage(VERBOSITY_DEFAULT, "Downloading pkgList.yml from %s/"+
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading pkg-list.yml from %s/"+
 		"%s...", url, branch)
 
-	if err := dl.DownloadFile(url, branch, "pkgList.yml",
+	if err := dl.DownloadFile(url, branch, "pkg-list.yml",
 		pkgListFile); err != nil {
 		return err
 	}
@@ -941,7 +941,7 @@ func (cl *PkgList) Install(name string, url string, branch string) error {
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	// Load the manifest, and ensure that it is in the correct format
-	StatusMessage(VERBOSITY_DEFAULT, "Verifying pkgList.yml format...\n")
+	StatusMessage(VERBOSITY_DEFAULT, "Verifying pkg-list.yml format...\n")
 	if err := cl.Load(cl.GetPkgListFile(name, branch)); err != nil {
 		os.Remove(pkgListFile)
 		return err
