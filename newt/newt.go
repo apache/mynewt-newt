@@ -35,7 +35,7 @@ import (
 var ExitOnFailure bool = false
 var ExportAll bool = false
 var ImportAll bool = false
-var NewtVersion string = "0.1"
+var NewtVersion string = "0.8.0"
 var NewtLogLevel string = ""
 var NewtRepo *cli.Repo
 var newtSilent bool
