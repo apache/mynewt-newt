@@ -26,10 +26,6 @@ import (
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
-const (
-	NMGR_ID_TASKSTATS = 2
-)
-
 type TaskStatsReadReq struct {
 }
 
