@@ -30,10 +30,6 @@ const (
 	STATS_NMGR_OP_READ = 0
 )
 
-const (
-	NMGR_GROUP_ID_STATS = 2
-)
-
 type StatsReadReq struct {
 	Name string `json:"name"`
 }
