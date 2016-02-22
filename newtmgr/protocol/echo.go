@@ -27,11 +27,6 @@ type Echo struct {
 	Message string
 }
 
-const (
-	NMGR_ID_ECHO           = 0
-	NMGR_ID_CONS_ECHO_CTRL = 1
-)
-
 func NewEcho() (*Echo, error) {
 	s := &Echo{}
 	return s, nil

@@ -22,10 +22,6 @@ import (
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 )
 
-const (
-	NMGR_ID_MPSTATS = 3
-)
-
 type MempoolStatsReadReq struct {
 }
 
