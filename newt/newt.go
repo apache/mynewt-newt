@@ -1309,7 +1309,10 @@ func repoAddCmds(baseCmd *cobra.Command) {
 		Short:   "Create a new application",
 		Long:    createHelpText,
 		Example: createHelpEx,
-		Run:     repoCreateCmd,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
+		},
+		Run: repoCreateCmd,
 	}
 
 	baseCmd.AddCommand(createCmd)

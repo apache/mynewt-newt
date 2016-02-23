@@ -22,6 +22,7 @@ package cli
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 )
 
@@ -47,8 +48,7 @@ func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 			url, branch))
 	}
 
-	StatusMessage(VERBOSITY_VERBOSE,
-		"Git clone successful, removing .git directory\n")
+	log.Print("[VERBOSE] Git clone successful, removing .git directory\n")
 
 	if err := os.RemoveAll(dest + "/.git/"); err != nil {
 		return err

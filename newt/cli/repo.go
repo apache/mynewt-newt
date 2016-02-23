@@ -98,7 +98,7 @@ func CreateRepo(repoName string, destDir string, tadpoleUrl string) error {
 		return err
 	}
 
-	StatusMessage(VERBOSITY_DEFAULT, "Downloading repo skeleton from %s...",
+	StatusMessage(VERBOSITY_DEFAULT, "Downloading application skeleton from %s...",
 		tadpoleUrl)
 	if err := dl.DownloadFile(tadpoleUrl, "master", "/",
 		destDir); err != nil {
@@ -107,7 +107,7 @@ func CreateRepo(repoName string, destDir string, tadpoleUrl string) error {
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	// Overwrite app.yml
-	contents := []byte(fmt.Sprintf("repo.name: %s\n", repoName))
+	contents := []byte(fmt.Sprintf("app.name: %s\n", repoName))
 	if err := ioutil.WriteFile(destDir+"/app.yml",
 		contents, 0644); err != nil {
 		return NewNewtError(err.Error())
