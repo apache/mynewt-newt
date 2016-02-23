@@ -35,6 +35,10 @@ using the following procedure (from the base of the newt repository):
 
 This procedure will install the Newt binary into $GOPATH/bin.
 
+For more detailed instructions on getting Newt up and running, see the Apache
+Mynewt Getting Started page at:
+http://mynewt.apache.org/os/get_started/project1/
+
 Note: Apache Newt depends on the yaml.v2 Go package (https://gopkg.in/yaml.v2).
 This package is licensed under the LGPLv3, which is incompatible with the
 Apache 2.0 license.  This incompatibility will be resolved in a future beta
