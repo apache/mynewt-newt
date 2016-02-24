@@ -26,20 +26,20 @@ import (
 	"fmt"
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/cli"
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/config"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 	"github.com/tarm/serial"
 )
 
 type ConnSerial struct {
-	cp            cli.NewtmgrConnProfile
+	connProfile   config.NewtmgrConnProfile
 	currentPacket *Packet
 
 	scanner       *bufio.Scanner
 	serialChannel *serial.Port
 }
 
-func (cs *ConnSerial) Open(cp cli.NewtmgrConnProfile) error {
+func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile) error {
 	var err error
 
 	c := &serial.Config{

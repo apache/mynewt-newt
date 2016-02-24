@@ -48,7 +48,7 @@ func NewStatsReadReq() (*StatsReadReq, error) {
 	return s, nil
 }
 
-func (sr *StatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
+func (sr *StatsReadReq) Encode() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err

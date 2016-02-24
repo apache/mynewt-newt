@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	LOGS_NMGR_OP_READ  = 0
-	LOGS_NMGR_OP_CLEAR = 1
+	LOGS_NMGR_OP_READ   = 0
+	LOGS_NMGR_OP_CLEAR  = 1
+	LOGS_NMGR_OP_APPEND = 2
 )
 
 type LogsShowReq struct {
@@ -46,7 +47,7 @@ func NewLogsShowReq() (*LogsShowReq, error) {
 	return s, nil
 }
 
-func (sr *LogsShowReq) EncodeWriteRequest() (*NmgrReq, error) {
+func (sr *LogsShowReq) Encode() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -90,13 +91,13 @@ func NewLogsClearReq() (*LogsClearReq, error) {
 	return s, nil
 }
 
-func (sr *LogsClearReq) EncodeWriteRequest() (*NmgrReq, error) {
+func (sr *LogsClearReq) Encode() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
 	}
 
-	nmr.Op = NMGR_OP_READ
+	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_LOGS
 	nmr.Id = LOGS_NMGR_OP_CLEAR
@@ -112,6 +113,52 @@ func (sr *LogsClearReq) EncodeWriteRequest() (*NmgrReq, error) {
 
 func DecodeLogsClearResponse(data []byte) (*LogsClearRsp, error) {
 	var resp LogsClearRsp
+	err := json.Unmarshal(data, &resp)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
+
+	return &resp, nil
+}
+
+type LogsAppendReq struct {
+	Msg   string `json:"msg"`
+	Level uint   `json:"level"`
+}
+
+type LogsAppendRsp struct {
+	ReturnCode int `json:"rc"`
+}
+
+func NewLogsAppendReq() (*LogsAppendReq, error) {
+	s := &LogsAppendReq{}
+
+	return s, nil
+}
+
+func (sr *LogsAppendReq) Encode() (*NmgrReq, error) {
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
+
+	nmr.Op = NMGR_OP_WRITE
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_LOGS
+	nmr.Id = LOGS_NMGR_OP_APPEND
+
+	req := &LogsAppendReq{}
+
+	data, _ := json.Marshal(req)
+	nmr.Data = data
+	nmr.Len = uint16(len(data))
+
+	return nmr, nil
+}
+
+func DecodeLogsAppendResponse(data []byte) (*LogsAppendRsp, error) {
+	var resp LogsAppendRsp
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
