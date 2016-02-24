@@ -3,9 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/config"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/protocol"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/transport"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 	"github.com/spf13/cobra"
 )
@@ -14,22 +12,8 @@ func configRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		nmUsage(cmd, util.NewNewtError("Need variable name"))
 	}
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
 
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}

@@ -6,30 +6,13 @@ import (
 	"io/ioutil"
 	"os"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/config"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/protocol"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/transport"
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 	"github.com/spf13/cobra"
 )
 
 func imageListCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -73,22 +56,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, util.NewNewtError(err.Error()))
 	}
 
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -143,22 +111,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 }
 
 func imageBootCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -212,22 +165,7 @@ func fileUploadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, util.NewNewtError("Target filename too long"))
 	}
 
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -300,22 +238,7 @@ func fileDownloadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, util.NewNewtError("Target filename too long"))
 	}
 
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
