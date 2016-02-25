@@ -428,7 +428,7 @@ func (t *Target) binBaseName() (string, error) {
 	return filepath.Join(p.BinPath(), p.Name), nil
 }
 
-func (t *Target) Label(versionStr string) error {
+func (t *Target) CreateImage(versionStr string) error {
 	binBaseName, err := t.binBaseName()
 	if err != nil {
 		return err

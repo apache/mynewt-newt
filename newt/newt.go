@@ -336,7 +336,7 @@ func targetSizeCmd(cmd *cobra.Command, args []string) {
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", txt)
 }
 
-func targetLabelCmd(cmd *cobra.Command, args []string) {
+func targetCreateImageCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target and version"))
 	}
@@ -351,7 +351,7 @@ func targetLabelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	err = t.Label(args[1])
+	err = t.CreateImage(args[1])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -440,7 +440,7 @@ func targetAddCmds(base *cobra.Command) {
 	targetHelpEx += "  newt target build <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target test <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target size <target-name>\n"
-	targetHelpEx += "  newt target label <target-name> <version number>\n"
+	targetHelpEx += "  newt target create-image <target-name> <version number>\n"
 	targetHelpEx += "  newt target download <target-name>\n"
 	targetHelpEx += "  newt target debug <target-name>\n"
 	targetHelpEx += "  newt target export [-a -export-all] [<target-name>]\n"
@@ -605,21 +605,21 @@ func targetAddCmds(base *cobra.Command) {
 
 	targetCmd.AddCommand(sizeCmd)
 
-	labelHelpText := formatHelp(`Label image by appending image header to created
-		binary file <target-name>. Version number in the header is set to be
-		<version>`)
-	labelHelpEx := "  newt target label <target-name> <version>\n"
-	labelHelpEx += "  newt target label my_target1 1.2.0\n"
-	labelHelpEx += "  newt target label my_target1 1.2.0.3\n"
+	createImageHelpText := formatHelp(`Create image by adding image header to created
+		binary file for <target-name>. Version number in the header is set to be
+		<version>.`)
+	createImageHelpEx := "  newt target create-image <target-name> <version>\n"
+	createImageHelpEx += "  newt target create-image my_target1 1.2.0\n"
+	createImageHelpEx += "  newt target create-image my_target1 1.2.0.3\n"
 
-	labelCmd := &cobra.Command{
-		Use:     "label",
+	createImageCmd := &cobra.Command{
+		Use:     "create-image",
 		Short:   "Add image header to target binary",
-		Long:    labelHelpText,
-		Example: labelHelpEx,
-		Run:     targetLabelCmd,
+		Long:    createImageHelpText,
+		Example: createImageHelpEx,
+		Run:     targetCreateImageCmd,
 	}
-	targetCmd.AddCommand(labelCmd)
+	targetCmd.AddCommand(createImageCmd)
 
 	downloadHelpText := formatHelp(`Download project image to target for
 		<target-name>.`)
