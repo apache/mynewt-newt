@@ -92,6 +92,24 @@ func extractTargetVars(args []string, t *cli.Target) error {
 	return nil
 }
 
+func showValidSettings(varName string) error {
+	var err error = nil
+	var values []string
+
+	fmt.Printf("Valid values for target variable \"%s\":\n", varName)
+
+	values, err = cli.VarValues(varName)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range values {
+		fmt.Printf("    %s\n", value)
+	}
+
+	return nil
+}
+
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
@@ -104,7 +122,18 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 	ar := strings.SplitN(args[1], "=", 2)
 
-	t.Vars[ar[0]] = ar[1]
+	if len(ar) == 1 {
+		// User entered a variable name without a value.  Display valid values
+		// for the specified variable.
+		err = showValidSettings(ar[0])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+		return
+	} else {
+		// Assign value to specified variable.
+		t.Vars[ar[0]] = ar[1]
+	}
 
 	if err := t.Save(); err != nil {
 		NewtUsage(cmd, err)
@@ -453,7 +482,8 @@ func targetAddCmds(base *cobra.Command) {
 		<target-name> to value <value>.`)
 	setHelpEx := "  newt target set <target-name> <var-name>=<value>\n"
 	setHelpEx += "  newt target set my_target1 var_name=value\n"
-	setHelpEx += "  newt target set my_target1 arch=cortex_m4"
+	setHelpEx += "  newt target set my_target1 arch=cortex_m4\n"
+	setHelpEx += "  newt target set my_target1 var_name   (display valid values for <var_name>)"
 
 	setCmd := &cobra.Command{
 		Use:     "set",

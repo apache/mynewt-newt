@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -199,6 +200,54 @@ func FileModificationTime(path string) (time.Time, error) {
 	}
 
 	return fileInfo.ModTime(), nil
+}
+
+func ChildDirs(path string) ([]string, error) {
+	children, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, NewNewtError(err.Error())
+	}
+
+	childDirs := []string{}
+	for _, child := range children {
+		name := child.Name()
+		if !filepath.HasPrefix(name, ".") &&
+			!filepath.HasPrefix(name, "..") &&
+			child.IsDir() {
+
+			childDirs = append(childDirs, name)
+		}
+	}
+
+	return childDirs, nil
+}
+
+func DescendantDirsOfParent(rootPath string, parentName string) ([]string, error) {
+	if NodeNotExist(rootPath) {
+		return []string{}, nil
+	}
+
+	children, err := ChildDirs(rootPath)
+	if err != nil {
+		return nil, err
+	}
+
+	dirs := []string{}
+	if path.Base(rootPath) == parentName {
+		dirs = append(dirs, children...)
+	} else {
+		for _, child := range children {
+			childPath := rootPath + "/" + child
+			subDirs, err := DescendantDirsOfParent(childPath, parentName)
+			if err != nil {
+				return nil, err
+			}
+
+			dirs = append(dirs, subDirs...)
+		}
+	}
+
+	return dirs, nil
 }
 
 // Execute the command specified by cmdStr on the shell and return results

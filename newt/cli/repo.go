@@ -351,6 +351,32 @@ func (repo *Repo) SetConfig(sect string, key string, val string) error {
 	return nil
 }
 
+func (repo *Repo) PkgPaths() []string {
+	// Get additional package search directories from the repo
+	// configuration. If empty, use the default set.
+
+	searchDirs := []string{
+		"app/",
+		"compiler/",
+		"fs/",
+		"libs/",
+		"net/",
+		"hw/bsp/",
+		"hw/mcu/",
+		"hw/mcu/stm",
+		"hw/drivers/",
+		"hw/",
+		"project/",
+		"sys/",
+	}
+
+	if len(repo.AddlPackagePaths) > 0 {
+		searchDirs = append(searchDirs, repo.AddlPackagePaths...)
+	}
+
+	return searchDirs
+}
+
 // Load the repo configuration file
 func (repo *Repo) loadConfig() error {
 	v, err := ReadConfig(repo.BasePath, "app")

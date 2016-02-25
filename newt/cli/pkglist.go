@@ -235,29 +235,7 @@ func (pkgList *PkgList) loadPkgDir(baseDir string, pkgPrefix string,
 func (pkgList *PkgList) loadPkgs() error {
 	repo := pkgList.Repo
 
-	// XXX: Get additional package search directories from the repo
-	// configuration
-	// If empty, use the default set.
-
-	// Multiple package directories to be searched
-	searchDirs := []string{
-		"app/",
-		"compiler/",
-		"fs/",
-		"libs/",
-		"net/",
-		"hw/bsp/",
-		"hw/mcu/",
-		"hw/mcu/stm",
-		"hw/drivers/",
-		"hw/",
-		"project/",
-		"sys/",
-	}
-
-	if len(repo.AddlPackagePaths) > 0 {
-		searchDirs = append(searchDirs, repo.AddlPackagePaths...)
-	}
+	searchDirs := repo.PkgPaths()
 
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := repo.BasePath + "/" + pkgDir
