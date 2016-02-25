@@ -338,11 +338,6 @@ func targetDownloadCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	err = t.Build()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
-
 	err = t.Download()
 	if err != nil {
 		NewtUsage(nil, err)
