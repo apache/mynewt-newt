@@ -440,7 +440,7 @@ func targetAddCmds(base *cobra.Command) {
 	targetHelpEx += "  newt target build <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target test <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target size <target-name>\n"
-	targetHelpEx += "  newt target label <target-name> <version number>"
+	targetHelpEx += "  newt target label <target-name> <version number>\n"
 	targetHelpEx += "  newt target download <target-name>\n"
 	targetHelpEx += "  newt target debug <target-name>\n"
 	targetHelpEx += "  newt target export [-a -export-all] [<target-name>]\n"
