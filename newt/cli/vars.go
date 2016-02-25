@@ -22,9 +22,10 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
-func varsFromChildDirs(key string) ([]string, error) {
+func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 	repo, err := NewRepo()
 	if err != nil {
 		return nil, err
@@ -34,12 +35,18 @@ func varsFromChildDirs(key string) ([]string, error) {
 	searchDirs := repo.PkgPaths()
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := repo.BasePath + "/" + pkgDir
-		values, err := DescendantDirsOfParent(pkgBaseDir, key)
+		values, err := DescendantDirsOfParent(pkgBaseDir, key, fullPath)
 		if err != nil {
 			return nil, NewNewtError(err.Error())
 		}
 
+		// Put values into a map to eliminate duplicates.
 		for _, value := range values {
+			if fullPath {
+				// Don't include the repo base path; we only want the path
+				// relative to the repo.
+				value = strings.TrimPrefix(value, repo.BasePath+"/")
+			}
 			valueMap[value] = struct{}{}
 		}
 	}
@@ -54,19 +61,19 @@ func varsFromChildDirs(key string) ([]string, error) {
 
 var varsMap = map[string]func() ([]string, error){
 	"arch": func() ([]string, error) {
-		return varsFromChildDirs("arch")
+		return varsFromChildDirs("arch", false)
 	},
 
 	"bsp": func() ([]string, error) {
-		return varsFromChildDirs("bsp")
+		return varsFromChildDirs("bsp", true)
 	},
 
 	"compiler": func() ([]string, error) {
-		return varsFromChildDirs("compiler")
+		return varsFromChildDirs("compiler", false)
 	},
 
 	"project": func() ([]string, error) {
-		return varsFromChildDirs("project")
+		return varsFromChildDirs("project", false)
 	},
 }
 

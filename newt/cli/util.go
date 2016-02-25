@@ -222,7 +222,9 @@ func ChildDirs(path string) ([]string, error) {
 	return childDirs, nil
 }
 
-func DescendantDirsOfParent(rootPath string, parentName string) ([]string, error) {
+func DescendantDirsOfParent(rootPath string, parentName string, fullPath bool) ([]string, error) {
+	rootPath = path.Clean(rootPath)
+
 	if NodeNotExist(rootPath) {
 		return []string{}, nil
 	}
@@ -234,11 +236,18 @@ func DescendantDirsOfParent(rootPath string, parentName string) ([]string, error
 
 	dirs := []string{}
 	if path.Base(rootPath) == parentName {
-		dirs = append(dirs, children...)
+		for _, child := range children {
+			if fullPath {
+				child = rootPath + "/" + child
+			}
+
+			dirs = append(dirs, child)
+		}
 	} else {
 		for _, child := range children {
 			childPath := rootPath + "/" + child
-			subDirs, err := DescendantDirsOfParent(childPath, parentName)
+			subDirs, err := DescendantDirsOfParent(childPath, parentName,
+				fullPath)
 			if err != nil {
 				return nil, err
 			}
