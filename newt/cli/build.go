@@ -170,11 +170,13 @@ func CreateCflags(pkgList *PkgList, c *Compiler, t *Target,
 }
 
 func CreateLflags(c *Compiler, t *Target, entityLflags string) string {
-	return SortFields(c.Lflags, entityLflags, t.Lflags)
+	fields := SortFields(c.Lflags, entityLflags, t.Lflags)
+	return strings.Join(fields, " ")
 }
 
 func CreateAflags(c *Compiler, t *Target, entityAflags string) string {
-	return SortFields(c.Aflags, entityAflags, t.Aflags)
+	fields := SortFields(c.Aflags, entityAflags, t.Aflags)
+	return strings.Join(fields, " ")
 }
 
 func PkgIncludeDirs(pkg *Pkg, t *Target) []string {

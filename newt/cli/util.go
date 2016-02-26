@@ -432,9 +432,9 @@ func UniqueStrings(elems []string) []string {
 // @param wsSepStrings          A list of strings; each string contains one or
 //                                  more whitespace-delimited tokens.
 //
-// @return                      A single whitespace-delimited string containing
-//                                  all the input tokens, sorted alphabetically.
-func SortFields(wsSepStrings ...string) string {
+// @return                      A slice containing all the input tokens, sorted
+//                                  alphabetically.
+func SortFields(wsSepStrings ...string) []string {
 	slice := []string{}
 
 	for _, s := range wsSepStrings {
@@ -443,5 +443,5 @@ func SortFields(wsSepStrings ...string) string {
 
 	slice = UniqueStrings(slice)
 	sort.Strings(slice)
-	return strings.Join(slice, " ")
+	return slice
 }

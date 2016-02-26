@@ -21,7 +21,6 @@ package cli
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -31,7 +30,7 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 		return nil, err
 	}
 
-	valueMap := make(map[string]struct{})
+	valueSlice := []string{}
 	searchDirs := repo.PkgPaths()
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := repo.BasePath + "/" + pkgDir
@@ -40,23 +39,15 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 			return nil, NewNewtError(err.Error())
 		}
 
-		// Put values into a map to eliminate duplicates.
 		for _, value := range values {
 			if fullPath {
-				// Don't include the repo base path; we only want the path
-				// relative to the repo.
 				value = strings.TrimPrefix(value, repo.BasePath+"/")
 			}
-			valueMap[value] = struct{}{}
+			valueSlice = append(valueSlice, value)
 		}
 	}
 
-	valueSlice := make([]string, 0, len(valueMap))
-	for value, _ := range valueMap {
-		valueSlice = append(valueSlice, value)
-	}
-
-	return valueSlice, nil
+	return SortFields(valueSlice...), nil
 }
 
 var varsMap = map[string]func() ([]string, error){
@@ -91,6 +82,5 @@ func VarValues(varName string) ([]string, error) {
 		return nil, err
 	}
 
-	sort.Strings(values)
 	return values, nil
 }
