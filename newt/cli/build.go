@@ -21,6 +21,8 @@ package cli
 
 import (
 	"os"
+	"sort"
+	"strings"
 )
 
 // Recursively iterates through an pkg's dependencies, adding each pkg
@@ -142,24 +144,37 @@ func buildBsp(t *Target, pkgList *PkgList, incls *[]string,
 func CreateCflags(pkgList *PkgList, c *Compiler, t *Target,
 	entityCflags string) string {
 
-	cflags := c.Cflags + " " + entityCflags + " " + t.Cflags
+	cflagsSlice := []string{}
+	cflagsSlice = append(cflagsSlice, strings.Fields(c.Cflags)...)
+	cflagsSlice = append(cflagsSlice, strings.Fields(entityCflags)...)
+	cflagsSlice = append(cflagsSlice, strings.Fields(t.Cflags)...)
 
 	// The 'test' identity causes the TEST symbol to be defined.  This allows
 	// pkg code to behave differently in test builds.
 	if t.HasIdentity("test") {
-		cflags += " -DTEST"
+		cflagsSlice = append(cflagsSlice, "-DTEST")
 	}
 
-	cflags += " -DARCH_" + t.Arch
+	cflagsSlice = append(cflagsSlice, "-DARCH_"+t.Arch)
 
 	// If a non-BSP pkg is being built, add the BSP's C flags to the list.
 	// The BSP's compiler flags get exported to all pkgs.
 	bspPkg, err := pkgList.ResolvePkgName(t.Bsp)
 	if err == nil && bspPkg.Cflags != entityCflags {
-		cflags += " " + bspPkg.Cflags
+		cflagsSlice = append(cflagsSlice, strings.Fields(bspPkg.Cflags)...)
 	}
 
-	return cflags
+	cflagsSlice = UniqueStrings(cflagsSlice)
+	sort.Strings(cflagsSlice)
+	return strings.Join(cflagsSlice, " ")
+}
+
+func CreateLflags(c *Compiler, t *Target, entityLflags string) string {
+	return SortFields(c.Lflags, entityLflags, t.Lflags)
+}
+
+func CreateAflags(c *Compiler, t *Target, entityAflags string) string {
+	return SortFields(c.Aflags, entityAflags, t.Aflags)
 }
 
 func PkgIncludeDirs(pkg *Pkg, t *Target) []string {

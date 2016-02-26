@@ -470,8 +470,8 @@ func (pkgList *PkgList) Build(t *Target, pkgName string, incls []string,
 	}
 	// setup Cflags, Lflags and Aflags
 	c.Cflags = CreateCflags(pkgList, c, t, pkg.Cflags)
-	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
-	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
+	c.Lflags = CreateLflags(c, t, pkg.Lflags)
+	c.Aflags = CreateAflags(c, t, pkg.Aflags)
 
 	log.Printf("[DEBUG] compiling src pkgs in base pkg directory: %s", srcDir)
 
