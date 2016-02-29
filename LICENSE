@@ -199,3 +199,18 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+This product bundles yaml.v2's Go port of libyaml, which is available under the
+MIT license.  For details, see:
+    * yaml/apic.go
+    * yaml/emitterc.go
+    * yaml/parserc.go
+    * yaml/readerc.go
+    * yaml/scannerc.go
+    * yaml/writerc.go
+    * yaml/yamlh.go
+    * yaml/yamlprivateh.go
+
+This product bundles viper, which is available under the MIT license.  For
+details, see:
+    * viper/LICENSE
