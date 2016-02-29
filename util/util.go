@@ -20,8 +20,8 @@
 package util
 
 import (
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/viper"
 	"github.com/hashicorp/logutils"
-	"github.com/spf13/viper"
 	"log"
 	"os"
 	"runtime"

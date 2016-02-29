@@ -23,8 +23,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/viper"
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/yaml"
 	"github.com/hashicorp/logutils"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
 	"os"
@@ -115,6 +116,7 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	v.SetConfigType("yaml")
 	v.SetConfigName(name)
 	v.AddConfigPath(path)
+	yaml.SetFilename(path + "/" + name + ".yml")
 
 	err := v.ReadInConfig()
 	if err != nil {

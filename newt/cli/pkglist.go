@@ -29,8 +29,7 @@ import (
 	"strings"
 
 	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
-
-	"github.com/spf13/viper"
+	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/viper"
 )
 
 type PkgList struct {
