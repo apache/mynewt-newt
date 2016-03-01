@@ -20,6 +20,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -41,6 +42,7 @@ var NewtRepo *cli.Repo
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
+var newtForce bool
 var AutoTargets string = "autotargets"
 var NewtBranchPkgList string
 var NewtBranchPkg string
@@ -132,7 +134,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		return
 	} else {
 		// Assign value to specified variable.
-		t.Vars[ar[0]] = ar[1]
+		t.SetVar(ar[0], ar[1])
 	}
 
 	if err := t.Save(); err != nil {
@@ -167,12 +169,12 @@ type ByName []*cli.Target
 
 func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByName) Less(i, j int) bool { return a[i].Vars["name"] < a[j].Vars["name"] }
+func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
-	dispSect := ""
+	dispTarget := ""
 	if len(args) == 1 {
-		dispSect = args[0]
+		dispTarget = args[0]
 	}
 
 	targets, err := cli.GetTargets(NewtRepo)
@@ -183,8 +185,8 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	sort.Sort(ByName(targets))
 
 	for _, target := range targets {
-		if dispSect == "" || dispSect == target.Vars["name"] {
-			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"]+"\n")
+		if dispTarget == "" || dispTarget == target.Name {
+			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Name+"\n")
 
 			vars := target.GetVars()
 			var keys []string
@@ -212,11 +214,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 			"Target already exists, cannot create target with same name."))
 	}
 
-	target := &cli.Target{
-		Repo: NewtRepo,
-		Vars: map[string]string{},
-	}
-	target.Vars["name"] = args[0]
+	target := cli.NewTarget(NewtRepo, args[0])
 
 	err := target.Save()
 	if err != nil {
@@ -270,6 +268,25 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
+	}
+
+	if !newtForce {
+		// Determine if the target directory contains extra user files.  If it
+		// does, a prompt (or force) is required to delete it.
+		userFiles, err := t.ContainsUserFiles()
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		if userFiles {
+			scanner := bufio.NewScanner(os.Stdin)
+			fmt.Printf("Target directory %s contains some extra content; "+
+				"delete anyway? (y/N): ", t.Name)
+			rc := scanner.Scan()
+			if !rc || strings.ToLower(scanner.Text()) != "y" {
+				return
+			}
+		}
 	}
 
 	// Clean target prior to deletion; ignore errors during clean.
@@ -460,19 +477,17 @@ func targetAddCmds(base *cobra.Command) {
 				NewtUsage(nil, err)
 			}
 
-			file, err := os.Open(NewtRepo.BasePath + "/" + AutoTargets)
-			if err == nil {
-				err = cli.ImportTargets(NewtRepo, "", true, file)
+			// Try to migrate targets from legacy sqlite database.  If any
+			// targets are migrated, recreate the repo from the updated targets
+			// directory.
+			if cli.LegacyMigrateTargets(NewtRepo) {
+				NewtRepo, err = cli.NewRepo()
 				if err != nil {
-					log.Printf("[DEBUG] failed to import automatic "+
-						"targets %s", err.Error())
+					NewtUsage(nil, err)
 				}
-				file.Close()
-			} else {
-				log.Printf("[DEBUG] failed to import automatic "+
-					"targets %s", err.Error())
 			}
 		},
+
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Usage()
 		},
@@ -1455,6 +1470,8 @@ func parseCmds() *cobra.Command {
 		"Be silent; don't output anything.")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
+	newtCmd.PersistentFlags().BoolVarP(&newtForce, "force", "f", false,
+		"Perform operations without prompting for confirmation.")
 
 	versHelpText := formatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"

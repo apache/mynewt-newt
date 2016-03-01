@@ -20,15 +20,12 @@
 package cli
 
 import (
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type Repo struct {
@@ -52,11 +49,8 @@ type Repo struct {
 
 	AddlPackagePaths []string
 
-	// Configuration
-	Config map[string]map[string]string
-
-	// The database handle for the repo configuration database
-	db *sql.DB
+	// Targets
+	Targets map[string]map[string]string
 }
 
 // Create a new Repo object and initialize it
@@ -165,190 +159,69 @@ func (repo *Repo) getRepoFile() (string, error) {
 	return rFile, err
 }
 
-// Create the contents of the configuration database
-func (repo *Repo) createDb(db *sql.DB) error {
-	query := `
-	CREATE TABLE IF NOT EXISTS newt_cfg (
-		cfg_name VARCHAR(255) NOT NULL,
-		key VARCHAR(255) NOT NULL,
-		value TEXT
-	)
-	`
-	_, err := db.Exec(query)
-	if err != nil {
-		return NewNewtError(err.Error())
-	} else {
-		return nil
-	}
+func (repo *Repo) TargetDir(targetName string) string {
+	return repo.BasePath + "/targets/" + targetName
 }
 
-// Initialize the configuration database specified by dbName.  If the database
-// doesn't exist, create it.
-func (repo *Repo) initDb(dbName string) error {
-	db, err := sql.Open("sqlite3", dbName)
-	if err != nil {
-		return err
-	}
-	repo.db = db
-
-	err = repo.createDb(db)
+// Loads a single target definition residing in the specified directory.  The
+// path must contain a pkg.yml file at the top level to be a valid target
+// definion.
+func (repo *Repo) loadTarget(path string) error {
+	v, err := ReadConfig(path, "pkg")
 	if err != nil {
 		return err
 	}
 
-	// Populate repo configuration
-	log.Printf("[DEBUG] Populating Repo configuration from %s", dbName)
-
-	rows, err := db.Query("SELECT * FROM newt_cfg")
-	if err != nil {
-		return NewNewtError(err.Error())
+	targetName := filepath.Base(path)
+	targetMap, ok := repo.Targets[targetName]
+	if !ok {
+		targetMap = make(map[string]string)
+		repo.Targets[targetName] = targetMap
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var cfgName sql.NullString
-		var cfgKey sql.NullString
-		var cfgVal sql.NullString
-
-		err := rows.Scan(&cfgName, &cfgKey, &cfgVal)
-		if err != nil {
-			return NewNewtError(err.Error())
-		}
-
-		log.Printf("[DEBUG] Setting sect %s, key %s to val %s", cfgName.String,
-			cfgKey.String, cfgVal.String)
-
-		_, ok := repo.Config[cfgName.String]
-		if !ok {
-			repo.Config[cfgName.String] = make(map[string]string)
-		}
-
-		repo.Config[cfgName.String][cfgKey.String] = cfgVal.String
+	settings := v.AllSettings()
+	for k, v := range settings {
+		targetMap[k] = v.(string)
 	}
 
 	return nil
 }
 
-// Get a configuration variable in section sect, with key
+// Loads all target definitions rooted at the specified path.  Targets have the
+// following file structure:
+//     <path>/<target-name>/pkg.yml
+func (repo *Repo) loadPath(path string) error {
+	targetDirList, err := ioutil.ReadDir(path)
+	if err != nil && !os.IsNotExist(err) {
+		return NewNewtError(err.Error())
+	}
+
+	for _, node := range targetDirList {
+		name := node.Name()
+		if node.IsDir() &&
+			!filepath.HasPrefix(name, ".") &&
+			!filepath.HasPrefix(name, "..") {
+
+			fullPath := path + name + "/"
+
+			err = repo.loadTarget(fullPath)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Retrieves the key-value variable map for the target with the specified name.
 // error is populated if variable doesn't exist
-func (repo *Repo) GetConfig(sect string, key string) (string, error) {
-	sectMap, ok := repo.Config[sect]
+func (repo *Repo) GetTargetVars(name string) (map[string]string, error) {
+	targetVars, ok := repo.Targets[name]
 	if !ok {
-		return "", NewNewtError("No configuration section exists")
+		return nil, NewNewtError(fmt.Sprintf("Target not found: %s", name))
 	}
 
-	val, ok := sectMap[key]
-	if !ok {
-		return "", NewNewtError("No configuration variable exists")
-	}
-
-	return val, nil
-}
-
-func (repo *Repo) GetConfigSect(sect string) (map[string]string, error) {
-	sm, ok := repo.Config[sect]
-	if !ok {
-		return nil, NewNewtError("No configuration section exists")
-	}
-
-	return sm, nil
-}
-
-// Delete a configuration variable in section sect with key and val
-// Returns an error if configuration variable cannot be deleted
-// (most likely due to database error or key not existing)
-func (repo *Repo) DelConfig(sect string, key string) error {
-	db := repo.db
-
-	log.Printf("[DEBUG] Deleting sect %s, key %s", sect, key)
-
-	tx, err := db.Begin()
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	stmt, err := tx.Prepare("DELETE FROM newt_cfg WHERE cfg_name=? AND key=?")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	res, err := stmt.Exec(sect, key)
-	if err != nil {
-		return err
-	}
-
-	tx.Commit()
-
-	if affected, err := res.RowsAffected(); affected > 0 && err == nil {
-		log.Printf("[DEBUG] sect %s, key %s successfully deleted from database",
-			sect, key)
-	} else {
-		log.Printf("[DEBUG] sect %s, key %s not found, considering \"delete\" successful",
-			sect, key)
-	}
-
-	return nil
-}
-
-// Set a configuration variable in section sect with key, and val
-// Returns an error if configuration variable cannot be set
-// (most likely not able to set it in database.)
-func (repo *Repo) SetConfig(sect string, key string, val string) error {
-	_, ok := repo.Config[sect]
-	if !ok {
-		repo.Config[sect] = make(map[string]string)
-	}
-	repo.Config[sect][key] = val
-
-	// Store config
-	log.Printf("[DEBUG] Storing value %s into key %s for section %s",
-		val, sect, key)
-	db := repo.db
-
-	tx, err := db.Begin()
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	stmt, err := tx.Prepare(
-		"UPDATE newt_cfg SET value=? WHERE cfg_name=? AND key=?")
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-	defer stmt.Close()
-
-	res, err := stmt.Exec(val, sect, key)
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	// Value already existed, and we updated it.  Mission accomplished!
-	// Exit
-	if affected, err := res.RowsAffected(); affected > 0 && err == nil {
-		tx.Commit()
-		log.Printf("[DEBUG] Key %s, sect %s successfully updated to %s", key, sect, val)
-		return nil
-	}
-
-	// Otherwise, insert a new row
-	stmt1, err := tx.Prepare("INSERT INTO newt_cfg VALUES (?, ?, ?)")
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-	defer stmt1.Close()
-
-	_, err = stmt1.Exec(sect, key, val)
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	tx.Commit()
-
-	log.Printf("[DEBUG] Key %s, sect %s successfully create, value set to %s",
-		key, sect, val)
-
-	return nil
+	return targetVars, nil
 }
 
 func (repo *Repo) PkgPaths() []string {
@@ -460,7 +333,7 @@ func (repo *Repo) Init() error {
 		return err
 	}
 
-	log.Printf("[DEBUG] Configuration loaded!  Initializing .app database")
+	log.Printf("[DEBUG] Configuration loaded")
 
 	// Create Repo store directory
 	repo.StorePath = repo.BasePath + "/.app/"
@@ -470,15 +343,11 @@ func (repo *Repo) Init() error {
 		}
 	}
 
-	// Create Repo configuration database
-	repo.Config = make(map[string]map[string]string)
-
-	dbName := repo.StorePath + "/app.db"
-	if err := repo.initDb(dbName); err != nil {
+	// Load target YAML files.
+	repo.Targets = make(map[string]map[string]string)
+	if err := repo.loadPath(repo.BasePath + "/targets/"); err != nil {
 		return err
 	}
-
-	log.Printf("[DEBUG] Database initialized.")
 
 	// Load PkgLists for the current Repo
 	repo.PkgListPath = repo.StorePath + "/pkg-lists/"
