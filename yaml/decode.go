@@ -22,6 +22,7 @@ package yaml
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 type decodeState int
@@ -86,10 +87,40 @@ func sequenceAdd(ctxt *decodeCtxt, value interface{}) {
 // Inserts the specified value into a mapping-context's value map.
 func mappingAdd(ctxt *decodeCtxt, key string, value interface{}) {
 	if ctxt.value == nil {
-		ctxt.value = map[string]interface{}{}
+		ctxt.value = map[interface{}]interface{}{}
 	}
 
-	ctxt.value.(map[string]interface{})[key] = value
+	ctxt.value.(map[interface{}]interface{})[key] = value
+}
+
+func genValue(strVal string) interface{} {
+	intVal, err := strconv.Atoi(strVal)
+	if err == nil {
+		return intVal
+	}
+
+	boolVal, err := strconv.ParseBool(strVal)
+	if err == nil {
+		return boolVal
+	}
+
+	return strVal
+}
+
+func stringValue(value interface{}) string {
+	switch value.(type) {
+	case int:
+		return strconv.FormatInt(value.(int64), 10)
+
+	case bool:
+		return strconv.FormatBool(value.(bool))
+
+	case string:
+		return value.(string)
+
+	default:
+		panic("unexpected type")
+	}
 }
 
 func decodeNoOp(parser *yaml_parser_t, event *yaml_event_t,
@@ -180,7 +211,7 @@ func decodeMappingStart(parser *yaml_parser_t, event *yaml_event_t,
 		if err != nil || subCtxt.state == CTXT_STATE_DONE {
 			return ctxt, err
 		}
-		key := subCtxt.value.(string)
+		key := stringValue(subCtxt.value)
 
 		subCtxt, err = decodeNextValue(parser, &ctxt)
 		if err != nil {
@@ -209,7 +240,10 @@ func decodeMappingEnd(parser *yaml_parser_t, event *yaml_event_t,
 func decodeScalar(parser *yaml_parser_t, event *yaml_event_t,
 	parentCtxt *decodeCtxt) (decodeCtxt, error) {
 
-	ctxt := decodeCtxt{state: CTXT_STATE_SCALAR, value: string(event.value)}
+	ctxt := decodeCtxt{state: CTXT_STATE_SCALAR}
+	strVal := string(event.value)
+	ctxt.value = genValue(strVal)
+
 	return ctxt, nil
 }
 
@@ -255,8 +289,8 @@ func DecodeStream(b []byte, values map[string]interface{}) error {
 		switch subCtxt.state {
 		case CTXT_STATE_MAPPING:
 			// Copy mapping to input variable.
-			for k, v := range subCtxt.value.(map[string]interface{}) {
-				values[k] = v
+			for k, v := range subCtxt.value.(map[interface{}]interface{}) {
+				values[k.(string)] = v
 			}
 
 		case CTXT_STATE_DONE:
