@@ -19,8 +19,24 @@
 
 package yaml
 
+import (
+	"errors"
+)
+
 // This function just wraps DecodeStream with the name "Unmarshal."  This
 // allows this library to be used in place of other YAML decoding libraries.
-func Unmarshal(src []byte, values map[string]interface{}) error {
-	return DecodeStream(src, values)
+func Unmarshal(src []byte, dst interface{}) error {
+	// The destination type must be a string->interface{} map or a pointer to
+	// one.  If the destination is something else, return an error.
+	mapping, ok := dst.(map[string]interface{})
+	if !ok {
+		mPtr, ok := dst.(*map[string]interface{})
+		if !ok {
+			return errors.New("invalid dst type; expected " +
+				"map[string]interface{} or *map[string]interface{}")
+		}
+		mapping = *mPtr
+	}
+
+	return DecodeStream(src, mapping)
 }

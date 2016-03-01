@@ -140,7 +140,7 @@ func unmarshallConfigReader(in io.Reader, c map[string]interface{}, configType s
 
 	switch strings.ToLower(configType) {
 	case "yaml", "yml":
-		if err := yaml.Unmarshal(buf.Bytes(), c); err != nil {
+		if err := yaml.Unmarshal(buf.Bytes(), &c); err != nil {
 			return ConfigParseError{err}
 		}
 

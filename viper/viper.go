@@ -938,12 +938,7 @@ func (v *Viper) ReadInConfig() error {
 
 	v.config = make(map[string]interface{})
 
-	err = v.unmarshalReader(bytes.NewReader(file), v.config)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return v.unmarshalReader(bytes.NewReader(file), v.config)
 }
 
 // MergeInConfig merges a new configuration with an existing config.
