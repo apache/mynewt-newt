@@ -408,7 +408,7 @@ func (t *Target) ContainsUserFiles() (bool, error) {
 	userFiles := false
 	for _, node := range contents {
 		name := node.Name()
-		if name != "." && name != ".." && name != "yml" {
+		if name != "." && name != ".." && name != "pkg.yml" {
 			userFiles = true
 			break
 		}
