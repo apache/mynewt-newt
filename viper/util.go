@@ -25,7 +25,7 @@ import (
 	"strings"
 	"unicode"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/yaml"
+	"mynewt.apache.org/newt/yaml"
 	"github.com/BurntSushi/toml"
 	"github.com/hashicorp/hcl"
 	"github.com/magiconair/properties"

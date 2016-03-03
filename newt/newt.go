@@ -29,7 +29,7 @@ import (
 	"sort"
 	"strings"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newt/cli"
+	"mynewt.apache.org/newt/newt/cli"
 	"github.com/spf13/cobra"
 )
 

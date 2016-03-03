@@ -28,8 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/viper"
+	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
 
 type PkgList struct {

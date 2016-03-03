@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 )
 
 type NmgrReq struct {

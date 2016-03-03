@@ -22,7 +22,7 @@ package config
 import (
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 	"github.com/mitchellh/go-homedir"
 )
 

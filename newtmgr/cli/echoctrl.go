@@ -19,7 +19,7 @@
 
 package cli
 
-import "git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/protocol"
+import "mynewt.apache.org/newt/newtmgr/protocol"
 
 func echoCtrl(runner *protocol.CmdRunner, echoOn string) error {
 	echoCtrl, err := protocol.NewEcho()

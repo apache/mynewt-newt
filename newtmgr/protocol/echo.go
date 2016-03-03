@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 )
 
 type Echo struct {

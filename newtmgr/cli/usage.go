@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 	"github.com/spf13/cobra"
 )
 

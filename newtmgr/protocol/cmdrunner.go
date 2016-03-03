@@ -22,7 +22,7 @@ package protocol
 import (
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/transport"
+	"mynewt.apache.org/newt/newtmgr/transport"
 )
 
 type CmdRunner struct {

@@ -8,7 +8,7 @@ package remote
 
 import (
 	"bytes"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/viper"
+	"mynewt.apache.org/newt/viper"
 	crypt "github.com/xordataexchange/crypt/config"
 	"io"
 	"os"

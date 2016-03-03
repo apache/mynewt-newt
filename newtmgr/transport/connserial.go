@@ -26,8 +26,8 @@ import (
 	"fmt"
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/config"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/newtmgr/config"
+	"mynewt.apache.org/newt/util"
 	"github.com/tarm/serial"
 )
 

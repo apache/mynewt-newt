@@ -25,10 +25,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/config"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/protocol"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/transport"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/newtmgr/config"
+	"mynewt.apache.org/newt/newtmgr/protocol"
+	"mynewt.apache.org/newt/newtmgr/transport"
+	"mynewt.apache.org/newt/util"
 	"github.com/spf13/cobra"
 )
 

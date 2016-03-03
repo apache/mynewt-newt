@@ -19,7 +19,7 @@
 
 package main
 
-import "git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/cli"
+import "mynewt.apache.org/newt/newtmgr/cli"
 
 func main() {
 	cli.SetupLog()
