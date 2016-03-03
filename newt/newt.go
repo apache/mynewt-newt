@@ -990,14 +990,18 @@ func pkgInstallCmd(cmd *cobra.Command, args []string) {
 	for _, tmpPkgList := range pkgLists {
 		if pkgListName == "" || tmpPkgList.Name == pkgListName {
 			tmpPkgDesc, err := tmpPkgList.ResolvePkgDescName(pkgName)
-			if err != nil && pkgDesc != nil {
-				NewtUsage(cmd,
-					cli.NewNewtError(fmt.Sprintf("Ambiguous source "+
-						"pkg %s in package-list %s and %s",
-						pkgName, pkgList.Name, tmpPkgList.Name)))
-			} else {
-				pkgDesc = tmpPkgDesc
-				pkgList = tmpPkgList
+			if err == nil {
+				if pkgDesc != nil {
+					NewtUsage(cmd,
+						cli.NewNewtError(fmt.Sprintf("Ambiguous "+
+						"source pkg %s in package-list %s and "+
+						"%s %s",
+						pkgName, pkgList.Name, tmpPkgList.Name,
+						tmpPkgDesc.FullName)))
+				} else {
+					pkgDesc = tmpPkgDesc
+					pkgList = tmpPkgList
+				}
 			}
 		}
 	}
