@@ -218,6 +218,8 @@ func ImportTargets(repo *Repo, name string, importAll bool, fp *os.File) error {
 				break
 			} else {
 				elements := strings.SplitN(line, "=", 2)
+				elements[0] = strings.TrimSpace(elements[0])
+				elements[1] = strings.TrimSpace(elements[1])
 				// name is elements[0], and value is elements[1]
 
 				if importAll || elements[1] == name {
