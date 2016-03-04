@@ -51,19 +51,25 @@ type DependencyRequirement struct {
 type Pkg struct {
 	// Base directory of the pkg
 	BasePath string
+
 	// Name of the pkg
 	Name string
+
 	// Full Name of the pkg include prefix dir
 	FullName string
+
 	// Repo this pkg belongs to
 	Repo *Repo
+
 	// Pkg version
 	Version *Version
+
 	// Type of pkg
 	LinkerScript string
 
 	// For BSP pkg, how to download
 	DownloadScript string
+
 	// For BSP pkg, how to start debugger and attach it to target board
 	DebugScript string
 
@@ -73,8 +79,6 @@ type Pkg struct {
 	// Has the configuration been loaded for this pkg
 	CfgLoaded bool
 
-	// Pkg sources
-	Sources []string
 	// Pkg include directories
 	Includes []string
 

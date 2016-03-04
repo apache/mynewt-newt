@@ -22,12 +22,12 @@ package transport
 import (
 	"bytes"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newtmgr/cli"
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/newtmgr/config"
+	"mynewt.apache.org/newt/util"
 )
 
 type Conn interface {
-	Open(cp cli.NewtmgrConnProfile) error
+	Open(cp config.NewtmgrConnProfile) error
 	ReadPacket() (*Packet, error)
 	WritePacket(pkt *Packet) error
 }
@@ -59,7 +59,7 @@ func (pkt *Packet) GetBytes() []byte {
 	return pkt.buffer.Bytes()
 }
 
-func NewConn(cp cli.NewtmgrConnProfile) (Conn, error) {
+func NewConn(cp config.NewtmgrConnProfile) (Conn, error) {
 	// Based on ConnProfile, instantiate the right type of conn object, that
 	// implements the conn interface.
 	var c Conn

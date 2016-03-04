@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 )
 
 type NmgrReq struct {
@@ -41,12 +41,6 @@ const (
 	NMGR_OP_READ_RSP  = 1
 	NMGR_OP_WRITE     = 2
 	NMGR_OP_WRITE_RSP = 3
-)
-
-const (
-	NMGR_GROUP_ID_DEFAULT = 0
-	NMGR_GROUP_ID_IMAGE   = 1
-	NMGR_GROUP_ID_CONFIG  = 3
 )
 
 func NewNmgrReq() (*NmgrReq, error) {

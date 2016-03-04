@@ -22,6 +22,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -29,8 +30,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-const TARGET_SECT_PREFIX = "_target_"
 
 type Target struct {
 	Vars map[string]string
@@ -55,40 +54,44 @@ type Target struct {
 	Repo *Repo
 }
 
+func NewTarget(repo *Repo, name string) *Target {
+	target := Target{
+		Repo: repo,
+		Name: name,
+		Vars: map[string]string{
+			"name":         name,
+			"vers":         "0.0.1",
+			"arch":         "sim",
+			"compiler_def": "default",
+		},
+	}
+
+	return &target
+}
+
 // Check if the target specified by name exists for the Repo specified by
 // r
 func TargetExists(repo *Repo, name string) bool {
-	_, err := repo.GetConfig(TARGET_SECT_PREFIX+name, "name")
-	if err == nil {
-		return true
-	} else {
-		return false
-	}
+	_, err := repo.GetTargetVars(name)
+	return err == nil
 }
 
 func parseTargetStringSlice(str string) ([]string, error) {
-	slice := strings.Split(str, " ")
+	var slice []string
+	if str != "" {
+		slice = strings.Split(str, " ")
+	}
 	return slice, nil
 }
 
-func (t *Target) SetDefaults() error {
+// Migrates some special key-value pairs from the target's Vars map to named
+// struct fields.  This function should be called any time a target is
+// modified.
+func (t *Target) populateFields() error {
 	var err error
 
-	t.Name = t.Vars["name"]
-
-	// Must have an architecture set, default to sim.
-	if t.Vars["arch"] == "" {
-		t.Vars["arch"] = "sim"
-		t.Arch = "sim"
-	} else {
-		t.Arch = t.Vars["arch"]
-	}
-
+	t.Arch = t.Vars["arch"]
 	t.Cdef = t.Vars["compiler_def"]
-	if t.Cdef == "" {
-		t.Cdef = "default"
-	}
-
 	t.Bsp = t.Vars["bsp"]
 	t.Cflags = t.Vars["cflags"]
 	t.Lflags = t.Vars["lflags"]
@@ -99,7 +102,8 @@ func (t *Target) SetDefaults() error {
 	}
 	t.Identities = map[string]string{}
 	for _, ident := range identities {
-		StatusMessage(VERBOSITY_VERBOSE, "  set default ident %s\n", ident)
+		StatusMessage(VERBOSITY_VERBOSE, "Setting identity; target=%s "+
+			"identity=%s\n", t.Name, ident)
 		t.Identities[ident] = t.Name
 	}
 	t.Capabilities, err = parseTargetStringSlice(t.Vars["capabilities"])
@@ -115,6 +119,11 @@ func (t *Target) SetDefaults() error {
 	return nil
 }
 
+func (t *Target) SetVar(key string, value string) error {
+	t.Vars[key] = value
+	return t.populateFields()
+}
+
 func (t *Target) HasIdentity(identity string) bool {
 	for cur, _ := range t.Identities {
 		if cur == identity {
@@ -127,19 +136,21 @@ func (t *Target) HasIdentity(identity string) bool {
 
 // Load the target specified by name for the repository specified by r
 func LoadTarget(repo *Repo, name string) (*Target, error) {
-	t := &Target{
-		Repo: repo,
-	}
+	t := NewTarget(repo, name)
 
 	var err error
-
-	t.Vars, err = repo.GetConfigSect(TARGET_SECT_PREFIX + name)
+	vars, err := repo.GetTargetVars(name)
 	if err != nil {
 		return nil, err
 	}
 
-	// Cannot have both a project and package set
-	err = t.SetDefaults()
+	for k, v := range vars {
+		log.Printf("[DEBUG] Setting target %s, key=%s val=%s", name, k, v)
+		t.Vars[strings.TrimPrefix(k, "pkg.")] = v
+	}
+
+	// Copy special key-value pairs into their corresponding target fields.
+	err = t.populateFields()
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +158,9 @@ func LoadTarget(repo *Repo, name string) (*Target, error) {
 	return t, nil
 }
 
-// Export a target, or all targets.  If exportAll is true, then all targets are exported, if false,
-// then only the target represented by targetName is exported
+// Export a target, or all targets.  If exportAll is true, then all targets are
+// exported, if false, then only the target represented by targetName is
+// exported.
 func ExportTargets(repo *Repo, name string, exportAll bool, fp *os.File) error {
 	targets, err := GetTargets(repo)
 	if err != nil {
@@ -200,26 +212,19 @@ func ImportTargets(repo *Repo, name string, importAll bool, fp *os.File) error {
 				currentTarget = nil
 			}
 
-			// look either for an end of target definitions, or a new target definition
+			// look either for an end of target definitions, or a new target
+			// definition
 			if line == "@endtargets" {
 				break
 			} else {
 				elements := strings.SplitN(line, "=", 2)
+				elements[0] = strings.TrimSpace(elements[0])
+				elements[1] = strings.TrimSpace(elements[1])
 				// name is elements[0], and value is elements[1]
 
 				if importAll || elements[1] == name {
 					// create a current target
-					currentTarget = &Target{
-						Repo: repo,
-					}
-
-					var err error
-					currentTarget.Vars = map[string]string{}
-					if err != nil {
-						return err
-					}
-
-					currentTarget.Vars["name"] = elements[1]
+					currentTarget = NewTarget(repo, elements[1])
 				}
 			}
 		} else {
@@ -236,10 +241,6 @@ func ImportTargets(repo *Repo, name string, importAll bool, fp *os.File) error {
 	}
 
 	for _, target := range targets {
-		if err := target.SetDefaults(); err != nil {
-			return err
-		}
-
 		if err := target.Save(); err != nil {
 			return err
 		}
@@ -251,15 +252,13 @@ func ImportTargets(repo *Repo, name string, importAll bool, fp *os.File) error {
 // Get a list of targets for the repository specified by r
 func GetTargets(repo *Repo) ([]*Target, error) {
 	targets := []*Target{}
-	for sect, _ := range repo.Config {
-		if strings.HasPrefix(sect, TARGET_SECT_PREFIX) {
-			target, err := LoadTarget(repo, sect[len(TARGET_SECT_PREFIX):len(sect)])
-			if err != nil {
-				return nil, err
-			}
-
-			targets = append(targets, target)
+	for targetName, _ := range repo.Targets {
+		target, err := LoadTarget(repo, targetName)
+		if err != nil {
+			return nil, err
 		}
+
+		targets = append(targets, target)
 	}
 	return targets, nil
 }
@@ -357,11 +356,14 @@ func (t *Target) Test(cmd string, flag bool) error {
 	return nil
 }
 
-func (t *Target) DeleteVar(name string) error {
-	targetCfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
+func (t *Target) DeleteVar(varName string) error {
+	_, exists := t.Vars[varName]
 
-	if err := t.Repo.DelConfig(targetCfgSect, name); err != nil {
-		return err
+	if exists {
+		delete(t.Vars, varName)
+		if err := t.Save(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -369,36 +371,58 @@ func (t *Target) DeleteVar(name string) error {
 
 // Save the target's configuration elements
 func (t *Target) Save() error {
-	repo := t.Repo
-
-	if _, ok := t.Vars["name"]; !ok {
-		return NewNewtError("Cannot save a target without a name")
+	dirpath := t.Repo.TargetDir(t.Name)
+	if err := os.MkdirAll(dirpath, 0755); err != nil {
+		return NewNewtError(err.Error())
 	}
 
-	targetCfg := TARGET_SECT_PREFIX + t.Vars["name"]
+	filepath := dirpath + "/pkg.yml"
+	file, err := os.Create(filepath)
+	if err != nil {
+		return NewNewtError(err.Error())
+	}
+	defer file.Close()
 
-	for k, v := range t.Vars {
-		if err := repo.SetConfig(targetCfg, k, v); err != nil {
-			return err
-		}
+	file.WriteString("### Target: " + t.Name + "\n\n")
+
+	keys := []string{}
+	for k, _ := range t.Vars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		file.WriteString("pkg." + k + ": " + t.Vars[k] + "\n")
 	}
 
 	return nil
 }
 
-func (t *Target) Remove() error {
-	repo := t.Repo
-
-	if _, ok := t.Vars["name"]; !ok {
-		return NewNewtError("Cannot remove a target without a name")
+// Tells you if the target's directory contains extra user files (i.e., files
+// other than pkg.yml).
+func (t *Target) ContainsUserFiles() (bool, error) {
+	path := t.Repo.TargetDir(t.Name)
+	contents, err := ioutil.ReadDir(path)
+	if err != nil {
+		return false, err
 	}
 
-	cfgSect := TARGET_SECT_PREFIX + t.Vars["name"]
-
-	for k, _ := range t.Vars {
-		if err := repo.DelConfig(cfgSect, k); err != nil {
-			return err
+	userFiles := false
+	for _, node := range contents {
+		name := node.Name()
+		if name != "." && name != ".." && name != "pkg.yml" {
+			userFiles = true
+			break
 		}
+	}
+
+	return userFiles, nil
+}
+
+func (t *Target) Remove() error {
+	path := t.Repo.TargetDir(t.Name)
+	if err := os.RemoveAll(path); err != nil {
+		return NewNewtError(err.Error())
 	}
 
 	return nil
@@ -428,7 +452,7 @@ func (t *Target) binBaseName() (string, error) {
 	return filepath.Join(p.BinPath(), p.Name), nil
 }
 
-func (t *Target) Label(versionStr string) error {
+func (t *Target) CreateImage(versionStr string) error {
 	binBaseName, err := t.binBaseName()
 	if err != nil {
 		return err

@@ -24,17 +24,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 )
 
 type Echo struct {
 	Message string
 }
-
-const (
-	NMGR_ID_ECHO           = 0
-	NMGR_ID_CONS_ECHO_CTRL = 1
-)
 
 func NewEcho() (*Echo, error) {
 	s := &Echo{}

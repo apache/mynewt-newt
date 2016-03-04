@@ -20,6 +20,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -28,7 +29,7 @@ import (
 	"sort"
 	"strings"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/newt/cli"
+	"mynewt.apache.org/newt/newt/cli"
 	"github.com/spf13/cobra"
 )
 
@@ -41,6 +42,7 @@ var NewtRepo *cli.Repo
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
+var newtForce bool
 var AutoTargets string = "autotargets"
 var NewtBranchPkgList string
 var NewtBranchPkg string
@@ -92,6 +94,24 @@ func extractTargetVars(args []string, t *cli.Target) error {
 	return nil
 }
 
+func showValidSettings(varName string) error {
+	var err error = nil
+	var values []string
+
+	fmt.Printf("Valid values for target variable \"%s\":\n", varName)
+
+	values, err = cli.VarValues(varName)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range values {
+		fmt.Printf("    %s\n", value)
+	}
+
+	return nil
+}
+
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
@@ -104,7 +124,18 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 	ar := strings.SplitN(args[1], "=", 2)
 
-	t.Vars[ar[0]] = ar[1]
+	if len(ar) == 1 {
+		// User entered a variable name without a value.  Display valid values
+		// for the specified variable.
+		err = showValidSettings(ar[0])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+		return
+	} else {
+		// Assign value to specified variable.
+		t.SetVar(ar[0], ar[1])
+	}
 
 	if err := t.Save(); err != nil {
 		NewtUsage(cmd, err)
@@ -138,12 +169,12 @@ type ByName []*cli.Target
 
 func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByName) Less(i, j int) bool { return a[i].Vars["name"] < a[j].Vars["name"] }
+func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
-	dispSect := ""
+	dispTarget := ""
 	if len(args) == 1 {
-		dispSect = args[0]
+		dispTarget = args[0]
 	}
 
 	targets, err := cli.GetTargets(NewtRepo)
@@ -154,8 +185,8 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	sort.Sort(ByName(targets))
 
 	for _, target := range targets {
-		if dispSect == "" || dispSect == target.Vars["name"] {
-			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Vars["name"]+"\n")
+		if dispTarget == "" || dispTarget == target.Name {
+			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Name+"\n")
 
 			vars := target.GetVars()
 			var keys []string
@@ -183,11 +214,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 			"Target already exists, cannot create target with same name."))
 	}
 
-	target := &cli.Target{
-		Repo: NewtRepo,
-		Vars: map[string]string{},
-	}
-	target.Vars["name"] = args[0]
+	target := cli.NewTarget(NewtRepo, args[0])
 
 	err := target.Save()
 	if err != nil {
@@ -241,6 +268,25 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 	t, err := cli.LoadTarget(NewtRepo, args[0])
 	if err != nil {
 		NewtUsage(cmd, err)
+	}
+
+	if !newtForce {
+		// Determine if the target directory contains extra user files.  If it
+		// does, a prompt (or force) is required to delete it.
+		userFiles, err := t.ContainsUserFiles()
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		if userFiles {
+			scanner := bufio.NewScanner(os.Stdin)
+			fmt.Printf("Target directory %s contains some extra content; "+
+				"delete anyway? (y/N): ", t.Name)
+			rc := scanner.Scan()
+			if !rc || strings.ToLower(scanner.Text()) != "y" {
+				return
+			}
+		}
 	}
 
 	// Clean target prior to deletion; ignore errors during clean.
@@ -307,7 +353,7 @@ func targetSizeCmd(cmd *cobra.Command, args []string) {
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", txt)
 }
 
-func targetLabelCmd(cmd *cobra.Command, args []string) {
+func targetCreateImageCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		NewtUsage(cmd, cli.NewNewtError("Must specify target and version"))
 	}
@@ -322,7 +368,7 @@ func targetLabelCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	err = t.Label(args[1])
+	err = t.CreateImage(args[1])
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -334,11 +380,6 @@ func targetDownloadCmd(cmd *cobra.Command, args []string) {
 	}
 
 	t, err := cli.LoadTarget(NewtRepo, args[0])
-	if err != nil {
-		NewtUsage(nil, err)
-	}
-
-	err = t.Build()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -416,7 +457,7 @@ func targetAddCmds(base *cobra.Command) {
 	targetHelpEx += "  newt target build <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target test <target-name> [clean[ all]]\n"
 	targetHelpEx += "  newt target size <target-name>\n"
-	targetHelpEx += "  newt target label <target-name> <version number>"
+	targetHelpEx += "  newt target create-image <target-name> <version number>\n"
 	targetHelpEx += "  newt target download <target-name>\n"
 	targetHelpEx += "  newt target debug <target-name>\n"
 	targetHelpEx += "  newt target export [-a -export-all] [<target-name>]\n"
@@ -436,19 +477,17 @@ func targetAddCmds(base *cobra.Command) {
 				NewtUsage(nil, err)
 			}
 
-			file, err := os.Open(NewtRepo.BasePath + "/" + AutoTargets)
-			if err == nil {
-				err = cli.ImportTargets(NewtRepo, "", true, file)
+			// Try to migrate targets from legacy sqlite database.  If any
+			// targets are migrated, recreate the repo from the updated targets
+			// directory.
+			if cli.LegacyMigrateTargets(NewtRepo) {
+				NewtRepo, err = cli.NewRepo()
 				if err != nil {
-					log.Printf("[DEBUG] failed to import automatic "+
-						"targets %s", err.Error())
+					NewtUsage(nil, err)
 				}
-				file.Close()
-			} else {
-				log.Printf("[DEBUG] failed to import automatic "+
-					"targets %s", err.Error())
 			}
 		},
+
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Usage()
 		},
@@ -458,7 +497,8 @@ func targetAddCmds(base *cobra.Command) {
 		<target-name> to value <value>.`)
 	setHelpEx := "  newt target set <target-name> <var-name>=<value>\n"
 	setHelpEx += "  newt target set my_target1 var_name=value\n"
-	setHelpEx += "  newt target set my_target1 arch=cortex_m4"
+	setHelpEx += "  newt target set my_target1 arch=cortex_m4\n"
+	setHelpEx += "  newt target set my_target1 var_name   (display valid values for <var_name>)"
 
 	setCmd := &cobra.Command{
 		Use:     "set",
@@ -580,21 +620,21 @@ func targetAddCmds(base *cobra.Command) {
 
 	targetCmd.AddCommand(sizeCmd)
 
-	labelHelpText := formatHelp(`Label image by appending image header to created
-		binary file <target-name>. Version number in the header is set to be
-		<version>`)
-	labelHelpEx := "  newt target label <target-name> <version>\n"
-	labelHelpEx += "  newt target label my_target1 1.2.0\n"
-	labelHelpEx += "  newt target label my_target1 1.2.0.3\n"
+	createImageHelpText := formatHelp(`Create image by adding image header to created
+		binary file for <target-name>. Version number in the header is set to be
+		<version>.`)
+	createImageHelpEx := "  newt target create-image <target-name> <version>\n"
+	createImageHelpEx += "  newt target create-image my_target1 1.2.0\n"
+	createImageHelpEx += "  newt target create-image my_target1 1.2.0.3\n"
 
-	labelCmd := &cobra.Command{
-		Use:     "label",
+	createImageCmd := &cobra.Command{
+		Use:     "create-image",
 		Short:   "Add image header to target binary",
-		Long:    labelHelpText,
-		Example: labelHelpEx,
-		Run:     targetLabelCmd,
+		Long:    createImageHelpText,
+		Example: createImageHelpEx,
+		Run:     targetCreateImageCmd,
 	}
-	targetCmd.AddCommand(labelCmd)
+	targetCmd.AddCommand(createImageCmd)
 
 	downloadHelpText := formatHelp(`Download project image to target for
 		<target-name>.`)
@@ -950,14 +990,18 @@ func pkgInstallCmd(cmd *cobra.Command, args []string) {
 	for _, tmpPkgList := range pkgLists {
 		if pkgListName == "" || tmpPkgList.Name == pkgListName {
 			tmpPkgDesc, err := tmpPkgList.ResolvePkgDescName(pkgName)
-			if err != nil && pkgDesc != nil {
-				NewtUsage(cmd,
-					cli.NewNewtError(fmt.Sprintf("Ambiguous source "+
-						"pkg %s in package-list %s and %s",
-						pkgName, pkgList.Name, tmpPkgList.Name)))
-			} else {
-				pkgDesc = tmpPkgDesc
-				pkgList = tmpPkgList
+			if err == nil {
+				if pkgDesc != nil {
+					NewtUsage(cmd,
+						cli.NewNewtError(fmt.Sprintf("Ambiguous "+
+						"source pkg %s in package-list %s and "+
+						"%s %s",
+						pkgName, pkgList.Name, tmpPkgList.Name,
+						tmpPkgDesc.FullName)))
+				} else {
+					pkgDesc = tmpPkgDesc
+					pkgList = tmpPkgList
+				}
 			}
 		}
 	}
@@ -1167,7 +1211,7 @@ func repoAddPkgListCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		NewtUsage(cmd,
 			cli.NewNewtError("Must specify both name and URL to "+
-				"larva install command"))
+				"app add-pkg-list command"))
 	}
 
 	name := args[0]
@@ -1309,7 +1353,10 @@ func repoAddCmds(baseCmd *cobra.Command) {
 		Short:   "Create a new application",
 		Long:    createHelpText,
 		Example: createHelpEx,
-		Run:     repoCreateCmd,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cli.Init(NewtLogLevel, newtSilent, newtQuiet, newtVerbose)
+		},
+		Run: repoCreateCmd,
 	}
 
 	baseCmd.AddCommand(createCmd)
@@ -1427,6 +1474,8 @@ func parseCmds() *cobra.Command {
 		"Be silent; don't output anything.")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
+	newtCmd.PersistentFlags().BoolVarP(&newtForce, "force", "f", false,
+		"Perform operations without prompting for confirmation.")
 
 	versHelpText := formatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"

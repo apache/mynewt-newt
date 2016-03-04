@@ -85,7 +85,7 @@ func NewCompiler(ccPath string, cDef string, tName string, includes []string) (
 }
 
 func (c *Compiler) ReadSettings(cDef string) error {
-	v, err := ReadConfig(c.ConfigPath, "compiler")
+	v, err := ReadConfig(c.ConfigPath, "pkg")
 	if err != nil {
 		return err
 	}

@@ -17,16 +17,16 @@
  * under the License.
  */
 
-package cli
+package config
 
 import (
 	"log"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
 	"github.com/mitchellh/go-homedir"
+	"mynewt.apache.org/newt/util"
 )
 
-type CpMgr struct {
+type ConnProfileMgr struct {
 	cDb *util.CfgDb
 }
 
@@ -42,8 +42,8 @@ type ConnProfile struct {
 	MyConnString string
 }
 
-func NewCpMgr() (*CpMgr, error) {
-	cpm := &CpMgr{}
+func NewConnProfileMgr() (*ConnProfileMgr, error) {
+	cpm := &ConnProfileMgr{}
 
 	if err := cpm.Init(); err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func NewCpMgr() (*CpMgr, error) {
 	return cpm, nil
 }
 
-func (cpm *CpMgr) Init() error {
+func (cpm *ConnProfileMgr) Init() error {
 	var err error
 
 	dir, err := homedir.Dir()
@@ -68,7 +68,7 @@ func (cpm *CpMgr) Init() error {
 	return nil
 }
 
-func (cpm *CpMgr) GetConnProfileList() ([]*ConnProfile, error) {
+func (cpm *ConnProfileMgr) GetConnProfileList() ([]*ConnProfile, error) {
 	log.Printf("[DEBUG] Getting list of connection profiles")
 	cpMap, err := cpm.cDb.GetSect("conn_profile_list")
 	if err != nil {
@@ -89,7 +89,7 @@ func (cpm *CpMgr) GetConnProfileList() ([]*ConnProfile, error) {
 	return cpList, nil
 }
 
-func (cpm *CpMgr) DeleteConnProfile(name string) error {
+func (cpm *ConnProfileMgr) DeleteConnProfile(name string) error {
 	if err := cpm.cDb.DeleteSect("_conn_profile_" + name); err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (cpm *CpMgr) DeleteConnProfile(name string) error {
 	return nil
 }
 
-func (cpm *CpMgr) AddConnProfile(cp *ConnProfile) error {
+func (cpm *ConnProfileMgr) AddConnProfile(cp *ConnProfile) error {
 	sect := "_conn_profile_" + cp.Name()
 	cDb := cpm.cDb
 
@@ -116,7 +116,7 @@ func (cpm *CpMgr) AddConnProfile(cp *ConnProfile) error {
 	return nil
 }
 
-func (cpm *CpMgr) GetConnProfile(pName string) (*ConnProfile, error) {
+func (cpm *ConnProfileMgr) GetConnProfile(pName string) (*ConnProfile, error) {
 	// Each section is a connection profile, key values are the contents
 	// of that section.
 	if pName == "" {

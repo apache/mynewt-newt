@@ -20,8 +20,8 @@
 package util
 
 import (
+	"mynewt.apache.org/newt/viper"
 	"github.com/hashicorp/logutils"
-	"github.com/spf13/viper"
 	"log"
 	"os"
 	"runtime"

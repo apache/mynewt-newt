@@ -84,24 +84,24 @@ func (p *Project) loadConfig() error {
 	log.Printf("[DEBUG] Reading Project configuration for %s in %s",
 		p.Name, p.BasePath)
 
-	v, err := ReadConfig(p.BasePath, p.Name)
+	v, err := ReadConfig(p.BasePath, "pkg")
 	if err != nil {
 		return err
 	}
 
 	t := p.Target
 
-	p.Pkgs = GetStringSliceIdentities(v, t.Identities, "project.pkgs")
+	p.Pkgs = GetStringSliceIdentities(v, t.Identities, "pkg.deps")
 
-	idents := GetStringSliceIdentities(v, t.Identities, "project.identities")
+	idents := GetStringSliceIdentities(v, t.Identities, "pkg.identities")
 	for _, ident := range idents {
 		t.Identities[ident] = p.Name
 	}
-	p.Capabilities = GetStringSliceIdentities(v, t.Identities, "project.caps")
+	p.Capabilities = GetStringSliceIdentities(v, t.Identities, "pkg.caps")
 
-	p.Cflags = GetStringIdentities(v, t.Identities, "project.cflags")
-	p.Lflags = GetStringIdentities(v, t.Identities, "project.lflags")
-	p.Aflags = GetStringIdentities(v, t.Identities, "project.aflags")
+	p.Cflags = GetStringIdentities(v, t.Identities, "pkg.cflags")
+	p.Lflags = GetStringIdentities(v, t.Identities, "pkg.lflags")
+	p.Aflags = GetStringIdentities(v, t.Identities, "pkg.aflags")
 
 	return nil
 }

@@ -23,15 +23,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
+	"mynewt.apache.org/newt/util"
 )
 
 const (
 	STATS_NMGR_OP_READ = 0
-)
-
-const (
-	NMGR_GROUP_ID_STATS = 2
 )
 
 type StatsReadReq struct {
@@ -52,7 +48,7 @@ func NewStatsReadReq() (*StatsReadReq, error) {
 	return s, nil
 }
 
-func (sr *StatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
+func (sr *StatsReadReq) Encode() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err

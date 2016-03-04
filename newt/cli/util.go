@@ -23,13 +23,15 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"mynewt.apache.org/newt/viper"
+	"mynewt.apache.org/newt/yaml"
 	"github.com/hashicorp/logutils"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -114,6 +116,7 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	v.SetConfigType("yaml")
 	v.SetConfigName(name)
 	v.AddConfigPath(path)
+	yaml.SetFilename(path + "/" + name + ".yml")
 
 	err := v.ReadInConfig()
 	if err != nil {
@@ -199,6 +202,63 @@ func FileModificationTime(path string) (time.Time, error) {
 	}
 
 	return fileInfo.ModTime(), nil
+}
+
+func ChildDirs(path string) ([]string, error) {
+	children, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, NewNewtError(err.Error())
+	}
+
+	childDirs := []string{}
+	for _, child := range children {
+		name := child.Name()
+		if !filepath.HasPrefix(name, ".") &&
+			!filepath.HasPrefix(name, "..") &&
+			child.IsDir() {
+
+			childDirs = append(childDirs, name)
+		}
+	}
+
+	return childDirs, nil
+}
+
+func DescendantDirsOfParent(rootPath string, parentName string, fullPath bool) ([]string, error) {
+	rootPath = path.Clean(rootPath)
+
+	if NodeNotExist(rootPath) {
+		return []string{}, nil
+	}
+
+	children, err := ChildDirs(rootPath)
+	if err != nil {
+		return nil, err
+	}
+
+	dirs := []string{}
+	if path.Base(rootPath) == parentName {
+		for _, child := range children {
+			if fullPath {
+				child = rootPath + "/" + child
+			}
+
+			dirs = append(dirs, child)
+		}
+	} else {
+		for _, child := range children {
+			childPath := rootPath + "/" + child
+			subDirs, err := DescendantDirsOfParent(childPath, parentName,
+				fullPath)
+			if err != nil {
+				return nil, err
+			}
+
+			dirs = append(dirs, subDirs...)
+		}
+	}
+
+	return dirs, nil
 }
 
 // Execute the command specified by cmdStr on the shell and return results
@@ -367,4 +427,23 @@ func UniqueStrings(elems []string) []string {
 	}
 
 	return result
+}
+
+// Sorts whitespace-delimited lists of strings.
+//
+// @param wsSepStrings          A list of strings; each string contains one or
+//                                  more whitespace-delimited tokens.
+//
+// @return                      A slice containing all the input tokens, sorted
+//                                  alphabetically.
+func SortFields(wsSepStrings ...string) []string {
+	slice := []string{}
+
+	for _, s := range wsSepStrings {
+		slice = append(slice, strings.Fields(s)...)
+	}
+
+	slice = UniqueStrings(slice)
+	sort.Strings(slice)
+	return slice
 }

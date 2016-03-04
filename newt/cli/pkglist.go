@@ -28,9 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git-wip-us.apache.org/repos/asf/incubator-mynewt-newt/util"
-
-	"github.com/spf13/viper"
+	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
 
 type PkgList struct {
@@ -235,29 +234,7 @@ func (pkgList *PkgList) loadPkgDir(baseDir string, pkgPrefix string,
 func (pkgList *PkgList) loadPkgs() error {
 	repo := pkgList.Repo
 
-	// XXX: Get additional package search directories from the repo
-	// configuration
-	// If empty, use the default set.
-
-	// Multiple package directories to be searched
-	searchDirs := []string{
-		"app/",
-		"compiler/",
-		"fs/",
-		"libs/",
-		"net/",
-		"hw/bsp/",
-		"hw/mcu/",
-		"hw/mcu/stm",
-		"hw/drivers/",
-		"hw/",
-		"project/",
-		"sys/",
-	}
-
-	if len(repo.AddlPackagePaths) > 0 {
-		searchDirs = append(searchDirs, repo.AddlPackagePaths...)
-	}
+	searchDirs := repo.PkgPaths()
 
 	for _, pkgDir := range searchDirs {
 		pkgBaseDir := repo.BasePath + "/" + pkgDir
@@ -492,8 +469,8 @@ func (pkgList *PkgList) Build(t *Target, pkgName string, incls []string,
 	}
 	// setup Cflags, Lflags and Aflags
 	c.Cflags = CreateCflags(pkgList, c, t, pkg.Cflags)
-	c.Lflags += " " + pkg.Lflags + " " + t.Lflags
-	c.Aflags += " " + pkg.Aflags + " " + t.Aflags
+	c.Lflags = CreateLflags(c, t, pkg.Lflags)
+	c.Aflags = CreateAflags(c, t, pkg.Aflags)
 
 	log.Printf("[DEBUG] compiling src pkgs in base pkg directory: %s", srcDir)
 
