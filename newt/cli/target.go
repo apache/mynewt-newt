@@ -283,11 +283,11 @@ func (t *Target) GetCompiler() string {
 
 // Build the target
 func (t *Target) Build() error {
-	if t.Vars["project"] != "" {
+	if t.Vars["app"] != "" {
 		StatusMessage(VERBOSITY_DEFAULT, "Building target %s (project = %s)\n",
-			t.Name, t.Vars["project"])
+			t.Name, t.Vars["app"])
 		// Now load and build the project.
-		p, err := LoadProject(t.Repo, t, t.Vars["project"])
+		p, err := LoadProject(t.Repo, t, t.Vars["app"])
 		if err != nil {
 			return err
 		}
@@ -311,8 +311,8 @@ func (t *Target) Build() error {
 }
 
 func (t *Target) BuildClean(cleanAll bool) error {
-	if t.Vars["project"] != "" {
-		p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	if t.Vars["app"] != "" {
+		p, err := LoadProject(t.Repo, t, t.Vars["app"])
 		if err != nil {
 			return err
 		}
@@ -429,11 +429,11 @@ func (t *Target) Remove() error {
 }
 
 func (t *Target) projectPath() (string, error) {
-	if t.Vars["project"] == "" {
+	if t.Vars["app"] == "" {
 		return "", NewNewtError(fmt.Sprintf("No project associated with "+
 			"target %s", t.Name))
 	}
-	p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	p, err := LoadProject(t.Repo, t, t.Vars["app"])
 	if err != nil {
 		return "", err
 	}
@@ -441,11 +441,11 @@ func (t *Target) projectPath() (string, error) {
 }
 
 func (t *Target) binBaseName() (string, error) {
-	if t.Vars["project"] == "" {
+	if t.Vars["app"] == "" {
 		return "", NewNewtError(fmt.Sprintf("No project associated with "+
 			"target %s", t.Name))
 	}
-	p, err := LoadProject(t.Repo, t, t.Vars["project"])
+	p, err := LoadProject(t.Repo, t, t.Vars["app"])
 	if err != nil {
 		return "", err
 	}
@@ -861,11 +861,11 @@ func PrintSizes(libs map[string]*PkgSize,
 }
 
 func (t *Target) GetSize() (string, error) {
-	if t.Vars["project"] != "" {
+	if t.Vars["app"] != "" {
 		StatusMessage(VERBOSITY_DEFAULT, "Inspecting target %s (project = %s)\n",
-			t.Name, t.Vars["project"])
+			t.Name, t.Vars["app"])
 		// Now load the project, mapfile settings
-		p, err := LoadProject(t.Repo, t, t.Vars["project"])
+		p, err := LoadProject(t.Repo, t, t.Vars["app"])
 		if err != nil {
 			return "", err
 		}

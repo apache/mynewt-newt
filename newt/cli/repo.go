@@ -101,8 +101,8 @@ func CreateRepo(repoName string, destDir string, tadpoleUrl string) error {
 	StatusMessage(VERBOSITY_DEFAULT, OK_STRING)
 
 	// Overwrite app.yml
-	contents := []byte(fmt.Sprintf("app.name: %s\n", repoName))
-	if err := ioutil.WriteFile(destDir+"/app.yml",
+	contents := []byte(fmt.Sprintf("project.name: %s\n", repoName))
+	if err := ioutil.WriteFile(destDir+"/project.yml",
 		contents, 0644); err != nil {
 		return NewNewtError(err.Error())
 	}
@@ -130,7 +130,7 @@ func (repo *Repo) GetTmpDir(dirName string, prefix string) (string, error) {
 }
 
 // Find the repo file.  Searches the current directory, and then recurses
-// parent directories until it finds a file named app.yml
+// parent directories until it finds a file named project.yml
 // if no repo file found in the directory heirarchy, an error is returned
 func (repo *Repo) getRepoFile() (string, error) {
 	rFile := ""
@@ -141,7 +141,7 @@ func (repo *Repo) getRepoFile() (string, error) {
 	}
 
 	for {
-		rFile = curDir + "/app.yml"
+		rFile = curDir + "/project.yml"
 		log.Printf("[DEBUG] Searching for repo file at %s", rFile)
 		if _, err := os.Stat(rFile); err == nil {
 			log.Printf("[DEBUG] Found repo file at %s!", rFile)
@@ -229,7 +229,7 @@ func (repo *Repo) PkgPaths() []string {
 	// configuration. If empty, use the default set.
 
 	searchDirs := []string{
-		"app/",
+		"apps/",
 		"compiler/",
 		"fs/",
 		"libs/",
@@ -252,17 +252,17 @@ func (repo *Repo) PkgPaths() []string {
 
 // Load the repo configuration file
 func (repo *Repo) loadConfig() error {
-	v, err := ReadConfig(repo.BasePath, "app")
+	v, err := ReadConfig(repo.BasePath, "project")
 	if err != nil {
 		return NewNewtError(err.Error())
 	}
 
-	repo.Name = v.GetString("app.name")
+	repo.Name = v.GetString("project.name")
 	if repo.Name == "" {
-		return NewNewtError("Application file must specify application name")
+		return NewNewtError("Project file must specify project name")
 	}
 
-	repo.AddlPackagePaths = v.GetStringSlice("app.additional_package_paths")
+	repo.AddlPackagePaths = v.GetStringSlice("project.additional_package_paths")
 
 	return nil
 }
@@ -336,7 +336,7 @@ func (repo *Repo) Init() error {
 	log.Printf("[DEBUG] Configuration loaded")
 
 	// Create Repo store directory
-	repo.StorePath = repo.BasePath + "/.app/"
+	repo.StorePath = repo.BasePath + "/.project/"
 	if NodeNotExist(repo.StorePath) {
 		if err := os.MkdirAll(repo.StorePath, 0755); err != nil {
 			return NewNewtError(err.Error())

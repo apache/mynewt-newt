@@ -484,9 +484,9 @@ func (p *Project) Build() error {
 
 // Initialize the project, and project definition
 func (p *Project) Init() error {
-	p.BasePath = p.Repo.BasePath + "/project/" + p.Name + "/"
+	p.BasePath = p.Repo.BasePath + "/apps/" + p.Name + "/"
 	if NodeNotExist(p.BasePath) {
-		return NewNewtError("Project directory does not exist")
+		return NewNewtError("apps directory does not exist")
 	}
 
 	if err := p.loadConfig(); err != nil {

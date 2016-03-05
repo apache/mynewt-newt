@@ -63,8 +63,8 @@ var varsMap = map[string]func() ([]string, error){
 		return varsFromChildDirs("compiler", false)
 	},
 
-	"project": func() ([]string, error) {
-		return varsFromChildDirs("project", false)
+	"apps": func() ([]string, error) {
+		return varsFromChildDirs("apps", false)
 	},
 }
 
