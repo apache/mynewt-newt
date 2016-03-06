@@ -42,6 +42,10 @@ func (b *Builder) AddIdentity(identity string) {
 }
 
 func (b *Builder) HasPackage(pkg *pkg.LocalPackage) bool {
+	if pkg == nil {
+		panic("Package should not equal NIL")
+	}
+
 	_, ok := b.Packages[pkg]
 	if !ok {
 		return false
@@ -60,13 +64,8 @@ func (b *Builder) AddPackage(pkg *pkg.LocalPackage) {
 }
 
 func (b *Builder) ResolvePackageDeps() error {
-	reprocess := false
 	for {
-		if !reprocess {
-			break
-		}
-
-		reprocess = false
+		reprocess := false
 		for _, bpkg := range b.Packages {
 			loaded, err := bpkg.Load(b)
 			if err != nil {
@@ -76,6 +75,10 @@ func (b *Builder) ResolvePackageDeps() error {
 			if !loaded {
 				reprocess = true
 			}
+		}
+
+		if !reprocess {
+			break
 		}
 	}
 
@@ -87,7 +90,9 @@ func (b *Builder) Build() error {
 	b.AddPackage(b.target.App())
 	b.AddPackage(b.target.Compiler())
 
-	b.ResolvePackageDeps()
+	if err := b.ResolvePackageDeps(); err != nil {
+		return err
+	}
 
 	for _, bpkg := range b.Packages {
 		fmt.Printf("Package %s being built\n", bpkg.Name())

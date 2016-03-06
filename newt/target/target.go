@@ -20,8 +20,6 @@
 package target
 
 import (
-	"fmt"
-
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 )
@@ -34,22 +32,19 @@ type Target struct {
 }
 
 func (t *Target) Bsp() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(t.BSP)
+	dep, _ := pkg.NewDependency(nil, t.BSP)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
-	fmt.Println(pkg)
 	return pkg
 }
 
 func (t *Target) App() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(t.APP)
+	dep, _ := pkg.NewDependency(nil, t.APP)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
-	fmt.Println(pkg)
 	return pkg
 }
 
 func (t *Target) Compiler() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(t.COMPILER)
+	dep, _ := pkg.NewDependency(nil, t.COMPILER)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
-	fmt.Println(pkg)
 	return pkg
 }

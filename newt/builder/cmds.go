@@ -36,7 +36,10 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	b.Build()
+	err = b.Build()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func AddCommands(cmd *cobra.Command) {

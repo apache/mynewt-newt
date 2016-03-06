@@ -23,6 +23,7 @@ import (
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/util"
 )
 
 type CompilerInfo struct {
@@ -67,7 +68,7 @@ func (bpkg *BuildPackage) LoadDeps(b *Builder, idents map[string]bool) (bool, er
 
 	newDeps := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.deps")
 	for _, newDepStr := range newDeps {
-		newDep, err := pkg.NewDependency(newDepStr)
+		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
 		if err != nil {
 			return false, err
 		}
@@ -75,6 +76,10 @@ func (bpkg *BuildPackage) LoadDeps(b *Builder, idents map[string]bool) (bool, er
 		pkg, err := proj.ResolveDependency(newDep)
 		if err != nil {
 			return false, err
+		}
+
+		if pkg == nil {
+			return false, util.NewNewtError("Could not resolve package dependency " + newDep.String())
 		}
 
 		if !b.HasPackage(pkg) {

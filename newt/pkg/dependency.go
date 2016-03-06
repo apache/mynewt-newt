@@ -80,7 +80,7 @@ func (dep *Dependency) SatisfiesDependency(pkg Package) bool {
 	return true
 }
 
-func (dep *Dependency) setRepoAndName(str string) error {
+func (dep *Dependency) setRepoAndName(parentRepo *repo.Repo, str string) error {
 	// First part is always repo/dependency name combination.
 	// If repo is present, string will always begin with a $ sign
 	// representing the repo name, followed by 'n' slashes.
@@ -94,13 +94,18 @@ func (dep *Dependency) setRepoAndName(str string) error {
 		dep.Repo = nameParts[0]
 		dep.Name = nameParts[1]
 	} else {
-		dep.Repo = repo.REPO_NAME_LOCAL
+		if parentRepo != nil {
+			dep.Repo = parentRepo.Name
+		} else {
+			dep.Repo = repo.REPO_NAME_LOCAL
+		}
+		dep.Name = str
 	}
 
 	return nil
 }
 
-func (dep *Dependency) Init(depStr string) error {
+func (dep *Dependency) Init(parentRepo *repo.Repo, depStr string) error {
 	// Split string into multiple parts
 	// @ separates repo/name from version requirements
 	// # separates repo/name or version requirements from stability level
@@ -110,7 +115,7 @@ func (dep *Dependency) Init(depStr string) error {
 		// exist.  Now check for stability level
 		parts = strings.Split(depStr, "#")
 
-		if err := dep.setRepoAndName(parts[0]); err != nil {
+		if err := dep.setRepoAndName(parentRepo, parts[0]); err != nil {
 			return err
 		}
 
@@ -120,7 +125,7 @@ func (dep *Dependency) Init(depStr string) error {
 			dep.Stability = PACKAGE_STABILITY_STABLE
 		}
 	} else if len(parts) == 2 {
-		if err := dep.setRepoAndName(parts[0]); err != nil {
+		if err := dep.setRepoAndName(parentRepo, parts[0]); err != nil {
 			return err
 		}
 		verParts := strings.Split(parts[1], "#")
@@ -138,11 +143,11 @@ func (dep *Dependency) Init(depStr string) error {
 	return nil
 }
 
-func NewDependency(depStr string) (*Dependency, error) {
+func NewDependency(parentRepo *repo.Repo, depStr string) (*Dependency, error) {
 	// Allocate depedency
 	dep := &Dependency{}
 
-	if err := dep.Init(depStr); err != nil {
+	if err := dep.Init(parentRepo, depStr); err != nil {
 		return nil, err
 	}
 
