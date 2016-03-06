@@ -19,7 +19,10 @@
 
 package builder
 
-import "mynewt.apache.org/newt/newt/pkg"
+import (
+	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/target"
+)
 
 type CompilerInfo struct {
 	Includes []string
@@ -37,8 +40,22 @@ type BuildPackage struct {
 
 type Builder struct {
 	Packages []*BuildPackage
+
+	target *target.Target
 }
 
 func (b *Builder) Init(target *target.Target) error {
+	b.target = target
 
+	return nil
+}
+
+func NewBuilder(target *target.Target) (*Builder, error) {
+	b := &Builder{}
+
+	if err := b.Init(target); err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }

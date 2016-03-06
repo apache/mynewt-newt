@@ -17,9 +17,11 @@
  * under the License.
  */
 
-package builder
+package target
 
 type Target struct {
-	Bsp string
-	App string
+	Bsp      string
+	App      string
+	Arch     string
+	Compiler string
 }
