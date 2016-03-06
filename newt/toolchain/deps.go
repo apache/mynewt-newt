@@ -17,13 +17,15 @@
  * under the License.
  */
 
-package cli
+package toolchain
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	_ "mynewt.apache.org/newt/newt/util"
 )
 
 type DepTracker struct {

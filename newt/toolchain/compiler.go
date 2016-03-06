@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package cli
+package toolchain
 
 import (
 	"io/ioutil"
@@ -28,6 +28,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	_ "mynewt.apache.org/newt/newt/util"
 )
 
 const (

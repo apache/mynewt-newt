@@ -23,9 +23,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"mynewt.apache.org/newt/viper"
-	"mynewt.apache.org/newt/yaml"
-	"github.com/hashicorp/logutils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -33,11 +30,18 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/hashicorp/logutils"
+	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
+	"mynewt.apache.org/newt/yaml"
 )
 
 type NewtError struct {
@@ -55,6 +59,38 @@ const (
 	VERBOSITY_DEFAULT = 2
 	VERBOSITY_VERBOSE = 3
 )
+
+func NewtUsage(cmd *cobra.Command, err error) {
+	if err != nil {
+		sErr := err.(*util.NewtError)
+		log.Printf("[DEBUG] %s", sErr.StackTrace)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", sErr.Text)
+	}
+
+	if cmd != nil {
+		cmd.Help()
+	}
+	os.Exit(1)
+}
+
+// Display help text with a max line width of 79 characters
+func FormatHelp(text string) string {
+	// first compress all new lines and extra spaces
+	words := regexp.MustCompile("\\s+").Split(text, -1)
+	linelen := 0
+	fmtText := ""
+	for _, word := range words {
+		word = strings.Trim(word, "\n ") + " "
+		tmplen := linelen + len(word)
+		if tmplen >= 80 {
+			fmtText += "\n"
+			linelen = 0
+		}
+		fmtText += word
+		linelen += len(word)
+	}
+	return fmtText
+}
 
 func (se *NewtError) Error() string {
 	return se.Text + "\n" + string(se.StackTrace)
@@ -152,7 +188,7 @@ func GetStringIdentities(v *viper.Viper, idents map[string]string, key string) s
 	return strings.TrimSpace(val)
 }
 
-func GetStringSliceIdentities(v *viper.Viper, idents map[string]string,
+func GetStringSliceIdentities(v *viper.Viper, idents map[string]bool,
 	key string) []string {
 
 	val := v.GetStringSlice(key)

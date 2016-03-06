@@ -17,37 +17,28 @@
  * under the License.
  */
 
-package cli
+package builder
 
-import (
-	"fmt"
-)
+import "mynewt.apache.org/newt/newt/pkg"
 
-type BuiltPkg struct {
-	Name    string
-	Hash    string
-	Version string
+type CompilerInfo struct {
+	Includes []string
+	Cflags   []string
+	Lflags   []string
+	Aflags   []string
 }
 
-var BuiltPkgs []*BuiltPkg
+type BuildPackage struct {
+	pkg.LocalPackage
 
-func NewBuiltPkg(pkg *Pkg) (*BuiltPkg, error) {
-	var verStr string
-	hash, err := pkg.GetHash()
-	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Unable to get hash for %s: %s",
-			pkg.FullName, err.Error()))
-	}
-	if pkg.Version != nil {
-		verStr = pkg.Version.String()
-	} else {
-		verStr = ""
-	}
+	compilerInfo *CompilerInfo
+	loaded       bool
+}
 
-	builtpkg := &BuiltPkg{
-		Name:    pkg.FullName,
-		Hash:    hash,
-		Version: verStr,
-	}
-	return builtpkg, nil
+type Builder struct {
+	Packages []*BuildPackage
+}
+
+func (b *Builder) Init(target *target.Target) error {
+
 }
