@@ -17,39 +17,38 @@
  * under the License.
  */
 
-package target
+package builder
 
 import (
 	"fmt"
 
-	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
+	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/target"
 )
 
-type Target struct {
-	BSP      string
-	APP      string
-	ARCH     string
-	COMPILER string
+func buildRunCmd(cmd *cobra.Command, args []string) {
+	b, err := NewBuilder(&target.Target{
+		BSP:      "$apache-mynewt-world/hw/bsp/native",
+		APP:      "apps/blinky",
+		ARCH:     "sim",
+		COMPILER: "$apache-mynewt-world/compiler/sim",
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	b.Build()
 }
 
-func (t *Target) Bsp() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(t.BSP)
-	pkg, _ := project.GetProject().ResolveDependency(dep)
-	fmt.Println(pkg)
-	return pkg
-}
+func AddCommands(cmd *cobra.Command) {
+	buildHelpText := ""
+	buildHelpEx := ""
+	buildCmd := &cobra.Command{
+		Use:     "build",
+		Short:   "Commands for building targets",
+		Long:    buildHelpText,
+		Example: buildHelpEx,
+		Run:     buildRunCmd,
+	}
 
-func (t *Target) App() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(t.APP)
-	pkg, _ := project.GetProject().ResolveDependency(dep)
-	fmt.Println(pkg)
-	return pkg
-}
-
-func (t *Target) Compiler() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(t.COMPILER)
-	pkg, _ := project.GetProject().ResolveDependency(dep)
-	fmt.Println(pkg)
-	return pkg
+	cmd.AddCommand(buildCmd)
 }

@@ -39,7 +39,7 @@ const (
 type Package interface {
 	// Initialize the package, in the directory specified
 	// by pkgDir
-	Init(pkgDir string) error
+	Init(repo *repo.Repo, pkgDir string) error
 	// The repository this package belongs to
 	Repo() *repo.Repo
 	// The name of this package

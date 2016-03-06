@@ -21,6 +21,7 @@ package project
 
 import (
 	"log"
+	"os"
 	"path"
 	"strings"
 
@@ -30,6 +31,8 @@ import (
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
 )
+
+var globalProject *Project = nil
 
 const PROJECT_FILE_NAME = "project.yml"
 
@@ -64,6 +67,26 @@ type Project struct {
 	packageSearchDirs []string
 
 	v *viper.Viper
+}
+
+func InitProject(dir string) error {
+	var err error
+
+	globalProject, err = LoadProject(dir)
+	if err != nil {
+		return err
+	}
+	globalProject.LoadPackageList()
+
+	return nil
+}
+
+func GetProject() *Project {
+	if globalProject == nil {
+		wd, _ := os.Getwd()
+		InitProject(wd)
+	}
+	return globalProject
 }
 
 func NewProject(dir string) (*Project, error) {
@@ -131,6 +154,21 @@ func (proj *Project) Init(dir string) error {
 	return nil
 }
 
+func (proj *Project) ResolveDependency(dep *pkg.Dependency) (*pkg.LocalPackage, error) {
+	var myPkg *pkg.LocalPackage = nil
+
+	for _, pkgList := range proj.packages {
+		for _, pkg := range *pkgList {
+			if dep.SatisfiesDependency(pkg) {
+				myPkg = pkg
+				break
+			}
+		}
+	}
+
+	return myPkg, nil
+}
+
 func findProjectDir(dir string) (string, error) {
 	for {
 		projFile := path.Clean(dir) + "/" + PROJECT_FILE_NAME
@@ -159,7 +197,7 @@ func (proj *Project) LoadPackageList() error {
 	repos := proj.Repos()
 	for name, repo := range repos {
 		log.Printf("[VERBOSE] Loading packages in repository %s", repo.LocalPath)
-		list, err := pkg.ReadLocalPackages(repo.LocalPath, proj.PackageSearchDirs())
+		list, err := pkg.ReadLocalPackages(repo, repo.LocalPath, proj.PackageSearchDirs())
 		if err != nil {
 			return err
 		}

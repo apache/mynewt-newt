@@ -65,7 +65,7 @@ type LocalPackage struct {
 	reqApis []*Dependency
 
 	// Pointer to pkg.yml configuration structure
-	v *viper.Viper
+	Viper *viper.Viper
 }
 
 func (pkg *LocalPackage) IsBsp() bool {
@@ -120,6 +120,19 @@ func (pkg *LocalPackage) Vers() *Version {
 	return pkg.vers
 }
 
+func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
+	for _, dep := range pkg.deps {
+		if dep.String() == searchDep.String() {
+			return true
+		}
+	}
+	return false
+}
+
+func (pkg *LocalPackage) AddDep(dep *Dependency) {
+	pkg.deps = append(pkg.deps, dep)
+}
+
 func (pkg *LocalPackage) Deps() []*Dependency {
 	return pkg.deps
 }
@@ -145,8 +158,10 @@ func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 
 // Init reads everything that isn't identity specific into the
 // package
-func (pkg *LocalPackage) Init(pkgDir string) error {
+func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) error {
 	var err error
+
+	pkg.repo = repo
 
 	pkg.basePath = filepath.Clean(pkgDir) + "/"
 
@@ -158,7 +173,7 @@ func (pkg *LocalPackage) Init(pkgDir string) error {
 	if err != nil {
 		return err
 	}
-	pkg.v = v
+	pkg.Viper = v
 
 	// Set package name from the package
 	pkg.name = v.GetString("pkg.name")
@@ -178,10 +193,10 @@ func (pkg *LocalPackage) Init(pkgDir string) error {
 	return nil
 }
 
-func LoadLocalPackage(pkgDir string) (*LocalPackage, error) {
+func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {
 	pkg := &LocalPackage{}
 
-	if err := pkg.Init(pkgDir); err != nil {
+	if err := pkg.Init(repo, pkgDir); err != nil {
 		return nil, err
 	}
 
@@ -193,7 +208,7 @@ func LocalPackageSpecialName(dirName string) bool {
 	return ok
 }
 
-func ReadLocalPackageRecursive(pkgList *map[string]*LocalPackage,
+func ReadLocalPackageRecursive(repo *repo.Repo, pkgList map[string]*LocalPackage,
 	basePath string, pkgName string) error {
 
 	dirList, err := ioutil.ReadDir(basePath + "/" + pkgName)
@@ -211,7 +226,7 @@ func ReadLocalPackageRecursive(pkgList *map[string]*LocalPackage,
 			continue
 		}
 
-		if err := ReadLocalPackageRecursive(pkgList, basePath,
+		if err := ReadLocalPackageRecursive(repo, pkgList, basePath,
 			pkgName+"/"+name); err != nil {
 			return err
 		}
@@ -221,19 +236,19 @@ func ReadLocalPackageRecursive(pkgList *map[string]*LocalPackage,
 		return nil
 	}
 
-	pkg, err := LoadLocalPackage(basePath + "/" + pkgName)
+	pkg, err := LoadLocalPackage(repo, basePath+"/"+pkgName)
 	if err != nil {
 		return err
 	}
-	(*pkgList)[pkg.Name()] = pkg
+	pkgList[pkg.Name()] = pkg
 
 	return nil
 }
 
-func ReadLocalPackages(basePath string,
+func ReadLocalPackages(repo *repo.Repo, basePath string,
 	searchPaths []string) (*map[string]*LocalPackage, error) {
 
-	pkgList := &map[string]*LocalPackage{}
+	pkgList := map[string]*LocalPackage{}
 
 	for _, path := range searchPaths {
 		pkgDir := basePath + "/" + path
@@ -257,12 +272,12 @@ func ReadLocalPackages(basePath string,
 				continue
 			}
 
-			if err := ReadLocalPackageRecursive(pkgList, pkgDir,
+			if err := ReadLocalPackageRecursive(repo, pkgList, pkgDir,
 				name); err != nil {
 				return nil, util.NewNewtError(err.Error())
 			}
 		}
 	}
 
-	return pkgList, nil
+	return &pkgList, nil
 }

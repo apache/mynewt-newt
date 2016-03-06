@@ -64,6 +64,22 @@ func (dep *Dependency) String() string {
 	return str
 }
 
+func (dep *Dependency) SatisfiesDependency(pkg Package) bool {
+	if dep.Name != pkg.Name() {
+		return false
+	}
+
+	if dep.Repo != pkg.Repo().Name {
+		return false
+	}
+
+	if !pkg.Vers().SatisfiesVersion(dep.VersReqs) {
+		return false
+	}
+
+	return true
+}
+
 func (dep *Dependency) setRepoAndName(str string) error {
 	// First part is always repo/dependency name combination.
 	// If repo is present, string will always begin with a $ sign

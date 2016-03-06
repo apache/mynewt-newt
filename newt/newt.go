@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -86,6 +87,7 @@ func main() {
 	cmd := newtCmd()
 	project.AddCommands(cmd)
 	pkg.AddCommands(cmd)
+	builder.AddCommands(cmd)
 
 	cmd.Execute()
 }
