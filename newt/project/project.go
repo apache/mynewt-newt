@@ -48,6 +48,7 @@ var PackageSearchDirs []string = []string{
 	"hw/drivers/",
 	"hw/",
 	"project/",
+	"targets/",
 	"sys/",
 }
 
@@ -83,8 +84,14 @@ func InitProject(dir string) error {
 
 func GetProject() *Project {
 	if globalProject == nil {
-		wd, _ := os.Getwd()
-		InitProject(wd)
+		wd, err := os.Getwd()
+		if err != nil {
+			panic(err.Error())
+		}
+		err = InitProject(wd)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 	return globalProject
 }

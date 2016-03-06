@@ -29,6 +29,20 @@ const (
 	PACKAGE_STABILITY_DEV    = "dev"
 )
 
+type PackageType int
+
+const (
+	PACKAGE_TYPE_LIB PackageType = iota
+	PACKAGE_TYPE_BSP
+	PACKAGE_TYPE_TARGET
+	PACKAGE_TYPE_APP
+)
+
+const PACKAGE_TYPE_STR_LIB = "lib"
+const PACKAGE_TYPE_STR_BSP = "bsp"
+const PACKAGE_TYPE_STR_APP = "app"
+const PACKAGE_TYPE_STR_TARGET = "target"
+
 // An interface, representing information about a Package
 // This interface is implemented by both packages in the
 // local directory, but also packages that are stored in

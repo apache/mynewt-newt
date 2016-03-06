@@ -25,14 +25,51 @@ import (
 )
 
 type Target struct {
-	BSP      string
-	APP      string
-	ARCH     string
-	COMPILER string
+	basePkg      *pkg.LocalPackage
+	CompilerName string
+	BspName      string
+	AppName      string
+	Arch         string
+
+	// Pointer to target.yml configuration structure
+	v *viper.Viper
 }
 
-func (t *Target) Bsp() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, t.BSP)
+func NewTarget(basePkg *pkg.LocalPackage) (*Target, error) {
+	target := &Target{}
+	if err := target.Init(basePkg); err != nil {
+		return nil, err
+	}
+
+	return target, nil
+}
+
+func (target *Target) Init(basePkg *pkg.LocalPackage) error {
+	target.basePkg = basePkg
+
+	v, err := util.ReadConfig(basePkg.BasePath(),
+		strings.TrimSuffix(cli.TARGET_FILE_NAME, ".yml"))
+	if err != nil {
+		return err
+	}
+	target.v = v
+
+	target.CompilerName = v.GetString("target.compiler")
+	target.BspName = v.GetString("target.bsp")
+	target.AppName = v.GetString("target.app")
+	target.Arch = v.GetString("target.arch")
+
+	// XXX: Verify required fields set?
+
+	return nil
+}
+
+func (target *Target) Package() *pkg.LocalPackage {
+	return target.basePkg
+}
+
+func (target *Target) Compiler() *pkg.LocalPackage {
+	dep, _ := pkg.NewDependency(nil, target.CompilerName)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
 	return pkg
 }
@@ -43,8 +80,27 @@ func (t *Target) App() *pkg.LocalPackage {
 	return pkg
 }
 
-func (t *Target) Compiler() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, t.COMPILER)
+func (target *Target) App() *pkg.LocalPackage {
+	dep, _ := pkg.NewDependency(nil, target.AppName)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
 	return pkg
+}
+
+func TargetList() ([]*Target, error) {
+	targets := []*Target{}
+
+	packs := project.GetProject().PackageList()
+	for _, packHash := range packs {
+		for _, pack := range *packHash {
+			if pack.Type() == pkg.PACKAGE_TYPE_TARGET {
+				target, err := NewTarget(pack)
+				if err != nil {
+					return nil, err
+				}
+				targets = append(targets, target)
+			}
+		}
+	}
+
+	return targets, nil
 }

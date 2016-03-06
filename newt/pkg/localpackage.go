@@ -181,6 +181,23 @@ func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) error {
 	// Set package name from the package
 	pkg.name = v.GetString("pkg.name")
 
+	switch v.GetString("pkg.type") {
+	case PACKAGE_TYPE_STR_LIB:
+		pkg.packageType = PACKAGE_TYPE_LIB
+
+	case PACKAGE_TYPE_STR_BSP:
+		pkg.packageType = PACKAGE_TYPE_BSP
+
+	case PACKAGE_TYPE_STR_APP:
+		pkg.packageType = PACKAGE_TYPE_APP
+
+	case PACKAGE_TYPE_STR_TARGET:
+		pkg.packageType = PACKAGE_TYPE_TARGET
+
+	default:
+		pkg.packageType = PACKAGE_TYPE_LIB
+	}
+
 	// Get the package version
 	pkg.vers, err = LoadVersion(v.GetString("pkg.vers"))
 	if err != nil {

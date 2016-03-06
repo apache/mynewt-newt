@@ -28,10 +28,10 @@ import (
 
 func buildRunCmd(cmd *cobra.Command, args []string) {
 	b, err := NewBuilder(&target.Target{
-		BSP:      "$apache-mynewt-world/hw/bsp/native",
-		APP:      "apps/blinky",
-		ARCH:     "sim",
-		COMPILER: "$apache-mynewt-world/compiler/sim",
+		BspName:      "$apache-mynewt-world/hw/bsp/native",
+		AppName:      "apps/blinky",
+		CompilerName: "$apache-mynewt-world/compiler/sim",
+		Arch:         "sim",
 	})
 	if err != nil {
 		fmt.Println(err)
