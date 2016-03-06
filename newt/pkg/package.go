@@ -44,8 +44,6 @@ type Package interface {
 	Repo() *repo.Repo
 	// The name of this package
 	Name() string
-	// Is this package a BSP?
-	IsBsp() bool
 	// Hash of the contents of the package
 	Hash() (string, error)
 	// Description of this package

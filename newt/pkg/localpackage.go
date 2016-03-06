@@ -51,7 +51,6 @@ type LocalPackage struct {
 	repo     *repo.Repo
 	name     string
 	basePath string
-	isBsp    bool
 
 	// General information about the package
 	desc *PackageDesc
@@ -66,10 +65,6 @@ type LocalPackage struct {
 
 	// Pointer to pkg.yml configuration structure
 	Viper *viper.Viper
-}
-
-func (pkg *LocalPackage) IsBsp() bool {
-	return pkg.isBsp
 }
 
 func (pkg *LocalPackage) Name() string {
@@ -137,8 +132,16 @@ func (pkg *LocalPackage) Deps() []*Dependency {
 	return pkg.deps
 }
 
+func (pkg *LocalPackage) AddApi(api *Dependency) {
+	pkg.apis = append(pkg.apis, api)
+}
+
 func (pkg *LocalPackage) Apis() []*Dependency {
 	return pkg.apis
+}
+
+func (pkg *LocalPackage) AddReqApi(api *Dependency) {
+	pkg.reqApis = append(pkg.reqApis, api)
 }
 
 func (pkg *LocalPackage) ReqApis() []*Dependency {

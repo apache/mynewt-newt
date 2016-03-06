@@ -162,7 +162,7 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	}
 }
 
-func GetStringIdentities(v *viper.Viper, idents map[string]string, key string) string {
+func GetStringIdentities(v *viper.Viper, idents map[string]bool, key string) string {
 	val := v.GetString(key)
 
 	// Process the identities in alphabetical order to ensure consistent

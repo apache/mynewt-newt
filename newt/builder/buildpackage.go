@@ -37,7 +37,9 @@ type BuildPackage struct {
 	*pkg.LocalPackage
 
 	compilerInfo *CompilerInfo
-	loaded       bool
+	isBsp        bool
+
+	loaded bool
 }
 
 func (bpkg *BuildPackage) LoadIdentities(b *Builder) (map[string]bool, bool) {
@@ -79,7 +81,8 @@ func (bpkg *BuildPackage) LoadDeps(b *Builder, idents map[string]bool) (bool, er
 		}
 
 		if pkg == nil {
-			return false, util.NewNewtError("Could not resolve package dependency " + newDep.String())
+			return false, util.NewNewtError("Could not resolve package dependency " +
+				newDep.String())
 		}
 
 		if !b.HasPackage(pkg) {
@@ -96,6 +99,10 @@ func (bpkg *BuildPackage) LoadDeps(b *Builder, idents map[string]bool) (bool, er
 }
 
 func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
+	if bpkg.loaded {
+		return true, nil
+	}
+
 	// Circularly resolve dependencies and identities until no more new
 	// dependencies or identities exist.
 	idents, newIdents := bpkg.LoadIdentities(b)
@@ -107,6 +114,35 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 	if newIdents || newDeps {
 		return false, nil
 	}
+
+	// Now, load the rest of the package, this should happen only once.
+	apis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.apis")
+	for _, apiStr := range apis {
+		api, err := pkg.NewDependency(bpkg.Repo(), apiStr)
+		if err != nil {
+			return false, err
+		}
+		bpkg.AddApi(api)
+	}
+
+	reqApis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.req_apis")
+	for _, apiStr := range reqApis {
+		api, err := pkg.NewDependency(bpkg.Repo(), apiStr)
+		if err != nil {
+			return false, err
+		}
+		bpkg.AddReqApi(api)
+	}
+
+	ci := CompilerInfo{}
+	ci.Cflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.cflags")
+	ci.Lflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.lflags")
+	ci.Aflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.aflags")
+	ci.Includes = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.includes")
+
+	bpkg.compilerInfo = &ci
+
+	bpkg.loaded = true
 
 	return true, nil
 }
