@@ -20,52 +20,101 @@
 package builder
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
-
-type CompilerInfo struct {
-	Includes []string
-	Cflags   []string
-	Lflags   []string
-	Aflags   []string
-}
 
 type BuildPackage struct {
 	*pkg.LocalPackage
 
-	pkgCi  *CompilerInfo
-	fullCi *CompilerInfo
+	fullCi *toolchain.CompilerInfo
 
 	isBsp bool
 
 	loaded bool
 }
 
-func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
-	ci.Includes = append(ci.Includes, newCi.Includes...)
-	ci.Cflags = append(ci.Cflags, newCi.Cflags...)
-	ci.Lflags = append(ci.Lflags, newCi.Lflags...)
-	ci.Aflags = append(ci.Aflags, newCi.Aflags...)
+// Recursively iterates through an pkg's dependencies, adding each pkg
+// encountered to the supplied set.
+func (bpkg *BuildPackage) collectDepsAux(b *Builder,
+	set *map[*BuildPackage]bool) error {
+
+	if (*set)[bpkg] {
+		return nil
+	}
+
+	(*set)[bpkg] = true
+
+	for _, dep := range bpkg.Deps() {
+		if dep.Name == "" {
+			break
+		}
+
+		// Get pkg structure
+		dpkg, err := project.GetProject().ResolveDependency(dep)
+		if err != nil {
+			return err
+		}
+
+		dbpkg := b.Packages[dpkg]
+		if dbpkg == nil {
+			return util.NewNewtError(fmt.Sprintf("Package not found (%s)",
+				dpkg.Name()))
+		}
+
+		err = dbpkg.collectDepsAux(b, set)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func NewCompilerInfo() *CompilerInfo {
-	ci := &CompilerInfo{}
-	ci.Includes = []string{}
-	ci.Cflags = []string{}
-	ci.Lflags = []string{}
-	ci.Aflags = []string{}
+// Recursively iterates through an pkg's dependencies.  The resulting array
+// contains a pointer to each encountered pkg.
+func (bpkg *BuildPackage) collectDeps(b *Builder) ([]*BuildPackage, error) {
+	set := map[*BuildPackage]bool{}
 
-	return ci
+	err := bpkg.collectDepsAux(b, &set)
+	if err != nil {
+		return nil, err
+	}
+
+	arr := []*BuildPackage{}
+	for p, _ := range set {
+		arr = append(arr, p)
+	}
+
+	return arr, nil
 }
 
-func (bpkg *BuildPackage) PackageCompilerInfo() *CompilerInfo {
-	return bpkg.pkgCi
+// Calculates the include paths exported by the specified pkg and all of
+// its recursive dependencies.
+func (bpkg *BuildPackage) recursiveIncludePaths(b *Builder) ([]string, error) {
+	deps, err := bpkg.collectDeps(b)
+	if err != nil {
+		return nil, err
+	}
+
+	incls := []string{}
+	for _, p := range deps {
+		incls = append(incls, p.publicIncludeDirs(b)...)
+	}
+	for _, p := range deps {
+		incls = append(incls, p.publicIncludeDirs(b)...)
+	}
+
+	return incls, nil
 }
 
-func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*CompilerInfo, error) {
+func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*toolchain.CompilerInfo, error) {
 	if !bpkg.loaded {
 		return nil, util.NewNewtError("Package must be loaded before Compiler info is fetched")
 	}
@@ -74,29 +123,19 @@ func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*CompilerInfo, error) {
 		return bpkg.fullCi, nil
 	}
 
-	ci := NewCompilerInfo()
-	ci.AddCompilerInfo(bpkg.pkgCi)
+	ci := toolchain.NewCompilerInfo()
+	ci.Cflags = cli.GetStringSliceIdentities(bpkg.Viper, b.Identities(),
+		"pkg.cflags")
+	ci.Lflags = cli.GetStringSliceIdentities(bpkg.Viper, b.Identities(),
+		"pkg.lflags")
+	ci.Aflags = cli.GetStringSliceIdentities(bpkg.Viper, b.Identities(),
+		"pkg.aflags")
 
-	// Go through every dependency, and add the compiler information for that
-	// dependency
-	for _, dep := range bpkg.Deps() {
-		pkg, err := project.GetProject().ResolveDependency(dep)
-		if err != nil {
-			return nil, err
-		}
-
-		if pkg == nil {
-			return nil, util.NewNewtError("Cannot resolve dep " + dep.String())
-		}
-
-		bpkg, ok := b.GetPackage(pkg)
-		if !ok {
-			return nil, util.NewNewtError("Unknown build info for package " + pkg.Name())
-		}
-
-		ci.AddCompilerInfo(bpkg.PackageCompilerInfo())
+	includePaths, err := bpkg.recursiveIncludePaths(b)
+	if err != nil {
+		return nil, err
 	}
-
+	ci.Includes = append(bpkg.privateIncludeDirs(b), includePaths...)
 	bpkg.fullCi = ci
 
 	return bpkg.fullCi, nil
@@ -107,7 +146,8 @@ func (bpkg *BuildPackage) loadIdentities(b *Builder) (map[string]bool, bool) {
 
 	foundNewIdent := false
 
-	newIdents := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.identities")
+	newIdents := cli.GetStringSliceIdentities(bpkg.Viper, idents,
+		"pkg.identities")
 	for _, nident := range newIdents {
 		_, ok := idents[nident]
 		if !ok {
@@ -117,13 +157,15 @@ func (bpkg *BuildPackage) loadIdentities(b *Builder) (map[string]bool, bool) {
 	}
 
 	if foundNewIdent {
-		return b.Identities(), foundNewIdent
+		return b.Identities(), true
 	} else {
-		return idents, foundNewIdent
+		return idents, false
 	}
 }
 
-func (bpkg *BuildPackage) loadDeps(b *Builder, idents map[string]bool) (bool, error) {
+func (bpkg *BuildPackage) loadDeps(b *Builder,
+	idents map[string]bool) (bool, error) {
+
 	proj := project.GetProject()
 
 	foundNewDep := false
@@ -141,22 +183,48 @@ func (bpkg *BuildPackage) loadDeps(b *Builder, idents map[string]bool) (bool, er
 		}
 
 		if pkg == nil {
-			return false, util.NewNewtError("Could not resolve package dependency " +
-				newDep.String())
+			return false,
+				util.NewNewtError("Could not resolve package dependency " +
+					newDep.String())
 		}
 
-		_, ok := b.GetPackage(pkg)
-		if !ok {
+		if b.Packages[pkg] == nil {
 			foundNewDep = true
 			b.AddPackage(pkg)
 		}
 
 		if !bpkg.HasDep(newDep) {
+			foundNewDep = true
 			bpkg.AddDep(newDep)
 		}
 	}
 
 	return foundNewDep, nil
+}
+
+func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
+	pkgBase := filepath.Base(bpkg.Name())
+
+	return []string{
+		bpkg.BasePath() + "/include",
+		bpkg.BasePath() + "/include/" + pkgBase + "/arch/" + b.target.Arch,
+	}
+}
+
+func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
+	srcDir := bpkg.BasePath() + "/src/"
+
+	incls := []string{}
+	incls = append(incls, srcDir)
+	incls = append(incls, srcDir+"/arch/"+b.target.Arch)
+
+	if cli.CheckBoolMap(b.Identities(), "test") {
+		testSrcDir := srcDir + "/test"
+		incls = append(incls, testSrcDir)
+		incls = append(incls, testSrcDir+"/arch/"+b.target.Arch)
+	}
+
+	return incls
 }
 
 func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
@@ -178,30 +246,14 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 
 	// Now, load the rest of the package, this should happen only once.
 	apis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.caps")
-	for _, apiStr := range apis {
-		api, err := pkg.NewDependency(bpkg.Repo(), apiStr)
-		if err != nil {
-			return false, err
-		}
+	for _, api := range apis {
 		bpkg.AddApi(api)
 	}
 
 	reqApis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.req_caps")
-	for _, apiStr := range reqApis {
-		api, err := pkg.NewDependency(bpkg.Repo(), apiStr)
-		if err != nil {
-			return false, err
-		}
-		bpkg.AddReqApi(api)
+	for _, reqApi := range reqApis {
+		bpkg.AddReqApi(reqApi)
 	}
-
-	ci := NewCompilerInfo()
-	ci.Cflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.cflags")
-	ci.Lflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.lflags")
-	ci.Aflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.aflags")
-	ci.Includes = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.includes")
-
-	bpkg.pkgCi = ci
 
 	bpkg.loaded = true
 

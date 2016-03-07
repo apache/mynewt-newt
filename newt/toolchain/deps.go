@@ -20,12 +20,15 @@
 package toolchain
 
 import (
+	"bytes"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	_ "mynewt.apache.org/newt/newt/util"
+	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/util"
 )
 
 type DepTracker struct {
@@ -53,7 +56,7 @@ func NewDepTracker(c *Compiler) DepTracker {
 //
 // This function ignores all lines except for the first.
 func ParseDepsFile(filename string) ([]string, error) {
-	lines, err := ReadLines(filename)
+	lines, err := cli.ReadLines(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -65,13 +68,13 @@ func ParseDepsFile(filename string) ([]string, error) {
 	// Assume only the first line is important.
 	tokens := strings.Fields(lines[0])
 	if len(tokens) == 0 {
-		return nil, NewNewtError("Invalid Makefile dependency file; first " +
+		return nil, util.NewNewtError("Invalid Makefile dependency file; first " +
 			"line is blank")
 	}
 
 	dFileTok := tokens[0]
 	if dFileTok[len(dFileTok)-1:] != ":" {
-		return nil, NewNewtError("Invalid Makefile dependency file; first " +
+		return nil, util.NewNewtError("Invalid Makefile dependency file; first " +
 			"line missing ':'")
 	}
 
@@ -82,7 +85,7 @@ func ParseDepsFile(filename string) ([]string, error) {
 // modification time of the specified file.  If the specified file is older
 // than the tracker's currently most-recent time, this function has no effect.
 func (tracker *DepTracker) ProcessFileTime(file string) error {
-	modTime, err := FileModificationTime(file)
+	modTime, err := cli.FileModificationTime(file)
 	if err != nil {
 		return err
 	}
@@ -92,6 +95,31 @@ func (tracker *DepTracker) ProcessFileTime(file string) error {
 	}
 
 	return nil
+}
+
+// Determines if a file was previously built with a command line invocation
+// different from the one specified.
+//
+// @param dstFile               The output file whose build invocation is being
+//                                  tested.
+// @param cmd                   The command that would be used to generate the
+//                                  specified destination file.
+//
+// @return                      true if the command has changed or if the
+//                                  destination file was never built;
+//                              false otherwise.
+func commandHasChanged(dstFile string, cmd string) bool {
+	cmdFile := dstFile + ".cmd"
+	prevCmd, err := ioutil.ReadFile(cmdFile)
+	if err != nil {
+		return true
+	}
+
+	rc := bytes.Compare(prevCmd, []byte(cmd)) != 0
+	if rc {
+		cli.StatusMessage(util.VERBOSITY_VERBOSE, "oldcmd=%s\nnewcmd=%s\n", prevCmd, cmd)
+	}
+	return rc
 }
 
 // Determines if the specified C or assembly file needs to be built.  A compile
@@ -118,17 +146,18 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	if err != nil {
 		return false, err
 	}
-	if CommandHasChanged(objFile, cmd) {
-		StatusMessage(VERBOSITY_VERBOSE, "%s - rebuild required; different command\n", srcFile)
+	if commandHasChanged(objFile, cmd) {
+		cli.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; "+
+			"different command\n", srcFile)
 		return true, nil
 	}
 
-	srcModTime, err := FileModificationTime(srcFile)
+	srcModTime, err := cli.FileModificationTime(srcFile)
 	if err != nil {
 		return false, err
 	}
 
-	objModTime, err := FileModificationTime(objFile)
+	objModTime, err := cli.FileModificationTime(objFile)
 	if err != nil {
 		return false, err
 	}
@@ -136,14 +165,14 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// If the object doesn't exist or is older than the source file, a build is
 	// required; no need to check dependencies.
 	if srcModTime.After(objModTime) {
-		StatusMessage(VERBOSITY_VERBOSE, "%s - rebuild required; source newer than obj\n", srcFile)
+		cli.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; source newer than obj\n", srcFile)
 		return true, nil
 	}
 
 	// Determine if the dependency (.d) file needs to be generated.  If it
 	// doesn't exist or is older than the source file, it is out of date and
 	// needs to be created.
-	depModTime, err := FileModificationTime(depFile)
+	depModTime, err := cli.FileModificationTime(depFile)
 	if err != nil {
 		return false, err
 	}
@@ -163,7 +192,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 
 	// Check if any dependencies are newer than the destination object file.
 	for _, dep := range deps {
-		if NodeNotExist(dep) {
+		if cli.NodeNotExist(dep) {
 			// The dependency has been deleted; the .d file is out of date.
 			// Recreate the dependency file and repeat this entire function.
 			err := tracker.compiler.GenDepsForFile(srcFile)
@@ -173,14 +202,14 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 
 			return tracker.CompileRequired(srcFile, compilerType)
 		} else {
-			depModTime, err = FileModificationTime(dep)
+			depModTime, err = cli.FileModificationTime(dep)
 			if err != nil {
 				return false, err
 			}
 		}
 
 		if depModTime.After(objModTime) {
-			StatusMessage(VERBOSITY_VERBOSE, "%s - rebuild required; obj older than dependency (%s)\n", srcFile, dep)
+			cli.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; obj older than dependency (%s)\n", srcFile, dep)
 			return true, nil
 		}
 	}
@@ -201,13 +230,13 @@ func (tracker *DepTracker) ArchiveRequired(archiveFile string,
 	// If the archive was previously built with a different set of options, a
 	// rebuild is required.
 	cmd := tracker.compiler.CompileArchiveCmd(archiveFile, objFiles)
-	if CommandHasChanged(archiveFile, cmd) {
+	if commandHasChanged(archiveFile, cmd) {
 		return true, nil
 	}
 
 	// If the archive doesn't exist or is older than any object file, a rebuild
 	// is required.
-	aModTime, err := FileModificationTime(archiveFile)
+	aModTime, err := cli.FileModificationTime(archiveFile)
 	if err != nil {
 		return false, err
 	}
@@ -235,13 +264,13 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 	// If the elf file was previously built with a different set of options, a
 	// rebuild is required.
 	cmd := tracker.compiler.CompileBinaryCmd(dstFile, options, objFiles)
-	if CommandHasChanged(dstFile, cmd) {
+	if commandHasChanged(dstFile, cmd) {
 		return true, nil
 	}
 
 	// If the elf file doesn't exist or is older than any input file, a rebuild
 	// is required.
-	dstModTime, err := FileModificationTime(dstFile)
+	dstModTime, err := cli.FileModificationTime(dstFile)
 	if err != nil {
 		return false, err
 	}
@@ -256,7 +285,7 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 		objFiles = append(objFiles, tracker.compiler.LinkerScript)
 	}
 	for _, obj := range objFiles {
-		objModTime, err := FileModificationTime(obj)
+		objModTime, err := cli.FileModificationTime(obj)
 		if err != nil {
 			return false, err
 		}

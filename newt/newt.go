@@ -84,6 +84,8 @@ func newtCmd() *cobra.Command {
 }
 
 func main() {
+	cli.Init("ERROR", false, false, false)
+
 	cmd := newtCmd()
 	project.AddCommands(cmd)
 	pkg.AddCommands(cmd)

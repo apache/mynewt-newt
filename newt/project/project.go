@@ -203,18 +203,15 @@ func (proj *Project) Init(dir string) error {
 }
 
 func (proj *Project) ResolveDependency(dep *pkg.Dependency) (*pkg.LocalPackage, error) {
-	var myPkg *pkg.LocalPackage = nil
-
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
 			if dep.SatisfiesDependency(pkg) {
-				myPkg = pkg
-				break
+				return pkg, nil
 			}
 		}
 	}
 
-	return myPkg, nil
+	return nil, util.NewNewtError("Can't resolve dependency: " + dep.Name)
 }
 
 func findProjectDir(dir string) (string, error) {

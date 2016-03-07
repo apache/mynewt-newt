@@ -60,9 +60,9 @@ type LocalPackage struct {
 	// Dependencies for this package
 	deps []*Dependency
 	// APIs that this package exports
-	apis []*Dependency
+	apis []string
 	// APIs that this package requires
-	reqApis []*Dependency
+	reqApis []string
 
 	// Pointer to pkg.yml configuration structure
 	Viper *viper.Viper
@@ -166,19 +166,28 @@ func (pkg *LocalPackage) Deps() []*Dependency {
 	return pkg.deps
 }
 
-func (pkg *LocalPackage) AddApi(api *Dependency) {
+func (pkg *LocalPackage) AddApi(api string) {
 	pkg.apis = append(pkg.apis, api)
 }
 
-func (pkg *LocalPackage) Apis() []*Dependency {
+func (pkg *LocalPackage) Apis() []string {
 	return pkg.apis
 }
 
-func (pkg *LocalPackage) AddReqApi(api *Dependency) {
+func (pkg *LocalPackage) AddReqApi(api string) {
 	pkg.reqApis = append(pkg.reqApis, api)
 }
 
-func (pkg *LocalPackage) ReqApis() []*Dependency {
+func (pkg *LocalPackage) DelReqApi(api string) {
+	for i, entry := range pkg.reqApis {
+		if api == entry {
+			pkg.reqApis = append(pkg.reqApis[:i], pkg.reqApis[i+1:]...)
+			return
+		}
+	}
+}
+
+func (pkg *LocalPackage) ReqApis() []string {
 	return pkg.reqApis
 }
 
@@ -207,7 +216,6 @@ func (pkg *LocalPackage) Save() error {
 	}
 
 	filepath := dirpath + "/" + PACKAGE_FILE_NAME
-	fmt.Printf("filepath=%s\n", filepath)
 	file, err := os.Create(filepath)
 	if err != nil {
 		return util.NewNewtError(err.Error())

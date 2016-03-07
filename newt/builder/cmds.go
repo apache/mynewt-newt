@@ -23,16 +23,23 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/util"
 )
 
 func buildRunCmd(cmd *cobra.Command, args []string) {
-	b, err := NewBuilder(&target.Target{
-		BspName:      "$apache-mynewt-world/hw/bsp/native",
-		AppName:      "apps/blinky",
-		CompilerName: "$apache-mynewt-world/compiler/sim",
-		Arch:         "sim",
-	})
+	if len(args) < 1 {
+		cli.NewtUsage(cmd, nil)
+	}
+
+	targetName := args[0]
+	t := target.GetTargets()[targetName]
+	if t == nil {
+		cli.NewtUsage(cmd, util.NewNewtError("invalid target name"))
+	}
+
+	b, err := NewBuilder(t)
 	if err != nil {
 		fmt.Println(err)
 	}

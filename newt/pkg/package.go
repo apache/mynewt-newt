@@ -69,9 +69,9 @@ type Package interface {
 	// Dependency list for this package
 	Deps() []*Dependency
 	// APIs exported by this package
-	Apis() []*Dependency
+	Apis() []string
 	// APIs required by this package
-	ReqApis() []*Dependency
+	ReqApis() []string
 }
 
 // Description of a package

@@ -21,7 +21,6 @@ package cli
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -113,7 +112,7 @@ func Init(level string, silent bool, quiet bool, verbose bool) {
 	}
 }
 
-func checkBoolMap(mapVar map[string]bool, item string) bool {
+func CheckBoolMap(mapVar map[string]bool, item string) bool {
 	v, ok := mapVar[item]
 	return v && ok
 }
@@ -382,44 +381,6 @@ func ReadLines(path string) ([]string, error) {
 	}
 
 	return lines, nil
-}
-
-// Determines if a file was previously built with a command line invocation
-// different from the one specified.
-//
-// @param dstFile               The output file whose build invocation is being
-//                                  tested.
-// @param cmd                   The command that would be used to generate the
-//                                  specified destination file.
-//
-// @return                      true if the command has changed or if the
-//                                  destination file was never built;
-//                              false otherwise.
-func CommandHasChanged(dstFile string, cmd string) bool {
-	cmdFile := dstFile + ".cmd"
-	prevCmd, err := ioutil.ReadFile(cmdFile)
-	if err != nil {
-		return true
-	}
-
-	return bytes.Compare(prevCmd, []byte(cmd)) != 0
-}
-
-// Writes a file containing the command-line invocation used to generate the
-// specified file.  The file that this function writes can be used later to
-// determine if the set of compiler options has changed.
-//
-// @param dstFile               The output file whose build invocation is being
-//                                  recorded.
-// @param cmd                   The command to write.
-func WriteCommandFile(dstFile string, cmd string) error {
-	cmdPath := dstFile + ".cmd"
-	err := ioutil.WriteFile(cmdPath, []byte(cmd), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Removes all duplicate strings from the specified array, while preserving
