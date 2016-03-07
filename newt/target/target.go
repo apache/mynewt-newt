@@ -98,21 +98,21 @@ func (target *Target) Package() *pkg.LocalPackage {
 
 func (target *Target) Compiler() *pkg.LocalPackage {
 	dep, _ := pkg.NewDependency(nil, target.CompilerName)
-	mypkg, _ := project.GetProject().ResolveDependency(dep)
+	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
 
-	return mypkg.(*pkg.LocalPackage)
+	return mypkg
 }
 
 func (target *Target) App() *pkg.LocalPackage {
 	dep, _ := pkg.NewDependency(nil, target.AppName)
-	mypkg, _ := project.GetProject().ResolveDependency(dep)
-	return mypkg.(*pkg.LocalPackage)
+	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
+	return mypkg
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {
 	dep, _ := pkg.NewDependency(nil, target.BspName)
-	mypkg, _ := project.GetProject().ResolveDependency(dep)
-	return mypkg.(*pkg.LocalPackage)
+	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
+	return mypkg
 }
 
 // Save the target's configuration elements

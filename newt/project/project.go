@@ -203,16 +203,16 @@ func (proj *Project) Init(dir string) error {
 	return nil
 }
 
-func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) (interfaces.PackageInterface, error) {
+func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) interfaces.PackageInterface {
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
 			if dep.SatisfiesDependency(pkg) {
-				return pkg, nil
+				return pkg
 			}
 		}
 	}
 
-	return nil, util.NewNewtError("Can't resolve dependency: " + dep.String())
+	return nil
 }
 
 func findProjectDir(dir string) (string, error) {

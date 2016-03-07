@@ -66,11 +66,10 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 		}
 
 		// Get pkg structure
-		mydpkg, err := project.GetProject().ResolveDependency(dep)
-		if err != nil {
-			return err
+		dpkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
+		if dpkg == nil {
+			return util.NewNewtError("Cannot resolve dependency " + dep.String())
 		}
-		dpkg := mydpkg.(*pkg.LocalPackage)
 
 		dbpkg := b.Packages[dpkg]
 		if dbpkg == nil {
@@ -78,8 +77,7 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 				dpkg.Name()))
 		}
 
-		err = dbpkg.collectDepsAux(b, set)
-		if err != nil {
+		if err := dbpkg.collectDepsAux(b, set); err != nil {
 			return err
 		}
 	}
@@ -206,11 +204,10 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 			return false, err
 		}
 
-		mypkg, err := proj.ResolveDependency(newDep)
-		if err != nil {
-			return false, err
+		pkg := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
+		if pkg == nil {
+			return false, util.NewNewtError("Cannot resolve dependency: " + newDep.String())
 		}
-		pkg := mypkg.(*pkg.LocalPackage)
 
 		if pkg == nil {
 			return false,
