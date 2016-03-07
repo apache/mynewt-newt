@@ -22,8 +22,10 @@ package util
 import (
 	"mynewt.apache.org/newt/viper"
 	"github.com/hashicorp/logutils"
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -126,7 +128,8 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, NewNewtError(err.Error())
+		return nil, NewNewtError(fmt.Sprintf("Error reading %s.yml: %s",
+			filepath.Join(path, name), err.Error()))
 	} else {
 		return v, nil
 	}

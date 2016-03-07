@@ -39,7 +39,6 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
-	"mynewt.apache.org/newt/yaml"
 )
 
 const (
@@ -115,23 +114,6 @@ func Init(level string, silent bool, quiet bool, verbose bool) {
 func CheckBoolMap(mapVar map[string]bool, item string) bool {
 	v, ok := mapVar[item]
 	return v && ok
-}
-
-// Read in the configuration file specified by name, in path
-// return a new viper config object if successful, and error if not
-func ReadConfig(path string, name string) (*viper.Viper, error) {
-	v := viper.New()
-	v.SetConfigType("yaml")
-	v.SetConfigName(name)
-	v.AddConfigPath(path)
-	yaml.SetFilename(path + "/" + name + ".yml")
-
-	err := v.ReadInConfig()
-	if err != nil {
-		return nil, util.NewNewtError(err.Error())
-	} else {
-		return v, nil
-	}
 }
 
 func GetStringIdentities(v *viper.Viper, idents map[string]bool, key string) string {
