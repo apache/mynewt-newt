@@ -69,7 +69,7 @@ func (dep *Dependency) SatisfiesDependency(pkg Package) bool {
 		return false
 	}
 
-	if dep.Repo != pkg.Repo().Name {
+	if dep.Repo != pkg.Repo().Name() {
 		return false
 	}
 
@@ -95,7 +95,7 @@ func (dep *Dependency) setRepoAndName(parentRepo *repo.Repo, str string) error {
 		dep.Name = nameParts[1]
 	} else {
 		if parentRepo != nil {
-			dep.Repo = parentRepo.Name
+			dep.Repo = parentRepo.Name()
 		} else {
 			dep.Repo = repo.REPO_NAME_LOCAL
 		}

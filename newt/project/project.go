@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -108,8 +109,17 @@ func NewProject(dir string) (*Project, error) {
 	return proj, nil
 }
 
+func (proj *Project) Path() string {
+	return proj.BasePath
+}
+
 func (proj *Project) Repos() map[string]*repo.Repo {
 	return proj.repos
+}
+
+func (proj *Project) FindRepo(rname string) *repo.Repo {
+	r, _ := proj.repos[rname]
+	return r
 }
 
 func (proj *Project) LocalRepo() *repo.Repo {
@@ -118,6 +128,28 @@ func (proj *Project) LocalRepo() *repo.Repo {
 
 func (proj *Project) PackageSearchDirs() []string {
 	return proj.packageSearchDirs
+}
+
+func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
+	rType := v.GetString(rname + ".type")
+	if rType != "github" {
+		return util.NewNewtError("Unknown repo type %s, only github supported.")
+	}
+
+	user := v.GetString(rname + ".user")
+	gitRepo := v.GetString(rname + ".repo")
+
+	dl := downloader.NewGithubDownloader()
+	dl.User = user
+	dl.Repo = gitRepo
+
+	r, err := repo.NewRepo(proj.Path(), rname, dl)
+	if err != nil {
+		return err
+	}
+	proj.repos[r.Name()] = r
+
+	return nil
 }
 
 func (proj *Project) loadConfig() error {
@@ -138,17 +170,14 @@ func (proj *Project) loadConfig() error {
 	if err != nil {
 		return err
 	}
-	proj.repos[r.Name] = r
+	proj.repos[r.Name()] = r
 	proj.localRepo = r
 
 	rstrs := v.GetStringSlice("project.repositories")
 	for _, repoName := range rstrs {
-		r, err := repo.NewRepo(proj.BasePath, repoName, v)
-		if err != nil {
+		if err := proj.loadRepo(repoName, v); err != nil {
 			return err
 		}
-
-		proj.repos[r.Name] = r
 	}
 
 	pkgDirs := v.GetStringSlice("project.pkg_dirs")
@@ -215,8 +244,8 @@ func (proj *Project) LoadPackageList() error {
 	// packages / store them in the project package list.
 	repos := proj.Repos()
 	for name, repo := range repos {
-		log.Printf("[VERBOSE] Loading packages in repository %s", repo.LocalPath)
-		list, err := pkg.ReadLocalPackages(repo, repo.LocalPath, proj.PackageSearchDirs())
+		log.Printf("[VERBOSE] Loading packages in repository %s", repo.Path())
+		list, err := pkg.ReadLocalPackages(repo, repo.Path(), proj.PackageSearchDirs())
 		if err != nil {
 			return err
 		}

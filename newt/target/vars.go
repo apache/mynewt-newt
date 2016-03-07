@@ -36,7 +36,7 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 	searchDirs := project.GetProject().PackageSearchDirs()
 	for _, r := range repos {
 		for _, pkgDir := range searchDirs {
-			pkgBaseDir := r.LocalPath + "/" + pkgDir
+			pkgBaseDir := r.Path() + "/" + pkgDir
 			values, err := cli.DescendantDirsOfParent(pkgBaseDir, key, fullPath)
 			if err != nil {
 				return nil, util.NewNewtError(err.Error())
@@ -44,7 +44,7 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 
 			for _, value := range values {
 				if fullPath {
-					value = strings.TrimPrefix(value, r.BasePath+"/")
+					value = strings.TrimPrefix(value, project.GetProject().Path()+"/")
 				}
 				if strings.HasPrefix(value, repo.REPOS_DIR+"/") {
 					value = "$" + strings.TrimPrefix(value, repo.REPOS_DIR+"/")

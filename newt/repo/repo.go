@@ -20,46 +20,71 @@
 package repo
 
 import (
-	"fmt"
+	"os"
 	"path/filepath"
 
-	"mynewt.apache.org/newt/viper"
+	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/downloader"
+	"mynewt.apache.org/newt/util"
 )
 
 const REPO_NAME_LOCAL = "local"
+const REPO_DEFAULT_PERMS = 0755
 
 const REPOS_DIR = "repos"
 
 type Repo struct {
-	Name      string
-	Url       string
-	LocalPath string
-	BasePath  string
+	name       string
+	downloader downloader.Downloader
+	localPath  string
 }
 
-func (r *Repo) Init(basePath string, repoName string, v *viper.Viper) error {
-	r.Name = repoName
-	r.BasePath = basePath
+func (r *Repo) Name() string {
+	return r.name
+}
 
-	if r.Name == REPO_NAME_LOCAL {
-		r.LocalPath = filepath.Clean(basePath)
-	} else {
-		r.LocalPath = filepath.Clean(basePath + "/" + REPOS_DIR + "/" +
-			repoName)
-	}
+func (r *Repo) Path() string {
+	return r.localPath
+}
 
-	if v != nil {
-		r.Url = v.GetString(fmt.Sprintf("%s.url", repoName))
+// Download the repository description.
+func (r *Repo) DownloadDesc() error {
+	dl := r.downloader
+
+	dl.SetBranch("master")
+	if err := dl.FetchFile("repository.yml",
+		r.localPath+"/"+"repository.yml"); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func NewRepo(basePath string, repoName string,
-	v *viper.Viper) (*Repo, error) {
+func (r *Repo) Init(basePath string, repoName string,
+	d downloader.Downloader) error {
+	r.name = repoName
+	r.downloader = d
+
+	if r.name == REPO_NAME_LOCAL {
+		r.localPath = filepath.Clean(basePath)
+	} else {
+		r.localPath = filepath.Clean(basePath + "/" + REPOS_DIR + "/" + r.name)
+	}
+
+	// If local path doesn't exist, create it.
+	if cli.NodeNotExist(r.localPath) {
+		if err := os.MkdirAll(r.localPath, REPO_DEFAULT_PERMS); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+	}
+
+	return nil
+}
+
+func NewRepo(basePath string, repoName string, d downloader.Downloader) (*Repo, error) {
 	r := &Repo{}
 
-	if err := r.Init(basePath, repoName, v); err != nil {
+	if err := r.Init(basePath, repoName, d); err != nil {
 		return nil, err
 	}
 

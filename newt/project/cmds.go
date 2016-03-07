@@ -28,6 +28,13 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+func repoRunCmd(cmd *cobra.Command, args []string) {
+	proj := GetProject()
+
+	r := proj.FindRepo("apache-mynewt-world")
+	r.DownloadDesc()
+}
+
 func projectRunCmd(cmd *cobra.Command, args []string) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -60,6 +67,12 @@ func AddCommands(cmd *cobra.Command) {
 		Example: projectHelpEx,
 		Run:     projectRunCmd,
 	}
+
+	repoCmd := &cobra.Command{
+		Use: "repo",
+		Run: repoRunCmd,
+	}
+	cmd.AddCommand(repoCmd)
 
 	cmd.AddCommand(projectCmd)
 }

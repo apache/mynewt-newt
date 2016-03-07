@@ -222,7 +222,7 @@ func (pkg *LocalPackage) Save() error {
 	file.WriteString("pkg.description: " + pkg.Desc().Description + "\n")
 	file.WriteString("pkg.author: " + pkg.Desc().Author + "\n")
 	file.WriteString("pkg.homepage: " + pkg.Desc().Homepage + "\n")
-	file.WriteString("pkg.repository: " + pkg.Repo().Name + "\n")
+	file.WriteString("pkg.repository: " + pkg.Repo().Name() + "\n")
 
 	return nil
 }
