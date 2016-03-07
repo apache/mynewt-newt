@@ -242,13 +242,13 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 	}
 
 	// Now, load the rest of the package, this should happen only once.
-	apis := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.caps")
+	apis := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.apis")
 	for _, api := range apis {
 		bpkg.AddApi(api)
 	}
 
 	reqApis := cli.GetStringSliceFeatures(bpkg.Viper, features,
-		"pkg.req_caps")
+		"pkg.req_apis")
 	for _, reqApi := range reqApis {
 		bpkg.AddReqApi(reqApi)
 	}
