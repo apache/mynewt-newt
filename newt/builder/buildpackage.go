@@ -36,13 +36,73 @@ type CompilerInfo struct {
 type BuildPackage struct {
 	*pkg.LocalPackage
 
-	compilerInfo *CompilerInfo
-	isBsp        bool
+	pkgCi  *CompilerInfo
+	fullCi *CompilerInfo
+
+	isBsp bool
 
 	loaded bool
 }
 
-func (bpkg *BuildPackage) LoadIdentities(b *Builder) (map[string]bool, bool) {
+func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
+	ci.Includes = append(ci.Includes, newCi.Includes...)
+	ci.Cflags = append(ci.Cflags, newCi.Cflags...)
+	ci.Lflags = append(ci.Lflags, newCi.Lflags...)
+	ci.Aflags = append(ci.Aflags, newCi.Aflags...)
+}
+
+func NewCompilerInfo() *CompilerInfo {
+	ci := &CompilerInfo{}
+	ci.Includes = []string{}
+	ci.Cflags = []string{}
+	ci.Lflags = []string{}
+	ci.Aflags = []string{}
+
+	return ci
+}
+
+func (bpkg *BuildPackage) PackageCompilerInfo() *CompilerInfo {
+	return bpkg.pkgCi
+}
+
+func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*CompilerInfo, error) {
+	if !bpkg.loaded {
+		return nil, util.NewNewtError("Package must be loaded before Compiler info is fetched")
+	}
+
+	if bpkg.fullCi != nil {
+		return bpkg.fullCi, nil
+	}
+
+	ci := NewCompilerInfo()
+	ci.AddCompilerInfo(bpkg.pkgCi)
+
+	// Go through every dependency, and add the compiler information for that
+	// dependency
+	for _, dep := range bpkg.Deps() {
+		pkg, err := project.GetProject().ResolveDependency(dep)
+		if err != nil {
+			return nil, err
+		}
+
+		if pkg == nil {
+			return nil, util.NewNewtError("Cannot resolve dep " + dep.String())
+		}
+
+		bpkg, ok := b.GetPackage(pkg)
+		if !ok {
+			return nil, util.NewNewtError("Unknown build info for package " + pkg.Name())
+		}
+
+		ci.AddCompilerInfo(bpkg.PackageCompilerInfo())
+	}
+
+	bpkg.fullCi = ci
+
+	return bpkg.fullCi, nil
+}
+
+func (bpkg *BuildPackage) loadIdentities(b *Builder) (map[string]bool, bool) {
 	idents := b.Identities()
 
 	foundNewIdent := false
@@ -63,7 +123,7 @@ func (bpkg *BuildPackage) LoadIdentities(b *Builder) (map[string]bool, bool) {
 	}
 }
 
-func (bpkg *BuildPackage) LoadDeps(b *Builder, idents map[string]bool) (bool, error) {
+func (bpkg *BuildPackage) loadDeps(b *Builder, idents map[string]bool) (bool, error) {
 	proj := project.GetProject()
 
 	foundNewDep := false
@@ -85,7 +145,8 @@ func (bpkg *BuildPackage) LoadDeps(b *Builder, idents map[string]bool) (bool, er
 				newDep.String())
 		}
 
-		if !b.HasPackage(pkg) {
+		_, ok := b.GetPackage(pkg)
+		if !ok {
 			foundNewDep = true
 			b.AddPackage(pkg)
 		}
@@ -105,8 +166,8 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 
 	// Circularly resolve dependencies and identities until no more new
 	// dependencies or identities exist.
-	idents, newIdents := bpkg.LoadIdentities(b)
-	newDeps, err := bpkg.LoadDeps(b, idents)
+	idents, newIdents := bpkg.loadIdentities(b)
+	newDeps, err := bpkg.loadDeps(b, idents)
 	if err != nil {
 		return false, err
 	}
@@ -116,7 +177,7 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 	}
 
 	// Now, load the rest of the package, this should happen only once.
-	apis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.apis")
+	apis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.caps")
 	for _, apiStr := range apis {
 		api, err := pkg.NewDependency(bpkg.Repo(), apiStr)
 		if err != nil {
@@ -125,7 +186,7 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 		bpkg.AddApi(api)
 	}
 
-	reqApis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.req_apis")
+	reqApis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.req_caps")
 	for _, apiStr := range reqApis {
 		api, err := pkg.NewDependency(bpkg.Repo(), apiStr)
 		if err != nil {
@@ -134,13 +195,13 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 		bpkg.AddReqApi(api)
 	}
 
-	ci := CompilerInfo{}
+	ci := NewCompilerInfo()
 	ci.Cflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.cflags")
 	ci.Lflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.lflags")
 	ci.Aflags = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.aflags")
 	ci.Includes = cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.includes")
 
-	bpkg.compilerInfo = &ci
+	bpkg.pkgCi = ci
 
 	bpkg.loaded = true
 

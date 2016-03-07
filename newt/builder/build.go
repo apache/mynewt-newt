@@ -20,10 +20,9 @@
 package builder
 
 import (
-	"fmt"
-
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/util"
 )
 
 type Builder struct {
@@ -41,29 +40,29 @@ func (b *Builder) AddIdentity(identity string) {
 	b.identities[identity] = true
 }
 
-func (b *Builder) HasPackage(pkg *pkg.LocalPackage) bool {
+func (b *Builder) GetPackage(pkg *pkg.LocalPackage) (*BuildPackage, bool) {
 	if pkg == nil {
 		panic("Package should not equal NIL")
 	}
 
-	_, ok := b.Packages[pkg]
+	bpkg, ok := b.Packages[pkg]
 	if !ok {
-		return false
+		return nil, false
 	} else {
-		return true
+		return bpkg, true
 	}
 }
 
 func (b *Builder) AddPackage(pkg *pkg.LocalPackage) {
 	// Don't allow nil entries to the map
 	if pkg == nil {
-		return
+		panic("Cannot add nil package builder map")
 	}
 
 	b.Packages[pkg] = NewBuildPackage(pkg)
 }
 
-func (b *Builder) ResolvePackageDeps() error {
+func (b *Builder) LoadDeps() error {
 	for {
 		reprocess := false
 		for _, bpkg := range b.Packages {
@@ -90,13 +89,21 @@ func (b *Builder) Build() error {
 	b.AddPackage(b.target.App())
 	b.AddPackage(b.target.Compiler())
 
-	if err := b.ResolvePackageDeps(); err != nil {
+	if err := b.LoadDeps(); err != nil {
 		return err
 	}
 
-	for _, bpkg := range b.Packages {
-		fmt.Printf("Package %s being built\n", bpkg.Name())
+	bspPackage, ok := b.GetPackage(b.target.Bsp())
+	if !ok {
+		return util.NewNewtError("BSP package not found!")
 	}
+
+	baseCi := NewCompilerInfo()
+	baseCi.AddCompilerInfo(bspPackage.PackageCompilerInfo())
+
+	// Loop through all packages and build them
+
+	// Now, get the App, and link the application
 
 	return nil
 }
