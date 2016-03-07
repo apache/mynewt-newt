@@ -156,7 +156,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 	pack := pkg.NewLocalPackage(repo, repo.Path()+"/"+args[0])
 	pack.SetName(args[0])
 	pack.SetType(pkg.PACKAGE_TYPE_TARGET)
-	pack.SetVers(&pkg.Version{0, 0, 1})
+	pack.SetVers(pkg.NewVersion(0, 0, 1))
 
 	t = NewTarget(pack)
 	err := t.Save()

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
 )
@@ -31,7 +32,7 @@ type Dependency struct {
 	Name      string
 	Repo      string
 	Stability string
-	VersReqs  []*VersionMatch
+	VersReqs  []interfaces.VersionReqInterface
 }
 
 func (dep *Dependency) SetVersionReqs(versStr string) error {
@@ -52,7 +53,7 @@ func (dep *Dependency) GetVersionReqsString() string {
 
 	str := ""
 	for _, vreq := range dep.VersReqs {
-		str += fmt.Sprintf("%s%s", vreq.CompareType, vreq.Vers)
+		str += fmt.Sprintf("%s%s", vreq.CompareType(), vreq.Version())
 	}
 
 	return str
@@ -64,7 +65,7 @@ func (dep *Dependency) String() string {
 	return str
 }
 
-func (dep *Dependency) SatisfiesDependency(pkg Package) bool {
+func (dep *Dependency) SatisfiesDependency(pkg interfaces.PackageInterface) bool {
 	if dep.Name != pkg.Name() {
 		return false
 	}
@@ -80,7 +81,7 @@ func (dep *Dependency) SatisfiesDependency(pkg Package) bool {
 	return true
 }
 
-func (dep *Dependency) setRepoAndName(parentRepo *repo.Repo, str string) error {
+func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str string) error {
 	// First part is always repo/dependency name combination.
 	// If repo is present, string will always begin with a $ sign
 	// representing the repo name, followed by 'n' slashes.
@@ -105,7 +106,7 @@ func (dep *Dependency) setRepoAndName(parentRepo *repo.Repo, str string) error {
 	return nil
 }
 
-func (dep *Dependency) Init(parentRepo *repo.Repo, depStr string) error {
+func (dep *Dependency) Init(parentRepo interfaces.RepoInterface, depStr string) error {
 	// Split string into multiple parts
 	// @ separates repo/name from version requirements
 	// # separates repo/name or version requirements from stability level
@@ -143,7 +144,7 @@ func (dep *Dependency) Init(parentRepo *repo.Repo, depStr string) error {
 	return nil
 }
 
-func NewDependency(parentRepo *repo.Repo, depStr string) (*Dependency, error) {
+func NewDependency(parentRepo interfaces.RepoInterface, depStr string) (*Dependency, error) {
 	// Allocate depedency
 	dep := &Dependency{}
 

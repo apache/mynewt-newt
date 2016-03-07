@@ -66,10 +66,11 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 		}
 
 		// Get pkg structure
-		dpkg, err := project.GetProject().ResolveDependency(dep)
+		mydpkg, err := project.GetProject().ResolveDependency(dep)
 		if err != nil {
 			return err
 		}
+		dpkg := mydpkg.(*pkg.LocalPackage)
 
 		dbpkg := b.Packages[dpkg]
 		if dbpkg == nil {
@@ -205,10 +206,11 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 			return false, err
 		}
 
-		pkg, err := proj.ResolveDependency(newDep)
+		mypkg, err := proj.ResolveDependency(newDep)
 		if err != nil {
 			return false, err
 		}
+		pkg := mypkg.(*pkg.LocalPackage)
 
 		if pkg == nil {
 			return false,

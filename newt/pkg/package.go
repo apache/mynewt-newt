@@ -20,7 +20,10 @@
 
 package pkg
 
-import "mynewt.apache.org/newt/newt/repo"
+import (
+	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/repo"
+)
 
 const PACKAGE_FILE_NAME = "pkg.yml"
 
@@ -30,16 +33,14 @@ const (
 	PACKAGE_STABILITY_DEV    = "dev"
 )
 
-type PackageType int
-
 const (
-	PACKAGE_TYPE_LIB PackageType = iota
+	PACKAGE_TYPE_LIB interfaces.PackageType = iota
 	PACKAGE_TYPE_BSP
 	PACKAGE_TYPE_TARGET
 	PACKAGE_TYPE_APP
 )
 
-var PackageTypeNames = map[PackageType]string{
+var PackageTypeNames = map[interfaces.PackageType]string{
 	PACKAGE_TYPE_LIB:    "lib",
 	PACKAGE_TYPE_BSP:    "bsp",
 	PACKAGE_TYPE_APP:    "app",
@@ -59,7 +60,7 @@ type Package interface {
 	// The name of this package
 	Name() string
 	// The type of package (lib, target, bsp, etc.)
-	Type() PackageType
+	Type() interfaces.PackageType
 	// Hash of the contents of the package
 	Hash() (string, error)
 	// Description of this package

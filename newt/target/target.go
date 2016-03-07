@@ -98,20 +98,21 @@ func (target *Target) Package() *pkg.LocalPackage {
 
 func (target *Target) Compiler() *pkg.LocalPackage {
 	dep, _ := pkg.NewDependency(nil, target.CompilerName)
-	pkg, _ := project.GetProject().ResolveDependency(dep)
-	return pkg
+	mypkg, _ := project.GetProject().ResolveDependency(dep)
+
+	return mypkg.(*pkg.LocalPackage)
 }
 
 func (target *Target) App() *pkg.LocalPackage {
 	dep, _ := pkg.NewDependency(nil, target.AppName)
-	pkg, _ := project.GetProject().ResolveDependency(dep)
-	return pkg
+	mypkg, _ := project.GetProject().ResolveDependency(dep)
+	return mypkg.(*pkg.LocalPackage)
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {
 	dep, _ := pkg.NewDependency(nil, target.BspName)
-	pkg, _ := project.GetProject().ResolveDependency(dep)
-	return pkg
+	mypkg, _ := project.GetProject().ResolveDependency(dep)
+	return mypkg.(*pkg.LocalPackage)
 }
 
 // Save the target's configuration elements
@@ -180,7 +181,7 @@ func buildTargetMap() error {
 	for _, packHash := range packs {
 		for name, pack := range *packHash {
 			if pack.Type() == pkg.PACKAGE_TYPE_TARGET {
-				target, err := LoadTarget(pack)
+				target, err := LoadTarget(pack.(*pkg.LocalPackage))
 				if err != nil {
 					return err
 				}

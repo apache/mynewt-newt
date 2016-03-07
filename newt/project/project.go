@@ -27,6 +27,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/downloader"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -60,7 +61,7 @@ type Project struct {
 	// Base path of the project
 	BasePath string
 
-	packages map[string]*map[string]*pkg.LocalPackage
+	packages interfaces.PackageList
 
 	// Repositories configured on this project
 	repos map[string]*repo.Repo
@@ -202,7 +203,7 @@ func (proj *Project) Init(dir string) error {
 	return nil
 }
 
-func (proj *Project) ResolveDependency(dep *pkg.Dependency) (*pkg.LocalPackage, error) {
+func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) (interfaces.PackageInterface, error) {
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
 			if dep.SatisfiesDependency(pkg) {
@@ -211,7 +212,7 @@ func (proj *Project) ResolveDependency(dep *pkg.Dependency) (*pkg.LocalPackage, 
 		}
 	}
 
-	return nil, util.NewNewtError("Can't resolve dependency: " + dep.Name)
+	return nil, util.NewNewtError("Can't resolve dependency: " + dep.String())
 }
 
 func findProjectDir(dir string) (string, error) {
@@ -235,7 +236,7 @@ func findProjectDir(dir string) (string, error) {
 }
 
 func (proj *Project) LoadPackageList() error {
-	proj.packages = map[string]*map[string]*pkg.LocalPackage{}
+	proj.packages = interfaces.PackageList{}
 
 	// Go through a list of repositories, starting with local, and search for
 	// packages / store them in the project package list.
@@ -253,7 +254,7 @@ func (proj *Project) LoadPackageList() error {
 	return nil
 }
 
-func (proj *Project) PackageList() map[string]*map[string]*pkg.LocalPackage {
+func (proj *Project) PackageList() interfaces.PackageList {
 	return proj.packages
 }
 

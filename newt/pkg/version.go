@@ -25,46 +25,67 @@ import (
 	"strconv"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
 )
 
 const VERSION_FORMAT = "%d.%d.%d"
 
 type VersionMatch struct {
-	CompareType string
+	compareType string
 	Vers        *Version
 }
 
 type Version struct {
-	Major    int64
-	Minor    int64
-	Revision int64
+	major    int64
+	minor    int64
+	revision int64
 }
 
-func (v *Version) compareVersions(vers1 *Version, vers2 *Version) int64 {
-	if r := vers1.Major - vers2.Major; r != 0 {
+func (vm *VersionMatch) CompareType() string {
+	return vm.compareType
+}
+
+func (vm *VersionMatch) Version() interfaces.VersionInterface {
+	return vm.Vers
+}
+
+func (v *Version) Major() int64 {
+	return v.major
+}
+
+func (v *Version) Minor() int64 {
+	return v.minor
+}
+
+func (v *Version) Revision() int64 {
+	return v.revision
+}
+
+func (v *Version) CompareVersions(vers1 interfaces.VersionInterface, vers2 interfaces.VersionInterface) int64 {
+	if r := vers1.Major() - vers2.Major(); r != 0 {
 		return r
 	}
 
-	if r := vers1.Minor - vers2.Minor; r != 0 {
+	if r := vers1.Minor() - vers2.Minor(); r != 0 {
 		return r
 	}
 
-	if r := vers1.Revision - vers2.Revision; r != 0 {
+	if r := vers1.Revision() - vers2.Revision(); r != 0 {
 		return r
 	}
 
 	return 0
 }
 
-func (v *Version) SatisfiesVersion(versMatches []*VersionMatch) bool {
+func (v *Version) SatisfiesVersion(versMatches []interfaces.VersionReqInterface) bool {
 	if versMatches == nil {
 		return true
 	}
 
 	for _, match := range versMatches {
-		r := v.compareVersions(match.Vers, v)
-		switch match.CompareType {
+		r := v.CompareVersions(match.Version(), v)
+		switch match.CompareType() {
 		case "<":
 			if r <= 0 {
 				return false
@@ -110,21 +131,31 @@ func LoadVersion(versStr string) (*Version, error) {
 	vers := &Version{}
 
 	// convert first string to an int
-	if vers.Major, err = strconv.ParseInt(parts[0], 0, 64); err != nil {
+	if vers.major, err = strconv.ParseInt(parts[0], 0, 64); err != nil {
 		return nil, util.NewNewtError(err.Error())
 	}
 	if len(parts) >= 2 {
-		if vers.Minor, err = strconv.ParseInt(parts[1], 0, 64); err != nil {
+		if vers.minor, err = strconv.ParseInt(parts[1], 0, 64); err != nil {
 			return nil, util.NewNewtError(err.Error())
 		}
 	}
 	if len(parts) == 3 {
-		if vers.Revision, err = strconv.ParseInt(parts[2], 0, 64); err != nil {
+		if vers.revision, err = strconv.ParseInt(parts[2], 0, 64); err != nil {
 			return nil, util.NewNewtError(err.Error())
 		}
 	}
 
 	return vers, nil
+}
+
+func NewVersion(major int64, minor int64, rev int64) *Version {
+	vers := &Version{}
+
+	vers.major = major
+	vers.minor = minor
+	vers.revision = rev
+
+	return vers
 }
 
 // Parse a set of version string constraints on a dependency.
@@ -135,10 +166,10 @@ func LoadVersion(versStr string) (*Version, error) {
 //   operators: <=, <, >, >=, ==
 // And <version> is specified in the form: X.Y.Z where X, Y and Z are all
 // int64 types in decimal form
-func LoadVersionMatches(versStr string) ([]*VersionMatch, error) {
+func LoadVersionMatches(versStr string) ([]interfaces.VersionReqInterface, error) {
 	var err error
 
-	versMatches := []*VersionMatch{}
+	versMatches := []interfaces.VersionReqInterface{}
 
 	re, err := regexp.Compile(`(<=|>=|==|>|<)([\d\.]+)`)
 	if err != nil {
@@ -149,7 +180,7 @@ func LoadVersionMatches(versStr string) ([]*VersionMatch, error) {
 	if matches != nil {
 		for _, match := range matches {
 			vm := &VersionMatch{}
-			vm.CompareType = match[1]
+			vm.compareType = match[1]
 			if vm.Vers, err = LoadVersion(match[2]); err != nil {
 				return nil, err
 			}
@@ -160,7 +191,7 @@ func LoadVersionMatches(versStr string) ([]*VersionMatch, error) {
 		}
 	} else {
 		vm := &VersionMatch{}
-		vm.CompareType = "=="
+		vm.compareType = "=="
 		if vm.Vers, err = LoadVersion(versStr); err != nil {
 			return nil, err
 		}

@@ -31,6 +31,7 @@ import (
 	"mynewt.apache.org/newt/viper"
 
 	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
 )
@@ -51,7 +52,7 @@ type LocalPackage struct {
 	repo        *repo.Repo
 	name        string
 	basePath    string
-	packageType PackageType
+	packageType interfaces.PackageType
 
 	// General information about the package
 	desc *PackageDesc
@@ -85,11 +86,11 @@ func (pkg *LocalPackage) BasePath() string {
 	return pkg.basePath
 }
 
-func (pkg *LocalPackage) Type() PackageType {
+func (pkg *LocalPackage) Type() interfaces.PackageType {
 	return pkg.packageType
 }
 
-func (pkg *LocalPackage) Repo() *repo.Repo {
+func (pkg *LocalPackage) Repo() interfaces.RepoInterface {
 	return pkg.repo
 }
 
@@ -97,7 +98,7 @@ func (pkg *LocalPackage) Desc() *PackageDesc {
 	return pkg.desc
 }
 
-func (pkg *LocalPackage) Vers() *Version {
+func (pkg *LocalPackage) Vers() interfaces.VersionInterface {
 	return pkg.vers
 }
 
@@ -105,7 +106,7 @@ func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
 }
 
-func (pkg *LocalPackage) SetType(packageType PackageType) {
+func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
 }
 
@@ -276,8 +277,9 @@ func LocalPackageSpecialName(dirName string) bool {
 	return ok
 }
 
-func ReadLocalPackageRecursive(repo *repo.Repo, pkgList map[string]*LocalPackage,
-	basePath string, pkgName string) error {
+func ReadLocalPackageRecursive(repo *repo.Repo,
+	pkgList map[string]interfaces.PackageInterface, basePath string,
+	pkgName string) error {
 
 	dirList, err := ioutil.ReadDir(basePath + "/" + pkgName)
 	if err != nil {
@@ -314,9 +316,9 @@ func ReadLocalPackageRecursive(repo *repo.Repo, pkgList map[string]*LocalPackage
 }
 
 func ReadLocalPackages(repo *repo.Repo, basePath string,
-	searchPaths []string) (*map[string]*LocalPackage, error) {
+	searchPaths []string) (*map[string]interfaces.PackageInterface, error) {
 
-	pkgList := map[string]*LocalPackage{}
+	pkgList := map[string]interfaces.PackageInterface{}
 
 	for _, path := range searchPaths {
 		pkgDir := basePath + "/" + path
