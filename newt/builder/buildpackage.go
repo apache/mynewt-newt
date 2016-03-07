@@ -107,9 +107,6 @@ func (bpkg *BuildPackage) recursiveIncludePaths(b *Builder) ([]string, error) {
 	for _, p := range deps {
 		incls = append(incls, p.publicIncludeDirs(b)...)
 	}
-	for _, p := range deps {
-		incls = append(incls, p.publicIncludeDirs(b)...)
-	}
 
 	return incls, nil
 }
