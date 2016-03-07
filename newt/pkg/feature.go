@@ -19,26 +19,26 @@
 
 package pkg
 
-type IdentityList struct {
-	identities map[string]bool
+type FeatureList struct {
+	features map[string]bool
 }
 
-func (il *IdentityList) Put(name string) {
-	il.identities[name] = true
+func (fl *FeatureList) Put(name string) {
+	fl.features[name] = true
 }
 
-func (il *IdentityList) Exists(name string) bool {
-	_, ok := il.identities[name]
+func (fl *FeatureList) Exists(name string) bool {
+	_, ok := fl.features[name]
 	return ok
 }
 
-func (il *IdentityList) GetSlice() []string {
-	identitySlice := make([]string, len(il.identities))
+func (fl *FeatureList) GetSlice() []string {
+	featureSlice := make([]string, len(fl.features))
 
 	i := 0
-	for identity := range il.identities {
-		identitySlice[i] = identity
+	for feature := range fl.features {
+		featureSlice[i] = feature
 	}
 
-	return identitySlice
+	return featureSlice
 }

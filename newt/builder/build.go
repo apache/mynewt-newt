@@ -33,18 +33,18 @@ import (
 
 type Builder struct {
 	Packages   map[*pkg.LocalPackage]*BuildPackage
-	identities map[string]bool
+	features   map[string]bool
 	apis       map[string]*BuildPackage
 
 	target *target.Target
 }
 
-func (b *Builder) Identities() map[string]bool {
-	return b.identities
+func (b *Builder) Features() map[string]bool {
+	return b.features
 }
 
-func (b *Builder) AddIdentity(identity string) {
-	b.identities[identity] = true
+func (b *Builder) AddFeature(feature string) {
+	b.features[feature] = true
 }
 
 func (b *Builder) AddPackage(pkg *pkg.LocalPackage) {
@@ -236,7 +236,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage,
 	c.AddInfo(ci)
 
 	// For now, ignore test code.  Tests get built later if the test
-	// identity is in effect.
+	// feature is in effect.
 	ignDirs := []string{"test"}
 
 	// Compile the source files.
@@ -354,7 +354,7 @@ func (b *Builder) Init(target *target.Target) error {
 	b.target = target
 
 	b.Packages = map[*pkg.LocalPackage]*BuildPackage{}
-	b.identities = map[string]bool{}
+	b.features = map[string]bool{}
 	b.apis = map[string]*BuildPackage{}
 
 	return nil

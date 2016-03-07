@@ -116,25 +116,26 @@ func CheckBoolMap(mapVar map[string]bool, item string) bool {
 	return v && ok
 }
 
-func GetStringIdentities(v *viper.Viper, idents map[string]bool, key string) string {
+func GetStringFeatures(v *viper.Viper, features map[string]bool,
+	key string) string {
 	val := v.GetString(key)
 
-	// Process the identities in alphabetical order to ensure consistent
+	// Process the features in alphabetical order to ensure consistent
 	// results across repeated runs.
-	var identKeys []string
-	for ident, _ := range idents {
-		identKeys = append(identKeys, ident)
+	var featureKeys []string
+	for feature, _ := range features {
+		featureKeys = append(featureKeys, feature)
 	}
-	sort.Strings(identKeys)
+	sort.Strings(featureKeys)
 
-	for _, ident := range identKeys {
-		overwriteVal := v.GetString(key + "." + ident + ".OVERWRITE")
+	for _, feature := range featureKeys {
+		overwriteVal := v.GetString(key + "." + feature + ".OVERWRITE")
 		if overwriteVal != "" {
 			val = strings.Trim(overwriteVal, "\n")
 			break
 		}
 
-		appendVal := v.GetString(key + "." + ident)
+		appendVal := v.GetString(key + "." + feature)
 		if appendVal != "" {
 			val += " " + strings.Trim(appendVal, "\n")
 		}
@@ -142,7 +143,7 @@ func GetStringIdentities(v *viper.Viper, idents map[string]bool, key string) str
 	return strings.TrimSpace(val)
 }
 
-func GetStringSliceIdentities(v *viper.Viper, idents map[string]bool,
+func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
 	key string) []string {
 
 	val := v.GetStringSlice(key)
@@ -156,7 +157,7 @@ func GetStringSliceIdentities(v *viper.Viper, idents map[string]bool,
 		result = append(result, item)
 	}
 
-	for item, _ := range idents {
+	for item, _ := range features {
 		result = append(result, v.GetStringSlice(key+"."+item)...)
 	}
 

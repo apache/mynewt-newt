@@ -121,11 +121,11 @@ func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*toolchain.CompilerInfo,
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	ci.Cflags = cli.GetStringSliceIdentities(bpkg.Viper, b.Identities(),
+	ci.Cflags = cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.cflags")
-	ci.Lflags = cli.GetStringSliceIdentities(bpkg.Viper, b.Identities(),
+	ci.Lflags = cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.lflags")
-	ci.Aflags = cli.GetStringSliceIdentities(bpkg.Viper, b.Identities(),
+	ci.Aflags = cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.aflags")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
@@ -138,36 +138,36 @@ func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*toolchain.CompilerInfo,
 	return bpkg.fullCi, nil
 }
 
-func (bpkg *BuildPackage) loadIdentities(b *Builder) (map[string]bool, bool) {
-	idents := b.Identities()
+func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
+	features := b.Features()
 
-	foundNewIdent := false
+	foundNewFeature := false
 
-	newIdents := cli.GetStringSliceIdentities(bpkg.Viper, idents,
-		"pkg.identities")
-	for _, nident := range newIdents {
-		_, ok := idents[nident]
+	newFeatures := cli.GetStringSliceFeatures(bpkg.Viper, features,
+		"pkg.features")
+	for _, nfeature := range newFeatures {
+		_, ok := features[nfeature]
 		if !ok {
-			b.AddIdentity(nident)
-			foundNewIdent = true
+			b.AddFeature(nfeature)
+			foundNewFeature = true
 		}
 	}
 
-	if foundNewIdent {
-		return b.Identities(), true
+	if foundNewFeature {
+		return b.Features(), true
 	} else {
-		return idents, false
+		return features, false
 	}
 }
 
 func (bpkg *BuildPackage) loadDeps(b *Builder,
-	idents map[string]bool) (bool, error) {
+	features map[string]bool) (bool, error) {
 
 	proj := project.GetProject()
 
 	foundNewDep := false
 
-	newDeps := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.deps")
+	newDeps := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.deps")
 	for _, newDepStr := range newDeps {
 		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
 		if err != nil {
@@ -215,7 +215,7 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+b.target.Arch)
 
-	if cli.CheckBoolMap(b.Identities(), "test") {
+	if cli.CheckBoolMap(b.Features(), "test") {
 		testSrcDir := srcDir + "/test"
 		incls = append(incls, testSrcDir)
 		incls = append(incls, testSrcDir+"/arch/"+b.target.Arch)
@@ -229,25 +229,26 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 		return true, nil
 	}
 
-	// Circularly resolve dependencies and identities until no more new
-	// dependencies or identities exist.
-	idents, newIdents := bpkg.loadIdentities(b)
-	newDeps, err := bpkg.loadDeps(b, idents)
+	// Circularly resolve dependencies and features until no more new
+	// dependencies or features exist.
+	features, newFeatures := bpkg.loadFeatures(b)
+	newDeps, err := bpkg.loadDeps(b, features)
 	if err != nil {
 		return false, err
 	}
 
-	if newIdents || newDeps {
+	if newFeatures || newDeps {
 		return false, nil
 	}
 
 	// Now, load the rest of the package, this should happen only once.
-	apis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.caps")
+	apis := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.caps")
 	for _, api := range apis {
 		bpkg.AddApi(api)
 	}
 
-	reqApis := cli.GetStringSliceIdentities(bpkg.Viper, idents, "pkg.req_caps")
+	reqApis := cli.GetStringSliceFeatures(bpkg.Viper, features,
+		"pkg.req_caps")
 	for _, reqApi := range reqApis {
 		bpkg.AddReqApi(reqApi)
 	}
