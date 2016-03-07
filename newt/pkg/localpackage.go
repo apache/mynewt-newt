@@ -48,9 +48,10 @@ var LocalPackageSpecialNames = map[string]bool{
 }
 
 type LocalPackage struct {
-	repo     *repo.Repo
-	name     string
-	basePath string
+	repo        *repo.Repo
+	name        string
+	basePath    string
+	packageType PackageType
 
 	// General information about the package
 	desc *PackageDesc
@@ -69,6 +70,14 @@ type LocalPackage struct {
 
 func (pkg *LocalPackage) Name() string {
 	return pkg.name
+}
+
+func (pkg *LocalPackage) BasePath() string {
+	return pkg.basePath
+}
+
+func (pkg *LocalPackage) Type() PackageType {
+	return pkg.packageType
 }
 
 func (pkg *LocalPackage) Repo() *repo.Repo {

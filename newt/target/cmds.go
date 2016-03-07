@@ -53,16 +53,17 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		if dispTarget == "" || dispTarget == target.Package().Name() {
 			cli.StatusMessage(cli.VERBOSITY_QUIET, target.Package().Name()+"\n")
 
-			//			vars := target.GetVars()
-			//			var keys []string
-			//			for k := range vars {
-			//				keys = append(keys, k)
-			//			}
-			//
-			//			sort.Strings(keys)
-			//			for _, k := range keys {
-			//				cli.StatusMessage(cli.VERBOSITY_QUIET, "    %s=%s\n", k, vars[k])
-			//			}
+			settings := target.v.AllSettings()
+			keys := []string{}
+			for k, _ := range settings {
+				keys = append(keys, k)
+			}
+
+			sort.Strings(keys)
+			for _, k := range keys {
+				cli.StatusMessage(cli.VERBOSITY_QUIET,
+					"    %s=%s\n", k, settings[k])
+			}
 		}
 	}
 }

@@ -20,9 +20,15 @@
 package target
 
 import (
+	"strings"
+
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
+
+const TARGET_FILE_NAME string = "target.yml"
 
 type Target struct {
 	basePkg      *pkg.LocalPackage
@@ -48,7 +54,7 @@ func (target *Target) Init(basePkg *pkg.LocalPackage) error {
 	target.basePkg = basePkg
 
 	v, err := util.ReadConfig(basePkg.BasePath(),
-		strings.TrimSuffix(cli.TARGET_FILE_NAME, ".yml"))
+		strings.TrimSuffix(TARGET_FILE_NAME, ".yml"))
 	if err != nil {
 		return err
 	}
@@ -74,14 +80,14 @@ func (target *Target) Compiler() *pkg.LocalPackage {
 	return pkg
 }
 
-func (t *Target) App() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, t.APP)
+func (target *Target) App() *pkg.LocalPackage {
+	dep, _ := pkg.NewDependency(nil, target.AppName)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
 	return pkg
 }
 
-func (target *Target) App() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, target.AppName)
+func (target *Target) Bsp() *pkg.LocalPackage {
+	dep, _ := pkg.NewDependency(nil, target.BspName)
 	pkg, _ := project.GetProject().ResolveDependency(dep)
 	return pkg
 }

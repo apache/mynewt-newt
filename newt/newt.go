@@ -27,6 +27,7 @@ import (
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/target"
 
 	"github.com/spf13/cobra"
 )
@@ -87,6 +88,7 @@ func main() {
 	cmd := newtCmd()
 	project.AddCommands(cmd)
 	pkg.AddCommands(cmd)
+	target.AddCommands(cmd)
 	builder.AddCommands(cmd)
 
 	cmd.Execute()

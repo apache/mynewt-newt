@@ -58,6 +58,8 @@ type Package interface {
 	Repo() *repo.Repo
 	// The name of this package
 	Name() string
+	// The type of package (lib, target, bsp, etc.)
+	Type() PackageType
 	// Hash of the contents of the package
 	Hash() (string, error)
 	// Description of this package
