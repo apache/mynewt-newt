@@ -30,14 +30,23 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+// Indicates whether a package's API dependency has been another package.
+type reqApiStatus int
+
+const (
+	REQ_API_STATUS_UNSATISFIED reqApiStatus = iota
+	REQ_API_STATUS_SATISFIED
+)
+
 type BuildPackage struct {
 	*pkg.LocalPackage
 
-	fullCi *toolchain.CompilerInfo
+	ci *toolchain.CompilerInfo
 
-	isBsp bool
+	// Keeps track of API requirements and whether they are satisfied.
+	reqApiMap map[string]reqApiStatus
 
-	loaded bool
+	resolved bool
 }
 
 // Recursively iterates through an pkg's dependencies, adding each pkg
@@ -111,13 +120,16 @@ func (bpkg *BuildPackage) recursiveIncludePaths(b *Builder) ([]string, error) {
 	return incls, nil
 }
 
-func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*toolchain.CompilerInfo, error) {
-	if !bpkg.loaded {
-		return nil, util.NewNewtError("Package must be loaded before Compiler info is fetched")
+func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, error) {
+	if !bpkg.resolved {
+		return nil, util.NewNewtError("Package must be resolved before " +
+			"compiler info is fetched; package=" + bpkg.Name())
 	}
 
-	if bpkg.fullCi != nil {
-		return bpkg.fullCi, nil
+	// If this package's compiler info has already been generated, returned the
+	// cached copy.
+	if bpkg.ci != nil {
+		return bpkg.ci, nil
 	}
 
 	ci := toolchain.NewCompilerInfo()
@@ -133,9 +145,9 @@ func (bpkg *BuildPackage) FullCompilerInfo(b *Builder) (*toolchain.CompilerInfo,
 		return nil, err
 	}
 	ci.Includes = append(bpkg.privateIncludeDirs(b), includePaths...)
-	bpkg.fullCi = ci
+	bpkg.ci = ci
 
-	return bpkg.fullCi, nil
+	return bpkg.ci, nil
 }
 
 func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
@@ -153,19 +165,38 @@ func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
 		}
 	}
 
-	if foundNewFeature {
-		return b.Features(), true
-	} else {
-		return features, false
-	}
+	return b.Features(), foundNewFeature
 }
 
+// Searches for a package which can satisfy bpkg's API requirement.  If such a
+// package is found, bpkg's API requirement is marked as satisfied, and the
+// package is added to bpkg's dependency list.
+func (bpkg *BuildPackage) satisfyReqApi(b *Builder, reqApi string) bool {
+	depBpkg := b.apis[reqApi]
+	if depBpkg == nil {
+		return false
+	}
+
+	dep := &pkg.Dependency{
+		Name: depBpkg.Name(),
+		Repo: depBpkg.Repo().Name(),
+	}
+	bpkg.AddDep(dep)
+	bpkg.reqApiMap[reqApi] = REQ_API_STATUS_SATISFIED
+
+	return true
+}
+
+// @return bool                 True if this this function changed the builder
+//                                  state; another full iteration is required
+//                                  in this case.
+//         error                non-nil on failure.
 func (bpkg *BuildPackage) loadDeps(b *Builder,
 	features map[string]bool) (bool, error) {
 
 	proj := project.GetProject()
 
-	foundNewDep := false
+	changed := false
 
 	newDeps := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.deps")
 	for _, newDepStr := range newDeps {
@@ -186,17 +217,48 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 		}
 
 		if b.Packages[pkg] == nil {
-			foundNewDep = true
+			changed = true
 			b.AddPackage(pkg)
 		}
 
 		if !bpkg.HasDep(newDep) {
-			foundNewDep = true
+			changed = true
 			bpkg.AddDep(newDep)
+		}
+
+		// Determine if this package supports any APIs that we haven't seen
+		// yet.  If so, another full iteration is required.
+		apis := cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+			"pkg.caps")
+		for _, api := range apis {
+			newApi := b.AddApi(api, bpkg)
+			if newApi {
+				changed = true
+			}
+		}
+
+		// Determine if any of package's API requirements can now be satisfied.
+		// If so, another full iteration is required.
+		reqApis := cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+			"pkg.req_caps")
+		for _, reqApi := range reqApis {
+			reqStatus, ok := bpkg.reqApiMap[reqApi]
+			if !ok {
+				reqStatus = REQ_API_STATUS_UNSATISFIED
+				bpkg.reqApiMap[reqApi] = reqStatus
+				changed = true
+			}
+
+			if reqStatus == REQ_API_STATUS_UNSATISFIED {
+				apiSatisfied := bpkg.satisfyReqApi(b, reqApi)
+				if apiSatisfied {
+					changed = true
+				}
+			}
 		}
 	}
 
-	return foundNewDep, nil
+	return changed, nil
 }
 
 func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
@@ -224,13 +286,17 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	return incls
 }
 
-func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
-	if bpkg.loaded {
+// Attempts to resolve all of a build package's dependencies, identities, APIs,
+// and required APIs.  This function should be called repeatedly until the
+// package is fully resolved.
+//
+// @return bool                 true if the package is fully resolved;
+//                              false if another call is required.
+func (bpkg *BuildPackage) Resolve(b *Builder) (bool, error) {
+	if bpkg.resolved {
 		return true, nil
 	}
 
-	// Circularly resolve dependencies and features until no more new
-	// dependencies or features exist.
 	features, newFeatures := bpkg.loadFeatures(b)
 	newDeps, err := bpkg.loadDeps(b, features)
 	if err != nil {
@@ -241,25 +307,14 @@ func (bpkg *BuildPackage) Load(b *Builder) (bool, error) {
 		return false, nil
 	}
 
-	// Now, load the rest of the package, this should happen only once.
-	apis := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.apis")
-	for _, api := range apis {
-		bpkg.AddApi(api)
-	}
-
-	reqApis := cli.GetStringSliceFeatures(bpkg.Viper, features,
-		"pkg.req_apis")
-	for _, reqApi := range reqApis {
-		bpkg.AddReqApi(reqApi)
-	}
-
-	bpkg.loaded = true
+	bpkg.resolved = true
 
 	return true, nil
 }
 
 func (bp *BuildPackage) Init(pkg *pkg.LocalPackage) {
 	bp.LocalPackage = pkg
+	bp.reqApiMap = map[string]reqApiStatus{}
 }
 
 func NewBuildPackage(pkg *pkg.LocalPackage) *BuildPackage {

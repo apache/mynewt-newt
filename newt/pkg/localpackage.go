@@ -178,15 +178,6 @@ func (pkg *LocalPackage) AddReqApi(api string) {
 	pkg.reqApis = append(pkg.reqApis, api)
 }
 
-func (pkg *LocalPackage) DelReqApi(api string) {
-	for i, entry := range pkg.reqApis {
-		if api == entry {
-			pkg.reqApis = append(pkg.reqApis[:i], pkg.reqApis[i+1:]...)
-			return
-		}
-	}
-}
-
 func (pkg *LocalPackage) ReqApis() []string {
 	return pkg.reqApis
 }

@@ -20,7 +20,7 @@
 package builder
 
 import (
-	"fmt"
+	"bytes"
 	"os"
 	"path/filepath"
 
@@ -56,61 +56,34 @@ func (b *Builder) AddPackage(pkg *pkg.LocalPackage) {
 	b.Packages[pkg] = NewBuildPackage(pkg)
 }
 
-func (b *Builder) AddApi(apiString string, bpkg *BuildPackage) {
+// @return bool                 true if this is a new API.
+func (b *Builder) AddApi(apiString string, bpkg *BuildPackage) bool {
 	curBpkg := b.apis[apiString]
-	if curBpkg != nil {
-		cli.StatusMessage(util.VERBOSITY_QUIET,
-			"Warning: API conflict: %s <-> %s\n", curBpkg.Name(), bpkg.Name())
-	} else {
+	if curBpkg == nil {
 		b.apis[apiString] = bpkg
-	}
-}
-
-func (b *Builder) populateApis() {
-	// Satisfy API requirements.
-	for _, bpkg := range b.Packages {
-		for _, api := range bpkg.Apis() {
-			b.AddApi(api, bpkg)
+		return true
+	} else {
+		if curBpkg != bpkg {
+			cli.StatusMessage(util.VERBOSITY_QUIET,
+				"Warning: API conflict: %s <-> %s\n", curBpkg.Name(),
+				bpkg.Name())
 		}
+		return false
 	}
-}
-
-// Returns true if at least one new API was satisfied.
-func (b *Builder) satisfyApis() (bool, error) {
-	moreWork := false
-
-	for _, bpkg := range b.Packages {
-		for _, reqApi := range bpkg.ReqApis() {
-			apiBpkg := b.apis[reqApi]
-			if apiBpkg == nil {
-				return false, util.NewNewtError(fmt.Sprintf("Could not "+
-					"satisfy API requirement; package=%s api=%s",
-					bpkg.Name(), reqApi))
-			}
-
-			dep := &pkg.Dependency{
-				Name: apiBpkg.Name(),
-				Repo: apiBpkg.Repo().Name(),
-			}
-			bpkg.AddDep(dep)
-			bpkg.DelReqApi(reqApi)
-			moreWork = true
-		}
-	}
-
-	return moreWork, nil
 }
 
 func (b *Builder) loadDeps() error {
+	// Circularly resolve dependencies, identities, APIs, and required APIs
+	// until no new ones exist.
 	for {
 		reprocess := false
 		for _, bpkg := range b.Packages {
-			loaded, err := bpkg.Load(b)
+			resolved, err := bpkg.Resolve(b)
 			if err != nil {
 				return err
 			}
 
-			if !loaded {
+			if !resolved {
 				reprocess = true
 			}
 		}
@@ -122,30 +95,39 @@ func (b *Builder) loadDeps() error {
 	return nil
 }
 
-func (b *Builder) unloadAllPackages() {
+// Makes sure all packages with required APIs have been augmented a dependency
+// which satisfies that requirement.  If there are any unsatisfied
+// requirements, an error is returned.
+func (b *Builder) verifyApisSatisfied() error {
+	unsatisfied := map[*BuildPackage][]string{}
+
 	for _, bpkg := range b.Packages {
-		bpkg.loaded = false
+		for api, status := range bpkg.reqApiMap {
+			if status == REQ_API_STATUS_UNSATISFIED {
+				slice := unsatisfied[bpkg]
+				if slice == nil {
+					unsatisfied[bpkg] = []string{api}
+				} else {
+					slice = append(slice, api)
+				}
+			}
+		}
 	}
-}
 
-func (b *Builder) FinalizePackages() error {
-	keepGoing := true
-	for keepGoing {
-		var err error
-
-		keepGoing, err = b.satisfyApis()
-		if err != nil {
-			return err
+	if len(unsatisfied) != 0 {
+		var buffer bytes.Buffer
+		for bpkg, apis := range unsatisfied {
+			buffer.WriteString("Package " + bpkg.Name() +
+				" has unsatisfied required APIs: ")
+			for i, api := range apis {
+				if i != 0 {
+					buffer.WriteString(", ")
+				}
+				buffer.WriteString(api)
+			}
+			buffer.WriteString("\n")
 		}
-
-		if keepGoing {
-			b.unloadAllPackages()
-		}
-
-		err = b.loadDeps()
-		if err != nil {
-			return err
-		}
+		return util.NewNewtError(buffer.String())
 	}
 
 	return nil
@@ -206,12 +188,14 @@ func buildDir(srcDir string, c *toolchain.Compiler, t *target.Target,
 	return nil
 }
 
+// Generates the path+filename of the specified package's .a file.
 func (b *Builder) archivePath(bpkg *BuildPackage) string {
 	binDir := bpkg.BasePath() + "/bin/" + b.target.Package().Name()
 	archiveFile := binDir + "/lib" + filepath.Base(bpkg.Name()) + ".a"
 	return archiveFile
 }
 
+// Compiles and archives a package.
 func (b *Builder) buildPackage(bpkg *BuildPackage,
 	baseCi *toolchain.CompilerInfo, compilerPkg *pkg.LocalPackage) error {
 
@@ -229,7 +213,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage,
 	}
 	c.AddInfo(baseCi)
 
-	ci, err := bpkg.FullCompilerInfo(b)
+	ci, err := bpkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
@@ -278,7 +262,7 @@ func (b *Builder) linkApp(appPackage *BuildPackage,
 		os.MkdirAll(binDir, 0755)
 	}
 
-	ci, err := appPackage.FullCompilerInfo(b)
+	ci, err := appPackage.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
@@ -311,7 +295,11 @@ func (b *Builder) Build() error {
 	b.AddPackage(b.target.App())
 	b.AddPackage(b.target.Compiler())
 
-	if err := b.FinalizePackages(); err != nil {
+	if err := b.loadDeps(); err != nil {
+		return err
+	}
+
+	if err := b.verifyApisSatisfied(); err != nil {
 		return err
 	}
 
@@ -320,7 +308,7 @@ func (b *Builder) Build() error {
 		return util.NewNewtError("BSP package not found!")
 	}
 
-	bspCi, err := bspPackage.FullCompilerInfo(b)
+	bspCi, err := bspPackage.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
@@ -329,7 +317,7 @@ func (b *Builder) Build() error {
 	if appPackage == nil {
 		return util.NewNewtError("App package not found")
 	}
-	appCi, err := appPackage.FullCompilerInfo(b)
+	appCi, err := appPackage.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
