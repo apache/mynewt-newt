@@ -49,6 +49,27 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func cleanRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		cli.NewtUsage(cmd, nil)
+	}
+
+	targetName := args[0]
+	t := target.GetTargets()[targetName]
+	if t == nil {
+		cli.NewtUsage(cmd, util.NewNewtError("invalid target name"))
+	}
+
+	b, err := NewBuilder(t)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = b.Clean()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func AddCommands(cmd *cobra.Command) {
 	buildHelpText := ""
 	buildHelpEx := ""
@@ -61,4 +82,16 @@ func AddCommands(cmd *cobra.Command) {
 	}
 
 	cmd.AddCommand(buildCmd)
+
+	cleanHelpText := ""
+	cleanHelpEx := ""
+	cleanCmd := &cobra.Command{
+		Use:     "clean",
+		Short:   "Commands for cleaning targets",
+		Long:    cleanHelpText,
+		Example: cleanHelpEx,
+		Run:     cleanRunCmd,
+	}
+
+	cmd.AddCommand(cleanCmd)
 }

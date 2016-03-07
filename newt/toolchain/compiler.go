@@ -373,36 +373,6 @@ func (c *Compiler) CompileAs() error {
 	return nil
 }
 
-func (c *Compiler) RecursiveClean(path string, tName string) error {
-	// Find all the subdirectories of path that contain an "obj/" directory,
-	// and remove that directory either altogether, or just the arch specific
-	// directory.
-	dirList, err := ioutil.ReadDir(path)
-	if err != nil {
-		return NewNewtError(err.Error())
-	}
-
-	for _, node := range dirList {
-		if node.IsDir() {
-			if node.Name() == "obj" || node.Name() == "bin" {
-				if tName == "" {
-					os.RemoveAll(path + "/" + node.Name() + "/")
-				} else {
-					os.RemoveAll(path + "/" + node.Name() + "/" + tName + "/")
-				}
-			} else {
-				// recurse into the directory.
-				err = c.RecursiveClean(path+"/"+node.Name(), tName)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 	ignDirs []string) error {
 	// check to see if we ignore this element
@@ -418,9 +388,9 @@ func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 }
 
 func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
-	// Get a list of files in the current directory, and if they are a directory,
-	// and that directory is not in the ignDirs variable, then recurse into that
-	// directory and compile the files in there
+	// Get a list of files in the current directory, and if they are a
+	// directory, and that directory is not in the ignDirs variable, then
+	// recurse into that directory and compile the files in there
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -599,8 +569,6 @@ func (c *Compiler) generateExtras(elfFilename string,
 //                                  gets generated.
 // @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
-	binFile += ".elf"
-
 	options := map[string]bool{"mapFile": c.ldMapFile,
 		"listFile": true, "binFile": true}
 

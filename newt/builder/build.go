@@ -21,6 +21,7 @@ package builder
 
 import (
 	"bytes"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -32,9 +33,9 @@ import (
 )
 
 type Builder struct {
-	Packages   map[*pkg.LocalPackage]*BuildPackage
-	features   map[string]bool
-	apis       map[string]*BuildPackage
+	Packages map[*pkg.LocalPackage]*BuildPackage
+	features map[string]bool
+	apis     map[string]*BuildPackage
 
 	target *target.Target
 }
@@ -195,6 +196,16 @@ func (b *Builder) archivePath(bpkg *BuildPackage) string {
 	return archiveFile
 }
 
+func (b *Builder) elfPath() string {
+	appPkg := b.target.App()
+	if appPkg == nil {
+		return ""
+	}
+
+	return appPkg.BasePath() + "/bin/" + b.target.Package().Name() + "/" +
+		appPkg.Name() + ".elf"
+}
+
 // Compiles and archives a package.
 func (b *Builder) buildPackage(bpkg *BuildPackage,
 	baseCi *toolchain.CompilerInfo, compilerPkg *pkg.LocalPackage) error {
@@ -246,8 +257,8 @@ func (b *Builder) buildPackage(bpkg *BuildPackage,
 	return nil
 }
 
-func (b *Builder) linkApp(appPackage *BuildPackage,
-	baseCi *toolchain.CompilerInfo, compilerPkg *pkg.LocalPackage) error {
+func (b *Builder) linkApp(baseCi *toolchain.CompilerInfo,
+	compilerPkg *pkg.LocalPackage) error {
 
 	c, err := toolchain.NewCompiler(compilerPkg.BasePath(),
 		"default", // XXX
@@ -255,18 +266,6 @@ func (b *Builder) linkApp(appPackage *BuildPackage,
 	if err != nil {
 		return err
 	}
-
-	c.AddInfo(baseCi)
-	binDir := appPackage.BasePath() + "/bin/" + b.target.Package().Name()
-	if cli.NodeNotExist(binDir) {
-		os.MkdirAll(binDir, 0755)
-	}
-
-	ci, err := appPackage.CompilerInfo(b)
-	if err != nil {
-		return err
-	}
-	c.AddInfo(ci)
 
 	pkgNames := []string{}
 	for _, bpkg := range b.Packages {
@@ -276,8 +275,7 @@ func (b *Builder) linkApp(appPackage *BuildPackage,
 		}
 	}
 
-	elfFile := binDir + "/" + appPackage.Name()
-	err = c.CompileElf(elfFile, pkgNames)
+	err = c.CompileElf(b.elfPath(), pkgNames)
 	if err != nil {
 		return err
 	}
@@ -326,6 +324,8 @@ func (b *Builder) Build() error {
 	baseCi.AddCompilerInfo(bspCi)
 	baseCi.AddCompilerInfo(appCi)
 
+	// XXX: If any yml files have changed, a full rebuild is required.
+
 	for _, bpkg := range b.Packages {
 		err = b.buildPackage(bpkg, baseCi, compilerPkg)
 		if err != nil {
@@ -333,7 +333,81 @@ func (b *Builder) Build() error {
 		}
 	}
 
-	b.linkApp(appPackage, baseCi, compilerPkg)
+	err = b.linkApp(baseCi, compilerPkg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func cleanTree(rootPath string, tName string) error {
+	// Find all the subdirectories of path that contain an "obj/" directory,
+	// and remove that directory either altogether, or just the arch specific
+	// directory.
+	dirList, err := ioutil.ReadDir(rootPath)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	for _, node := range dirList {
+		if node.IsDir() {
+			if node.Name() == "obj" || node.Name() == "bin" {
+				fullPath := filepath.Clean(rootPath + "/" + node.Name() + "/" +
+					tName + "/")
+				cli.StatusMessage(util.VERBOSITY_VERBOSE,
+					"Cleaning directory %s\n", fullPath)
+				os.RemoveAll(fullPath)
+			} else {
+				// recurse into the directory.
+				err = cleanTree(rootPath+"/"+node.Name(), tName)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (b *Builder) Clean() error {
+	bspPkg := b.target.Bsp()
+	if bspPkg != nil {
+		b.AddPackage(bspPkg)
+	}
+
+	appPkg := b.target.App()
+	if appPkg != nil {
+		b.AddPackage(appPkg)
+	}
+
+	compilerPkg := b.target.Compiler()
+	if compilerPkg != nil {
+		b.AddPackage(compilerPkg)
+	}
+
+	if err := b.loadDeps(); err != nil {
+		return err
+	}
+
+	for _, bpkg := range b.Packages {
+		err := cleanTree(bpkg.BasePath(), b.target.Package().Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	binPath := b.elfPath()
+	if binPath != "" {
+		binDir := filepath.Dir(binPath)
+		cli.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n",
+			binDir)
+		err := os.RemoveAll(binDir)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
