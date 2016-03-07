@@ -25,14 +25,17 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
 )
 
 func repoRunCmd(cmd *cobra.Command, args []string) {
 	proj := GetProject()
+	interfaces.SetProject(proj)
 
 	r := proj.FindRepo("apache-mynewt-world")
 	r.DownloadDesc()
+
 }
 
 func projectRunCmd(cmd *cobra.Command, args []string) {

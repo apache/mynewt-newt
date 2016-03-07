@@ -59,12 +59,12 @@ type ProjectInterface interface {
 	ResolveDependency(dep DependencyInterface) PackageInterface
 }
 
-var globalProject *ProjectInterface
+var globalProject ProjectInterface
 
-func GetProject() *ProjectInterface {
+func GetProject() ProjectInterface {
 	return globalProject
 }
 
-func SetProject(proj *ProjectInterface) {
+func SetProject(proj ProjectInterface) {
 	globalProject = proj
 }

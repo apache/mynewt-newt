@@ -56,7 +56,7 @@ var PackageSearchDirs []string = []string{
 
 type Project struct {
 	// Name of this project
-	Name string
+	name string
 
 	// Base path of the project
 	BasePath string
@@ -114,6 +114,10 @@ func (proj *Project) Path() string {
 	return proj.BasePath
 }
 
+func (proj *Project) Name() string {
+	return proj.name
+}
+
 func (proj *Project) Repos() map[string]*repo.Repo {
 	return proj.repos
 }
@@ -164,7 +168,7 @@ func (proj *Project) loadConfig() error {
 	// we need to process it later.
 	proj.v = v
 
-	proj.Name = v.GetString("project.name")
+	proj.name = v.GetString("project.name")
 
 	// Local repository always included in initialization
 	r, err := repo.NewLocalRepo(proj.BasePath)
