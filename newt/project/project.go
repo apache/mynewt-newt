@@ -131,10 +131,10 @@ func (proj *Project) PackageSearchDirs() []string {
 }
 
 func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
-	rType := v.GetString(rname + ".type")
-	if rType != "github" {
-		return util.NewNewtError("Unknown repo type %s, only github supported.")
-	}
+	//rType := v.GetString(rname + ".type")
+	//if rType != "github" {
+	//return util.NewNewtError(fmt.Sprintf("Unknown repo type %s, only github supported.", rType))
+	//}
 
 	user := v.GetString(rname + ".user")
 	gitRepo := v.GetString(rname + ".repo")
