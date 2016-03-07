@@ -28,7 +28,7 @@ import (
 
 const REPO_NAME_LOCAL = "local"
 
-const REPOS_DIR = "/repos/"
+const REPOS_DIR = "repos"
 
 type Repo struct {
 	Name      string
@@ -44,10 +44,13 @@ func (r *Repo) Init(basePath string, repoName string, v *viper.Viper) error {
 	if r.Name == REPO_NAME_LOCAL {
 		r.LocalPath = filepath.Clean(basePath)
 	} else {
-		r.LocalPath = filepath.Clean(basePath + REPOS_DIR + repoName)
+		r.LocalPath = filepath.Clean(basePath + "/" + REPOS_DIR + "/" +
+			repoName)
 	}
 
-	r.Url = v.GetString(fmt.Sprintf("%s.url", repoName))
+	if v != nil {
+		r.Url = v.GetString(fmt.Sprintf("%s.url", repoName))
+	}
 
 	return nil
 }
@@ -57,6 +60,16 @@ func NewRepo(basePath string, repoName string,
 	r := &Repo{}
 
 	if err := r.Init(basePath, repoName, v); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func NewLocalRepo(basePath string) (*Repo, error) {
+	r := &Repo{}
+
+	if err := r.Init(basePath, REPO_NAME_LOCAL, nil); err != nil {
 		return nil, err
 	}
 

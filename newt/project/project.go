@@ -64,6 +64,8 @@ type Project struct {
 	// Repositories configured on this project
 	repos map[string]*repo.Repo
 
+	localRepo *repo.Repo
+
 	// Package search directories for this project
 	packageSearchDirs []string
 
@@ -110,6 +112,10 @@ func (proj *Project) Repos() map[string]*repo.Repo {
 	return proj.repos
 }
 
+func (proj *Project) LocalRepo() *repo.Repo {
+	return proj.localRepo
+}
+
 func (proj *Project) PackageSearchDirs() []string {
 	return proj.packageSearchDirs
 }
@@ -127,16 +133,22 @@ func (proj *Project) loadConfig() error {
 
 	proj.Name = v.GetString("project.name")
 
-	rstrs := v.GetStringSlice("project.repositories")
 	// Local repository always included in initialization
-	rstrs = append(rstrs, repo.REPO_NAME_LOCAL)
+	r, err := repo.NewLocalRepo(proj.BasePath)
+	if err != nil {
+		return err
+	}
+	proj.repos[r.Name] = r
+	proj.localRepo = r
+
+	rstrs := v.GetStringSlice("project.repositories")
 	for _, repoName := range rstrs {
-		repo, err := repo.NewRepo(proj.BasePath, repoName, v)
+		r, err := repo.NewRepo(proj.BasePath, repoName, v)
 		if err != nil {
 			return err
 		}
 
-		proj.repos[repo.Name] = repo
+		proj.repos[r.Name] = r
 	}
 
 	pkgDirs := v.GetStringSlice("project.pkg_dirs")

@@ -31,7 +31,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -44,21 +43,17 @@ import (
 	"mynewt.apache.org/newt/yaml"
 )
 
-type NewtError struct {
-	Text       string
-	StackTrace []byte
-}
-
-var Logger *log.Logger
-var Verbosity int
-var OK_STRING = " ok!\n"
-
 const (
 	VERBOSITY_SILENT  = 0
 	VERBOSITY_QUIET   = 1
 	VERBOSITY_DEFAULT = 2
 	VERBOSITY_VERBOSE = 3
 )
+
+var Logger *log.Logger
+var Verbosity int = VERBOSITY_DEFAULT
+var Force bool
+var OK_STRING = " ok!\n"
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
@@ -90,28 +85,6 @@ func FormatHelp(text string) string {
 		linelen += len(word)
 	}
 	return fmtText
-}
-
-func (se *NewtError) Error() string {
-	return se.Text + "\n" + string(se.StackTrace)
-}
-
-func NewNewtError(msg string) *NewtError {
-	err := &NewtError{
-		Text:       msg,
-		StackTrace: make([]byte, 1<<16),
-	}
-
-	runtime.Stack(err.StackTrace, true)
-
-	return err
-}
-
-func NewtErrorNoTrace(msg string) *NewtError {
-	return &NewtError{
-		Text:       msg,
-		StackTrace: nil,
-	}
 }
 
 // Initialize the CLI module
@@ -156,7 +129,7 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, NewNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	} else {
 		return v, nil
 	}
@@ -233,7 +206,7 @@ func FileModificationTime(path string) (time.Time, error) {
 		if os.IsNotExist(err) {
 			return epoch, nil
 		} else {
-			return epoch, NewNewtError(err.Error())
+			return epoch, util.NewNewtError(err.Error())
 		}
 	}
 
@@ -243,7 +216,7 @@ func FileModificationTime(path string) (time.Time, error) {
 func ChildDirs(path string) ([]string, error) {
 	children, err := ioutil.ReadDir(path)
 	if err != nil {
-		return nil, NewNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	}
 
 	childDirs := []string{}
@@ -305,7 +278,7 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 	o, err := cmd.CombinedOutput()
 	log.Print("[VERBOSE] o=" + string(o))
 	if err != nil {
-		return o, NewNewtError(err.Error())
+		return o, util.NewNewtError(err.Error())
 	} else {
 		return o, nil
 	}
@@ -336,14 +309,14 @@ func ShellInteractiveCommand(cmdStr []string) error {
 	proc, err := os.StartProcess(cmdStr[0], cmdStr, &pa)
 	if err != nil {
 		signal.Stop(c)
-		return NewNewtError(err.Error())
+		return util.NewNewtError(err.Error())
 	}
 
 	// Release and exit
 	_, err = proc.Wait()
 	if err != nil {
 		signal.Stop(c)
-		return NewNewtError(err.Error())
+		return util.NewNewtError(err.Error())
 	}
 	signal.Stop(c)
 	return nil
@@ -377,7 +350,7 @@ func StatusMessage(level int, message string, args ...interface{}) {
 func ReadLines(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, NewNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	}
 	defer file.Close()
 
@@ -405,7 +378,7 @@ func ReadLines(path string) ([]string, error) {
 	}
 
 	if scanner.Err() != nil {
-		return lines, NewNewtError(scanner.Err().Error())
+		return lines, util.NewNewtError(scanner.Err().Error())
 	}
 
 	return lines, nil

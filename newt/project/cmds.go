@@ -25,12 +25,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/util"
 )
 
 func projectRunCmd(cmd *cobra.Command, args []string) {
 	wd, err := os.Getwd()
 	if err != nil {
-		cli.NewtUsage(cmd, cli.NewNewtError(err.Error()))
+		cli.NewtUsage(cmd, util.NewNewtError(err.Error()))
 	}
 
 	proj, err := LoadProject(wd)

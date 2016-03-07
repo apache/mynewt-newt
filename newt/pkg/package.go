@@ -1,21 +1,22 @@
 /**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+   PACKAGE_TYPE_LIB: "lib",
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*  http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
 
 package pkg
 
@@ -38,10 +39,12 @@ const (
 	PACKAGE_TYPE_APP
 )
 
-const PACKAGE_TYPE_STR_LIB = "lib"
-const PACKAGE_TYPE_STR_BSP = "bsp"
-const PACKAGE_TYPE_STR_APP = "app"
-const PACKAGE_TYPE_STR_TARGET = "target"
+var PackageTypeNames = map[PackageType]string{
+	PACKAGE_TYPE_LIB:    "lib",
+	PACKAGE_TYPE_BSP:    "bsp",
+	PACKAGE_TYPE_APP:    "app",
+	PACKAGE_TYPE_TARGET: "target",
+}
 
 // An interface, representing information about a Package
 // This interface is implemented by both packages in the
@@ -51,9 +54,6 @@ const PACKAGE_TYPE_STR_TARGET = "target"
 // both local & remote packages without needing to special
 // case.
 type Package interface {
-	// Initialize the package, in the directory specified
-	// by pkgDir
-	Init(repo *repo.Repo, pkgDir string) error
 	// The repository this package belongs to
 	Repo() *repo.Repo
 	// The name of this package

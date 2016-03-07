@@ -68,6 +68,15 @@ type LocalPackage struct {
 	Viper *viper.Viper
 }
 
+func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
+	pkg := &LocalPackage{
+		desc: &PackageDesc{},
+		vers: &Version{},
+	}
+	pkg.Init(r, pkgDir)
+	return pkg
+}
+
 func (pkg *LocalPackage) Name() string {
 	return pkg.name
 }
@@ -82,6 +91,30 @@ func (pkg *LocalPackage) Type() PackageType {
 
 func (pkg *LocalPackage) Repo() *repo.Repo {
 	return pkg.repo
+}
+
+func (pkg *LocalPackage) Desc() *PackageDesc {
+	return pkg.desc
+}
+
+func (pkg *LocalPackage) Vers() *Version {
+	return pkg.vers
+}
+
+func (pkg *LocalPackage) SetName(name string) {
+	pkg.name = name
+}
+
+func (pkg *LocalPackage) SetType(packageType PackageType) {
+	pkg.packageType = packageType
+}
+
+func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
+	pkg.desc = desc
+}
+
+func (pkg *LocalPackage) SetVers(vers *Version) {
+	pkg.vers = vers
 }
 
 func (pkg *LocalPackage) Hash() (string, error) {
@@ -114,14 +147,6 @@ func (pkg *LocalPackage) Hash() (string, error) {
 	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
 
 	return hashStr, nil
-}
-
-func (pkg *LocalPackage) Desc() *PackageDesc {
-	return pkg.desc
-}
-
-func (pkg *LocalPackage) Vers() *Version {
-	return pkg.vers
 }
 
 func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
@@ -168,15 +193,41 @@ func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 	return pdesc, nil
 }
 
-// Init reads everything that isn't identity specific into the
+// Load reads everything that isn't identity specific into the
 // package
-func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) error {
-	var err error
-
+func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) {
 	pkg.repo = repo
-
 	pkg.basePath = filepath.Clean(pkgDir) + "/"
+}
 
+func (pkg *LocalPackage) Save() error {
+	dirpath := pkg.BasePath()
+	if err := os.MkdirAll(dirpath, 0755); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	filepath := dirpath + "/" + PACKAGE_FILE_NAME
+	fmt.Printf("filepath=%s\n", filepath)
+	file, err := os.Create(filepath)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+	defer file.Close()
+
+	file.WriteString("### Package: " + pkg.Name() + "\n\n")
+
+	file.WriteString("pkg.name: " + pkg.Name() + "\n")
+	file.WriteString("pkg.vers: " + pkg.Vers().String() + "\n")
+	file.WriteString("pkg.type: " + PackageTypeNames[pkg.Type()] + "\n")
+	file.WriteString("pkg.description: " + pkg.Desc().Description + "\n")
+	file.WriteString("pkg.author: " + pkg.Desc().Author + "\n")
+	file.WriteString("pkg.homepage: " + pkg.Desc().Homepage + "\n")
+	file.WriteString("pkg.repository: " + pkg.Repo().Name + "\n")
+
+	return nil
+}
+
+func (pkg *LocalPackage) Load() error {
 	// Load configuration
 	log.Printf("[DEBUG] Loading configuration for package %s", pkg.basePath)
 
@@ -190,21 +241,13 @@ func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) error {
 	// Set package name from the package
 	pkg.name = v.GetString("pkg.name")
 
-	switch v.GetString("pkg.type") {
-	case PACKAGE_TYPE_STR_LIB:
-		pkg.packageType = PACKAGE_TYPE_LIB
-
-	case PACKAGE_TYPE_STR_BSP:
-		pkg.packageType = PACKAGE_TYPE_BSP
-
-	case PACKAGE_TYPE_STR_APP:
-		pkg.packageType = PACKAGE_TYPE_APP
-
-	case PACKAGE_TYPE_STR_TARGET:
-		pkg.packageType = PACKAGE_TYPE_TARGET
-
-	default:
-		pkg.packageType = PACKAGE_TYPE_LIB
+	typeString := v.GetString("pkg.type")
+	pkg.packageType = PACKAGE_TYPE_LIB
+	for t, n := range PackageTypeNames {
+		if typeString == n {
+			pkg.packageType = t
+			break
+		}
 	}
 
 	// Get the package version
@@ -224,12 +267,9 @@ func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) error {
 
 func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {
 	pkg := &LocalPackage{}
-
-	if err := pkg.Init(repo, pkgDir); err != nil {
-		return nil, err
-	}
-
-	return pkg, nil
+	pkg.Init(repo, pkgDir)
+	err := pkg.Load()
+	return pkg, err
 }
 
 func LocalPackageSpecialName(dirName string) bool {

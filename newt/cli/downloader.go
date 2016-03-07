@@ -24,6 +24,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+
+	"mynewt.apache.org/newt/util"
 )
 
 type Downloader struct {
@@ -44,7 +46,7 @@ func (dl *Downloader) gitClone(url string, branch string, dest string) error {
 
 	_, err := ShellCommand(fmt.Sprintf("git clone --depth 1 -b %s %s %s", branch, url, dest))
 	if err != nil {
-		return NewNewtError(fmt.Sprintf("Command git clone %s branch %s failed",
+		return util.NewNewtError(fmt.Sprintf("Command git clone %s branch %s failed",
 			url, branch))
 	}
 

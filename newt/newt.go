@@ -34,7 +34,6 @@ import (
 
 var NewtVersion string = "0.8.0"
 var NewtLogLevel string = ""
-var NewtVerbosity bool
 
 func newtCmd() *cobra.Command {
 	newtHelpText := cli.FormatHelp(`Newt allows you to create your own embedded 
