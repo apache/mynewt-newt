@@ -101,12 +101,13 @@ func showValidSettings(varName string) error {
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
+	if len(args) < 2 {
 		cli.NewtUsage(cmd,
-			util.NewNewtError("Must specify two arguments "+
+			util.NewNewtError("Must specify at least two arguments "+
 				"(target-name & k=v) to set"))
 	}
 
+	// Parse target name.
 	tName := args[0]
 	t := ResolveTargetName(tName)
 	if t == nil {
@@ -114,37 +115,50 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 	tName = t.Name()
 
-	ar := strings.SplitN(args[1], "=", 2)
-	if !strings.HasPrefix(ar[0], "target.") {
-		ar[0] = "target." + ar[0]
+	// Parse series of k=v pairs.  If an argument doesn't contain a '='
+	// character, display the valid values for the variable and quit.
+	vars := [][]string{}
+	for i := 1; i < len(args); i++ {
+		kv := strings.SplitN(args[i], "=", 2)
+		if !strings.HasPrefix(kv[0], "target.") {
+			kv[0] = "target." + kv[0]
+		}
+
+		if len(kv) == 1 {
+			// User entered a variable name without a value.  Display valid
+			// values for the specified variable.
+			err := showValidSettings(kv[0])
+			if err != nil {
+				cli.NewtUsage(cmd, err)
+			}
+			return
+		}
+
+		vars = append(vars, kv)
 	}
 
-	if len(ar) == 1 {
-		// User entered a variable name without a value.  Display valid values
-		// for the specified variable.
-		err := showValidSettings(ar[0])
-		if err != nil {
-			cli.NewtUsage(cmd, err)
-		}
-	} else {
-		if ar[1] == "" {
+	// Set each specified variable in the target.
+	for _, kv := range vars {
+		if kv[1] == "" {
 			// User specified empty value; delete variable.
-			delete(t.Vars, ar[0])
+			delete(t.Vars, kv[0])
 		} else {
 			// Assign value to specified variable.
-			t.Vars[ar[0]] = ar[1]
+			t.Vars[kv[0]] = kv[1]
 		}
+	}
 
-		if err := t.Save(); err != nil {
-			cli.NewtUsage(cmd, err)
-		}
+	if err := t.Save(); err != nil {
+		cli.NewtUsage(cmd, err)
+	}
 
-		if ar[1] == "" {
+	for _, kv := range vars {
+		if kv[1] == "" {
 			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-				"Target %s successfully unset %s\n", tName, ar[0])
+				"Target %s successfully unset %s\n", tName, kv[0])
 		} else {
 			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-				"Target %s successfully set %s to %s\n", tName, ar[0], ar[1])
+				"Target %s successfully set %s to %s\n", tName, kv[0], kv[1])
 		}
 	}
 }

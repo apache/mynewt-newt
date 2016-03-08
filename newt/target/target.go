@@ -169,7 +169,7 @@ func (t *Target) Save() error {
 	}
 	defer file.Close()
 
-	file.WriteString("### Target: " + t.basePkg.Name() + "\n\n")
+	file.WriteString("### Target: " + t.basePkg.Name() + "\n")
 
 	keys := []string{}
 	for k, _ := range t.Vars {

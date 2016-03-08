@@ -204,7 +204,7 @@ func (pkg *LocalPackage) Save() error {
 	}
 	defer file.Close()
 
-	file.WriteString("### Package: " + pkg.Name() + "\n\n")
+	file.WriteString("### Package: " + pkg.Name() + "\n")
 
 	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
 	file.WriteString("pkg.type: " +
