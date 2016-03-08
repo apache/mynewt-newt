@@ -25,7 +25,6 @@ import (
 
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/cli"
-	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
@@ -92,7 +91,6 @@ func main() {
 	pkg.AddCommands(cmd)
 	target.AddCommands(cmd)
 	builder.AddCommands(cmd)
-	image.AddCommands(cmd)
 
 	cmd.Execute()
 }

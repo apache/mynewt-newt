@@ -208,6 +208,31 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		"Target %s successfully removed\n", args[0])
 }
 
+func createImageRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
+	}
+
+	targetName := args[0]
+	t := GetTargets()[targetName]
+	if t == nil {
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"))
+	}
+
+	image, err := NewImage(t)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = image.SetVersion(args[1])
+	if err != nil {
+		cli.NewtUsage(cmd, err)
+	}
+	err = image.Generate()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func AddCommands(cmd *cobra.Command) {
 	targetHelpText := ""
 	targetHelpEx := ""
@@ -282,4 +307,20 @@ func AddCommands(cmd *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(delCmd)
+
+        createImageHelpText := "Create image by adding image header to created "+
+                "binary file for <target-name>. Version number in the header is set "+
+		"to be <version>."
+        createImageHelpEx := "  newt create-image <target-name> <version>\n"
+        createImageHelpEx += "  newt create-image my_target1 1.2.0\n"
+        createImageHelpEx += "  newt create-image my_target1 1.2.0.3\n"
+
+        createImageCmd := &cobra.Command{
+                Use:     "create-image",
+                Short:   "Add image header to target binary",
+                Long:    createImageHelpText,
+                Example: createImageHelpEx,
+                Run:     createImageRunCmd,
+        }
+        cmd.AddCommand(createImageCmd)
 }

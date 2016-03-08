@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package image
+package target
 
 import (
 	"bytes"
@@ -34,7 +34,6 @@ import (
 	"strings"
 	"time"
 
-	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -46,7 +45,7 @@ type ImageVersion struct {
 }
 
 type Image struct {
-	target       *target.Target
+	target       *Target
 
 	sourceBin    string
 	targetImg    string
@@ -113,7 +112,7 @@ type ImageManifestPkg struct {
 	Hash    string `json:"hash"`
 }
 
-func NewImage(t *target.Target) (*Image, error) {
+func NewImage(t *Target) (*Image, error) {
 	image := &Image{
 		target: t,
 	}
