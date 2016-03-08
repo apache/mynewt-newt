@@ -20,13 +20,11 @@
 package builder
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -42,6 +40,26 @@ type Builder struct {
 	compilerInfo *toolchain.CompilerInfo
 
 	target *target.Target
+}
+
+func NewBuilder(target *target.Target) (*Builder, error) {
+	b := &Builder{}
+
+	if err := b.Init(target); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (b *Builder) Init(target *target.Target) error {
+	b.target = target
+
+	b.Packages = map[*pkg.LocalPackage]*BuildPackage{}
+	b.features = map[string]bool{}
+	b.apis = map[string]*BuildPackage{}
+
+	return nil
 }
 
 func (b *Builder) Features() map[string]bool {
@@ -83,25 +101,6 @@ func (b *Builder) AddApi(apiString string, bpkg *BuildPackage) bool {
 	}
 }
 
-func (b *Builder) logFeatures() {
-	var buffer bytes.Buffer
-	buffer.WriteString("Building with the following feature set: [")
-
-	first := true
-	for feature, _ := range b.Features() {
-		if !first {
-			buffer.WriteString(" ")
-		} else {
-			first = false
-		}
-
-		buffer.WriteString(feature)
-	}
-	buffer.WriteString("]\n")
-
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE, buffer.String())
-}
-
 func (b *Builder) loadDeps() error {
 	// Circularly resolve dependencies, identities, APIs, and required APIs
 	// until no new ones exist.
@@ -124,44 +123,6 @@ func (b *Builder) loadDeps() error {
 	}
 
 	b.logFeatures()
-
-	return nil
-}
-
-// Makes sure all packages with required APIs have been augmented a dependency
-// which satisfies that requirement.  If there are any unsatisfied
-// requirements, an error is returned.
-func (b *Builder) verifyApisSatisfied() error {
-	unsatisfied := map[*BuildPackage][]string{}
-
-	for _, bpkg := range b.Packages {
-		for api, status := range bpkg.reqApiMap {
-			if status == REQ_API_STATUS_UNSATISFIED {
-				slice := unsatisfied[bpkg]
-				if slice == nil {
-					unsatisfied[bpkg] = []string{api}
-				} else {
-					slice = append(slice, api)
-				}
-			}
-		}
-	}
-
-	if len(unsatisfied) != 0 {
-		var buffer bytes.Buffer
-		for bpkg, apis := range unsatisfied {
-			buffer.WriteString("Package " + bpkg.Name() +
-				" has unsatisfied required APIs: ")
-			for i, api := range apis {
-				if i != 0 {
-					buffer.WriteString(", ")
-				}
-				buffer.WriteString(api)
-			}
-			buffer.WriteString("\n")
-		}
-		return util.NewNewtError(buffer.String())
-	}
 
 	return nil
 }
@@ -221,28 +182,6 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	}
 
 	return nil
-}
-
-func (b *Builder) binDir() string {
-	return project.GetProject().Path() + "/bin/" + b.target.ShortName()
-}
-
-func (b *Builder) pkgBinDir(pkgName string) string {
-	return b.binDir() + "/" + pkgName
-}
-
-// Generates the path+filename of the specified package's .a file.
-func (b *Builder) archivePath(pkgName string) string {
-	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".a"
-}
-
-func (b *Builder) appElfPath() string {
-	pkgName := b.target.App().Name()
-	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".elf"
-}
-
-func (b *Builder) testExePath(pkgName string) string {
-	return b.pkgBinDir(pkgName) + "/test_" + filepath.Base(pkgName)
 }
 
 // Compiles and archives a package.
@@ -513,24 +452,4 @@ func (b *Builder) Clean() error {
 	cli.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n", path)
 	err := os.RemoveAll(path)
 	return err
-}
-
-func (b *Builder) Init(target *target.Target) error {
-	b.target = target
-
-	b.Packages = map[*pkg.LocalPackage]*BuildPackage{}
-	b.features = map[string]bool{}
-	b.apis = map[string]*BuildPackage{}
-
-	return nil
-}
-
-func NewBuilder(target *target.Target) (*Builder, error) {
-	b := &Builder{}
-
-	if err := b.Init(target); err != nil {
-		return nil, err
-	}
-
-	return b, nil
 }
