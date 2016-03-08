@@ -113,9 +113,17 @@ func (target *Target) Compiler() *pkg.LocalPackage {
 }
 
 func (target *Target) App() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, target.AppName)
-	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
-	return mypkg
+	dep, err := pkg.NewDependency(nil, target.AppName)
+	if err != nil {
+		return nil
+	}
+
+	appPkg := project.GetProject().ResolveDependency(dep)
+	if appPkg == nil {
+		return nil
+	}
+
+	return appPkg.(*pkg.LocalPackage)
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {

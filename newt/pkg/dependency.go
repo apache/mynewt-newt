@@ -130,7 +130,6 @@ func (dep *Dependency) Init(parentRepo interfaces.RepoInterface, depStr string) 
 			return err
 		}
 		verParts := strings.Split(parts[1], "#")
-
 		if err := dep.SetVersionReqs(verParts[0]); err != nil {
 			return err
 		}

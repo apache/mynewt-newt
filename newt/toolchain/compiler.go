@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"mynewt.apache.org/newt/newt/cli"
-	. "mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/util"
 )
 
 const (
@@ -101,7 +101,7 @@ func NewCompiler(compilerDir string, dstDir string,
 }
 
 func (c *Compiler) load(compilerDir string, cDef string) error {
-	v, err := ReadConfig(compilerDir, "compiler")
+	v, err := util.ReadConfig(compilerDir, "compiler")
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (c *Compiler) CompileFileCmd(file string,
 	case COMPILER_TYPE_ASM:
 		cmd = c.asPath
 	default:
-		return "", NewNewtError("Unknown compiler type")
+		return "", util.NewNewtError("Unknown compiler type")
 	}
 
 	cmd += " -c " + "-o " + objPath + " " + file +
@@ -281,7 +281,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	case COMPILER_TYPE_ASM:
 		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Assembling %s\n", file)
 	default:
-		return NewNewtError("Unknown compiler type")
+		return util.NewNewtError("Unknown compiler type")
 	}
 
 	rsp, err := cli.ShellCommand(cmd)
@@ -389,13 +389,13 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 
 	wd, err := os.Getwd()
 	if err != nil {
-		return NewNewtError(err.Error())
+		return util.NewNewtError(err.Error())
 	}
 	wd = filepath.ToSlash(wd)
 
 	dirList, err := ioutil.ReadDir(wd)
 	if err != nil {
-		return NewNewtError(err.Error())
+		return util.NewNewtError(err.Error())
 	}
 
 	for _, node := range dirList {
@@ -418,7 +418,7 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 	case COMPILER_TYPE_ASM:
 		return c.CompileAs()
 	default:
-		return NewNewtError("Wrong compiler type specified to RecursiveCompile")
+		return util.NewNewtError("Wrong compiler type specified to RecursiveCompile")
 	}
 }
 
@@ -573,7 +573,7 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
 	}
 	if linkRequired {
 		if err := os.MkdirAll(filepath.Dir(binFile), 0755); err != nil {
-			return NewNewtError(err.Error())
+			return util.NewNewtError(err.Error())
 		}
 		err := c.CompileBinary(binFile, options, objFiles)
 		if err != nil {
@@ -618,6 +618,10 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return nil
 	}
 
+	if err := os.MkdirAll(filepath.Dir(archiveFile), 0755); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Archiving %s\n",
 		path.Base(archiveFile))
 	objList := c.getObjFiles([]string{})
@@ -627,7 +631,7 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	// Delete the old archive, if it exists.
 	err = os.Remove(archiveFile)
 	if err != nil && !os.IsNotExist(err) {
-		return NewNewtError(err.Error())
+		return util.NewNewtError(err.Error())
 	}
 
 	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
