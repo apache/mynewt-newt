@@ -20,7 +20,6 @@
 package builder
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -274,7 +273,8 @@ func (b *Builder) PrepBuild() error {
 		return util.NewNewtError("bsp package not specified")
 	}
 
-	compilerPkg := b.target.Compiler()
+	b.Bsp = pkg.NewBspPackage(bspPkg)
+	compilerPkg := b.resolveCompiler()
 	if compilerPkg == nil {
 		return util.NewNewtError("compiler package not specified")
 	}
@@ -352,7 +352,7 @@ func (b *Builder) PrepBuild() error {
 
 	// Read the BSP configuration.  These settings are necessary for the link
 	// step.
-	b.Bsp = pkg.NewBspPackage(bspPkg, b.Features())
+	b.Bsp.Reload(b.Features())
 
 	b.compilerPkg = compilerPkg
 	b.compilerInfo = baseCi
@@ -362,7 +362,6 @@ func (b *Builder) PrepBuild() error {
 
 func (b *Builder) Build() error {
 	if b.target.App() == nil {
-		fmt.Println(b.target)
 		return util.NewNewtError("app package not specified")
 	}
 

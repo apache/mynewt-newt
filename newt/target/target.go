@@ -114,13 +114,6 @@ func (target *Target) ShortName() string {
 	return filepath.Base(target.Name())
 }
 
-func (target *Target) Compiler() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, target.CompilerName)
-	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
-
-	return mypkg
-}
-
 func (target *Target) App() *pkg.LocalPackage {
 	dep, err := pkg.NewDependency(nil, target.AppName)
 	if err != nil {

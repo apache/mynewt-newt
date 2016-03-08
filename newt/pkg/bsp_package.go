@@ -25,12 +25,15 @@ import (
 
 type BspPackage struct {
 	*LocalPackage
+	CompilerName   string
 	LinkerScript   string
 	DownloadScript string
 	DebugScript    string
 }
 
-func (bsp *BspPackage) load(features map[string]bool) {
+func (bsp *BspPackage) Reload(features map[string]bool) {
+	bsp.CompilerName = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
+		"pkg.compiler")
 	bsp.LinkerScript = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
 		"pkg.linkerscript")
 	bsp.DownloadScript = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
@@ -39,13 +42,15 @@ func (bsp *BspPackage) load(features map[string]bool) {
 		"pkg.debugscript")
 }
 
-func NewBspPackage(lpkg *LocalPackage, features map[string]bool) *BspPackage {
+func NewBspPackage(lpkg *LocalPackage) *BspPackage {
 	bsp := &BspPackage{
+		CompilerName:   "",
 		LinkerScript:   "",
 		DownloadScript: "",
 		DebugScript:    "",
 	}
+	lpkg.Load()
 	bsp.LocalPackage = lpkg
-	bsp.load(features)
+	bsp.Reload(nil)
 	return bsp
 }

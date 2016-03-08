@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"path/filepath"
 
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -73,6 +74,15 @@ func (b *Builder) featureString() string {
 		buffer.WriteString(feature)
 	}
 	return buffer.String()
+}
+
+func (b *Builder) resolveCompiler() *pkg.LocalPackage {
+	if b.Bsp.CompilerName == "" {
+		return nil
+	}
+	dep, _ := pkg.NewDependency(b.Bsp.Repo(), b.Bsp.CompilerName)
+	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
+	return mypkg
 }
 
 // Makes sure all packages with required APIs have been augmented with a
