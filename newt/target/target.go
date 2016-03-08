@@ -47,7 +47,6 @@ type Target struct {
 	// XXX: Probably don't need the below four fields; they can just be
 	// retrieved from the viper object.  Keep them here for now for easy
 	// initializiation of dummy targets.
-	CompilerName string
 	BspName      string
 	AppName      string
 	Arch         string
@@ -90,13 +89,10 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 		target.Vars[k] = v.(string)
 	}
 
-	target.CompilerName = target.Vars["target.compiler"]
 	target.BspName = target.Vars["target.bsp"]
 	target.AppName = target.Vars["target.app"]
 	target.Arch = target.Vars["target.arch"]
 	target.BuildProfile = target.Vars["target.build_profile"]
-
-	// XXX: Verify required fields set?
 
 	return nil
 }
