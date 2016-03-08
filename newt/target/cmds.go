@@ -33,12 +33,14 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-// Type for sorting an array of target pointers alphabetically by name.
-type ByName []*Target
+func parseTargetName(arg string) (*Target, error) {
+	t := ResolveTargetName(arg)
+	if t == nil {
+		return nil, util.NewNewtError("Unknown target: " + arg)
+	}
 
-func (a ByName) Len() int           { return len(a) }
-func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByName) Less(i, j int) bool { return a[i].Package().Name() < a[j].Package().Name() }
+	return t, nil
+}
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
 	proj := project.GetProject()
@@ -108,12 +110,10 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Parse target name.
-	tName := args[0]
-	t := ResolveTargetName(tName)
-	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Unknown target: "+tName))
+	t, err := parseTargetName(args[0])
+	if err != nil {
+		cli.NewtUsage(cmd, err)
 	}
-	tName = t.Name()
 
 	// Parse series of k=v pairs.  If an argument doesn't contain a '='
 	// character, display the valid values for the variable and quit.
@@ -155,10 +155,11 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	for _, kv := range vars {
 		if kv[1] == "" {
 			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-				"Target %s successfully unset %s\n", tName, kv[0])
+				"Target %s successfully unset %s\n", t.Name(), kv[0])
 		} else {
 			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-				"Target %s successfully set %s to %s\n", tName, kv[0], kv[1])
+				"Target %s successfully set %s to %s\n", t.Name(), kv[0],
+				kv[1])
 		}
 	}
 }
@@ -198,22 +199,13 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func targetDelCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target to delete"))
-	}
-
-	t := ResolveTargetName(args[0])
-	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Target does not exist"))
-	}
-
+func targetDelOne(t *Target) error {
 	if !cli.Force {
 		// Determine if the target directory contains extra user files.  If it
 		// does, a prompt (or force) is required to delete it.
 		userFiles, err := t.ContainsUserFiles()
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			return err
 		}
 
 		if userFiles {
@@ -222,20 +214,37 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 				"delete anyway? (y/N): ", t.basePkg.Name())
 			rc := scanner.Scan()
 			if !rc || strings.ToLower(scanner.Text()) != "y" {
-				return
+				return nil
 			}
 		}
 	}
 
-	// Clean target prior to deletion; ignore errors during clean.
-	//t.BuildClean(false)
-
 	if err := t.Delete(); err != nil {
-		cli.NewtUsage(cmd, err)
+		return err
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-		"Target %s successfully removed\n", args[0])
+		"Target %s successfully removed\n", t.Name())
+
+	return nil
+}
+
+func targetDelCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify at least one "+
+			"target to delete"))
+	}
+
+	targets, err := ResolveTargetNames(args...)
+	if err != nil {
+		cli.NewtUsage(cmd, err)
+	}
+
+	for _, t := range targets {
+		if err := targetDelOne(t); err != nil {
+			cli.NewtUsage(cmd, err)
+		}
+	}
 }
 
 func AddCommands(cmd *cobra.Command) {
