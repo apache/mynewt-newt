@@ -107,10 +107,12 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				"(target-name & k=v) to set"))
 	}
 
-	t := ResolveTargetName(args[0])
+	tName := args[0]
+	t := ResolveTargetName(tName)
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Unknown target"))
+		cli.NewtUsage(cmd, util.NewNewtError("Unknown target: "+tName))
 	}
+	tName = t.Name()
 
 	ar := strings.SplitN(args[1], "=", 2)
 	if !strings.HasPrefix(ar[0], "target.") {
@@ -139,30 +141,37 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 		if ar[1] == "" {
 			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-				"Target %s successfully unset %s\n", args[0], ar[0])
+				"Target %s successfully unset %s\n", tName, ar[0])
 		} else {
 			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-				"Target %s successfully set %s to %s\n", args[0], ar[0], ar[1])
+				"Target %s successfully set %s to %s\n", tName, ar[0], ar[1])
 		}
 	}
 }
 
 func targetCreateCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Wrong number of args to create cmd."))
+		cli.NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+args[0]+"\n")
+	tName := args[0]
 
-	t := ResolveTargetName(args[0])
+	// "Naked" target names go in the "targets/" directory.
+	if !strings.Contains(tName, "/") {
+		tName = "targets/" + tName
+	}
+
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+tName+"\n")
+
+	t := ResolveTargetName(tName)
 	if t != nil {
 		cli.NewtUsage(cmd, util.NewNewtError(
-			"Target already exists, cannot create target with same name."))
+			"Target already exists; cannot create target with same name."))
 	}
 
 	repo := project.GetProject().LocalRepo()
-	pack := pkg.NewLocalPackage(repo, repo.Path()+"/"+args[0])
-	pack.SetName(args[0])
+	pack := pkg.NewLocalPackage(repo, repo.Path()+"/"+tName)
+	pack.SetName(tName)
 	pack.SetType(pkg.PACKAGE_TYPE_TARGET)
 
 	t = NewTarget(pack)
@@ -171,7 +180,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(nil, err)
 	} else {
 		cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-			"Target %s successfully created!\n", args[0])
+			"Target %s successfully created!\n", tName)
 	}
 }
 
