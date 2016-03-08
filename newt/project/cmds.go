@@ -29,15 +29,28 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+var Force bool = false
+
 func installRunCmd(cmd *cobra.Command, args []string) {
 	proj := GetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Install(false); err != nil {
+	if err := proj.Install(false, Force); err != nil {
 		panic(err.Error())
 	}
 
 	fmt.Println("Repos successfully installed")
+}
+
+func upgradeRunCmd(cmd *cobra.Command, args []string) {
+	proj := GetProject()
+	interfaces.SetProject(proj)
+
+	if err := proj.Upgrade(Force); err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Println("Repos successfully upgrade")
 }
 
 func projectRunCmd(cmd *cobra.Command, args []string) {
@@ -73,6 +86,7 @@ func AddCommands(cmd *cobra.Command) {
 		Example: projectHelpEx,
 		Run:     projectRunCmd,
 	}
+	cmd.AddCommand(projectCmd)
 
 	installHelpText := ""
 	installHelpEx := ""
@@ -83,7 +97,24 @@ func AddCommands(cmd *cobra.Command) {
 		Example: installHelpEx,
 		Run:     installRunCmd,
 	}
+	installCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false,
+		"Force install of the repositories in project, regardless of what "+
+			"exists in repos directory")
+
 	cmd.AddCommand(installCmd)
 
-	cmd.AddCommand(projectCmd)
+	upgradeHelpText := ""
+	upgradeHelpEx := ""
+	upgradeCmd := &cobra.Command{
+		Use:     "upgrade",
+		Short:   "Command to upgrade project dependencies from project.yml",
+		Long:    upgradeHelpText,
+		Example: upgradeHelpEx,
+		Run:     upgradeRunCmd,
+	}
+	upgradeCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false,
+		"Force upgrade of the repositories to latest state in project.yml")
+
+	cmd.AddCommand(upgradeCmd)
+
 }

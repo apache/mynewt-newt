@@ -138,7 +138,7 @@ func (proj *Project) PackageSearchDirs() []string {
 	return proj.packageSearchDirs
 }
 
-func (proj *Project) Install(force bool) error {
+func (proj *Project) Install(upgrade bool, force bool) error {
 	repoList := proj.Repos()
 	for rname, r := range repoList {
 		// Ignore the local repo on install
@@ -163,29 +163,28 @@ func (proj *Project) Install(force bool) error {
 			// Project is already installed, let's see if we match the version
 			// requirements.  If we don't print a warning.
 			// Either way, continue processing.
-			_, _, ok := rdesc.MatchVersion(vers)
-			if !ok {
+			ok := vers.SatisfiesVersion(r.VersionRequirements())
+			if !ok && !upgrade {
 				fmt.Printf("WARNING: Installed version %s of repository %s "+
 					"does not match desired versions %s in project.yml\n",
 					vers, rname, r.VersionRequirementsString())
-			}
-		} else {
-
-			_, _, ok := rdesc.Match(r)
-			if !ok {
-				fmt.Printf("WARNING: No matching repository version found for repository "+
-					"%s specified in project.yml, skipping...\n", r.Name())
 				continue
 			}
+		}
+		_, _, ok := rdesc.Match(r)
+		if !ok {
+			fmt.Printf("WARNING: No matching repository version found for repository "+
+				"%s specified in project.yml, skipping...\n", r.Name())
+			continue
+		}
 
-			rvers, err := r.Install(rdesc, force)
-			if err != nil {
-				return err
-			}
+		rvers, err := r.Install(rdesc, upgrade || force)
+		if err != nil {
+			return err
+		}
 
-			if rvers != nil {
-				proj.projState.Add(rname, rvers)
-			}
+		if rvers != nil {
+			proj.projState.Replace(rname, rvers)
 		}
 	}
 
@@ -194,6 +193,10 @@ func (proj *Project) Install(force bool) error {
 	}
 
 	return nil
+}
+
+func (proj *Project) Upgrade(force bool) error {
+	return proj.Install(true, force)
 }
 
 func (proj *Project) loadRepo(rname string, v *viper.Viper) error {

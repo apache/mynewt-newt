@@ -20,6 +20,7 @@
 package builder
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -355,6 +356,7 @@ func (b *Builder) PrepBuild() error {
 
 func (b *Builder) Build() error {
 	if b.target.App() == nil {
+		fmt.Println(b.target)
 		return util.NewNewtError("app package not specified")
 	}
 

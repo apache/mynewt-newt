@@ -42,7 +42,7 @@ func (ps *ProjectState) GetInstalledVersion(rname string) *repo.Version {
 	return v
 }
 
-func (ps *ProjectState) Add(rname string, rvers *repo.Version) {
+func (ps *ProjectState) Replace(rname string, rvers *repo.Version) {
 	ps.installedRepos[rname] = rvers
 }
 

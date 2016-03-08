@@ -144,9 +144,15 @@ func (r *Repo) repoFilePath() string {
 
 func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 	// Copy the git repo into /repos/, error'ing out if the repo already exists
-	if cli.NodeExist(r.Path()) && !force {
-		return nil, util.NewNewtError(fmt.Sprintf("Repository %s already "+
-			"exists in local tree, cannot install.  Provide -f to override.", r.Path()))
+	if cli.NodeExist(r.Path()) {
+		if force {
+			if err := os.RemoveAll(r.Path()); err != nil {
+				return nil, util.NewNewtError(err.Error())
+			}
+		} else {
+			return nil, util.NewNewtError(fmt.Sprintf("Repository %s already "+
+				"exists in local tree, cannot install.  Provide -f to override.", r.Path()))
+		}
 	}
 
 	branchName, vers, found := rdesc.Match(r)
