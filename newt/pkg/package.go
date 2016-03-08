@@ -84,10 +84,3 @@ type PackageDesc struct {
 	Description string
 	Keywords    []string
 }
-
-type BspPackage struct {
-	Package
-	LinkerScript   string
-	DownloadScript string
-	DebugScript    string
-}

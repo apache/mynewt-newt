@@ -36,6 +36,7 @@ type Builder struct {
 	Packages map[*pkg.LocalPackage]*BuildPackage
 	features map[string]bool
 	apis     map[string]*BuildPackage
+	Bsp      *pkg.BspPackage
 
 	target *target.Target
 }
@@ -48,13 +49,13 @@ func (b *Builder) AddFeature(feature string) {
 	b.features[feature] = true
 }
 
-func (b *Builder) AddPackage(pkg *pkg.LocalPackage) {
+func (b *Builder) AddPackage(npkg *pkg.LocalPackage) {
 	// Don't allow nil entries to the map
-	if pkg == nil {
+	if npkg == nil {
 		panic("Cannot add nil package builder map")
 	}
 
-	b.Packages[pkg] = NewBuildPackage(pkg)
+	b.Packages[npkg] = NewBuildPackage(npkg)
 }
 
 // @return bool                 true if this is a new API.
@@ -275,6 +276,10 @@ func (b *Builder) linkApp(baseCi *toolchain.CompilerInfo,
 		}
 	}
 
+	if b.Bsp.LinkerScript != "" {
+		c.LinkerScript = b.Bsp.BasePath() + b.Bsp.LinkerScript
+	}
+	elfFile := binDir + "/" + appPackage.Name()
 	err = c.CompileElf(b.elfPath(), pkgNames)
 	if err != nil {
 		return err
@@ -310,6 +315,7 @@ func (b *Builder) Build() error {
 	if err != nil {
 		return err
 	}
+	b.Bsp = pkg.NewBspPackage(bspPackage.LocalPackage, b.Features())
 
 	appPackage := b.Packages[b.target.App()]
 	if appPackage == nil {
