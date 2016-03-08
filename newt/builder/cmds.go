@@ -90,22 +90,31 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		fmt.Println(err)
 	}
 
-	pkgString := args[0]
-	dep, err := pkg.NewDependency(nil, pkgString)
-	if err != nil {
-		cli.NewtUsage(cmd, err)
-	}
-	if dep == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("invalid package name"))
-	}
-	pack := project.GetProject().ResolveDependency(dep)
-	if pack == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("invalid package name"))
+	// Verify and resolve each specified package.
+	packs := []*pkg.LocalPackage{}
+	for _, pkgName := range args {
+		dep, err := pkg.NewDependency(nil, pkgName)
+		if err != nil {
+			cli.NewtUsage(cmd, err)
+		}
+		if dep == nil {
+			cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
+				pkgName))
+		}
+		pack := project.GetProject().ResolveDependency(dep)
+		if pack == nil {
+			cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+pkgName))
+		}
+
+		packs = append(packs, pack.(*pkg.LocalPackage))
 	}
 
-	err = b.Test(pack.(*pkg.LocalPackage))
-	if err != nil {
-		fmt.Println(err)
+	// Test each package.
+	for _, pack := range packs {
+		err = b.Test(pack)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
