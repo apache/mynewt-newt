@@ -320,10 +320,17 @@ func CopyDir(srcDir, destDir string) error {
 	return CopyFile(srcDir, destDir)
 }
 
-// Print Silent, Quiet and Verbose aware status messages
+// Print Silent, Quiet and Verbose aware status messages to stdout.
 func StatusMessage(level int, message string, args ...interface{}) {
 	if Verbosity >= level {
 		fmt.Printf(message, args...)
+	}
+}
+
+// Print Silent, Quiet and Verbose aware status messages to stderr.
+func ErrorMessage(level int, message string, args ...interface{}) {
+	if Verbosity >= level {
+		fmt.Fprintf(os.Stderr, message, args...)
 	}
 }
 

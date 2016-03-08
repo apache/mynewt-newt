@@ -195,7 +195,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	}
 
 	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(),
-		b.pkgBinDir(bpkg.Name()), "default") // XXX Use correct compiler def
+		b.pkgBinDir(bpkg.Name()), b.target.BuildProfile)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 
 func (b *Builder) link(elfName string) error {
 	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(),
-		b.pkgBinDir(elfName), "default") // XXX
+		b.pkgBinDir(elfName), b.target.BuildProfile)
 	if err != nil {
 		return err
 	}
@@ -325,6 +325,7 @@ func (b *Builder) PrepBuild() error {
 
 	baseCi := toolchain.NewCompilerInfo()
 
+	// App flags.
 	if appBpkg != nil {
 		appCi, err := appBpkg.CompilerInfo(b)
 		if err != nil {
@@ -333,17 +334,21 @@ func (b *Builder) PrepBuild() error {
 		baseCi.AddCompilerInfo(appCi)
 	}
 
+	// Bsp flags.
 	bspCi, err := bspBpkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
 	baseCi.AddCompilerInfo(bspCi)
 
+	// Target flags.
 	targetCi, err := targetBpkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
 	baseCi.AddCompilerInfo(targetCi)
+
+	// Note: Compiler flags get added when compiler is created.
 
 	// Read the BSP configuration.  These settings are necessary for the link
 	// step.

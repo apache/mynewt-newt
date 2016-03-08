@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -35,6 +36,10 @@ import (
 const TARGET_FILE_NAME string = "target.yml"
 
 var globalTargetMap map[string]*Target
+
+var targetSearchDirs = []string{
+	"targets",
+}
 
 type Target struct {
 	basePkg *pkg.LocalPackage
@@ -46,6 +51,7 @@ type Target struct {
 	BspName      string
 	AppName      string
 	Arch         string
+	BuildProfile string
 
 	// target.yml configuration structure
 	Vars map[string]string
@@ -88,6 +94,7 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	target.BspName = target.Vars["target.bsp"]
 	target.AppName = target.Vars["target.app"]
 	target.Arch = target.Vars["target.arch"]
+	target.BuildProfile = target.Vars["target.build_profile"]
 
 	// XXX: Verify required fields set?
 
@@ -223,9 +230,13 @@ func buildTargetMap() error {
 			if pack.Type() == pkg.PACKAGE_TYPE_TARGET {
 				target, err := LoadTarget(pack.(*pkg.LocalPackage))
 				if err != nil {
-					return err
+					nerr := err.(*util.NewtError)
+					cli.ErrorMessage(cli.VERBOSITY_QUIET,
+						"Warning: failed to load target \"%s\": %s\n", name,
+						nerr.Text)
+				} else {
+					globalTargetMap[name] = target
 				}
-				globalTargetMap[name] = target
 			}
 		}
 	}
@@ -242,4 +253,32 @@ func GetTargets() map[string]*Target {
 	}
 
 	return globalTargetMap
+}
+
+func ResolveTargetName(name string) *Target {
+	targetMap := GetTargets()
+
+	t := targetMap[name]
+	for i := 0; t == nil && i < len(targetSearchDirs); i++ {
+		guess := targetSearchDirs[i] + "/" + name
+		t = targetMap[guess]
+	}
+
+	return t
+}
+
+func ResolveTargetNames(names ...string) ([]*Target, error) {
+	targets := []*Target{}
+
+	for _, name := range names {
+		t := ResolveTargetName(name)
+		if t == nil {
+			return nil, util.NewNewtError("Could not resolve target name: " +
+				name)
+		}
+
+		targets = append(targets, t)
+	}
+
+	return targets, nil
 }

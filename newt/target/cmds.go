@@ -42,34 +42,42 @@ func (a ByName) Less(i, j int) bool { return a[i].Package().Name() < a[j].Packag
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
 	proj := project.GetProject()
-	proj.LoadPackageList()
-
-	dispTarget := ""
-	if len(args) == 1 {
-		dispTarget = args[0]
+	err := proj.LoadPackageList()
+	if err != nil {
+		cli.NewtUsage(cmd, err)
 	}
 
 	targetNames := []string{}
-	for name, _ := range GetTargets() {
-		targetNames = append(targetNames, name)
+	if len(args) == 0 {
+		for name, _ := range GetTargets() {
+			targetNames = append(targetNames, name)
+		}
+	} else {
+		targetSlice, err := ResolveTargetNames(args...)
+		if err != nil {
+			cli.NewtUsage(cmd, err)
+		}
+
+		for _, t := range targetSlice {
+			targetNames = append(targetNames, t.Name())
+		}
 	}
+
 	sort.Strings(targetNames)
 
 	for _, name := range targetNames {
-		if dispTarget == "" || dispTarget == name {
-			cli.StatusMessage(cli.VERBOSITY_QUIET, name+"\n")
+		cli.StatusMessage(cli.VERBOSITY_QUIET, name+"\n")
 
-			target := GetTargets()[name]
-			keys := []string{}
-			for k, _ := range target.Vars {
-				keys = append(keys, k)
-			}
+		target := GetTargets()[name]
+		keys := []string{}
+		for k, _ := range target.Vars {
+			keys = append(keys, k)
+		}
 
-			sort.Strings(keys)
-			for _, k := range keys {
-				cli.StatusMessage(cli.VERBOSITY_QUIET,
-					"    %s=%s\n", k, target.Vars[k])
-			}
+		sort.Strings(keys)
+		for _, k := range keys {
+			cli.StatusMessage(cli.VERBOSITY_QUIET, "    %s=%s\n", k,
+				target.Vars[k])
 		}
 	}
 }
