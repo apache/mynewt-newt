@@ -69,6 +69,14 @@ func (b *Builder) logFeatures() {
 	cli.StatusMessage(cli.VERBOSITY_VERBOSE, buffer.String())
 }
 
+func (b *Builder) featureString() string {
+	featureString := ""
+	for feature, _ := range b.features {
+		featureString = featureString + " " + feature
+	}
+	return featureString
+}
+
 // Makes sure all packages with required APIs have been augmented a dependency
 // which satisfies that requirement.  If there are any unsatisfied
 // requirements, an error is returned.

@@ -118,6 +118,50 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func downloadRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+	}
+
+	targetName := args[0]
+	t := target.GetTargets()[targetName]
+	if t == nil {
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"))
+	}
+
+	b, err := NewBuilder(t)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = b.Download()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func debugRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+	}
+
+	targetName := args[0]
+	t := target.GetTargets()[targetName]
+	if t == nil {
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"))
+	}
+
+	b, err := NewBuilder(t)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = b.Debug()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func AddCommands(cmd *cobra.Command) {
 	buildHelpText := ""
 	buildHelpEx := ""
@@ -154,4 +198,28 @@ func AddCommands(cmd *cobra.Command) {
 	}
 
 	cmd.AddCommand(testCmd)
+
+        downloadHelpText := "Download project image to target for <target-name>."
+        downloadHelpEx := "  newt download <target-name>\n"
+
+        downloadCmd := &cobra.Command{
+                Use:     "download",
+                Short:   "Download built target to board",
+                Long:    downloadHelpText,
+                Example: downloadHelpEx,
+                Run:     downloadRunCmd,
+        }
+        cmd.AddCommand(downloadCmd)
+
+        debugHelpText := "Download project image to target for <target-name>.";
+        debugHelpEx := "  newt debug <target-name>\n"
+
+        debugCmd := &cobra.Command{
+                Use:     "debug",
+                Short:   "Open debugger session to target",
+                Long:    debugHelpText,
+                Example: debugHelpEx,
+                Run:     debugRunCmd,
+        }
+        cmd.AddCommand(debugCmd)
 }
