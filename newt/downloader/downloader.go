@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 
+	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -34,6 +35,7 @@ type Downloader interface {
 	FetchFile(name string, dest string) error
 	Branch() string
 	SetBranch(branch string)
+	DownloadRepo(branch string) (string, error)
 }
 
 type GenericDownloader struct {
@@ -81,6 +83,24 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	_, err = io.Copy(handle, rsp.Body)
 
 	return nil
+}
+
+func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
+	// Get a temporary directory, and copy the repository into that directory.
+	tmpdir, err := ioutil.TempDir("", "newt-repo")
+	if err != nil {
+		return "", err
+	}
+
+	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
+
+	_, err = cli.ShellCommand(fmt.Sprintf("git clone -b %s %s %s",
+		branch, url, tmpdir))
+	if err != nil {
+		return "", err
+	}
+
+	return tmpdir, nil
 }
 
 func NewGithubDownloader() *GithubDownloader {

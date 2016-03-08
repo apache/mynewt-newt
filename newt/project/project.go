@@ -20,6 +20,7 @@
 package project
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -62,6 +63,8 @@ type Project struct {
 	BasePath string
 
 	packages interfaces.PackageList
+
+	projState *ProjectState
 
 	// Repositories configured on this project
 	repos map[string]*repo.Repo
@@ -135,25 +138,87 @@ func (proj *Project) PackageSearchDirs() []string {
 	return proj.packageSearchDirs
 }
 
-func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
-	//rType := v.GetString(rname + ".type")
-	//if rType != "github" {
-	//return util.NewNewtError(fmt.Sprintf("Unknown repo type %s, only github supported.", rType))
-	//}
+func (proj *Project) Install(force bool) error {
+	repoList := proj.Repos()
+	for rname, r := range repoList {
+		// Ignore the local repo on install
+		if rname == repo.REPO_NAME_LOCAL {
+			continue
+		}
+		// Download repository description.  Try and resolve this
+		// repository out of the repo list (repodesc for each repo.)
+		// If matching repository is found, then prompt for install and install
+		// that repository.
+		if err := r.DownloadDesc(); err != nil {
+			return err
+		}
 
-	user := v.GetString(rname + ".user")
-	gitRepo := v.GetString(rname + ".repo")
+		rdesc, err := r.ReadDesc()
+		if err != nil {
+			return err
+		}
+
+		vers := proj.projState.GetInstalledVersion(rname)
+		if vers != nil {
+			// Project is already installed, let's see if we match the version
+			// requirements.  If we don't print a warning.
+			// Either way, continue processing.
+			_, _, ok := rdesc.MatchVersion(vers)
+			if !ok {
+				fmt.Printf("WARNING: Installed version %s of repository %s "+
+					"does not match desired versions %s in project.yml\n",
+					vers, rname, r.VersionRequirementsString())
+			}
+		} else {
+
+			_, _, ok := rdesc.Match(r)
+			if !ok {
+				fmt.Printf("WARNING: No matching repository version found for repository "+
+					"%s specified in project.yml, skipping...\n", r.Name())
+				continue
+			}
+
+			rvers, err := r.Install(rdesc, force)
+			if err != nil {
+				return err
+			}
+
+			if rvers != nil {
+				proj.projState.Add(rname, rvers)
+			}
+		}
+	}
+
+	if err := proj.projState.Save(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
+	varName := fmt.Sprintf("repository.%s", rname)
+
+	repoVars := v.GetStringMapString(varName)
+
+	if repoVars["type"] != "github" {
+		return util.NewNewtError("Only github repositories are currently supported.")
+	}
+	rversreq := repoVars["vers"]
 
 	dl := downloader.NewGithubDownloader()
-	dl.User = user
-	dl.Repo = gitRepo
+	dl.User = repoVars["user"]
+	dl.Repo = repoVars["repo"]
 
-	r, err := repo.NewRepo(proj.Path(), rname, dl)
+	r, err := repo.NewRepo(rname, rversreq, dl)
 	if err != nil {
 		return err
 	}
-	proj.repos[r.Name()] = r
 
+	log.Printf("[VERBOSE] Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
+		repoVars["type"], repoVars["user"], repoVars["repo"])
+
+	proj.repos[r.Name()] = r
 	return nil
 }
 
@@ -168,10 +233,15 @@ func (proj *Project) loadConfig() error {
 	// we need to process it later.
 	proj.v = v
 
+	proj.projState, err = LoadProjectState()
+	if err != nil {
+		return err
+	}
+
 	proj.name = v.GetString("project.name")
 
 	// Local repository always included in initialization
-	r, err := repo.NewLocalRepo(proj.BasePath)
+	r, err := repo.NewLocalRepo()
 	if err != nil {
 		return err
 	}
@@ -195,6 +265,9 @@ func (proj *Project) loadConfig() error {
 
 func (proj *Project) Init(dir string) error {
 	proj.BasePath = dir
+
+	// Only one project per system, when created, set it as the global project
+	interfaces.SetProject(proj)
 
 	proj.repos = map[string]*repo.Repo{}
 	proj.packageSearchDirs = PackageSearchDirs
@@ -269,5 +342,6 @@ func LoadProject(dir string) (*Project, error) {
 	}
 
 	proj, err := NewProject(projDir)
+
 	return proj, err
 }

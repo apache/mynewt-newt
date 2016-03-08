@@ -29,13 +29,15 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func repoRunCmd(cmd *cobra.Command, args []string) {
+func installRunCmd(cmd *cobra.Command, args []string) {
 	proj := GetProject()
 	interfaces.SetProject(proj)
 
-	r := proj.FindRepo("apache-mynewt-world")
-	r.DownloadDesc()
+	if err := proj.Install(false); err != nil {
+		panic(err.Error())
+	}
 
+	fmt.Println("Repos successfully installed")
 }
 
 func projectRunCmd(cmd *cobra.Command, args []string) {
@@ -49,6 +51,7 @@ func projectRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, err)
 	}
 	proj.LoadPackageList()
+
 	for rName, list := range proj.PackageList() {
 		fmt.Printf("repository name: %s\n", rName)
 		for pkgName, _ := range *list {
@@ -71,11 +74,16 @@ func AddCommands(cmd *cobra.Command) {
 		Run:     projectRunCmd,
 	}
 
-	repoCmd := &cobra.Command{
-		Use: "repo",
-		Run: repoRunCmd,
+	installHelpText := ""
+	installHelpEx := ""
+	installCmd := &cobra.Command{
+		Use:     "install",
+		Short:   "Command to install project dependencies from project.yml",
+		Long:    installHelpText,
+		Example: installHelpEx,
+		Run:     installRunCmd,
 	}
-	cmd.AddCommand(repoCmd)
+	cmd.AddCommand(installCmd)
 
 	cmd.AddCommand(projectCmd)
 }

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package pkg
+package repo
 
 import (
 	"fmt"
@@ -29,7 +29,14 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const VERSION_FORMAT = "%d.%d.%d"
+const VERSION_FORMAT = "%d.%d.%d-%s"
+
+const (
+	VERSION_STABILITY_NONE   = "none"
+	VERSION_STABILITY_STABLE = "stable"
+	VERSION_STABILITY_DEV    = "dev"
+	VERSION_STABILITY_LATEST = "latest"
+)
 
 type VersionMatch struct {
 	compareType string
@@ -37,9 +44,10 @@ type VersionMatch struct {
 }
 
 type Version struct {
-	major    int64
-	minor    int64
-	revision int64
+	major     int64
+	minor     int64
+	revision  int64
+	stability string
 }
 
 func (vm *VersionMatch) CompareType() string {
@@ -48,6 +56,10 @@ func (vm *VersionMatch) CompareType() string {
 
 func (vm *VersionMatch) Version() interfaces.VersionInterface {
 	return vm.Vers
+}
+
+func (vm *VersionMatch) String() string {
+	return vm.compareType + vm.Vers.String()
 }
 
 func (v *Version) Major() int64 {
@@ -62,7 +74,12 @@ func (v *Version) Revision() int64 {
 	return v.revision
 }
 
-func (v *Version) CompareVersions(vers1 interfaces.VersionInterface, vers2 interfaces.VersionInterface) int64 {
+func (v *Version) Stability() string {
+	return v.stability
+}
+
+func (v *Version) CompareVersions(vers1 interfaces.VersionInterface,
+	vers2 interfaces.VersionInterface) int64 {
 	if r := vers1.Major() - vers2.Major(); r != 0 {
 		return r
 	}
@@ -107,19 +124,41 @@ func (v *Version) SatisfiesVersion(versMatches []interfaces.VersionReqInterface)
 				return false
 			}
 		}
+
+		if match.Version().Stability() != VERSION_STABILITY_NONE &&
+			match.Version().Stability() != v.Stability() {
+			return false
+		}
 	}
 
 	return true
 }
 
 func (vers *Version) String() string {
-	return fmt.Sprintf(VERSION_FORMAT, vers.Major, vers.Minor, vers.Revision)
+	return fmt.Sprintf(VERSION_FORMAT, vers.Major(), vers.Minor(), vers.Revision(), vers.Stability())
 }
 
 func LoadVersion(versStr string) (*Version, error) {
 	var err error
 
-	parts := strings.Split(versStr, ".")
+	// Split to get stability level first
+	sparts := strings.Split(versStr, "-")
+	stability := VERSION_STABILITY_NONE
+	if len(sparts) > 1 {
+		stability = strings.Trim(sparts[1], " ")
+		switch stability {
+		case VERSION_STABILITY_STABLE:
+			fallthrough
+		case VERSION_STABILITY_DEV:
+			fallthrough
+		case VERSION_STABILITY_LATEST:
+		default:
+			return nil, util.NewNewtError(
+				fmt.Sprintf("Unknown stability (%s) in version ", stability) + versStr)
+		}
+	}
+
+	parts := strings.Split(sparts[0], ".")
 	if len(parts) > 3 {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid version string: %s", versStr))
 	}
@@ -129,18 +168,19 @@ func LoadVersion(versStr string) (*Version, error) {
 	}
 
 	vers := &Version{}
+	vers.stability = stability
 
 	// convert first string to an int
-	if vers.major, err = strconv.ParseInt(parts[0], 0, 64); err != nil {
+	if vers.major, err = strconv.ParseInt(parts[0], 10, 64); err != nil {
 		return nil, util.NewNewtError(err.Error())
 	}
 	if len(parts) >= 2 {
-		if vers.minor, err = strconv.ParseInt(parts[1], 0, 64); err != nil {
+		if vers.minor, err = strconv.ParseInt(parts[1], 10, 64); err != nil {
 			return nil, util.NewNewtError(err.Error())
 		}
 	}
 	if len(parts) == 3 {
-		if vers.revision, err = strconv.ParseInt(parts[2], 0, 64); err != nil {
+		if vers.revision, err = strconv.ParseInt(parts[2], 10, 64); err != nil {
 			return nil, util.NewNewtError(err.Error())
 		}
 	}

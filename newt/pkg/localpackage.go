@@ -56,8 +56,6 @@ type LocalPackage struct {
 
 	// General information about the package
 	desc *PackageDesc
-	// Version information about this package
-	vers *Version
 	// Dependencies for this package
 	deps []*Dependency
 	// APIs that this package exports
@@ -72,7 +70,6 @@ type LocalPackage struct {
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 	pkg := &LocalPackage{
 		desc: &PackageDesc{},
-		vers: &Version{},
 	}
 	pkg.Init(r, pkgDir)
 	return pkg
@@ -98,10 +95,6 @@ func (pkg *LocalPackage) Desc() *PackageDesc {
 	return pkg.desc
 }
 
-func (pkg *LocalPackage) Vers() interfaces.VersionInterface {
-	return pkg.vers
-}
-
 func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
 }
@@ -112,10 +105,6 @@ func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
 	pkg.desc = desc
-}
-
-func (pkg *LocalPackage) SetVers(vers *Version) {
-	pkg.vers = vers
 }
 
 func (pkg *LocalPackage) Hash() (string, error) {
@@ -217,7 +206,6 @@ func (pkg *LocalPackage) Save() error {
 	file.WriteString("### Package: " + pkg.Name() + "\n\n")
 
 	file.WriteString("pkg.name: " + pkg.Name() + "\n")
-	file.WriteString("pkg.vers: " + pkg.Vers().String() + "\n")
 	file.WriteString("pkg.type: " + PackageTypeNames[pkg.Type()] + "\n")
 	file.WriteString("pkg.description: " + pkg.Desc().Description + "\n")
 	file.WriteString("pkg.author: " + pkg.Desc().Author + "\n")
@@ -248,12 +236,6 @@ func (pkg *LocalPackage) Load() error {
 			pkg.packageType = t
 			break
 		}
-	}
-
-	// Get the package version
-	pkg.vers, err = LoadVersion(v.GetString("pkg.vers"))
-	if err != nil {
-		return err
 	}
 
 	// Read the package description from the file

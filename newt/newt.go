@@ -57,6 +57,10 @@ func newtCmd() *cobra.Command {
 		Short:   "Newt is a tool to help you compose and build your own OS",
 		Long:    newtHelpText,
 		Example: newtHelpEx,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			NewtLogLevel = strings.ToUpper(NewtLogLevel)
+			cli.Init(NewtLogLevel, false, false, false)
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
@@ -64,8 +68,6 @@ func newtCmd() *cobra.Command {
 
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
-
-	NewtLogLevel = strings.ToUpper(NewtLogLevel)
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"
@@ -85,8 +87,6 @@ func newtCmd() *cobra.Command {
 }
 
 func main() {
-	cli.Init("ERROR", false, false, false)
-
 	cmd := newtCmd()
 	project.AddCommands(cmd)
 	pkg.AddCommands(cmd)

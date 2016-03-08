@@ -22,7 +22,6 @@ package interfaces
 type PackageInterface interface {
 	Name() string
 	Repo() RepoInterface
-	Vers() VersionInterface
 	Type() PackageType
 }
 
@@ -35,6 +34,7 @@ type RepoInterface interface {
 type VersionReqInterface interface {
 	CompareType() string
 	Version() VersionInterface
+	String() string
 }
 
 type VersionInterface interface {
@@ -43,6 +43,7 @@ type VersionInterface interface {
 	Major() int64
 	Minor() int64
 	Revision() int64
+	Stability() string
 	String() string
 }
 

@@ -65,8 +65,6 @@ type Package interface {
 	Hash() (string, error)
 	// Description of this package
 	Desc() *PackageDesc
-	// Version of this package
-	Vers() *Version
 	// Dependency list for this package
 	Deps() []*Dependency
 	// APIs exported by this package
