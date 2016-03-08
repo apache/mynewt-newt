@@ -46,7 +46,6 @@ type CompilerInfo struct {
 }
 
 type Compiler struct {
-	TargetName   string
 	ObjPathList  map[string]bool
 	LinkerScript string
 
@@ -59,6 +58,7 @@ type Compiler struct {
 	ocPath                string
 	ldResolveCircularDeps bool
 	ldMapFile             bool
+	dstDir                string
 
 	info CompilerInfo
 }
@@ -80,18 +80,18 @@ func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Aflags = append(ci.Aflags, newCi.Aflags...)
 }
 
-func NewCompiler(compilerDir string, cDef string,
-	tName string) (*Compiler, error) {
+func NewCompiler(compilerDir string, dstDir string,
+	cDef string) (*Compiler, error) {
 
 	c := &Compiler{
-		TargetName:  tName,
 		ObjPathList: map[string]bool{},
+		dstDir:      filepath.Clean(dstDir),
 	}
 
 	c.depTracker = NewDepTracker(c)
 
 	cli.StatusMessage(cli.VERBOSITY_VERBOSE,
-		"Loading compiler %s, target %s, def %s\n", compilerDir, tName, cDef)
+		"Loading compiler %s, def %s\n", compilerDir, cDef)
 	err := c.load(compilerDir, cDef)
 	if err != nil {
 		return nil, err
@@ -137,6 +137,10 @@ func (c *Compiler) AddInfo(info *CompilerInfo) {
 	c.info.AddCompilerInfo(info)
 }
 
+func (c *Compiler) DstDir() string {
+	return c.dstDir
+}
+
 // Skips compilation of the specified C or assembly file, but adds the name of
 // the object file that would have been generated to the compiler's list of
 // object files.  This function is used when the object file is already up to
@@ -144,10 +148,8 @@ func (c *Compiler) AddInfo(info *CompilerInfo) {
 // still be remembered so that it gets linked in to the final library or
 // executable.
 func (c *Compiler) SkipSourceFile(srcFile string) error {
-	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + c.TargetName + "/"
-	objFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
-		".o"
+	objFile := c.dstDir + "/" +
+		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".o"
 	c.ObjPathList[filepath.ToSlash(objFile)] = true
 
 	// Update the dependency tracker with the object file's modification time.
@@ -192,10 +194,8 @@ func (c *Compiler) lflagsString() string {
 func (c *Compiler) CompileFileCmd(file string,
 	compilerType int) (string, error) {
 
-	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + c.TargetName + "/"
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	objPath := filepath.ToSlash(objDir + objFile)
+	objPath := filepath.ToSlash(c.dstDir + "/" + objFile)
 
 	var cmd string
 
@@ -218,14 +218,12 @@ func (c *Compiler) CompileFileCmd(file string,
 //
 // @param file                  The name of the source file.
 func (c *Compiler) GenDepsForFile(file string) error {
-	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + c.TargetName + "/"
-
-	if cli.NodeNotExist(objDir) {
-		os.MkdirAll(objDir, 0755)
+	if cli.NodeNotExist(c.dstDir) {
+		os.MkdirAll(c.dstDir, 0755)
 	}
 
-	depFile := objDir + strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
+	depFile := c.dstDir + "/" +
+		strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
 	depFile = filepath.ToSlash(depFile)
 
 	var cmd string
@@ -263,16 +261,13 @@ func writeCommandFile(dstFile string, cmd string) error {
 // @param file                  The filename of the source file to compile.
 // @param compilerType          One of the COMPILER_TYPE_[...] constants.
 func (c *Compiler) CompileFile(file string, compilerType int) error {
-	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + c.TargetName + "/"
-
-	if cli.NodeNotExist(objDir) {
-		os.MkdirAll(objDir, 0755)
+	if cli.NodeNotExist(c.dstDir) {
+		os.MkdirAll(c.dstDir, 0755)
 	}
 
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
 
-	objPath := objDir + objFile
+	objPath := c.dstDir + "/" + objFile
 	c.ObjPathList[filepath.ToSlash(objPath)] = true
 
 	cmd, err := c.CompileFileCmd(file, compilerType)
@@ -418,9 +413,9 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 	}
 
 	switch cType {
-	case 0:
+	case COMPILER_TYPE_C:
 		return c.CompileC()
-	case 1:
+	case COMPILER_TYPE_ASM:
 		return c.CompileAs()
 	default:
 		return NewNewtError("Wrong compiler type specified to RecursiveCompile")

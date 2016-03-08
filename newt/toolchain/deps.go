@@ -22,7 +22,6 @@ package toolchain
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -115,11 +114,7 @@ func commandHasChanged(dstFile string, cmd string) bool {
 		return true
 	}
 
-	rc := bytes.Compare(prevCmd, []byte(cmd)) != 0
-	if rc {
-		cli.StatusMessage(util.VERBOSITY_VERBOSE, "oldcmd=%s\nnewcmd=%s\n", prevCmd, cmd)
-	}
-	return rc
+	return bytes.Compare(prevCmd, []byte(cmd)) != 0
 }
 
 // Determines if the specified C or assembly file needs to be built.  A compile
@@ -132,13 +127,11 @@ func commandHasChanged(dstFile string, cmd string) bool {
 //       the object file.
 func (tracker *DepTracker) CompileRequired(srcFile string,
 	compilerType int) (bool, error) {
-	wd, _ := os.Getwd()
-	objDir := wd + "/obj/" + tracker.compiler.TargetName + "/"
 
-	objFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
-		".o"
-	depFile := objDir + strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) +
-		".d"
+	objFile := tracker.compiler.DstDir() + "/" +
+		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".o"
+	depFile := tracker.compiler.DstDir() + "/" +
+		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".d"
 
 	// If the object was previously built with a different set of options, a
 	// rebuild is necessary.
@@ -165,7 +158,8 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// If the object doesn't exist or is older than the source file, a build is
 	// required; no need to check dependencies.
 	if srcModTime.After(objModTime) {
-		cli.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; source newer than obj\n", srcFile)
+		cli.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; "+
+			"source newer than obj\n", srcFile)
 		return true, nil
 	}
 

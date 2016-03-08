@@ -22,6 +22,7 @@ package target
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -94,6 +95,14 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 func (target *Target) Package() *pkg.LocalPackage {
 	return target.basePkg
+}
+
+func (target *Target) Name() string {
+	return target.basePkg.Name()
+}
+
+func (target *Target) ShortName() string {
+	return filepath.Base(target.Name())
 }
 
 func (target *Target) Compiler() *pkg.LocalPackage {

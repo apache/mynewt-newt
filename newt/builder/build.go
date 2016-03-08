@@ -21,12 +21,12 @@ package builder
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -190,11 +190,17 @@ func buildDir(srcDir string, c *toolchain.Compiler, t *target.Target,
 	return nil
 }
 
+func (b *Builder) binDir() string {
+	return project.GetProject().Path() + "/bin/" + b.target.ShortName()
+}
+
+func (b *Builder) pkgBinDir(pkgName string) string {
+	return b.binDir() + "/" + pkgName
+}
+
 // Generates the path+filename of the specified package's .a file.
 func (b *Builder) archivePath(bpkg *BuildPackage) string {
-	binDir := bpkg.BasePath() + "/bin/" + b.target.Package().Name()
-	archiveFile := binDir + "/lib" + filepath.Base(bpkg.Name()) + ".a"
-	return archiveFile
+	return b.pkgBinDir(bpkg.Name()) + "/" + filepath.Base(bpkg.Name()) + ".a"
 }
 
 func (b *Builder) elfPath() string {
@@ -203,8 +209,8 @@ func (b *Builder) elfPath() string {
 		return ""
 	}
 
-	return appPkg.BasePath() + "/bin/" + b.target.Package().Name() + "/" +
-		appPkg.Name() + ".elf"
+	return b.pkgBinDir(appPkg.Name()) + "/" +
+		filepath.Base(appPkg.Name()) + ".elf"
 }
 
 // Compiles and archives a package.
@@ -218,8 +224,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage,
 	}
 
 	c, err := toolchain.NewCompiler(compilerPkg.BasePath(),
-		"default", // XXX
-		b.target.Package().Name())
+		b.pkgBinDir(bpkg.Name()), "default") // XXX Use correct compiler def
 	if err != nil {
 		return err
 	}
@@ -262,8 +267,7 @@ func (b *Builder) linkApp(baseCi *toolchain.CompilerInfo,
 	compilerPkg *pkg.LocalPackage) error {
 
 	c, err := toolchain.NewCompiler(compilerPkg.BasePath(),
-		"default", // XXX
-		b.target.Package().Name())
+		b.pkgBinDir(b.target.App().Name()), "default") // XXX
 	if err != nil {
 		return err
 	}
@@ -346,75 +350,11 @@ func (b *Builder) Build() error {
 	return nil
 }
 
-func cleanTree(rootPath string, tName string) error {
-	// Find all the subdirectories of path that contain an "obj/" directory,
-	// and remove that directory either altogether, or just the arch specific
-	// directory.
-	dirList, err := ioutil.ReadDir(rootPath)
-	if err != nil {
-		return util.NewNewtError(err.Error())
-	}
-
-	for _, node := range dirList {
-		if node.IsDir() {
-			if node.Name() == "obj" || node.Name() == "bin" {
-				fullPath := filepath.Clean(rootPath + "/" + node.Name() + "/" +
-					tName + "/")
-				cli.StatusMessage(util.VERBOSITY_VERBOSE,
-					"Cleaning directory %s\n", fullPath)
-				os.RemoveAll(fullPath)
-			} else {
-				// recurse into the directory.
-				err = cleanTree(rootPath+"/"+node.Name(), tName)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 func (b *Builder) Clean() error {
-	bspPkg := b.target.Bsp()
-	if bspPkg != nil {
-		b.AddPackage(bspPkg)
-	}
-
-	appPkg := b.target.App()
-	if appPkg != nil {
-		b.AddPackage(appPkg)
-	}
-
-	compilerPkg := b.target.Compiler()
-	if compilerPkg != nil {
-		b.AddPackage(compilerPkg)
-	}
-
-	if err := b.loadDeps(); err != nil {
-		return err
-	}
-
-	for _, bpkg := range b.Packages {
-		err := cleanTree(bpkg.BasePath(), b.target.Package().Name())
-		if err != nil {
-			return err
-		}
-	}
-
-	binPath := b.elfPath()
-	if binPath != "" {
-		binDir := filepath.Dir(binPath)
-		cli.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n",
-			binDir)
-		err := os.RemoveAll(binDir)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	path := b.binDir()
+	cli.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n", path)
+	err := os.RemoveAll(path)
+	return err
 }
 
 func (b *Builder) Init(target *target.Target) error {
