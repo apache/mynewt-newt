@@ -124,6 +124,26 @@ func (target *Target) Bsp() *pkg.LocalPackage {
 	return mypkg
 }
 
+func (target *Target) ElfPath() string {
+	appPkg := target.App()
+	if appPkg == nil {
+		return ""
+	}
+
+	return appPkg.BasePath() + "/bin/" + target.Package().Name() + "/" +
+		appPkg.Name() + ".elf"
+}
+
+func (target *Target) ImagePath() string {
+	appPkg := target.App()
+	if appPkg == nil {
+		return ""
+	}
+
+	return appPkg.BasePath() + "/bin/" + target.Package().Name() + "/" +
+		appPkg.Name() + ".img"
+}
+
 // Save the target's configuration elements
 func (t *Target) Save() error {
 	if err := t.basePkg.Save(); err != nil {
