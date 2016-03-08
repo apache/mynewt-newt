@@ -279,7 +279,6 @@ func (b *Builder) linkApp(baseCi *toolchain.CompilerInfo,
 	if b.Bsp.LinkerScript != "" {
 		c.LinkerScript = b.Bsp.BasePath() + b.Bsp.LinkerScript
 	}
-	elfFile := binDir + "/" + appPackage.Name()
 	err = c.CompileElf(b.elfPath(), pkgNames)
 	if err != nil {
 		return err
