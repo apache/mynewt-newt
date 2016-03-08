@@ -31,6 +31,7 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/yaml"
 )
 
 const TARGET_FILE_NAME string = "target.yml"
@@ -185,7 +186,7 @@ func (t *Target) Save() error {
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		file.WriteString(k + ": " + t.Vars[k] + "\n")
+		file.WriteString(k + ": " + yaml.EscapeString(t.Vars[k]) + "\n")
 	}
 
 	return nil

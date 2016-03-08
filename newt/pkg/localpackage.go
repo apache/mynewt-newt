@@ -34,6 +34,7 @@ import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/yaml"
 )
 
 var PackageHashIgnoreDirs = map[string]bool{
@@ -205,12 +206,17 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString("### Package: " + pkg.Name() + "\n\n")
 
-	file.WriteString("pkg.name: " + pkg.Name() + "\n")
-	file.WriteString("pkg.type: " + PackageTypeNames[pkg.Type()] + "\n")
-	file.WriteString("pkg.description: " + pkg.Desc().Description + "\n")
-	file.WriteString("pkg.author: " + pkg.Desc().Author + "\n")
-	file.WriteString("pkg.homepage: " + pkg.Desc().Homepage + "\n")
-	file.WriteString("pkg.repository: " + pkg.Repo().Name() + "\n")
+	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
+	file.WriteString("pkg.type: " +
+		yaml.EscapeString(PackageTypeNames[pkg.Type()]) + "\n")
+	file.WriteString("pkg.description: " +
+		yaml.EscapeString(pkg.Desc().Description) + "\n")
+	file.WriteString("pkg.author: " +
+		yaml.EscapeString(pkg.Desc().Author) + "\n")
+	file.WriteString("pkg.homepage: " +
+		yaml.EscapeString(pkg.Desc().Homepage) + "\n")
+	file.WriteString("pkg.repository: " +
+		yaml.EscapeString(pkg.Repo().Name()) + "\n")
 
 	return nil
 }
