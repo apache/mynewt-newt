@@ -20,7 +20,6 @@
 package target
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -117,14 +116,11 @@ func (target *Target) ShortName() string {
 func (target *Target) App() *pkg.LocalPackage {
 	dep, err := pkg.NewDependency(nil, target.AppName)
 	if err != nil {
-		fmt.Println("app name = %s\n", target.AppName)
-		fmt.Println("dep is nil")
 		return nil
 	}
 
 	appPkg := project.GetProject().ResolveDependency(dep)
 	if appPkg == nil {
-		fmt.Printf("app name = %s\n", target.AppName)
 		return nil
 	}
 
