@@ -37,10 +37,9 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, nil)
 	}
 
-	targetName := args[0]
-	t := target.GetTargets()[targetName]
+	t := target.ResolveTargetName(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("invalid target name"))
+		cli.NewtUsage(cmd, util.NewNewtError("invalid target name: "+args[0]))
 	}
 
 	b, err := NewBuilder(t)
@@ -58,10 +57,9 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, nil)
 	}
 
-	targetName := args[0]
-	t := target.GetTargets()[targetName]
+	t := target.ResolveTargetName(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("invalid target name"))
+		cli.NewtUsage(cmd, util.NewNewtError("invalid target name"+args[0]))
 	}
 
 	b, err := NewBuilder(t)
@@ -79,7 +77,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, nil)
 	}
 
-	t := target.GetTargets()[TARGET_TEST_NAME]
+	t := target.ResolveTargetName(TARGET_TEST_NAME)
 	if t == nil {
 		cli.NewtUsage(cmd, util.NewNewtError("can't find unit test target: "+
 			TARGET_TEST_NAME))
@@ -125,10 +123,9 @@ func downloadRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	targetName := args[0]
-	t := target.GetTargets()[targetName]
+	t := target.ResolveTargetName(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"))
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
 	}
 
 	b, err := NewBuilder(t)
@@ -147,10 +144,9 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	targetName := args[0]
-	t := target.GetTargets()[targetName]
+	t := target.ResolveTargetName(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"))
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
 	}
 
 	b, err := NewBuilder(t)

@@ -107,7 +107,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				"(target-name & k=v) to set"))
 	}
 
-	t := GetTargets()[args[0]]
+	t := ResolveTargetName(args[0])
 	if t == nil {
 		cli.NewtUsage(cmd, util.NewNewtError("Unknown target"))
 	}
@@ -154,7 +154,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 
 	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+args[0]+"\n")
 
-	t := GetTargets()[args[0]]
+	t := ResolveTargetName(args[0])
 	if t != nil {
 		cli.NewtUsage(cmd, util.NewNewtError(
 			"Target already exists, cannot create target with same name."))
@@ -180,7 +180,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Must specify target to delete"))
 	}
 
-	t := GetTargets()[args[0]]
+	t := ResolveTargetName(args[0])
 	if t == nil {
 		cli.NewtUsage(cmd, util.NewNewtError("Target does not exist"))
 	}
