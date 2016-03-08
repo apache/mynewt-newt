@@ -24,32 +24,32 @@ import (
 	"os"
 	"path/filepath"
 
-        "mynewt.apache.org/newt/newt/cli"
-        "mynewt.apache.org/newt/newt/project"
-        "mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/util"
 )
 
 func (b *Builder) Download() error {
-        if b.target.App() == nil {
-                return util.NewNewtError("app package not specified")
-        }
+	if b.target.App() == nil {
+		return util.NewNewtError("app package not specified")
+	}
 
-        /*
-	 * Populate the package and feature sets.
+	/*
+	 * Populate the package list and feature sets.
 	 */
-        err := b.prepBuild()
-        if err != nil {
-                return err
-        }
+	err := b.PrepBuild()
+	if err != nil {
+		return err
+	}
 
 	bspPath := b.Bsp.BasePath()
 	downloadScript := filepath.Join(bspPath, b.Bsp.DownloadScript)
-	binBaseName := b.target.BinBasePath()
+	binBaseName := b.appBinBasePath()
 	featureString := b.featureString()
 
 	downloadCmd := fmt.Sprintf("%s %s %s %s",
 		downloadScript, bspPath, binBaseName, featureString)
-	
+
 	rsp, err := cli.ShellCommand(downloadCmd)
 	fmt.Printf("%s", rsp)
 
@@ -57,21 +57,21 @@ func (b *Builder) Download() error {
 }
 
 func (b *Builder) Debug() error {
-        if b.target.App() == nil {
-                return util.NewNewtError("app package not specified")
-        }
+	if b.target.App() == nil {
+		return util.NewNewtError("app package not specified")
+	}
 
-        /*
-	 * Populate the package and feature sets.
+	/*
+	 * Populate the package list and feature sets.
 	 */
-        err := b.prepBuild()
-        if err != nil {
-                return err
-        }
+	err := b.PrepBuild()
+	if err != nil {
+		return err
+	}
 
 	bspPath := b.Bsp.BasePath()
 	debugScript := filepath.Join(bspPath, b.Bsp.DebugScript)
-	binBaseName := b.target.BinBasePath()
+	binBaseName := b.appBinBasePath()
 	featureString := b.featureString()
 
 	os.Chdir(project.GetProject().Path())

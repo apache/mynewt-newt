@@ -199,27 +199,27 @@ func AddCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(testCmd)
 
-        downloadHelpText := "Download project image to target for <target-name>."
-        downloadHelpEx := "  newt download <target-name>\n"
+	downloadHelpText := "Download project image to target for <target-name>."
+	downloadHelpEx := "  newt download <target-name>\n"
 
-        downloadCmd := &cobra.Command{
-                Use:     "download",
-                Short:   "Download built target to board",
-                Long:    downloadHelpText,
-                Example: downloadHelpEx,
-                Run:     downloadRunCmd,
-        }
-        cmd.AddCommand(downloadCmd)
+	downloadCmd := &cobra.Command{
+		Use:     "download",
+		Short:   "Download built target to board",
+		Long:    downloadHelpText,
+		Example: downloadHelpEx,
+		Run:     downloadRunCmd,
+	}
+	cmd.AddCommand(downloadCmd)
 
-        debugHelpText := "Download project image to target for <target-name>.";
-        debugHelpEx := "  newt debug <target-name>\n"
+	debugHelpText := "Download project image to target for <target-name>."
+	debugHelpEx := "  newt debug <target-name>\n"
 
-        debugCmd := &cobra.Command{
-                Use:     "debug",
-                Short:   "Open debugger session to target",
-                Long:    debugHelpText,
-                Example: debugHelpEx,
-                Run:     debugRunCmd,
-        }
-        cmd.AddCommand(debugCmd)
+	debugCmd := &cobra.Command{
+		Use:     "debug",
+		Short:   "Open debugger session to target",
+		Long:    debugHelpText,
+		Example: debugHelpEx,
+		Run:     debugRunCmd,
+	}
+	cmd.AddCommand(debugCmd)
 }

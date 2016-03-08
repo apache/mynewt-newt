@@ -41,9 +41,19 @@ func (b *Builder) archivePath(pkgName string) string {
 	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".a"
 }
 
-func (b *Builder) appElfPath() string {
+func (b *Builder) AppElfPath() string {
 	pkgName := b.target.App().Name()
 	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".elf"
+}
+
+func (b *Builder) AppImgPath() string {
+	pkgName := b.target.App().Name()
+	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".img"
+}
+
+func (b *Builder) appBinBasePath() string {
+	pkgName := b.target.App().Name()
+	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName)
 }
 
 func (b *Builder) testExePath(pkgName string) string {

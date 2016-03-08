@@ -265,7 +265,7 @@ func (b *Builder) link(elfName string) error {
 // Populates the builder with all the packages that need to be built, and
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
-func (b *Builder) prepBuild() error {
+func (b *Builder) PrepBuild() error {
 	// Collect the seed packages.
 	bspPkg := b.target.Bsp()
 	if bspPkg == nil {
@@ -360,7 +360,7 @@ func (b *Builder) Build() error {
 
 	// Populate the package and feature sets and calculate the base compiler
 	// flags.
-	err := b.prepBuild()
+	err := b.PrepBuild()
 	if err != nil {
 		return err
 	}
@@ -375,7 +375,7 @@ func (b *Builder) Build() error {
 		}
 	}
 
-	err = b.link(b.appElfPath())
+	err = b.link(b.AppElfPath())
 	if err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 
 	// Populate the package and feature sets and calculate the base compiler
 	// flags.
-	err := b.prepBuild()
+	err := b.PrepBuild()
 	if err != nil {
 		return err
 	}

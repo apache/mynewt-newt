@@ -34,6 +34,7 @@ import (
 	"strings"
 	"time"
 
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
@@ -46,13 +47,13 @@ type ImageVersion struct {
 }
 
 type Image struct {
-	target       *target.Target
+	target *builder.Builder
+	builder *builder.Builder
 
 	sourceBin    string
 	targetImg    string
 	ManifestFile string
 	version      ImageVersion
-
 	hash         []byte
 }
 
@@ -113,13 +114,11 @@ type ImageManifestPkg struct {
 	Hash    string `json:"hash"`
 }
 
-func NewImage(t *target.Target) (*Image, error) {
-	image := &Image{
-		target: t,
-	}
+func NewImage(b *builder.Builder) (*Image, error) {
+	image := &Image{}
 
-	image.sourceBin = t.ElfPath() + ".bin"
-	image.targetImg = t.ImagePath()
+	image.sourceBin = b.AppElfPath() + ".bin"
+	image.targetImg = b.AppImgPath()
 	return image, nil
 }
 
@@ -275,7 +274,7 @@ func (image *Image) Generate() error {
 	return nil
 }
 
-func (image *Image) CreateManifest() error {
+func (image *Image) CreateManifest(t *target.Target) error {
 	versionStr := fmt.Sprintf("%d.%d.%d.%d",
 		image.version.Major, image.version.Minor,
 		image.version.Rev, image.version.BuildNum)
@@ -298,7 +297,7 @@ func (image *Image) CreateManifest() error {
 		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
 	}
 */
-	vars := image.target.Vars
+	vars := t.Vars
 	var keys []string
 	for k := range vars {
 		keys = append(keys, k)
