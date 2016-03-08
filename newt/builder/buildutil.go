@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"path/filepath"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -60,9 +59,8 @@ func (b *Builder) testExePath(pkgName string) string {
 	return b.pkgBinDir(pkgName) + "/test_" + filepath.Base(pkgName)
 }
 
-func (b *Builder) logFeatures() {
+func (b *Builder) featureString() string {
 	var buffer bytes.Buffer
-	buffer.WriteString("Building with the following feature set: [")
 
 	first := true
 	for feature, _ := range b.Features() {
@@ -74,21 +72,11 @@ func (b *Builder) logFeatures() {
 
 		buffer.WriteString(feature)
 	}
-	buffer.WriteString("]\n")
-
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE, buffer.String())
+	return buffer.String()
 }
 
-func (b *Builder) featureString() string {
-	featureString := ""
-	for feature, _ := range b.features {
-		featureString = featureString + " " + feature
-	}
-	return featureString
-}
-
-// Makes sure all packages with required APIs have been augmented a dependency
-// which satisfies that requirement.  If there are any unsatisfied
+// Makes sure all packages with required APIs have been augmented with a
+// dependency that satisfies that requirement.  If there are any unsatisfied
 // requirements, an error is returned.
 func (b *Builder) verifyApisSatisfied() error {
 	unsatisfied := map[*BuildPackage][]string{}

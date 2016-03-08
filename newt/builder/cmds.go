@@ -95,15 +95,17 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	for _, pkgName := range args {
 		dep, err := pkg.NewDependency(nil, pkgName)
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			cli.NewtUsage(cmd, util.NewtErrorNoTrace(fmt.Sprintf("invalid "+
+				"package name: %s (%s)", pkgName, err.Error())))
 		}
 		if dep == nil {
-			cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
+			cli.NewtUsage(cmd, util.NewtErrorNoTrace("invalid package name: "+
 				pkgName))
 		}
 		pack := project.GetProject().ResolveDependency(dep)
 		if pack == nil {
-			cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+pkgName))
+			cli.NewtUsage(cmd, util.NewtErrorNoTrace("unknown package: "+
+				pkgName))
 		}
 
 		packs = append(packs, pack.(*pkg.LocalPackage))

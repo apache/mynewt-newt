@@ -123,7 +123,8 @@ func (b *Builder) loadDeps() error {
 		}
 	}
 
-	b.logFeatures()
+	cli.StatusMessage(cli.VERBOSITY_VERBOSE, "Building with the following "+
+		"feature set: ["+b.featureString()+"]\n")
 
 	return nil
 }
