@@ -81,7 +81,7 @@ func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 }
 
 func NewCompiler(compilerDir string, dstDir string,
-	cDef string) (*Compiler, error) {
+	buildProfile string) (*Compiler, error) {
 
 	c := &Compiler{
 		ObjPathList: map[string]bool{},
@@ -91,8 +91,8 @@ func NewCompiler(compilerDir string, dstDir string,
 	c.depTracker = NewDepTracker(c)
 
 	cli.StatusMessage(cli.VERBOSITY_VERBOSE,
-		"Loading compiler %s, def %s\n", compilerDir, cDef)
-	err := c.load(compilerDir, cDef)
+		"Loading compiler %s, def %s\n", compilerDir, buildProfile)
+	err := c.load(compilerDir, buildProfile)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func NewCompiler(compilerDir string, dstDir string,
 	return c, nil
 }
 
-func (c *Compiler) load(compilerDir string, cDef string) error {
+func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	v, err := util.ReadConfig(compilerDir, "compiler")
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (c *Compiler) load(compilerDir string, cDef string) error {
 	c.osPath = v.GetString("compiler.path.objsize")
 	c.ocPath = v.GetString("compiler.path.objcopy")
 
-	cflags := v.GetStringSlice("compiler.flags." + cDef)
+	cflags := v.GetStringSlice("compiler.flags." + buildProfile)
 	for _, flag := range cflags {
 		if strings.HasPrefix(flag, "compiler.flags") {
 			c.info.Cflags = append(c.info.Cflags,
