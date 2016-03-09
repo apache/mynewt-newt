@@ -35,6 +35,9 @@ import (
 
 var NewtVersion string = "0.8.0"
 var NewtLogLevel string = ""
+var newtSilent bool
+var newtQuiet bool
+var newtVerbose bool
 
 func newtCmd() *cobra.Command {
 	newtHelpText := cli.FormatHelp(`Newt allows you to create your own embedded 
@@ -59,13 +62,29 @@ func newtCmd() *cobra.Command {
 		Example: newtHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			NewtLogLevel = strings.ToUpper(NewtLogLevel)
-			cli.Init(NewtLogLevel, false, false, false)
+
+			verbosity := cli.VERBOSITY_DEFAULT
+			if newtSilent {
+				verbosity = cli.VERBOSITY_SILENT
+			} else if newtQuiet {
+				verbosity = cli.VERBOSITY_QUIET
+			} else if newtVerbose {
+				verbosity = cli.VERBOSITY_VERBOSE
+			}
+
+			cli.Init(NewtLogLevel, verbosity)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
 	}
 
+	newtCmd.PersistentFlags().BoolVarP(&newtVerbose, "verbose", "v", false,
+		"Enable verbose output when executing commands.")
+	newtCmd.PersistentFlags().BoolVarP(&newtQuiet, "quiet", "q", false,
+		"Be quiet; only display error output.")
+	newtCmd.PersistentFlags().BoolVarP(&newtSilent, "silent", "s", false,
+		"Be silent; don't output anything.")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
 

@@ -88,7 +88,7 @@ func FormatHelp(text string) string {
 }
 
 // Initialize the CLI module
-func Init(level string, silent bool, quiet bool, verbose bool) {
+func Init(level string, verbosity int) {
 	if level == "" {
 		level = "WARN"
 	}
@@ -101,16 +101,7 @@ func Init(level string, silent bool, quiet bool, verbose bool) {
 	}
 
 	log.SetOutput(filter)
-
-	if silent {
-		Verbosity = VERBOSITY_SILENT
-	} else if quiet {
-		Verbosity = VERBOSITY_QUIET
-	} else if verbose {
-		Verbosity = VERBOSITY_VERBOSE
-	} else {
-		Verbosity = VERBOSITY_DEFAULT
-	}
+	Verbosity = verbosity
 }
 
 func CheckBoolMap(mapVar map[string]bool, item string) bool {
