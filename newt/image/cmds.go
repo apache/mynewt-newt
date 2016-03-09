@@ -37,24 +37,24 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	targetName := args[0]
 	t := target.GetTargets()[targetName]
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"))
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"+targetName))
 	}
 
 	b, err := builder.NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 		return
 	}
 
 	err = b.PrepBuild()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 		return
 	}
 
 	image, err := NewImage(b)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 		return
 	}
 
@@ -65,12 +65,12 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 
 	err = image.Generate()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 
 	err = image.CreateManifest(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "App image succesfully generated: %s\n",
 		image.targetImg)
