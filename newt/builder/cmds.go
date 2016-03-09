@@ -57,7 +57,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 
 func cleanRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, nil)
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
 	t := target.ResolveTargetName(args[0])

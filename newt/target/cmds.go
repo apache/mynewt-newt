@@ -61,7 +61,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		}
 
 		for _, t := range targetSlice {
-			targetNames = append(targetNames, t.Name())
+			targetNames = append(targetNames, t.FullName())
 		}
 	}
 
@@ -155,10 +155,10 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	for _, kv := range vars {
 		if kv[1] == "" {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"Target %s successfully unset %s\n", t.Name(), kv[0])
+				"Target %s successfully unset %s\n", t.FullName(), kv[0])
 		} else {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"Target %s successfully set %s to %s\n", t.Name(), kv[0],
+				"Target %s successfully set %s to %s\n", t.FullName(), kv[0],
 				kv[1])
 		}
 	}
@@ -175,6 +175,8 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 	if !strings.Contains(tName, "/") {
 		tName = "targets/" + tName
 	}
+
+	// XXX: Deal with repo name at start of target string.
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Creating target "+tName+"\n")
 
@@ -211,7 +213,7 @@ func targetDelOne(t *Target) error {
 		if userFiles {
 			scanner := bufio.NewScanner(os.Stdin)
 			fmt.Printf("Target directory %s contains some extra content; "+
-				"delete anyway? (y/N): ", t.basePkg.Name())
+				"delete anyway? (y/N): ", t.basePkg.BasePath())
 			rc := scanner.Scan()
 			if !rc || strings.ToLower(scanner.Text()) != "y" {
 				return nil
@@ -224,7 +226,7 @@ func targetDelOne(t *Target) error {
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Target %s successfully removed\n", t.Name())
+		"Target %s successfully removed\n", t.FullName())
 
 	return nil
 }

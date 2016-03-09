@@ -32,13 +32,10 @@ import (
 	"mynewt.apache.org/newt/yaml"
 )
 
-const TARGET_FILE_NAME string = "target.yml"
+const TARGET_FILENAME string = "target.yml"
+const TARGET_DEFAULT_DIR string = "targets"
 
 var globalTargetMap map[string]*Target
-
-var targetSearchDirs = []string{
-	"targets",
-}
 
 type Target struct {
 	basePkg *pkg.LocalPackage
@@ -76,7 +73,7 @@ func (target *Target) Init(basePkg *pkg.LocalPackage) {
 
 func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	v, err := util.ReadConfig(basePkg.BasePath(),
-		strings.TrimSuffix(TARGET_FILE_NAME, ".yml"))
+		strings.TrimSuffix(TARGET_FILENAME, ".yml"))
 	if err != nil {
 		return err
 	}
@@ -102,6 +99,10 @@ func (target *Target) Package() *pkg.LocalPackage {
 
 func (target *Target) Name() string {
 	return target.basePkg.Name()
+}
+
+func (target *Target) FullName() string {
+	return target.basePkg.FullName()
 }
 
 func (target *Target) ShortName() string {
@@ -155,7 +156,7 @@ func (t *Target) Save() error {
 	}
 
 	dirpath := t.basePkg.BasePath()
-	filepath := dirpath + "/" + TARGET_FILE_NAME
+	filepath := dirpath + "/" + TARGET_FILENAME
 	file, err := os.Create(filepath)
 	if err != nil {
 		return util.NewNewtError(err.Error())
@@ -189,7 +190,7 @@ func (t *Target) ContainsUserFiles() (bool, error) {
 	for _, node := range contents {
 		name := node.Name()
 		if name != "." && name != ".." &&
-			name != pkg.PACKAGE_FILE_NAME && name != TARGET_FILE_NAME {
+			name != pkg.PACKAGE_FILE_NAME && name != TARGET_FILENAME {
 
 			userFiles = true
 			break
@@ -220,7 +221,7 @@ func buildTargetMap() error {
 				"Warning: failed to load target \"%s\": %s\n", pack.Name,
 				nerr.Text)
 		} else {
-			globalTargetMap[pack.Name()] = target
+			globalTargetMap[pack.FullName()] = target
 		}
 	}
 
@@ -241,13 +242,28 @@ func GetTargets() map[string]*Target {
 func ResolveTargetName(name string) *Target {
 	targetMap := GetTargets()
 
-	t := targetMap[name]
-	for i := 0; t == nil && i < len(targetSearchDirs); i++ {
-		guess := targetSearchDirs[i] + "/" + name
-		t = targetMap[guess]
+	// Check for fully-qualified name.
+	if t := targetMap[name]; t != nil {
+		return t
 	}
 
-	return t
+	// Check the local "targets" directory.
+	if t := targetMap[TARGET_DEFAULT_DIR+"/"+name]; t != nil {
+		return t
+	}
+
+	// Check each repo alphabetically.
+	fullNames := []string{}
+	for fullName, _ := range targetMap {
+		fullNames = append(fullNames, fullName)
+	}
+	for _, fullName := range util.SortFields(fullNames...) {
+		if name == filepath.Base(fullName) {
+			return targetMap[fullName]
+		}
+	}
+
+	return nil
 }
 
 func ResolveTargetNames(names ...string) ([]*Target, error) {
