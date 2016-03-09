@@ -56,7 +56,7 @@ func AddCommands(cmd *cobra.Command) {
 	installHelpEx := ""
 	installCmd := &cobra.Command{
 		Use:     "install",
-		Short:   "Command to install project dependencies",
+		Short:   "Install project dependencies",
 		Long:    installHelpText,
 		Example: installHelpEx,
 		Run:     installRunCmd,
@@ -71,7 +71,7 @@ func AddCommands(cmd *cobra.Command) {
 	upgradeHelpEx := ""
 	upgradeCmd := &cobra.Command{
 		Use:     "upgrade",
-		Short:   "Command to upgrade project dependencies",
+		Short:   "Upgrade project dependencies",
 		Long:    upgradeHelpText,
 		Example: upgradeHelpEx,
 		Run:     upgradeRunCmd,
