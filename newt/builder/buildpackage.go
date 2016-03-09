@@ -228,7 +228,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 		// Determine if this package supports any APIs that we haven't seen
 		// yet.  If so, another full iteration is required.
 		apis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
-			"pkg.caps")
+			"pkg.apis")
 		for _, api := range apis {
 			newApi := b.AddApi(api, bpkg)
 			if newApi {
@@ -239,7 +239,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 		// Determine if any of package's API requirements can now be satisfied.
 		// If so, another full iteration is required.
 		reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
-			"pkg.req_caps")
+			"pkg.req_apis")
 		for _, reqApi := range reqApis {
 			reqStatus, ok := bpkg.reqApiMap[reqApi]
 			if !ok {
