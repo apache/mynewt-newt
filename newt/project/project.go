@@ -20,6 +20,7 @@
 package project
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -190,8 +191,20 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 							str += "(" + branch + ")"
 						}
 
-						fmt.Printf("Would you like to upgrade repository %s from %s to %s %s",
+						fmt.Printf("Would you like to upgrade repository %s from %s to %s %s? [Yn] ",
 							r.Name(), vers.String(), newVers.String(), str)
+
+						line, more, err := bufio.NewReader(os.Stdin).ReadLine()
+						if more || err != nil {
+							return util.NewNewtError(fmt.Sprintf(
+								"Couldn't read upgrade response: %s\n", err.Error()))
+						}
+						answer := strings.ToUpper(strings.Trim(string(line), " "))
+						if answer == "N" || answer == "NO" {
+							fmt.Printf("Users says don't upgrade, skipping upgrade of %s\n",
+								r.Name())
+							continue
+						}
 
 					}
 				} else {

@@ -125,7 +125,6 @@ func (target *Target) App() *pkg.LocalPackage {
 	appPkg := project.GetProject().ResolveDependency(dep)
 	if appPkg == nil {
 		fmt.Printf("app name = %s\n", target.AppName)
-		fmt.Println("dep is not resolved")
 		return nil
 	}
 

@@ -65,7 +65,7 @@ func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 		if vers.SatisfiesVersion(r.VersionRequirements()) {
 			log.Printf("[DEBUG] Found matching version %s for repo %s",
 				vers.String(), r.Name())
-			if vers.Stability() != "none" {
+			if vers.Stability() != VERSION_STABILITY_NONE {
 				searchVers, err := LoadVersion(branch)
 				if err != nil {
 					return "", nil, false
