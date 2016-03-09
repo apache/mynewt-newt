@@ -109,24 +109,26 @@ func (target *Target) ShortName() string {
 	return filepath.Base(target.Name())
 }
 
-func (target *Target) App() *pkg.LocalPackage {
-	dep, err := pkg.NewDependency(nil, target.AppName)
+func resolvePackageName(name string) *pkg.LocalPackage {
+	dep, err := pkg.NewDependency(nil, name)
 	if err != nil {
 		return nil
 	}
 
-	appPkg := project.GetProject().ResolveDependency(dep)
-	if appPkg == nil {
+	pack, ok := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
+	if !ok {
 		return nil
 	}
 
-	return appPkg.(*pkg.LocalPackage)
+	return pack
+}
+
+func (target *Target) App() *pkg.LocalPackage {
+	return resolvePackageName(target.AppName)
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {
-	dep, _ := pkg.NewDependency(nil, target.BspName)
-	mypkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
-	return mypkg
+	return resolvePackageName(target.BspName)
 }
 
 func (target *Target) BinBasePath() string {

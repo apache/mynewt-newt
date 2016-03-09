@@ -20,10 +20,10 @@
 package util
 
 import (
-	"mynewt.apache.org/newt/viper"
-	"github.com/hashicorp/logutils"
 	"fmt"
+	"github.com/hashicorp/logutils"
 	"log"
+	"mynewt.apache.org/newt/viper"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -64,13 +64,6 @@ func NewNewtError(msg string) *NewtError {
 	runtime.Stack(err.StackTrace, true)
 
 	return err
-}
-
-func NewtErrorNoTrace(msg string) *NewtError {
-	return &NewtError{
-		Text:       msg,
-		StackTrace: nil,
-	}
 }
 
 func Min(x, y int) int {

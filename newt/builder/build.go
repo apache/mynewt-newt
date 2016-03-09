@@ -270,13 +270,23 @@ func (b *Builder) PrepBuild() error {
 	// Collect the seed packages.
 	bspPkg := b.target.Bsp()
 	if bspPkg == nil {
-		return util.NewNewtError("bsp package not specified")
+		if b.target.BspName == "" {
+			return util.NewNewtError("BSP package not specified by target")
+		} else {
+			return util.NewNewtError("BSP package not found: " +
+				b.target.BspName)
+		}
 	}
 
 	b.Bsp = pkg.NewBspPackage(bspPkg)
 	compilerPkg := b.resolveCompiler()
 	if compilerPkg == nil {
-		return util.NewNewtError("compiler package not specified")
+		if b.Bsp.CompilerName == "" {
+			return util.NewNewtError("Compiler package not specified by BSP")
+		} else {
+			return util.NewNewtError("Compiler package not found: " +
+				b.Bsp.CompilerName)
+		}
 	}
 
 	// An app package is not required (e.g., unit tests).
@@ -362,7 +372,12 @@ func (b *Builder) PrepBuild() error {
 
 func (b *Builder) Build() error {
 	if b.target.App() == nil {
-		return util.NewNewtError("app package not specified")
+		if b.target.AppName == "" {
+			return util.NewNewtError("App package not specified by target")
+		} else {
+			return util.NewNewtError("App package not found: " +
+				b.target.AppName)
+		}
 	}
 
 	// Populate the package and feature sets and calculate the base compiler
@@ -445,7 +460,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", string(o))
 
 		// Always terminate on test failure since only one test is being run.
-		return util.NewtErrorNoTrace("Test failed: " + testFilename)
+		return util.NewNewtError("Test failed: " + testFilename)
 	}
 
 	cli.StatusMessage(cli.VERBOSITY_VERBOSE, "%s", string(o))

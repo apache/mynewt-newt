@@ -44,12 +44,15 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 	err = b.Build()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
+
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "App successfully built: %s\n",
+		b.AppElfPath())
 }
 
 func cleanRunCmd(cmd *cobra.Command, args []string) {
@@ -64,11 +67,11 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 	err = b.Clean()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 }
 
@@ -85,7 +88,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 
 	// Verify and resolve each specified package.
@@ -93,16 +96,16 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	for _, pkgName := range args {
 		dep, err := pkg.NewDependency(nil, pkgName)
 		if err != nil {
-			cli.NewtUsage(cmd, util.NewtErrorNoTrace(fmt.Sprintf("invalid "+
+			cli.NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
 				"package name: %s (%s)", pkgName, err.Error())))
 		}
 		if dep == nil {
-			cli.NewtUsage(cmd, util.NewtErrorNoTrace("invalid package name: "+
+			cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
 				pkgName))
 		}
 		pack := project.GetProject().ResolveDependency(dep)
 		if pack == nil {
-			cli.NewtUsage(cmd, util.NewtErrorNoTrace("unknown package: "+
+			cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+
 				pkgName))
 		}
 
@@ -113,7 +116,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	for _, pack := range packs {
 		err = b.Test(pack)
 		if err != nil {
-			fmt.Println(err)
+			cli.NewtUsage(cmd, err)
 		}
 	}
 }
@@ -130,12 +133,12 @@ func downloadRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 
 	err = b.Download()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 }
 
@@ -151,12 +154,12 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 
 	err = b.Debug()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 }
 
@@ -186,7 +189,7 @@ func AddCommands(cmd *cobra.Command) {
 	buildHelpEx := ""
 	buildCmd := &cobra.Command{
 		Use:     "build",
-		Short:   "Command for building target",
+		Short:   "Builds one or more apps.",
 		Long:    buildHelpText,
 		Example: buildHelpEx,
 		Run:     buildRunCmd,
@@ -198,7 +201,7 @@ func AddCommands(cmd *cobra.Command) {
 	cleanHelpEx := ""
 	cleanCmd := &cobra.Command{
 		Use:     "clean",
-		Short:   "Command for cleaning target",
+		Short:   "Deletes app build artifacts.",
 		Long:    cleanHelpText,
 		Example: cleanHelpEx,
 		Run:     cleanRunCmd,

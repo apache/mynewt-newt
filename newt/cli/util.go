@@ -61,6 +61,8 @@ func NewtUsage(cmd *cobra.Command, err error) {
 	}
 
 	if cmd != nil {
+		fmt.Printf("\n")
+		fmt.Printf("%s - ", cmd.Name())
 		cmd.Help()
 	}
 	os.Exit(1)
