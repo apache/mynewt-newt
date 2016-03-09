@@ -28,8 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
@@ -84,7 +84,7 @@ func (pkg *LocalPackage) FullName() string {
 	if r.IsLocal() {
 		return pkg.Name()
 	} else {
-		return cli.BuildPackageString(r.Name(), pkg.Name())
+		return newtutil.BuildPackageString(r.Name(), pkg.Name())
 	}
 }
 
@@ -272,8 +272,23 @@ func (pkg *LocalPackage) Load() error {
 	return nil
 }
 
-func (pkg *LocalPackage) IsTestable() bool {
-    return util.NodeExist(pkg.BasePath() + "/src/test")
+func (pkg *LocalPackage) Clone(newRepo *repo.Repo,
+	newName string) *LocalPackage {
+
+	// XXX: Validate name.
+
+	// Copy the package.
+	newPkg := *pkg
+	newPkg.repo = newRepo
+	newPkg.name = newName
+	newPkg.basePath = newRepo.Path() + "/" + newPkg.name
+
+	// Insert the clone into the global package map.
+	proj := interfaces.GetProject()
+	pMap := proj.PackageList()
+	(*pMap[newRepo.Name()])[newPkg.name] = &newPkg
+
+	return &newPkg
 }
 
 func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {

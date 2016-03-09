@@ -23,13 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/cli"
-	"mynewt.apache.org/newt/newt/image"
-	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
-	"mynewt.apache.org/newt/newt/run"
-	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 
 	"github.com/spf13/cobra"
@@ -109,12 +103,11 @@ func newtCmd() *cobra.Command {
 
 func main() {
 	cmd := newtCmd()
-	project.AddCommands(cmd)
-	pkg.AddCommands(cmd)
-	target.AddCommands(cmd)
-	builder.AddCommands(cmd)
-	image.AddCommands(cmd)
-	run.AddCommands(cmd)
+	cli.AddProjectCommands(cmd)
+	cli.AddTargetCommands(cmd)
+	cli.AddBuildCommands(cmd)
+	cli.AddImageCommands(cmd)
+	cli.AddRunCommands(cmd)
 
 	cmd.Execute()
 }

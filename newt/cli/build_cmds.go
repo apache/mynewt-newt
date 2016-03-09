@@ -17,14 +17,14 @@
  * under the License.
  */
 
-package builder
+package cli
 
 import (
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
@@ -33,23 +33,27 @@ import (
 
 const TARGET_TEST_NAME = "targets/unittest"
 
+func pkgIsTestable(pack *pkg.LocalPackage) bool {
+	return util.NodeExist(pack.BasePath() + "/src/test")
+}
+
 func buildRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, nil)
+		NewtUsage(cmd, nil)
 	}
 
-	t := target.ResolveTarget(args[0])
+	t := ResolveTarget(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("invalid target name: "+args[0]))
+		NewtUsage(cmd, util.NewNewtError("invalid target name: "+args[0]))
 	}
 
-	b, err := NewBuilder(t)
+	b, err := builder.NewBuilder(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 	err = b.Build()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "App successfully built: %s\n",
@@ -58,41 +62,41 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 
 func cleanRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
 	cleanAll := false
 	targets := []*target.Target{}
 	for _, arg := range args {
-		if arg == target.TARGET_KEYWORD_ALL {
+		if arg == TARGET_KEYWORD_ALL {
 			cleanAll = true
 		} else {
-			t := target.ResolveTarget(arg)
+			t := ResolveTarget(arg)
 			if t == nil {
-				cli.NewtUsage(cmd, util.NewNewtError("invalid target name: "+arg))
+				NewtUsage(cmd, util.NewNewtError("invalid target name"+arg))
 			}
 			targets = append(targets, t)
 		}
 	}
 
 	if cleanAll {
-		path := BinRoot()
+		path := builder.BinRoot()
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
 			"Cleaning directory %s\n", path)
 
 		err := os.RemoveAll(path)
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 	} else {
 		for _, t := range targets {
-			b, err := NewBuilder(t)
+			b, err := builder.NewBuilder(t)
 			if err != nil {
-				cli.NewtUsage(cmd, err)
+				NewtUsage(cmd, err)
 			}
 			err = b.Clean()
 			if err != nil {
-				cli.NewtUsage(cmd, err)
+				NewtUsage(cmd, err)
 			}
 		}
 	}
@@ -100,7 +104,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 
 func testRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, nil)
+		NewtUsage(cmd, nil)
 	}
 
 	// Verify and resolve each specified package.
@@ -112,16 +116,16 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		} else {
 			dep, err := pkg.NewDependency(nil, pkgName)
 			if err != nil {
-				cli.NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
+				NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
 					"package name: %s (%s)", pkgName, err.Error())))
 			}
 			if dep == nil {
-				cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
+				NewtUsage(cmd, util.NewNewtError("invalid package name: "+
 					pkgName))
 			}
 			pack := project.GetProject().ResolveDependency(dep)
 			if pack == nil {
-				cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+
+				NewtUsage(cmd, util.NewNewtError("unknown package: "+
 					pkgName))
 			}
 
@@ -130,9 +134,9 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Test each specified package.
-	t := target.ResolveTarget(TARGET_TEST_NAME)
+	t := ResolveTarget(TARGET_TEST_NAME)
 	if t == nil {
-		cli.NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
+		NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
 			TARGET_TEST_NAME))
 	}
 
@@ -141,7 +145,8 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		for _, repoHash := range project.GetProject().PackageList() {
 			for _, pack := range *repoHash {
 				lclPack := pack.(*pkg.LocalPackage)
-				if lclPack.IsTestable() {
+
+				if pkgIsTestable(lclPack) {
 					packs = append(packs, lclPack)
 				}
 			}
@@ -149,82 +154,82 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	for _, pack := range packs {
-		b, err := NewBuilder(t)
+		b, err := builder.NewBuilder(t)
 		if err != nil {
-			cli.NewtUsage(nil, err)
+			NewtUsage(nil, err)
 		}
 
 		err = b.Test(pack)
 		if err != nil {
-			cli.NewtUsage(nil, err)
+			NewtUsage(nil, err)
 		}
 	}
 }
 
 func downloadRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	t := target.ResolveTarget(args[0])
+	t := ResolveTarget(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
 	}
 
-	b, err := NewBuilder(t)
+	b, err := builder.NewBuilder(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	err = b.Download()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 }
 
 func debugRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	t := target.ResolveTarget(args[0])
+	t := ResolveTarget(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
 	}
 
-	b, err := NewBuilder(t)
+	b, err := builder.NewBuilder(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	err = b.Debug()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 }
 
 func sizeRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	t := target.ResolveTarget(args[0])
+	t := ResolveTarget(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
 	}
 
-	b, err := NewBuilder(t)
+	b, err := builder.NewBuilder(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	err = b.Size()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 }
 
-func AddCommands(cmd *cobra.Command) {
+func AddBuildCommands(cmd *cobra.Command) {
 	buildHelpText := ""
 	buildHelpEx := ""
 	buildCmd := &cobra.Command{

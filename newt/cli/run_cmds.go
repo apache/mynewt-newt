@@ -17,76 +17,74 @@
  * under the License.
  */
 
-package run
+package cli
 
 import (
 	"os"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/image"
-	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
 
 func runRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	t := target.ResolveTarget(args[0])
+	t := ResolveTarget(args[0])
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
 	}
 
 	b, err := builder.NewBuilder(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	err = b.Build()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	/*
 	 * Run create-image if version number is specified. If no version number,
-	 * remove .img which would'be been created. This so that download script will
-	 * barf if it needs an image for this type of target, instead of downloading
-	 * an older version.
+	 * remove .img which would'be been created. This so that download script
+	 * will barf if it needs an image for this type of target, instead of
+	 * downloading an older version.
 	 */
 	if len(args) > 1 {
 		image, err := image.NewImage(b)
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 		err = image.SetVersion(args[1])
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 		err = image.Generate()
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 		err = image.CreateManifest(t)
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 	} else {
 		os.Remove(b.AppImgPath())
 	}
 	err = b.Download()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 	err = b.Debug()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 }
 
-func AddCommands(cmd *cobra.Command) {
+func AddRunCommands(cmd *cobra.Command) {
 	runHelpText := "Same as running\n" +
 		" - build <target>\n" +
 		" - create-image <target> <version>\n" +

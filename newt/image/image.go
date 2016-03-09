@@ -108,7 +108,7 @@ type ImageManifest struct {
 }
 
 type ImageManifestPkg struct {
-	Name    string `json:"name"`
+	Name string `json:"name"`
 }
 
 func NewImage(b *builder.Builder) (*Image, error) {
@@ -120,6 +120,14 @@ func NewImage(b *builder.Builder) (*Image, error) {
 	image.targetImg = b.AppImgPath()
 	image.manifestFile = b.AppPath() + "manifest.json"
 	return image, nil
+}
+
+func (image *Image) TargetImg() string {
+	return image.targetImg
+}
+
+func (image *Image) ManifestFile() string {
+	return image.manifestFile
 }
 
 func (image *Image) SetVersion(versStr string) error {
@@ -290,7 +298,7 @@ func (image *Image) CreateManifest(t *target.Target) error {
 
 	for _, builtPkg := range image.builder.Packages {
 		imgPkg := &ImageManifestPkg{
-			Name:    builtPkg.Name(),
+			Name: builtPkg.Name(),
 		}
 		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
 	}

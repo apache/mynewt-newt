@@ -60,6 +60,7 @@ type ProjectInterface interface {
 	Name() string
 	Path() string
 	ResolveDependency(dep DependencyInterface) PackageInterface
+	PackageList() PackageList
 }
 
 var globalProject ProjectInterface

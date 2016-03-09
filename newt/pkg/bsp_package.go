@@ -20,7 +20,7 @@
 package pkg
 
 import (
-	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/newtutil"
 )
 
 type BspPackage struct {
@@ -32,14 +32,14 @@ type BspPackage struct {
 }
 
 func (bsp *BspPackage) Reload(features map[string]bool) {
-	bsp.CompilerName = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
-		"pkg.compiler")
-	bsp.LinkerScript = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
-		"pkg.linkerscript")
-	bsp.DownloadScript = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
-		"pkg.downloadscript")
-	bsp.DebugScript = cli.GetStringFeatures(bsp.LocalPackage.Viper, features,
-		"pkg.debugscript")
+	bsp.CompilerName = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+		features, "pkg.compiler")
+	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+		features, "pkg.linkerscript")
+	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+		features, "pkg.downloadscript")
+	bsp.DebugScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+		features, "pkg.debugscript")
 }
 
 func NewBspPackage(lpkg *LocalPackage) *BspPackage {

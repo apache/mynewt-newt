@@ -23,17 +23,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
+const TARGET_KEYWORD_ALL string = "all"
+const TARGET_DEFAULT_DIR string = "targets"
+
 var Logger *log.Logger
-var Force bool
 var OK_STRING = " ok!\n"
 
 func NewtUsage(cmd *cobra.Command, err error) {
@@ -70,78 +73,73 @@ func FormatHelp(text string) string {
 	return fmtText
 }
 
-func GetStringFeatures(v *viper.Viper, features map[string]bool,
-	key string) string {
-	val := v.GetString(key)
+func ResolveTarget(name string) *target.Target {
+	targetMap := target.GetTargets()
 
-	// Process the features in alphabetical order to ensure consistent
-	// results across repeated runs.
-	var featureKeys []string
-	for feature, _ := range features {
-		featureKeys = append(featureKeys, feature)
+	// Check for fully-qualified name.
+	if t := targetMap[name]; t != nil {
+		return t
 	}
-	sort.Strings(featureKeys)
 
-	for _, feature := range featureKeys {
-		overwriteVal := v.GetString(key + "." + feature + ".OVERWRITE")
-		if overwriteVal != "" {
-			val = strings.Trim(overwriteVal, "\n")
-			break
-		}
+	// Check the local "targets" directory.
+	if t := targetMap[TARGET_DEFAULT_DIR+"/"+name]; t != nil {
+		return t
+	}
 
-		appendVal := v.GetString(key + "." + feature)
-		if appendVal != "" {
-			val += " " + strings.Trim(appendVal, "\n")
+	// Check each repo alphabetically.
+	fullNames := []string{}
+	for fullName, _ := range targetMap {
+		fullNames = append(fullNames, fullName)
+	}
+	for _, fullName := range util.SortFields(fullNames...) {
+		if name == filepath.Base(fullName) {
+			return targetMap[fullName]
 		}
 	}
-	return strings.TrimSpace(val)
+
+	return nil
 }
 
-func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
-	key string) []string {
+func ResolveTargetNames(names ...string) ([]*target.Target, error) {
+	targets := []*target.Target{}
 
-	val := v.GetStringSlice(key)
-
-	// string empty items
-	result := []string{}
-	for _, item := range val {
-		if item == "" || item == " " {
-			continue
+	for _, name := range names {
+		t := ResolveTarget(name)
+		if t == nil {
+			return nil, util.NewNewtError("Could not resolve target name: " +
+				name)
 		}
-		result = append(result, item)
+
+		targets = append(targets, t)
 	}
 
-	for item, _ := range features {
-		result = append(result, v.GetStringSlice(key+"."+item)...)
-	}
-
-	return result
+	return targets, nil
 }
 
-// Parses a string of the following form:
-//     [@repo]<path/to/package>
-//
-// @return string               repo name ("" if no repo)
-//         string               package name
-//         error                if invalid package string
-func ParsePackageString(pkgStr string) (string, string, error) {
-	if strings.HasPrefix(pkgStr, "@") {
-		nameParts := strings.SplitN(pkgStr[1:], "/", 2)
-		if len(nameParts) == 1 {
-			return "", "", util.NewNewtError(fmt.Sprintf("Invalid package "+
-				"string; contains repo but no package name: %s", pkgStr))
-		} else {
-			return nameParts[0], nameParts[1], nil
-		}
-	} else {
-		return "", pkgStr, nil
+func ResolveNewTargetName(name string) (string, error) {
+	repoName, pkgName, err := newtutil.ParsePackageString(name)
+	if err != nil {
+		return "", err
 	}
-}
 
-func BuildPackageString(repoName string, pkgName string) string {
 	if repoName != "" {
-		return "@" + repoName + "/" + pkgName
-	} else {
-		return pkgName
+		return "", util.NewNewtError("Target name cannot contain repo; " +
+			"must be local")
 	}
+
+	if pkgName == TARGET_KEYWORD_ALL {
+		return "", util.NewNewtError("Target name " + TARGET_KEYWORD_ALL +
+			" is reserved")
+	}
+
+	// "Naked" target names translate to "targets/<name>".
+	if !strings.Contains(pkgName, "/") {
+		pkgName = TARGET_DEFAULT_DIR + "/" + pkgName
+	}
+
+	if target.GetTargets()[pkgName] != nil {
+		return "", util.NewNewtError("Target already exists: " + pkgName)
+	}
+
+	return pkgName, nil
 }

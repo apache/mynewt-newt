@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/toolchain"
@@ -132,11 +132,11 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	ci.Cflags = cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.cflags")
-	ci.Lflags = cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.lflags")
-	ci.Aflags = cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.aflags")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
@@ -154,7 +154,7 @@ func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
 
 	foundNewFeature := false
 
-	newFeatures := cli.GetStringSliceFeatures(bpkg.Viper, features,
+	newFeatures := newtutil.GetStringSliceFeatures(bpkg.Viper, features,
 		"pkg.features")
 	for _, nfeature := range newFeatures {
 		_, ok := features[nfeature]
@@ -197,7 +197,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 
 	changed := false
 
-	newDeps := cli.GetStringSliceFeatures(bpkg.Viper, features, "pkg.deps")
+	newDeps := newtutil.GetStringSliceFeatures(bpkg.Viper, features, "pkg.deps")
 	for _, newDepStr := range newDeps {
 		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
 		if err != nil {
@@ -227,7 +227,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 
 		// Determine if this package supports any APIs that we haven't seen
 		// yet.  If so, another full iteration is required.
-		apis := cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+		apis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 			"pkg.caps")
 		for _, api := range apis {
 			newApi := b.AddApi(api, bpkg)
@@ -238,7 +238,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 
 		// Determine if any of package's API requirements can now be satisfied.
 		// If so, another full iteration is required.
-		reqApis := cli.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+		reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 			"pkg.req_caps")
 		for _, reqApi := range reqApis {
 			reqStatus, ok := bpkg.reqApiMap[reqApi]

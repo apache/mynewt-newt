@@ -20,8 +20,8 @@
 package pkg
 
 import (
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
 )
 
@@ -31,7 +31,7 @@ type Dependency struct {
 }
 
 func (dep *Dependency) String() string {
-	return cli.BuildPackageString(dep.Repo, dep.Name)
+	return newtutil.BuildPackageString(dep.Repo, dep.Name)
 }
 
 func (dep *Dependency) SatisfiesDependency(pkg interfaces.PackageInterface) bool {
@@ -50,7 +50,7 @@ func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str s
 	// First part is always repo/dependency name combination.
 	// If repo is present, string will always begin with a @ sign
 	// representing the repo name, followed by 'n' slashes.
-	repoName, pkgName, err := cli.ParsePackageString(str)
+	repoName, pkgName, err := newtutil.ParsePackageString(str)
 	if err != nil {
 		return err
 	}

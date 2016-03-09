@@ -20,22 +20,19 @@
 package target
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/yaml"
 )
 
 const TARGET_FILENAME string = "target.yml"
-const TARGET_DEFAULT_DIR string = "targets"
-const TARGET_KEYWORD_ALL string = "all"
 
 var globalTargetMap map[string]*Target
 
@@ -111,6 +108,17 @@ func (target *Target) ShortName() string {
 	return filepath.Base(target.Name())
 }
 
+func (target *Target) Clone(newRepo *repo.Repo, newName string) *Target {
+	// Clone the target.
+	newTarget := *target
+	newTarget.basePkg = target.basePkg.Clone(newRepo, newName)
+
+	// Insert the clone into the global target map.
+	GetTargets()[newTarget.FullName()] = &newTarget
+
+	return &newTarget
+}
+
 func resolvePackageName(name string) *pkg.LocalPackage {
 	dep, err := pkg.NewDependency(nil, name)
 	if err != nil {
@@ -139,7 +147,7 @@ func (target *Target) BinBasePath() string {
 		return ""
 	}
 
-	return appPkg.BasePath() + "/bin/" + target.Package().Name() + "/" +
+	return appPkg.BasePath() + "/bin/" + target.Name() + "/" +
 		appPkg.Name()
 }
 
@@ -165,7 +173,7 @@ func (t *Target) Save() error {
 	}
 	defer file.Close()
 
-	file.WriteString("### Target: " + t.basePkg.Name() + "\n")
+	file.WriteString("### Target: " + t.Name() + "\n")
 
 	keys := []string{}
 	for k, _ := range t.Vars {
@@ -175,36 +183,6 @@ func (t *Target) Save() error {
 
 	for _, k := range keys {
 		file.WriteString(k + ": " + yaml.EscapeString(t.Vars[k]) + "\n")
-	}
-
-	return nil
-}
-
-// Tells you if the target's directory contains extra user files (i.e., files
-// other than pkg.yml).
-func (t *Target) ContainsUserFiles() (bool, error) {
-	contents, err := ioutil.ReadDir(t.basePkg.BasePath())
-	if err != nil {
-		return false, err
-	}
-
-	userFiles := false
-	for _, node := range contents {
-		name := node.Name()
-		if name != "." && name != ".." &&
-			name != pkg.PACKAGE_FILE_NAME && name != TARGET_FILENAME {
-
-			userFiles = true
-			break
-		}
-	}
-
-	return userFiles, nil
-}
-
-func (t *Target) Delete() error {
-	if err := os.RemoveAll(t.basePkg.BasePath()); err != nil {
-		return util.NewNewtError(err.Error())
 	}
 
 	return nil
@@ -239,75 +217,4 @@ func GetTargets() map[string]*Target {
 	}
 
 	return globalTargetMap
-}
-
-func ResolveTarget(name string) *Target {
-	targetMap := GetTargets()
-
-	// Check for fully-qualified name.
-	if t := targetMap[name]; t != nil {
-		return t
-	}
-
-	// Check the local "targets" directory.
-	if t := targetMap[TARGET_DEFAULT_DIR+"/"+name]; t != nil {
-		return t
-	}
-
-	// Check each repo alphabetically.
-	fullNames := []string{}
-	for fullName, _ := range targetMap {
-		fullNames = append(fullNames, fullName)
-	}
-	for _, fullName := range util.SortFields(fullNames...) {
-		if name == filepath.Base(fullName) {
-			return targetMap[fullName]
-		}
-	}
-
-	return nil
-}
-
-func ResolveTargetNames(names ...string) ([]*Target, error) {
-	targets := []*Target{}
-
-	for _, name := range names {
-		t := ResolveTarget(name)
-		if t == nil {
-			return nil, util.NewNewtError("Could not resolve target name: " +
-				name)
-		}
-
-		targets = append(targets, t)
-	}
-
-	return targets, nil
-}
-
-func ResolveNewTargetName(name string) (string, error) {
-	repoName, pkgName, err := cli.ParsePackageString(name)
-	if err != nil {
-		return "", err
-	}
-
-	if repoName != "" {
-		return "", util.NewNewtError("Target name cannot contain repo; " +
-			"must be local")
-	}
-
-    if pkgName == TARGET_KEYWORD_ALL {
-        return "", util.NewNewtError("Target name " + TARGET_KEYWORD_ALL +
-            " is reserved")
-    }
-
-	// "Naked" target names translate to "targets/<name>".
-	if !strings.Contains(pkgName, "/") {
-		pkgName = TARGET_DEFAULT_DIR + "/" + pkgName
-	}
-
-	if GetTargets()[pkgName] != nil {
-		return "", util.NewNewtError("Target already exists: " + pkgName)
-	}
-
-    return pkgName, nil
 }

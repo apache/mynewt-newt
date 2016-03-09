@@ -270,6 +270,7 @@ func (b *Builder) PrepBuild() error {
 		// Already prepped
 		return nil
 	}
+
 	// Collect the seed packages.
 	bspPkg := b.target.Bsp()
 	if bspPkg == nil {
@@ -295,8 +296,7 @@ func (b *Builder) PrepBuild() error {
 	// An app package is not required (e.g., unit tests).
 	appPkg := b.target.App()
 
-	// Seed the builder with the app (if present), bsp, compiler, and target
-	// packages.
+	// Seed the builder with the app (if present), bsp, and target packages.
 
 	var appBpkg *BuildPackage
 	if appPkg != nil {
@@ -311,10 +311,10 @@ func (b *Builder) PrepBuild() error {
 		bspBpkg = b.AddPackage(bspPkg)
 	}
 
-	compilerBpkg := b.Packages[compilerPkg]
-	if compilerBpkg == nil {
-		compilerBpkg = b.AddPackage(compilerPkg)
-	}
+	//compilerBpkg := b.Packages[compilerPkg]
+	//if compilerBpkg == nil {
+	//compilerBpkg = b.AddPackage(compilerPkg)
+	//}
 
 	targetBpkg := b.AddPackage(b.target.Package())
 

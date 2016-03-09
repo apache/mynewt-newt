@@ -17,41 +17,41 @@
  * under the License.
  */
 
-package project
+package cli
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/project"
 )
 
-var Force bool = false
+var projectForce bool = false
 
 func installRunCmd(cmd *cobra.Command, args []string) {
-	proj := GetProject()
+	proj := project.GetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Install(false, Force); err != nil {
-		cli.NewtUsage(cmd, err)
+	if err := proj.Install(false, projectForce); err != nil {
+		NewtUsage(cmd, err)
 	}
 
 	fmt.Println("Repos successfully installed")
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
-	proj := GetProject()
+	proj := project.GetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Upgrade(Force); err != nil {
-		cli.NewtUsage(cmd, err)
+	if err := proj.Upgrade(projectForce); err != nil {
+		NewtUsage(cmd, err)
 	}
 
 	fmt.Println("Repos successfully upgrade")
 }
 
-func AddCommands(cmd *cobra.Command) {
+func AddProjectCommands(cmd *cobra.Command) {
 	installHelpText := ""
 	installHelpEx := ""
 	installCmd := &cobra.Command{
@@ -61,7 +61,7 @@ func AddCommands(cmd *cobra.Command) {
 		Example: installHelpEx,
 		Run:     installRunCmd,
 	}
-	installCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false,
+	installCmd.PersistentFlags().BoolVarP(&projectForce, "force", "f", false,
 		"Force install of the repositories in project, regardless of what "+
 			"exists in repos directory")
 
@@ -76,7 +76,7 @@ func AddCommands(cmd *cobra.Command) {
 		Example: upgradeHelpEx,
 		Run:     upgradeRunCmd,
 	}
-	upgradeCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false,
+	upgradeCmd.PersistentFlags().BoolVarP(&projectForce, "force", "f", false,
 		"Force upgrade of the repositories to latest state in project.yml")
 
 	cmd.AddCommand(upgradeCmd)

@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	. "mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
@@ -54,7 +54,7 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 				if strings.HasPrefix(value, repo.REPOS_DIR+"/") {
 					parts := strings.SplitN(value, "/", 2)
 					if len(parts) > 1 {
-						value = cli.BuildPackageString(parts[0], parts[1])
+						value = newtutil.BuildPackageString(parts[0], parts[1])
 					}
 				}
 				valueSlice = append(valueSlice, value)

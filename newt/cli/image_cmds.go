@@ -17,66 +17,65 @@
  * under the License.
  */
 
-package image
+package cli
 
 import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/cli"
-	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/util"
 )
 
 func createImageRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
+		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
 	}
 
 	targetName := args[0]
-	t := target.ResolveTarget(targetName)
+	t := ResolveTarget(targetName)
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name: "+targetName))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+targetName))
 	}
 
 	b, err := builder.NewBuilder(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 		return
 	}
 
 	err = b.PrepBuild()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 		return
 	}
 
-	image, err := NewImage(b)
+	image, err := image.NewImage(b)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 		return
 	}
 
 	err = image.SetVersion(args[1])
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	err = image.Generate()
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	err = image.CreateManifest(t)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "App image succesfully generated: %s\n",
-		image.targetImg)
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"App image succesfully generated: %s\n", image.TargetImg())
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Build manifest: %s\n",
-		image.manifestFile)
+		image.ManifestFile())
 }
 
-func AddCommands(cmd *cobra.Command) {
+func AddImageCommands(cmd *cobra.Command) {
 	createImageHelpText := "Create image by adding image header to created " +
 		"binary file for <target-name>. Version number in the header is set " +
 		"to be <version>."

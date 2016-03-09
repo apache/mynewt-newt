@@ -17,23 +17,26 @@
  * under the License.
  */
 
-package target
+package cli
 
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
 
-func resolveExistingTargetArg(arg string) (*Target, error) {
+var targetForce bool = false
+
+func resolveExistingTargetArg(arg string) (*target.Target, error) {
 	t := ResolveTarget(arg)
 	if t == nil {
 		return nil, util.NewNewtError("Unknown target: " + arg)
@@ -42,22 +45,38 @@ func resolveExistingTargetArg(arg string) (*Target, error) {
 	return t, nil
 }
 
-func targetShowCmd(cmd *cobra.Command, args []string) {
-	proj := project.GetProject()
-	err := proj.LoadPackageList()
+// Tells you if a target's directory contains extra user files (i.e., files
+// other than pkg.yml).
+func targetContainsUserFiles(t *target.Target) (bool, error) {
+	contents, err := ioutil.ReadDir(t.Package().BasePath())
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		return false, err
 	}
 
+	userFiles := false
+	for _, node := range contents {
+		name := node.Name()
+		if name != "." && name != ".." &&
+			name != pkg.PACKAGE_FILE_NAME && name != target.TARGET_FILENAME {
+
+			userFiles = true
+			break
+		}
+	}
+
+	return userFiles, nil
+}
+
+func targetShowCmd(cmd *cobra.Command, args []string) {
 	targetNames := []string{}
 	if len(args) == 0 {
-		for name, _ := range GetTargets() {
+		for name, _ := range target.GetTargets() {
 			targetNames = append(targetNames, name)
 		}
 	} else {
 		targetSlice, err := ResolveTargetNames(args...)
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 
 		for _, t := range targetSlice {
@@ -70,7 +89,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	for _, name := range targetNames {
 		util.StatusMessage(util.VERBOSITY_QUIET, name+"\n")
 
-		target := GetTargets()[name]
+		target := target.GetTargets()[name]
 		keys := []string{}
 		for k, _ := range target.Vars {
 			keys = append(keys, k)
@@ -90,7 +109,7 @@ func showValidSettings(varName string) error {
 
 	fmt.Printf("Valid values for target variable \"%s\":\n", varName)
 
-	values, err = VarValues(varName)
+	values, err = target.VarValues(varName)
 	if err != nil {
 		return err
 	}
@@ -104,7 +123,7 @@ func showValidSettings(varName string) error {
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
-		cli.NewtUsage(cmd,
+		NewtUsage(cmd,
 			util.NewNewtError("Must specify at least two arguments "+
 				"(target-name & k=v) to set"))
 	}
@@ -112,7 +131,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	// Parse target name.
 	t, err := resolveExistingTargetArg(args[0])
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	// Parse series of k=v pairs.  If an argument doesn't contain a '='
@@ -129,7 +148,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 			// values for the specified variable.
 			err := showValidSettings(kv[0])
 			if err != nil {
-				cli.NewtUsage(cmd, err)
+				NewtUsage(cmd, err)
 			}
 			return
 		}
@@ -149,7 +168,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if err := t.Save(); err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	for _, kv := range vars {
@@ -166,12 +185,12 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 func targetCreateCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Missing target name"))
+		NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
 	pkgName, err := ResolveNewTargetName(args[0])
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	repo := project.GetProject().LocalRepo()
@@ -179,21 +198,21 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 	pack.SetName(pkgName)
 	pack.SetType(pkg.PACKAGE_TYPE_TARGET)
 
-	t := NewTarget(pack)
+	t := target.NewTarget(pack)
 	err = t.Save()
 	if err != nil {
-		cli.NewtUsage(nil, err)
+		NewtUsage(nil, err)
 	} else {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Target %s successfully created\n", pkgName)
 	}
 }
 
-func targetDelOne(t *Target) error {
-	if !cli.Force {
+func targetDelOne(t *target.Target) error {
+	if !targetForce {
 		// Determine if the target directory contains extra user files.  If it
 		// does, a prompt (or force) is required to delete it.
-		userFiles, err := t.ContainsUserFiles()
+		userFiles, err := targetContainsUserFiles(t)
 		if err != nil {
 			return err
 		}
@@ -201,7 +220,7 @@ func targetDelOne(t *Target) error {
 		if userFiles {
 			scanner := bufio.NewScanner(os.Stdin)
 			fmt.Printf("Target directory %s contains some extra content; "+
-				"delete anyway? (y/N): ", t.basePkg.BasePath())
+				"delete anyway? (y/N): ", t.Package().BasePath())
 			rc := scanner.Scan()
 			if !rc || strings.ToLower(scanner.Text()) != "y" {
 				return nil
@@ -209,8 +228,8 @@ func targetDelOne(t *Target) error {
 		}
 	}
 
-	if err := t.Delete(); err != nil {
-		return err
+	if err := os.RemoveAll(t.Package().BasePath()); err != nil {
+		return util.NewNewtError(err.Error())
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -221,53 +240,46 @@ func targetDelOne(t *Target) error {
 
 func targetDelCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify at least one "+
+		NewtUsage(cmd, util.NewNewtError("Must specify at least one "+
 			"target to delete"))
 	}
 
 	targets, err := ResolveTargetNames(args...)
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	for _, t := range targets {
 		if err := targetDelOne(t); err != nil {
-			cli.NewtUsage(cmd, err)
+			NewtUsage(cmd, err)
 		}
 	}
 }
 
 func targetCopyCmd(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		cli.NewtUsage(cmd, util.NewNewtError("Must specify exactly one "+
+		NewtUsage(cmd, util.NewNewtError("Must specify exactly one "+
 			"source target and one destination target"))
 	}
 
 	srcTarget, err := resolveExistingTargetArg(args[0])
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	dstName, err := ResolveNewTargetName(args[1])
 	if err != nil {
-		cli.NewtUsage(cmd, err)
+		NewtUsage(cmd, err)
 	}
 
 	// Copy the source target's base package and adjust the fields which need
 	// to change.
-	dstBasePkg := *srcTarget.basePkg
-	dstBasePkg.SetRepo(project.GetProject().LocalRepo())
-	dstBasePkg.SetName(dstName)
-	dstBasePkg.SetBasePath(dstName)
-
-	// Copy the source target.
-	dstTarget := *srcTarget
-	dstTarget.basePkg = &dstBasePkg
+	dstTarget := srcTarget.Clone(project.GetProject().LocalRepo(), dstName)
 
 	// Save the new target.
 	err = dstTarget.Save()
 	if err != nil {
-		cli.NewtUsage(nil, err)
+		NewtUsage(nil, err)
 	} else {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Target successfully copied; %s --> %s\n",
@@ -275,7 +287,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func AddCommands(cmd *cobra.Command) {
+func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpText := ""
 	targetHelpEx := ""
 	targetCmd := &cobra.Command{
@@ -347,6 +359,8 @@ func AddCommands(cmd *cobra.Command) {
 		Example: delHelpEx,
 		Run:     targetDelCmd,
 	}
+	delCmd.PersistentFlags().BoolVarP(&targetForce, "force", "f", false,
+		"Force delete of targets with user files without prompt")
 
 	targetCmd.AddCommand(delCmd)
 

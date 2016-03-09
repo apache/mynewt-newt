@@ -84,7 +84,9 @@ func InitProject(dir string) error {
 	if err != nil {
 		return err
 	}
-	globalProject.LoadPackageList()
+	if err := globalProject.loadPackageList(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -403,7 +405,7 @@ func findProjectDir(dir string) (string, error) {
 	return dir, nil
 }
 
-func (proj *Project) LoadPackageList() error {
+func (proj *Project) loadPackageList() error {
 	proj.packages = interfaces.PackageList{}
 
 	// Go through a list of repositories, starting with local, and search for
@@ -411,7 +413,8 @@ func (proj *Project) LoadPackageList() error {
 	repos := proj.Repos()
 	for name, repo := range repos {
 		log.Printf("[VERBOSE] Loading packages in repository %s", repo.Path())
-		list, err := pkg.ReadLocalPackages(repo, repo.Path(), proj.PackageSearchDirs())
+		list, err := pkg.ReadLocalPackages(repo, repo.Path(),
+			proj.PackageSearchDirs())
 		if err != nil {
 			return err
 		}
