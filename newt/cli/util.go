@@ -117,3 +117,31 @@ func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
 
 	return result
 }
+
+// Parses a string of the following form:
+//     [@repo]<path/to/package>
+//
+// @return string               repo name ("" if no repo)
+//         string               package name
+//         error                if invalid package string
+func ParsePackageString(pkgStr string) (string, string, error) {
+	if strings.HasPrefix(pkgStr, "@") {
+		nameParts := strings.SplitN(pkgStr[1:], "/", 2)
+		if len(nameParts) == 1 {
+			return "", "", util.NewNewtError(fmt.Sprintf("Invalid package "+
+				"string; contains repo but no package name: %s", pkgStr))
+		} else {
+			return nameParts[0], nameParts[1], nil
+		}
+	} else {
+		return "", pkgStr, nil
+	}
+}
+
+func BuildPackageString(repoName string, pkgName string) string {
+	if repoName != "" {
+		return "@" + repoName + "/" + pkgName
+	} else {
+		return pkgName
+	}
+}

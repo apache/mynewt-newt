@@ -28,11 +28,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mynewt.apache.org/newt/viper"
-
+	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 	"mynewt.apache.org/newt/yaml"
 )
 
@@ -84,7 +84,7 @@ func (pkg *LocalPackage) FullName() string {
 	if r.IsLocal() {
 		return pkg.Name()
 	} else {
-		return "@" + r.Name() + "/" + pkg.Name()
+		return cli.BuildPackageString(r.Name(), pkg.Name())
 	}
 }
 

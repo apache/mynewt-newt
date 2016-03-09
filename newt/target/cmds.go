@@ -33,7 +33,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func parseTargetName(arg string) (*Target, error) {
+func resolveTargetArg(arg string) (*Target, error) {
 	t := ResolveTargetName(arg)
 	if t == nil {
 		return nil, util.NewNewtError("Unknown target: " + arg)
@@ -110,7 +110,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Parse target name.
-	t, err := parseTargetName(args[0])
+	t, err := resolveTargetArg(args[0])
 	if err != nil {
 		cli.NewtUsage(cmd, err)
 	}
@@ -169,35 +169,41 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	tName := args[0]
-
-	// "Naked" target names go in the "targets/" directory.
-	if !strings.Contains(tName, "/") {
-		tName = "targets/" + tName
+	repoName, pkgName, err := cli.ParsePackageString(args[0])
+	if err != nil {
+		cli.NewtUsage(cmd, err)
 	}
 
-	// XXX: Deal with repo name at start of target string.
+	if repoName != "" {
+		cli.NewtUsage(cmd, util.NewNewtError("Target name cannot contain "+
+			"repo; must be local"))
+	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Creating target "+tName+"\n")
+	// "Naked" target names go in the "targets/" directory.
+	if !strings.Contains(pkgName, "/") {
+		pkgName = "targets/" + pkgName
+	}
 
-	t := ResolveTargetName(tName)
-	if t != nil {
-		cli.NewtUsage(cmd, util.NewNewtError(
-			"Target already exists; cannot create target with same name."))
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Creating target "+
+		pkgName+"\n")
+
+	if GetTargets()[pkgName] != nil {
+		cli.NewtUsage(cmd, util.NewNewtError("Target already exists: "+
+			pkgName))
 	}
 
 	repo := project.GetProject().LocalRepo()
-	pack := pkg.NewLocalPackage(repo, repo.Path()+"/"+tName)
-	pack.SetName(tName)
+	pack := pkg.NewLocalPackage(repo, repo.Path()+"/"+pkgName)
+	pack.SetName(pkgName)
 	pack.SetType(pkg.PACKAGE_TYPE_TARGET)
 
-	t = NewTarget(pack)
-	err := t.Save()
+	t := NewTarget(pack)
+	err = t.Save()
 	if err != nil {
 		cli.NewtUsage(nil, err)
 	} else {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Target %s successfully created!\n", tName)
+			"Target %s successfully created!\n", pkgName)
 	}
 }
 
@@ -226,7 +232,7 @@ func targetDelOne(t *Target) error {
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Target %s successfully removed\n", t.FullName())
+		"Target %s successfully deleted.\n", t.FullName())
 
 	return nil
 }

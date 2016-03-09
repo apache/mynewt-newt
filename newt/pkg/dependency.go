@@ -20,12 +20,9 @@
 package pkg
 
 import (
-	"fmt"
-	"strings"
-
+	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
-	"mynewt.apache.org/newt/util"
 )
 
 type Dependency struct {
@@ -34,8 +31,7 @@ type Dependency struct {
 }
 
 func (dep *Dependency) String() string {
-	str := fmt.Sprintf("@%s/%s", dep.Repo, dep.Name)
-	return str
+	return cli.BuildPackageString(dep.Repo, dep.Name)
 }
 
 func (dep *Dependency) SatisfiesDependency(pkg interfaces.PackageInterface) bool {
@@ -52,17 +48,16 @@ func (dep *Dependency) SatisfiesDependency(pkg interfaces.PackageInterface) bool
 
 func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str string) error {
 	// First part is always repo/dependency name combination.
-	// If repo is present, string will always begin with a $ sign
+	// If repo is present, string will always begin with a @ sign
 	// representing the repo name, followed by 'n' slashes.
-	if strings.HasPrefix(str, "@") {
-		nameParts := strings.SplitN(str[1:], "/", 2)
-		if len(nameParts) == 1 {
-			return util.NewNewtError(fmt.Sprintf(
-				"Must specify both repo and package name, no package detected: %s",
-				str))
-		}
-		dep.Repo = nameParts[0]
-		dep.Name = nameParts[1]
+	repoName, pkgName, err := cli.ParsePackageString(str)
+	if err != nil {
+		return err
+	}
+
+	if repoName != "" {
+		dep.Repo = repoName
+		dep.Name = pkgName
 	} else {
 		if parentRepo != nil {
 			dep.Repo = parentRepo.Name()
