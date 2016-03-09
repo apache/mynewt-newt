@@ -239,7 +239,7 @@ func GetTargets() map[string]*Target {
 	return globalTargetMap
 }
 
-func ResolveTargetName(name string) *Target {
+func ResolveTarget(name string) *Target {
 	targetMap := GetTargets()
 
 	// Check for fully-qualified name.
@@ -270,7 +270,7 @@ func ResolveTargetNames(names ...string) ([]*Target, error) {
 	targets := []*Target{}
 
 	for _, name := range names {
-		t := ResolveTargetName(name)
+		t := ResolveTarget(name)
 		if t == nil {
 			return nil, util.NewNewtError("Could not resolve target name: " +
 				name)

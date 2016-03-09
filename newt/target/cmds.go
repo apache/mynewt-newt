@@ -34,7 +34,7 @@ import (
 )
 
 func resolveExistingTargetArg(arg string) (*Target, error) {
-	t := ResolveTargetName(arg)
+	t := ResolveTarget(arg)
 	if t == nil {
 		return nil, util.NewNewtError("Unknown target: " + arg)
 	}
