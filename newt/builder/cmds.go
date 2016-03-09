@@ -160,12 +160,33 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func sizeRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
+	}
+
+	t := target.ResolveTargetName(args[0])
+	if t == nil {
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
+	}
+
+	b, err := NewBuilder(t)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = b.Size()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func AddCommands(cmd *cobra.Command) {
 	buildHelpText := ""
 	buildHelpEx := ""
 	buildCmd := &cobra.Command{
 		Use:     "build",
-		Short:   "Commands for building targets",
+		Short:   "Command for building target",
 		Long:    buildHelpText,
 		Example: buildHelpEx,
 		Run:     buildRunCmd,
@@ -177,7 +198,7 @@ func AddCommands(cmd *cobra.Command) {
 	cleanHelpEx := ""
 	cleanCmd := &cobra.Command{
 		Use:     "clean",
-		Short:   "Commands for cleaning targets",
+		Short:   "Command for cleaning target",
 		Long:    cleanHelpText,
 		Example: cleanHelpEx,
 		Run:     cleanRunCmd,
@@ -197,7 +218,7 @@ func AddCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(testCmd)
 
-	downloadHelpText := "Download project image to target for <target-name>."
+	downloadHelpText := "Download app image to target for <target-name>."
 	downloadHelpEx := "  newt download <target-name>\n"
 
 	downloadCmd := &cobra.Command{
@@ -209,7 +230,7 @@ func AddCommands(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(downloadCmd)
 
-	debugHelpText := "Download project image to target for <target-name>."
+	debugHelpText := "Open debugger session for <target-name>."
 	debugHelpEx := "  newt debug <target-name>\n"
 
 	debugCmd := &cobra.Command{
@@ -220,4 +241,17 @@ func AddCommands(cmd *cobra.Command) {
 		Run:     debugRunCmd,
 	}
 	cmd.AddCommand(debugCmd)
+
+	sizeHelpText := "Calculate the size of target components specified by " +
+		"<target-name>."
+	sizeHelpEx := "  newt size <target-name>\n"
+
+	sizeCmd := &cobra.Command{
+		Use:     "size",
+		Short:   "Size of target components",
+		Long:    sizeHelpText,
+		Example: sizeHelpEx,
+		Run:     sizeRunCmd,
+	}
+	cmd.AddCommand(sizeCmd)
 }
