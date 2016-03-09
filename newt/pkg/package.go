@@ -34,17 +34,19 @@ const (
 )
 
 const (
-	PACKAGE_TYPE_LIB interfaces.PackageType = iota
+	PACKAGE_TYPE_APP interfaces.PackageType = iota
 	PACKAGE_TYPE_BSP
+	PACKAGE_TYPE_COMPILER
+	PACKAGE_TYPE_LIB
 	PACKAGE_TYPE_TARGET
-	PACKAGE_TYPE_APP
 )
 
 var PackageTypeNames = map[interfaces.PackageType]string{
-	PACKAGE_TYPE_LIB:    "lib",
-	PACKAGE_TYPE_BSP:    "bsp",
-	PACKAGE_TYPE_APP:    "app",
-	PACKAGE_TYPE_TARGET: "target",
+	PACKAGE_TYPE_APP:      "app",
+	PACKAGE_TYPE_BSP:      "bsp",
+	PACKAGE_TYPE_COMPILER: "compiler",
+	PACKAGE_TYPE_LIB:      "lib",
+	PACKAGE_TYPE_TARGET:   "target",
 }
 
 // An interface, representing information about a Package
@@ -59,6 +61,8 @@ type Package interface {
 	Repo() *repo.Repo
 	// The name of this package
 	Name() string
+	// The full name of this package, including repo
+	FullName() string
 	// The type of package (lib, target, bsp, etc.)
 	Type() interfaces.PackageType
 	// Hash of the contents of the package

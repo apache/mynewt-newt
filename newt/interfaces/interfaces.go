@@ -21,6 +21,7 @@ package interfaces
 
 type PackageInterface interface {
 	Name() string
+	FullName() string
 	Repo() RepoInterface
 	Type() PackageType
 }
@@ -29,6 +30,7 @@ type PackageType int
 
 type RepoInterface interface {
 	Name() string
+	IsLocal() bool
 }
 
 type VersionReqInterface interface {

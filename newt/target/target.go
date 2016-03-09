@@ -211,20 +211,17 @@ func (t *Target) Delete() error {
 func buildTargetMap() error {
 	globalTargetMap = map[string]*Target{}
 
-	packs := project.GetProject().PackageList()
-	for _, packHash := range packs {
-		for name, pack := range *packHash {
-			if pack.Type() == pkg.PACKAGE_TYPE_TARGET {
-				target, err := LoadTarget(pack.(*pkg.LocalPackage))
-				if err != nil {
-					nerr := err.(*util.NewtError)
-					cli.ErrorMessage(cli.VERBOSITY_QUIET,
-						"Warning: failed to load target \"%s\": %s\n", name,
-						nerr.Text)
-				} else {
-					globalTargetMap[name] = target
-				}
-			}
+	packs := project.GetProject().PackagesOfType(pkg.PACKAGE_TYPE_TARGET)
+	for _, packItf := range packs {
+		pack := packItf.(*pkg.LocalPackage)
+		target, err := LoadTarget(pack)
+		if err != nil {
+			nerr := err.(*util.NewtError)
+			cli.ErrorMessage(cli.VERBOSITY_QUIET,
+				"Warning: failed to load target \"%s\": %s\n", pack.Name,
+				nerr.Text)
+		} else {
+			globalTargetMap[pack.Name()] = target
 		}
 	}
 

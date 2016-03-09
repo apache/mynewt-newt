@@ -158,6 +158,10 @@ func (r *Repo) Path() string {
 	return r.localPath
 }
 
+func (r *Repo) IsLocal() bool {
+	return r.name == REPO_NAME_LOCAL
+}
+
 func (r *Repo) VersionRequirements() []interfaces.VersionReqInterface {
 	return r.versreq
 }

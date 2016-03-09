@@ -21,9 +21,12 @@ package target
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/cli"
+	. "mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -37,17 +40,20 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 	for _, r := range repos {
 		for _, pkgDir := range searchDirs {
 			pkgBaseDir := r.Path() + "/" + pkgDir
-			values, err := cli.DescendantDirsOfParent(pkgBaseDir, key, fullPath)
+			values, err := cli.DescendantDirsOfParent(pkgBaseDir, key,
+				fullPath)
 			if err != nil {
 				return nil, util.NewNewtError(err.Error())
 			}
 
 			for _, value := range values {
 				if fullPath {
-					value = strings.TrimPrefix(value, project.GetProject().Path()+"/")
+					value = strings.TrimPrefix(value,
+						project.GetProject().Path()+"/")
 				}
 				if strings.HasPrefix(value, repo.REPOS_DIR+"/") {
-					value = "$" + strings.TrimPrefix(value, repo.REPOS_DIR+"/")
+					value = "@" +
+						strings.TrimPrefix(value, repo.REPOS_DIR+"/")
 				}
 				valueSlice = append(valueSlice, value)
 			}
@@ -57,21 +63,33 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 	return cli.SortFields(valueSlice...), nil
 }
 
+func varsFromPackageType(pt PackageType, fullPath bool) ([]string, error) {
+	values := []string{}
+
+	packs := project.GetProject().PackagesOfType(pt)
+	for _, pack := range packs {
+		value := pack.FullName()
+		if !fullPath {
+			value = filepath.Base(value)
+		}
+
+		values = append(values, value)
+	}
+
+	return values, nil
+}
+
 var varsMap = map[string]func() ([]string, error){
-	"arch": func() ([]string, error) {
+	"target.arch": func() ([]string, error) {
 		return varsFromChildDirs("arch", false)
 	},
 
-	"bsp": func() ([]string, error) {
+	"target.bsp": func() ([]string, error) {
 		return varsFromChildDirs("bsp", true)
 	},
 
-	"compiler": func() ([]string, error) {
-		return varsFromChildDirs("compiler", true)
-	},
-
-	"project": func() ([]string, error) {
-		return varsFromChildDirs("project", true)
+	"target.app": func() ([]string, error) {
+		return varsFromPackageType(pkg.PACKAGE_TYPE_APP, true)
 	},
 }
 

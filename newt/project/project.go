@@ -382,6 +382,21 @@ func (proj *Project) PackageList() interfaces.PackageList {
 	return proj.packages
 }
 
+func (proj *Project) PackagesOfType(pkgType interfaces.PackageType) []interfaces.PackageInterface {
+	matches := []interfaces.PackageInterface{}
+
+	packs := proj.PackageList()
+	for _, packHash := range packs {
+		for _, pack := range *packHash {
+			if pack.Type() == pkgType {
+				matches = append(matches, pack)
+			}
+		}
+	}
+
+	return matches
+}
+
 func LoadProject(dir string) (*Project, error) {
 	projDir, err := findProjectDir(dir)
 	if err != nil {

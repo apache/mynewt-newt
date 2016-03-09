@@ -80,6 +80,15 @@ func (pkg *LocalPackage) Name() string {
 	return pkg.name
 }
 
+func (pkg *LocalPackage) FullName() string {
+	r := pkg.Repo()
+	if r.IsLocal() {
+		return pkg.Name()
+	} else {
+		return "@" + r.Name() + "/" + pkg.Name()
+	}
+}
+
 func (pkg *LocalPackage) BasePath() string {
 	return pkg.basePath
 }
