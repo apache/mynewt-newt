@@ -51,6 +51,11 @@ func (b *Builder) AppImgPath() string {
 	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".img"
 }
 
+func (b *Builder) AppPath() string {
+	pkgName := b.target.App().Name()
+	return b.pkgBinDir(pkgName) + "/"
+}
+
 func (b *Builder) appBinBasePath() string {
 	pkgName := b.target.App().Name()
 	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName)

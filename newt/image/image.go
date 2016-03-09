@@ -47,12 +47,11 @@ type ImageVersion struct {
 }
 
 type Image struct {
-	target *builder.Builder
 	builder *builder.Builder
 
 	sourceBin    string
 	targetImg    string
-	ManifestFile string
+	manifestFile string
 	version      ImageVersion
 	hash         []byte
 }
@@ -110,15 +109,16 @@ type ImageManifest struct {
 
 type ImageManifestPkg struct {
 	Name    string `json:"name"`
-	Version string `json:"version,omitempty"`
-	Hash    string `json:"hash"`
 }
 
 func NewImage(b *builder.Builder) (*Image, error) {
-	image := &Image{}
+	image := &Image{
+		builder: b,
+	}
 
 	image.sourceBin = b.AppElfPath() + ".bin"
 	image.targetImg = b.AppImgPath()
+	image.manifestFile = b.AppPath() + "manifest.json"
 	return image, nil
 }
 
@@ -287,16 +287,14 @@ func (image *Image) CreateManifest(t *target.Target) error {
 		Image:   filepath.Base(image.targetImg),
 		Date:    timeStr,
 	}
-/*
-	for _, builtPkg := range BuiltPkgs {
+
+	for _, builtPkg := range image.builder.Packages {
 		imgPkg := &ImageManifestPkg{
-			Name:    builtPkg.Name,
-			Version: builtPkg.Version,
-			Hash:    builtPkg.Hash,
+			Name:    builtPkg.Name(),
 		}
 		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
 	}
-*/
+
 	vars := t.Vars
 	var keys []string
 	for k := range vars {
@@ -306,10 +304,10 @@ func (image *Image) CreateManifest(t *target.Target) error {
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
-	file, err := os.Create(image.ManifestFile)
+	file, err := os.Create(image.manifestFile)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",
-			image.ManifestFile, err.Error()))
+			image.manifestFile, err.Error()))
 	}
 	defer file.Close()
 
