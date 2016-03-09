@@ -333,7 +333,7 @@ func (b *Builder) PrepBuild() error {
 	// packages get applied to every source file:
 	//     * app (if present)
 	//     * bsp
-	//     * compiler
+	//     * compiler (not added here)
 	//     * target
 
 	baseCi := toolchain.NewCompilerInfo()
@@ -359,6 +359,12 @@ func (b *Builder) PrepBuild() error {
 	if err != nil {
 		return err
 	}
+
+	// Define a cpp symbol indicating the target architecture.
+	// XXX: This should probably happen in the bsp after we move the arch field
+	// from target to bsp.
+	targetCi.Cflags = append(targetCi.Cflags, "-DARCH_"+b.target.Arch)
+
 	baseCi.AddCompilerInfo(targetCi)
 
 	// Note: Compiler flags get added when compiler is created.
