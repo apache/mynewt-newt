@@ -311,11 +311,6 @@ func (b *Builder) PrepBuild() error {
 		bspBpkg = b.AddPackage(bspPkg)
 	}
 
-	//compilerBpkg := b.Packages[compilerPkg]
-	//if compilerBpkg == nil {
-	//compilerBpkg = b.AddPackage(compilerPkg)
-	//}
-
 	targetBpkg := b.AddPackage(b.target.Package())
 
 	// Populate the full set of packages to be built and resolve the feature
