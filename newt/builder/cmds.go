@@ -76,7 +76,11 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
     }
 
     if cleanAll {
-        err := os.RemoveAll(BinRoot())
+        path := BinRoot()
+        util.StatusMessage(util.VERBOSITY_VERBOSE,
+            "Cleaning directory %s\n", path)
+
+        err := os.RemoveAll(path)
         if err != nil {
             cli.NewtUsage(cmd, err)
         }
