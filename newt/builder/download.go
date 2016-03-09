@@ -41,6 +41,13 @@ func (b *Builder) Download() error {
 		return err
 	}
 
+	if b.Bsp.DownloadScript == "" {
+		/*
+		 *
+		 */
+		return nil
+	}
+
 	bspPath := b.Bsp.BasePath()
 	downloadScript := filepath.Join(bspPath, b.Bsp.DownloadScript)
 	binBaseName := b.appBinBasePath()

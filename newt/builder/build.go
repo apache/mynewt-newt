@@ -266,6 +266,10 @@ func (b *Builder) link(elfName string) error {
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
 func (b *Builder) PrepBuild() error {
+	if b.Bsp != nil {
+		// Already prepped
+		return nil
+	}
 	// Collect the seed packages.
 	bspPkg := b.target.Bsp()
 	if bspPkg == nil {

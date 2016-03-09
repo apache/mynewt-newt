@@ -175,12 +175,12 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := NewBuilder(t)
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 
 	err = b.Size()
 	if err != nil {
-		fmt.Println(err)
+		cli.NewtUsage(cmd, err)
 	}
 }
 
