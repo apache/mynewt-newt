@@ -200,8 +200,6 @@ func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 	return pdesc, nil
 }
 
-// Load reads everything that isn't identity specific into the
-// package
 func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) {
 	pkg.repo = repo
 	pkg.basePath = filepath.Clean(pkgDir) + "/"
@@ -240,6 +238,8 @@ func (pkg *LocalPackage) Save() error {
 	return nil
 }
 
+// Load reads everything that isn't identity specific into the
+// package
 func (pkg *LocalPackage) Load() error {
 	// Load configuration
 	log.Printf("[DEBUG] Loading configuration for package %s", pkg.basePath)
@@ -270,6 +270,10 @@ func (pkg *LocalPackage) Load() error {
 	}
 
 	return nil
+}
+
+func (pkg *LocalPackage) IsTestable() bool {
+    return util.NodeExist(pkg.BasePath() + "/src/test")
 }
 
 func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {

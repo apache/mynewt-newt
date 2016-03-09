@@ -99,40 +99,57 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, nil)
 	}
 
+	// Verify and resolve each specified package.
+    testAll := false
+	packs := []*pkg.LocalPackage{}
+	for _, pkgName := range args {
+        if pkgName == "all" {
+            testAll = true
+        } else {
+            dep, err := pkg.NewDependency(nil, pkgName)
+            if err != nil {
+                cli.NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
+                    "package name: %s (%s)", pkgName, err.Error())))
+            }
+            if dep == nil {
+                cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
+                    pkgName))
+            }
+            pack := project.GetProject().ResolveDependency(dep)
+            if pack == nil {
+                cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+
+                    pkgName))
+            }
+
+            packs = append(packs, pack.(*pkg.LocalPackage))
+        }
+	}
+
+	// Test each specified package.
 	t := target.ResolveTarget(TARGET_TEST_NAME)
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("can't find unit test target: "+
+		cli.NewtUsage(cmd, util.NewNewtError("Can't find unit test target: "+
 			TARGET_TEST_NAME))
 	}
 
-	b, err := NewBuilder(t)
-	if err != nil {
-		cli.NewtUsage(cmd, err)
-	}
+    if testAll {
+        packs = []*pkg.LocalPackage{}
+        for _,repoHash := range project.GetProject().PackageList() {
+            for _,pack := range *repoHash {
+                lclPack := pack.(*pkg.LocalPackage)
+                if lclPack.IsTestable() {
+                    packs = append(packs, lclPack)
+                }
+            }
+        }
+    }
 
-	// Verify and resolve each specified package.
-	packs := []*pkg.LocalPackage{}
-	for _, pkgName := range args {
-		dep, err := pkg.NewDependency(nil, pkgName)
-		if err != nil {
-			cli.NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
-				"package name: %s (%s)", pkgName, err.Error())))
-		}
-		if dep == nil {
-			cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
-				pkgName))
-		}
-		pack := project.GetProject().ResolveDependency(dep)
-		if pack == nil {
-			cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+
-				pkgName))
-		}
-
-		packs = append(packs, pack.(*pkg.LocalPackage))
-	}
-
-	// Test each package.
 	for _, pack := range packs {
+        b, err := NewBuilder(t)
+        if err != nil {
+            cli.NewtUsage(cmd, err)
+        }
+
 		err = b.Test(pack)
 		if err != nil {
 			cli.NewtUsage(cmd, err)
