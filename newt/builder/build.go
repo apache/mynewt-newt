@@ -462,8 +462,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	if err != nil {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
-		// Always terminate on test failure since only one test is being run.
-		return util.NewNewtError("Test failed: " + testFilename)
+		return util.NewNewtError("Test crashed: " + testFilename)
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", string(o))

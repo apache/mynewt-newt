@@ -21,7 +21,7 @@ package builder
 
 import (
 	"fmt"
-    "os"
+	"os"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
@@ -61,41 +61,41 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-    cleanAll := false
-    targets := []*target.Target{}
-    for _, arg := range args {
-        if arg == target.TARGET_KEYWORD_ALL {
-            cleanAll = true
-        } else {
-            t := target.ResolveTarget(arg)
-            if t == nil {
-                cli.NewtUsage(cmd, util.NewNewtError("invalid target name: "+arg))
-            }
-            targets = append(targets, t)
-        }
-    }
+	cleanAll := false
+	targets := []*target.Target{}
+	for _, arg := range args {
+		if arg == target.TARGET_KEYWORD_ALL {
+			cleanAll = true
+		} else {
+			t := target.ResolveTarget(arg)
+			if t == nil {
+				cli.NewtUsage(cmd, util.NewNewtError("invalid target name: "+arg))
+			}
+			targets = append(targets, t)
+		}
+	}
 
-    if cleanAll {
-        path := BinRoot()
-        util.StatusMessage(util.VERBOSITY_VERBOSE,
-            "Cleaning directory %s\n", path)
+	if cleanAll {
+		path := BinRoot()
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
+			"Cleaning directory %s\n", path)
 
-        err := os.RemoveAll(path)
-        if err != nil {
-            cli.NewtUsage(cmd, err)
-        }
-    } else {
-        for _,t := range targets {
-            b, err := NewBuilder(t)
-            if err != nil {
-                cli.NewtUsage(cmd, err)
-            }
-            err = b.Clean()
-            if err != nil {
-                cli.NewtUsage(cmd, err)
-            }
-        }
-    }
+		err := os.RemoveAll(path)
+		if err != nil {
+			cli.NewtUsage(cmd, err)
+		}
+	} else {
+		for _, t := range targets {
+			b, err := NewBuilder(t)
+			if err != nil {
+				cli.NewtUsage(cmd, err)
+			}
+			err = b.Clean()
+			if err != nil {
+				cli.NewtUsage(cmd, err)
+			}
+		}
+	}
 }
 
 func testRunCmd(cmd *cobra.Command, args []string) {
@@ -104,59 +104,59 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Verify and resolve each specified package.
-    testAll := false
+	testAll := false
 	packs := []*pkg.LocalPackage{}
 	for _, pkgName := range args {
-        if pkgName == "all" {
-            testAll = true
-        } else {
-            dep, err := pkg.NewDependency(nil, pkgName)
-            if err != nil {
-                cli.NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
-                    "package name: %s (%s)", pkgName, err.Error())))
-            }
-            if dep == nil {
-                cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
-                    pkgName))
-            }
-            pack := project.GetProject().ResolveDependency(dep)
-            if pack == nil {
-                cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+
-                    pkgName))
-            }
+		if pkgName == "all" {
+			testAll = true
+		} else {
+			dep, err := pkg.NewDependency(nil, pkgName)
+			if err != nil {
+				cli.NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
+					"package name: %s (%s)", pkgName, err.Error())))
+			}
+			if dep == nil {
+				cli.NewtUsage(cmd, util.NewNewtError("invalid package name: "+
+					pkgName))
+			}
+			pack := project.GetProject().ResolveDependency(dep)
+			if pack == nil {
+				cli.NewtUsage(cmd, util.NewNewtError("unknown package: "+
+					pkgName))
+			}
 
-            packs = append(packs, pack.(*pkg.LocalPackage))
-        }
+			packs = append(packs, pack.(*pkg.LocalPackage))
+		}
 	}
 
 	// Test each specified package.
 	t := target.ResolveTarget(TARGET_TEST_NAME)
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Can't find unit test target: "+
+		cli.NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
 			TARGET_TEST_NAME))
 	}
 
-    if testAll {
-        packs = []*pkg.LocalPackage{}
-        for _,repoHash := range project.GetProject().PackageList() {
-            for _,pack := range *repoHash {
-                lclPack := pack.(*pkg.LocalPackage)
-                if lclPack.IsTestable() {
-                    packs = append(packs, lclPack)
-                }
-            }
-        }
-    }
+	if testAll {
+		packs = []*pkg.LocalPackage{}
+		for _, repoHash := range project.GetProject().PackageList() {
+			for _, pack := range *repoHash {
+				lclPack := pack.(*pkg.LocalPackage)
+				if lclPack.IsTestable() {
+					packs = append(packs, lclPack)
+				}
+			}
+		}
+	}
 
 	for _, pack := range packs {
-        b, err := NewBuilder(t)
-        if err != nil {
-            cli.NewtUsage(cmd, err)
-        }
+		b, err := NewBuilder(t)
+		if err != nil {
+			cli.NewtUsage(nil, err)
+		}
 
 		err = b.Test(pack)
 		if err != nil {
-			cli.NewtUsage(cmd, err)
+			cli.NewtUsage(nil, err)
 		}
 	}
 }
