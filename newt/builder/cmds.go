@@ -51,7 +51,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, err)
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "App successfully built: %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "App successfully built: %s\n",
 		b.AppElfPath())
 }
 

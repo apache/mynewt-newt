@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
@@ -182,7 +181,7 @@ func (r *Repo) repoFilePath() string {
 
 func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 	// Copy the git repo into /repos/, error'ing out if the repo already exists
-	if cli.NodeExist(r.Path()) {
+	if util.NodeExist(r.Path()) {
 		if force {
 			if err := os.RemoveAll(r.Path()); err != nil {
 				return nil, util.NewNewtError(err.Error())
@@ -209,7 +208,7 @@ func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 	}
 
 	// Copy the Git repo into the the desired local path of the repo
-	if err := cli.CopyDir(tmpdir, r.Path()); err != nil {
+	if err := util.CopyDir(tmpdir, r.Path()); err != nil {
 		// Cleanup any directory that might have been created if we error out
 		// here.
 		os.RemoveAll(r.Path())
@@ -223,12 +222,12 @@ func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 func (r *Repo) DownloadDesc() error {
 	dl := r.downloader
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
 		"repository description for %s...", r.Name()))
 
 	// Configuration path
 	cpath := r.repoFilePath()
-	if cli.NodeNotExist(cpath) {
+	if util.NodeNotExist(cpath) {
 		if err := os.MkdirAll(cpath, REPO_DEFAULT_PERMS); err != nil {
 			return util.NewNewtError(err.Error())
 		}
@@ -237,17 +236,17 @@ func (r *Repo) DownloadDesc() error {
 	dl.SetBranch("master")
 	if err := dl.FetchFile("repository.yml",
 		cpath+"/"+"repository.yml"); err != nil {
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT, " failed\n")
+		util.StatusMessage(util.VERBOSITY_DEFAULT, " failed\n")
 		return err
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, " success!\n")
+	util.StatusMessage(util.VERBOSITY_DEFAULT, " success!\n")
 
 	return nil
 }
 
 func (r *Repo) ReadDesc() (*RepoDesc, error) {
-	if cli.NodeNotExist(r.repoFilePath() + REPO_FILE_NAME) {
+	if util.NodeNotExist(r.repoFilePath() + REPO_FILE_NAME) {
 		return nil,
 			util.NewNewtError("No configuration exists for repository " + r.name)
 	}

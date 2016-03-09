@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/exec"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -93,7 +92,7 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 	}
 
 	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
 		"repository %s (branch: %s) at %s\n", gd.Repo, branch, url))
 
 	gitPath, err := exec.LookPath("git")
@@ -112,7 +111,7 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 		tmpdir,
 	}
 
-	if err := cli.ShellInteractiveCommand(cmds); err != nil {
+	if err := util.ShellInteractiveCommand(cmds); err != nil {
 		os.RemoveAll(tmpdir)
 		return "", err
 	}

@@ -72,9 +72,9 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "App image succesfully generated: %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "App image succesfully generated: %s\n",
 		image.targetImg)
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Build manifest: %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Build manifest: %s\n",
 		image.manifestFile)
 }
 

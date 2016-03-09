@@ -25,7 +25,6 @@ import (
 	"os"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -72,7 +71,7 @@ func (ps *ProjectState) Init() error {
 
 	// Read project state file.  If doesn't exist, it will be empty until somebody
 	// installs a repo
-	if cli.NodeNotExist(path) {
+	if util.NodeNotExist(path) {
 		return nil
 	}
 

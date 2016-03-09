@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
@@ -93,7 +92,7 @@ func (b *Builder) AddApi(apiString string, bpkg *BuildPackage) bool {
 		return true
 	} else {
 		if curBpkg != bpkg {
-			cli.StatusMessage(util.VERBOSITY_QUIET,
+			util.StatusMessage(util.VERBOSITY_QUIET,
 				"Warning: API conflict: %s <-> %s\n", curBpkg.Name(),
 				bpkg.Name())
 		}
@@ -122,7 +121,7 @@ func (b *Builder) loadDeps() error {
 		}
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE, "Building with the following "+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Building with the following "+
 		"feature set: ["+b.featureString()+"]\n")
 
 	return nil
@@ -134,11 +133,11 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	ignDirs []string) error {
 
 	// Quietly succeed if the source directory doesn't exist.
-	if cli.NodeNotExist(srcDir) {
+	if util.NodeNotExist(srcDir) {
 		return nil
 	}
 
-	cli.StatusMessage(util.VERBOSITY_VERBOSE,
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"compiling src in base directory: %s\n", srcDir)
 
 	// Start from the source directory.
@@ -160,11 +159,11 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	}
 
 	archDir := srcDir + "/arch/" + arch + "/"
-	cli.StatusMessage(util.VERBOSITY_VERBOSE,
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"compiling architecture specific src pkgs in directory: %s\n",
 		archDir)
 
-	if cli.NodeExist(archDir) {
+	if util.NodeExist(archDir) {
 		if err := os.Chdir(archDir); err != nil {
 			return util.NewNewtError(err.Error())
 		}
@@ -188,7 +187,7 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 // Compiles and archives a package.
 func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	srcDir := bpkg.BasePath() + "/src"
-	if cli.NodeNotExist(srcDir) {
+	if util.NodeNotExist(srcDir) {
 		// Nothing to compile.
 		return nil
 	}
@@ -247,7 +246,7 @@ func (b *Builder) link(elfName string) error {
 	pkgNames := []string{}
 	for _, bpkg := range b.Packages {
 		archivePath := b.archivePath(bpkg.Name())
-		if cli.NodeExist(archivePath) {
+		if util.NodeExist(archivePath) {
 			pkgNames = append(pkgNames, archivePath)
 		}
 	}
@@ -449,29 +448,29 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	}
 
 	// Run the tests.
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Testing package %s\n", p.Name())
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n", p.Name())
 
 	if err := os.Chdir(filepath.Dir(testFilename)); err != nil {
 		return err
 	}
 
-	o, err := cli.ShellCommand(testFilename)
+	o, err := util.ShellCommand(testFilename)
 	if err != nil {
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "%s", string(o))
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
 		// Always terminate on test failure since only one test is being run.
 		return util.NewNewtError("Test failed: " + testFilename)
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE, "%s", string(o))
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Test %s ok!\n", testFilename)
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", string(o))
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Test %s ok!\n", testFilename)
 
 	return nil
 }
 
 func (b *Builder) Clean() error {
 	path := b.binDir()
-	cli.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n", path)
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n", path)
 	err := os.RemoveAll(path)
 	return err
 }

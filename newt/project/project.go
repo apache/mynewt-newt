@@ -27,7 +27,6 @@ import (
 	"path"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -170,7 +169,7 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 			}
 
 			if !upgrade {
-				cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+				util.StatusMessage(util.VERBOSITY_DEFAULT,
 					fmt.Sprintf("Installed repository %s matches project requirements, "+
 						"moving on to next repository.\n", r.Name()))
 				continue
@@ -344,7 +343,7 @@ func findProjectDir(dir string) (string, error) {
 		projFile := path.Clean(dir) + "/" + PROJECT_FILE_NAME
 
 		log.Printf("[DEBUG] Searching for project file %s", projFile)
-		if cli.NodeExist(projFile) {
+		if util.NodeExist(projFile) {
 			log.Printf("[INFO] Project file found at %s", projFile)
 			break
 		}

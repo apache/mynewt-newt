@@ -26,7 +26,6 @@ import (
 	"sort"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -217,7 +216,7 @@ func buildTargetMap() error {
 		target, err := LoadTarget(pack)
 		if err != nil {
 			nerr := err.(*util.NewtError)
-			cli.ErrorMessage(cli.VERBOSITY_QUIET,
+			util.ErrorMessage(util.VERBOSITY_QUIET,
 				"Warning: failed to load target \"%s\": %s\n", pack.Name,
 				nerr.Text)
 		} else {

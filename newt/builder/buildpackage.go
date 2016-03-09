@@ -276,7 +276,7 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+b.target.Arch)
 
-	if cli.CheckBoolMap(b.Features(), "test") {
+	if b.Features()["test"] {
 		testSrcDir := srcDir + "/test"
 		incls = append(incls, testSrcDir)
 		incls = append(incls, testSrcDir+"/arch/"+b.target.Arch)
