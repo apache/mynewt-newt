@@ -30,7 +30,6 @@ import (
 
 	"mynewt.apache.org/newt/viper"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -299,7 +298,7 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 		}
 	}
 
-	if cli.NodeNotExist(basePath + "/" + pkgName + "/" + PACKAGE_FILE_NAME) {
+	if util.NodeNotExist(basePath + "/" + pkgName + "/" + PACKAGE_FILE_NAME) {
 		return nil
 	}
 
@@ -320,7 +319,7 @@ func ReadLocalPackages(repo *repo.Repo, basePath string,
 	for _, path := range searchPaths {
 		pkgDir := basePath + "/" + path
 
-		if cli.NodeNotExist(pkgDir) {
+		if util.NodeNotExist(pkgDir) {
 			continue
 		}
 

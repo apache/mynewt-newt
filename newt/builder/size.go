@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -266,7 +265,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, map[string]*MemSec
 	}
 	file.Close()
 	for name, section := range memSections {
-		cli.StatusMessage(cli.VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n",
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n",
 			name, section.Offset, section.EndOff)
 	}
 

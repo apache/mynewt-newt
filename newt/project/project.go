@@ -27,7 +27,6 @@ import (
 	"path"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -147,7 +146,7 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	}
 
 	if !upgrade {
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			fmt.Sprintf("Installed repository %s has version %s, "+
 				"which meets project requirements. Moving on to next repository.\n",
 				r.Name(), vers))
@@ -155,7 +154,7 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	} else {
 		_, newVers, _ := rdesc.Match(r)
 		if newVers == nil {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"No matching version to upgrade to "+
 					"found for %s.  Please check your project requirements, and use the "+
 					"project show-repo command to see available repository versions.",
@@ -181,21 +180,34 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 				fmt.Printf("Would you like to upgrade repository %s from %s to %s %s? [Yn] ",
 					r.Name(), vers.String(), newVers.String(), str)
 
-				line, more, err := bufio.NewReader(os.Stdin).ReadLine()
-				if more || err != nil {
-					return false, util.NewNewtError(fmt.Sprintf(
-						"Couldn't read upgrade response: %s\n", err.Error()))
-				}
-				// Anything but no means yes.
-				answer := strings.ToUpper(strings.Trim(string(line), " "))
-				if answer == "N" || answer == "NO" {
-					fmt.Printf("Users says don't upgrade, skipping upgrade of %s\n",
-						r.Name())
+				if !upgrade {
+					util.StatusMessage(util.VERBOSITY_DEFAULT,
+						fmt.Sprintf("Installed repository %s matches project requirements, "+
+							"moving on to next repository.\n", r.Name()))
 					return true, nil
+				} else {
+					_, newVers, _ := rdesc.Match(r)
+					if newVers == nil {
+						return true, util.NewNewtError(fmt.Sprintf(
+							"No matching version for repository %s\n", r.Name()))
+					}
+					line, more, err := bufio.NewReader(os.Stdin).ReadLine()
+					if more || err != nil {
+						return false, util.NewNewtError(fmt.Sprintf(
+							"Couldn't read upgrade response: %s\n", err.Error()))
+					}
+
+					// Anything but no means yes.
+					answer := strings.ToUpper(strings.Trim(string(line), " "))
+					if answer == "N" || answer == "NO" {
+						fmt.Printf("Users says don't upgrade, skipping upgrade of %s\n",
+							r.Name())
+						return true, nil
+					}
 				}
 			}
 		} else {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"Repository %s doesn't need to be upgraded, latest "+
 					"version installed.\n", r.Name())
 			return true, nil
@@ -217,7 +229,7 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 	if vers != nil {
 		ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
 		if !ok && !upgrade {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "WARNING: Installed"+
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "WARNING: Installed"+
 				"version %s of repository %s does not match desired "+
 				"version %s in project file.  You can fix this by either upgrading"+
 				" your repository, or modifying the project.yml file.\n",
@@ -391,7 +403,7 @@ func findProjectDir(dir string) (string, error) {
 		projFile := path.Clean(dir) + "/" + PROJECT_FILE_NAME
 
 		log.Printf("[DEBUG] Searching for project file %s", projFile)
-		if cli.NodeExist(projFile) {
+		if util.NodeExist(projFile) {
 			log.Printf("[INFO] Project file found at %s", projFile)
 			break
 		}

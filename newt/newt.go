@@ -29,6 +29,7 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/util"
 
 	"github.com/spf13/cobra"
 )
@@ -63,16 +64,16 @@ func newtCmd() *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			NewtLogLevel = strings.ToUpper(NewtLogLevel)
 
-			verbosity := cli.VERBOSITY_DEFAULT
+			verbosity := util.VERBOSITY_DEFAULT
 			if newtSilent {
-				verbosity = cli.VERBOSITY_SILENT
+				verbosity = util.VERBOSITY_SILENT
 			} else if newtQuiet {
-				verbosity = cli.VERBOSITY_QUIET
+				verbosity = util.VERBOSITY_QUIET
 			} else if newtVerbose {
-				verbosity = cli.VERBOSITY_VERBOSE
+				verbosity = util.VERBOSITY_VERBOSE
 			}
 
-			cli.Init(NewtLogLevel, verbosity)
+			util.Init(NewtLogLevel, verbosity)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()

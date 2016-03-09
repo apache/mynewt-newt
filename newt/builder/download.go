@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -50,7 +49,7 @@ func (b *Builder) Download() error {
 	downloadCmd := fmt.Sprintf("%s %s %s %s",
 		downloadScript, bspPath, binBaseName, featureString)
 
-	rsp, err := cli.ShellCommand(downloadCmd)
+	rsp, err := util.ShellCommand(downloadCmd)
 	fmt.Printf("%s", rsp)
 
 	return err
@@ -77,5 +76,5 @@ func (b *Builder) Debug() error {
 	os.Chdir(project.GetProject().Path())
 
 	cmdLine := []string{debugScript, bspPath, binBaseName, featureString}
-	return cli.ShellInteractiveCommand(cmdLine)
+	return util.ShellInteractiveCommand(cmdLine)
 }

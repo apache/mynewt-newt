@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/cli"
 	. "mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -40,7 +39,7 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 	for _, r := range repos {
 		for _, pkgDir := range searchDirs {
 			pkgBaseDir := r.Path() + "/" + pkgDir
-			values, err := cli.DescendantDirsOfParent(pkgBaseDir, key,
+			values, err := util.DescendantDirsOfParent(pkgBaseDir, key,
 				fullPath)
 			if err != nil {
 				return nil, util.NewNewtError(err.Error())
@@ -60,7 +59,7 @@ func varsFromChildDirs(key string, fullPath bool) ([]string, error) {
 		}
 	}
 
-	return cli.SortFields(valueSlice...), nil
+	return util.SortFields(valueSlice...), nil
 }
 
 func varsFromPackageType(pt PackageType, fullPath bool) ([]string, error) {

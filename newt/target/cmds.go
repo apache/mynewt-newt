@@ -68,7 +68,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	sort.Strings(targetNames)
 
 	for _, name := range targetNames {
-		cli.StatusMessage(cli.VERBOSITY_QUIET, name+"\n")
+		util.StatusMessage(util.VERBOSITY_QUIET, name+"\n")
 
 		target := GetTargets()[name]
 		keys := []string{}
@@ -78,7 +78,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 		sort.Strings(keys)
 		for _, k := range keys {
-			cli.StatusMessage(cli.VERBOSITY_QUIET, "    %s=%s\n", k,
+			util.StatusMessage(util.VERBOSITY_QUIET, "    %s=%s\n", k,
 				target.Vars[k])
 		}
 	}
@@ -154,10 +154,10 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 	for _, kv := range vars {
 		if kv[1] == "" {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"Target %s successfully unset %s\n", t.Name(), kv[0])
 		} else {
-			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"Target %s successfully set %s to %s\n", t.Name(), kv[0],
 				kv[1])
 		}
@@ -176,7 +176,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		tName = "targets/" + tName
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Creating target "+tName+"\n")
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Creating target "+tName+"\n")
 
 	t := ResolveTargetName(tName)
 	if t != nil {
@@ -194,7 +194,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		cli.NewtUsage(nil, err)
 	} else {
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Target %s successfully created!\n", tName)
 	}
 }
@@ -223,7 +223,7 @@ func targetDelOne(t *Target) error {
 		return err
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Target %s successfully removed\n", t.Name())
 
 	return nil

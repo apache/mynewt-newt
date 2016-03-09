@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -90,7 +89,7 @@ func NewCompiler(compilerDir string, dstDir string,
 
 	c.depTracker = NewDepTracker(c)
 
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE,
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Loading compiler %s, def %s\n", compilerDir, buildProfile)
 	err := c.load(compilerDir, buildProfile)
 	if err != nil {
@@ -170,17 +169,17 @@ func (c *Compiler) includesString() string {
 		return ""
 	}
 
-	includes := cli.SortFields(c.info.Includes...)
+	includes := util.SortFields(c.info.Includes...)
 	return "-I" + strings.Join(includes, " -I")
 }
 
 func (c *Compiler) cflagsString() string {
-	cflags := cli.SortFields(c.info.Cflags...)
+	cflags := util.SortFields(c.info.Cflags...)
 	return strings.Join(cflags, " ")
 }
 
 func (c *Compiler) lflagsString() string {
-	lflags := cli.SortFields(c.info.Lflags...)
+	lflags := util.SortFields(c.info.Lflags...)
 	return strings.Join(lflags, " ")
 }
 
@@ -218,7 +217,7 @@ func (c *Compiler) CompileFileCmd(file string,
 //
 // @param file                  The name of the source file.
 func (c *Compiler) GenDepsForFile(file string) error {
-	if cli.NodeNotExist(c.dstDir) {
+	if util.NodeNotExist(c.dstDir) {
 		os.MkdirAll(c.dstDir, 0755)
 	}
 
@@ -231,7 +230,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 
 	cmd = c.ccPath + " " + c.cflagsString() + " " + c.includesString() +
 		" -MM -MG " + file + " > " + depFile
-	_, err = cli.ShellCommand(cmd)
+	_, err = util.ShellCommand(cmd)
 	if err != nil {
 		return err
 	}
@@ -261,7 +260,7 @@ func writeCommandFile(dstFile string, cmd string) error {
 // @param file                  The filename of the source file to compile.
 // @param compilerType          One of the COMPILER_TYPE_[...] constants.
 func (c *Compiler) CompileFile(file string, compilerType int) error {
-	if cli.NodeNotExist(c.dstDir) {
+	if util.NodeNotExist(c.dstDir) {
 		os.MkdirAll(c.dstDir, 0755)
 	}
 
@@ -277,16 +276,16 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Compiling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
 	case COMPILER_TYPE_ASM:
-		cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Assembling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", file)
 	default:
 		return util.NewNewtError("Unknown compiler type")
 	}
 
-	rsp, err := cli.ShellCommand(cmd)
+	rsp, err := util.ShellCommand(cmd)
 	if err != nil {
-		cli.StatusMessage(cli.VERBOSITY_QUIET, string(rsp))
+		util.StatusMessage(util.VERBOSITY_QUIET, string(rsp))
 		return err
 	}
 
@@ -445,7 +444,7 @@ func (c *Compiler) getObjFiles(baseObjFiles []string) string {
 func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 	objFiles []string) string {
 
-	objList := c.getObjFiles(cli.UniqueStrings(objFiles))
+	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
 	cmd := c.ccPath + " -o " + dstFile + " " + " " + c.cflagsString()
 	if c.ldResolveCircularDeps {
@@ -459,7 +458,7 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 	if c.LinkerScript != "" {
 		cmd += " -T " + c.LinkerScript
 	}
-	if cli.CheckBoolMap(options, "mapFile") {
+	if options["mapFile"] {
 		cmd += " -Wl,-Map=" + dstFile + ".map"
 	}
 
@@ -476,16 +475,16 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	objFiles []string) error {
 
-	objList := c.getObjFiles(cli.UniqueStrings(objFiles))
+	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
 		dstFile, objList)
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
-	rsp, err := cli.ShellCommand(cmd)
+	rsp, err := util.ShellCommand(cmd)
 	if err != nil {
-		cli.StatusMessage(cli.VERBOSITY_QUIET, string(rsp))
+		util.StatusMessage(util.VERBOSITY_QUIET, string(rsp))
 		return err
 	}
 
@@ -511,17 +510,17 @@ func (c *Compiler) generateExtras(elfFilename string,
 
 	var cmd string
 
-	if cli.CheckBoolMap(options, "listFile") {
+	if options["listFile"] {
 		listFile := elfFilename + ".lst"
 		// if list file exists, remove it
-		if cli.NodeExist(listFile) {
+		if util.NodeExist(listFile) {
 			if err := os.RemoveAll(listFile); err != nil {
 				return err
 			}
 		}
 
 		cmd = c.odPath + " -wxdS " + elfFilename + " >> " + listFile
-		_, err := cli.ShellCommand(cmd)
+		_, err := util.ShellCommand(cmd)
 		if err != nil {
 			// XXX: gobjdump appears to always crash.  Until we get that sorted
 			// out, don't fail the link process if lst generation fails.
@@ -532,21 +531,21 @@ func (c *Compiler) generateExtras(elfFilename string,
 		for _, sect := range sects {
 			cmd = c.odPath + " -s -j " + sect + " " + elfFilename + " >> " +
 				listFile
-			cli.ShellCommand(cmd)
+			util.ShellCommand(cmd)
 		}
 
 		cmd = c.osPath + " " + elfFilename + " >> " + listFile
-		_, err = cli.ShellCommand(cmd)
+		_, err = util.ShellCommand(cmd)
 		if err != nil {
 			return err
 		}
 	}
 
-	if cli.CheckBoolMap(options, "binFile") {
+	if options["binFile"] {
 		binFile := elfFilename + ".bin"
 		cmd = c.ocPath + " -R .bss -R .bss.core -R .bss.core.nz -O binary " +
 			elfFilename + " " + binFile
-		_, err := cli.ShellCommand(cmd)
+		_, err := util.ShellCommand(cmd)
 		if err != nil {
 			return err
 		}
@@ -622,10 +621,10 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return util.NewNewtError(err.Error())
 	}
 
-	cli.StatusMessage(cli.VERBOSITY_DEFAULT, "Archiving %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s\n",
 		path.Base(archiveFile))
 	objList := c.getObjFiles([]string{})
-	cli.StatusMessage(cli.VERBOSITY_VERBOSE, "Archiving %s with object "+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Archiving %s with object "+
 		"files %s\n", archiveFile, objList)
 
 	// Delete the old archive, if it exists.
@@ -635,9 +634,9 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	}
 
 	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
-	rsp, err := cli.ShellCommand(cmd)
+	rsp, err := util.ShellCommand(cmd)
 	if err != nil {
-		cli.StatusMessage(cli.VERBOSITY_QUIET, string(rsp))
+		util.StatusMessage(util.VERBOSITY_QUIET, string(rsp))
 		return err
 	}
 
