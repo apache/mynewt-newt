@@ -22,10 +22,8 @@ package util
 import (
 	"bufio"
 	"fmt"
-	"github.com/hashicorp/logutils"
 	"io/ioutil"
 	"log"
-	"mynewt.apache.org/newt/viper"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -36,6 +34,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/hashicorp/logutils"
+	"mynewt.apache.org/newt/viper"
 )
 
 var Logger *log.Logger
@@ -79,6 +80,7 @@ func StatusMessage(level int, message string, args ...interface{}) {
 	if Verbosity >= level {
 		fmt.Printf(message, args...)
 	}
+	os.Stdout.Sync()
 }
 
 // Print Silent, Quiet and Verbose aware status messages to stderr.
