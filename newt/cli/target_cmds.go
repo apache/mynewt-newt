@@ -74,7 +74,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 			targetNames = append(targetNames, name)
 		}
 	} else {
-		targetSlice, err := ResolveTargetNames(args...)
+		targetSlice, err := ResolveTargets(args...)
 		if err != nil {
 			NewtUsage(cmd, err)
 		}
@@ -244,7 +244,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 			"target to delete"))
 	}
 
-	targets, err := ResolveTargetNames(args...)
+	targets, err := ResolveTargets(args...)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}

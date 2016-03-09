@@ -100,7 +100,7 @@ func ResolveTarget(name string) *target.Target {
 	return nil
 }
 
-func ResolveTargetNames(names ...string) ([]*target.Target, error) {
+func ResolveTargets(names ...string) ([]*target.Target, error) {
 	targets := []*target.Target{}
 
 	for _, name := range names {
