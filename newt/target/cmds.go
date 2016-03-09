@@ -33,7 +33,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func resolveTargetArg(arg string) (*Target, error) {
+func resolveExistingTargetArg(arg string) (*Target, error) {
 	t := ResolveTargetName(arg)
 	if t == nil {
 		return nil, util.NewNewtError("Unknown target: " + arg)
@@ -133,7 +133,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Parse target name.
-	t, err := resolveTargetArg(args[0])
+	t, err := resolveExistingTargetArg(args[0])
 	if err != nil {
 		cli.NewtUsage(cmd, err)
 	}
@@ -266,7 +266,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 			"source target and one destination target"))
 	}
 
-	srcTarget, err := resolveTargetArg(args[0])
+	srcTarget, err := resolveExistingTargetArg(args[0])
 	if err != nil {
 		cli.NewtUsage(cmd, err)
 	}

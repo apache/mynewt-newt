@@ -33,9 +33,9 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	targetName := args[0]
-	t := target.GetTargets()[targetName]
+	t := target.ResolveTargetName(targetName)
 	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name"+targetName))
+		cli.NewtUsage(cmd, util.NewNewtError("Invalid target name: "+targetName))
 	}
 
 	b, err := builder.NewBuilder(t)
