@@ -228,18 +228,19 @@ func (r *Repo) Install(force bool) (*Version, error) {
 	return vers, nil
 }
 
-func (r *Repo) UpdateDesc() error {
+func (r *Repo) UpdateDesc() ([]*Repo, error) {
 	var err error
 
 	if err = r.DownloadDesc(); err != nil {
-		return err
+		return []*Repo{}, err
 	}
 
 	_, err = r.ReadDesc()
 	if err != nil {
-		return err
+		return []*Repo{}, err
 	}
-	return nil
+
+	return []*Repo{}, nil
 }
 
 // Download the repository description.

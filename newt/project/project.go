@@ -204,7 +204,21 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 
 	vers := proj.projState.GetInstalledVersion(rname)
 	if vers != nil {
-		ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
+		_, newVers, ok := rdesc.Match(r)
+		if !ok {
+			// No matching version to install!
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"No matching install version found for repository %s\n", rname)
+			return false, util.NewNewtError("No matching install version found for " + rname)
+		}
+
+		if vers.CompareVersions(newVers, vers) != 0 ||
+			vers.Stability() != newVers.Stability() {
+			ok = false
+		}
+
+		//ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
+		//fmt.Println(ok)
 		if !ok && !upgrade {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "WARNING: Installed "+
 				"version %s of repository %s does not match desired "+
@@ -240,6 +254,10 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 	return false, nil
 }
 
+func (proj *Project) checkRepos(repos []*repo.Repo) (bool, error) {
+	return false, nil
+}
+
 func (proj *Project) Install(upgrade bool, force bool) error {
 	repoList := proj.Repos()
 
@@ -250,8 +268,20 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 		}
 		// First thing we do is update repository description.  This
 		// will get us available branches and versions in the repository.
-		if err := r.UpdateDesc(); err != nil {
+		repos, err := r.UpdateDesc()
+		if err != nil {
 			return err
+		}
+
+		// Check to see if these
+		change, err := proj.checkRepos(repos)
+		if err != nil {
+			return err
+		}
+
+		if change {
+			// Reprocess the list of repositories, with the new repolist
+			return proj.Install(upgrade, force)
 		}
 
 		// Check the version requirements on this repository, and see
