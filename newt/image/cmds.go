@@ -20,8 +20,6 @@
 package image
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/cli"
