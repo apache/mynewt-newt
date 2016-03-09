@@ -69,7 +69,7 @@ func newtCmd() *cobra.Command {
 				verbosity = util.VERBOSITY_VERBOSE
 			}
 
-			err := util.Init(NewtLogLevel, verbosity, newtLogFile)
+			err := util.Init(NewtLogLevel, newtLogFile, verbosity)
 			if err != nil {
 				cli.NewtUsage(nil, err)
 			}

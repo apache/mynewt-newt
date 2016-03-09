@@ -154,12 +154,7 @@ func Max(x, y int) int {
 	return y
 }
 
-// Initialize the util module
-func Init(level string, verbosity int, logFile string) error {
-	if level == "" {
-		level = "WARN"
-	}
-
+func initLog(level string, logFile string) error {
 	var writer io.Writer
 	if logFile == "" {
 		writer = os.Stderr
@@ -180,6 +175,30 @@ func Init(level string, verbosity int, logFile string) error {
 	}
 
 	log.SetOutput(filter)
+
+	return nil
+}
+
+// Initialize the util module
+func Init(logLevel string, logFile string, verbosity int) error {
+	if logLevel == "" {
+		logLevel = "WARN"
+	}
+
+	// Configure logging twice.  First just configure the filter for stderr;
+	// second configure the logfile if there is one.  This needs to happen in
+	// two steps so that the log level is configured prior to the attempt to
+	// open the log file.  The correct log level needs to be applied to file
+	// error messages.
+	if err := initLog(logLevel, ""); err != nil {
+		return err
+	}
+	if logFile != "" {
+		if err := initLog(logLevel, logFile); err != nil {
+			return err
+		}
+	}
+
 	Verbosity = verbosity
 
 	return nil
