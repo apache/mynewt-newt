@@ -108,12 +108,20 @@ func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
 }
 
+func (pkg *LocalPackage) SetBasePath(basePath string) {
+	pkg.basePath = basePath
+}
+
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
 }
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
 	pkg.desc = desc
+}
+
+func (pkg *LocalPackage) SetRepo(r *repo.Repo) {
+	pkg.repo = r
 }
 
 func (pkg *LocalPackage) Hash() (string, error) {
@@ -199,6 +207,9 @@ func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) {
 	pkg.basePath = filepath.Clean(pkgDir) + "/"
 }
 
+// Saves the package's pkg.yml file.
+// NOTE: This does not save every field in the package.  Only the fields
+// necessary for creating a new target get saved.
 func (pkg *LocalPackage) Save() error {
 	dirpath := pkg.BasePath()
 	if err := os.MkdirAll(dirpath, 0755); err != nil {

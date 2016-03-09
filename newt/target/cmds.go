@@ -42,6 +42,29 @@ func resolveTargetArg(arg string) (*Target, error) {
 	return t, nil
 }
 
+func resolveNewTargetArg(arg string) (string, error) {
+	repoName, pkgName, err := cli.ParsePackageString(arg)
+	if err != nil {
+		return "", err
+	}
+
+	if repoName != "" {
+		return "", util.NewNewtError("Target name cannot contain repo; " +
+			"must be local")
+	}
+
+	// "Naked" target names go in the "targets/" directory.
+	if !strings.Contains(pkgName, "/") {
+		pkgName = "targets/" + pkgName
+	}
+
+	if GetTargets()[pkgName] != nil {
+		return "", util.NewNewtError("Target already exists: " + pkgName)
+	}
+
+	return pkgName, nil
+}
+
 func targetShowCmd(cmd *cobra.Command, args []string) {
 	proj := project.GetProject()
 	err := proj.LoadPackageList()
@@ -169,27 +192,9 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	repoName, pkgName, err := cli.ParsePackageString(args[0])
+	pkgName, err := resolveNewTargetArg(args[0])
 	if err != nil {
 		cli.NewtUsage(cmd, err)
-	}
-
-	if repoName != "" {
-		cli.NewtUsage(cmd, util.NewNewtError("Target name cannot contain "+
-			"repo; must be local"))
-	}
-
-	// "Naked" target names go in the "targets/" directory.
-	if !strings.Contains(pkgName, "/") {
-		pkgName = "targets/" + pkgName
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Creating target "+
-		pkgName+"\n")
-
-	if GetTargets()[pkgName] != nil {
-		cli.NewtUsage(cmd, util.NewNewtError("Target already exists: "+
-			pkgName))
 	}
 
 	repo := project.GetProject().LocalRepo()
@@ -203,7 +208,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(nil, err)
 	} else {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Target %s successfully created!\n", pkgName)
+			"Target %s successfully created\n", pkgName)
 	}
 }
 
@@ -252,6 +257,44 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 		if err := targetDelOne(t); err != nil {
 			cli.NewtUsage(cmd, err)
 		}
+	}
+}
+
+func targetCopyCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		cli.NewtUsage(cmd, util.NewNewtError("Must specify exactly one "+
+			"source target and one destination target"))
+	}
+
+	srcTarget, err := resolveTargetArg(args[0])
+	if err != nil {
+		cli.NewtUsage(cmd, err)
+	}
+
+	dstName, err := resolveNewTargetArg(args[1])
+	if err != nil {
+		cli.NewtUsage(cmd, err)
+	}
+
+	// Copy the source target's base package and adjust the fields which need
+	// to change.
+	dstBasePkg := *srcTarget.basePkg
+	dstBasePkg.SetRepo(project.GetProject().LocalRepo())
+	dstBasePkg.SetName(dstName)
+	dstBasePkg.SetBasePath(dstName)
+
+	// Copy the source target.
+	dstTarget := *srcTarget
+	dstTarget.basePkg = &dstBasePkg
+
+	// Save the new target.
+	err = dstTarget.Save()
+	if err != nil {
+		cli.NewtUsage(nil, err)
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Target successfully copied; %s --> %s\n",
+			srcTarget.FullName(), dstTarget.FullName())
 	}
 }
 
@@ -329,4 +372,18 @@ func AddCommands(cmd *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(delCmd)
+
+	copyHelpText := "Creates a new target by cloning <src-target>."
+	copyHelpEx := "  newt target copy <src-target> <dst-target>\n"
+	copyHelpEx += "  newt target copy blinky_sim my_target"
+
+	copyCmd := &cobra.Command{
+		Use:     "copy",
+		Short:   "Copy target",
+		Long:    copyHelpText,
+		Example: copyHelpEx,
+		Run:     targetCopyCmd,
+	}
+
+	targetCmd.AddCommand(copyCmd)
 }
