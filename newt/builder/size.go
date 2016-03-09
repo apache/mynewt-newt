@@ -112,7 +112,8 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, map[string]*MemSec
 
 	file, err := os.Open(fileName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil,
+			util.NewNewtError("Mapfile failed: "+ err.Error())
 	}
 
 	memSections := make(map[string]*MemSection)
