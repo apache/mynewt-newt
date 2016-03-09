@@ -34,6 +34,7 @@ var NewtLogLevel string = ""
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
+var newtLogFile string
 
 func newtCmd() *cobra.Command {
 	newtHelpText := cli.FormatHelp(`Newt allows you to create your own embedded 
@@ -68,7 +69,10 @@ func newtCmd() *cobra.Command {
 				verbosity = util.VERBOSITY_VERBOSE
 			}
 
-			util.Init(NewtLogLevel, verbosity)
+			err := util.Init(NewtLogLevel, verbosity, newtLogFile)
+			if err != nil {
+				cli.NewtUsage(nil, err)
+			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -83,6 +87,8 @@ func newtCmd() *cobra.Command {
 		"Be silent; don't output anything.")
 	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
+	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
+		"", "Filename to tee log output to")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"

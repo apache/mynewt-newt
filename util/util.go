@@ -22,6 +22,7 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -39,9 +40,7 @@ import (
 	"mynewt.apache.org/newt/viper"
 )
 
-var Logger *log.Logger
 var Verbosity int
-var OK_STRING = " ok!\n"
 
 func ParseEqualsPair(v string) (string, string, error) {
 	s := strings.Split(v, "=")
@@ -156,20 +155,34 @@ func Max(x, y int) int {
 }
 
 // Initialize the util module
-func Init(level string, verbosity int) {
+func Init(level string, verbosity int, logFile string) error {
 	if level == "" {
 		level = "WARN"
+	}
+
+	var writer io.Writer
+	if logFile == "" {
+		writer = os.Stderr
+	} else {
+		f, err := os.Create(logFile)
+		if err != nil {
+			return NewNewtError(err.Error())
+		}
+
+		writer = io.MultiWriter(os.Stderr, f)
 	}
 
 	filter := &logutils.LevelFilter{
 		Levels: []logutils.LogLevel{"DEBUG", "VERBOSE", "INFO",
 			"WARN", "ERROR"},
 		MinLevel: logutils.LogLevel(level),
-		Writer:   os.Stderr,
+		Writer:   writer,
 	}
 
 	log.SetOutput(filter)
 	Verbosity = verbosity
+
+	return nil
 }
 
 // Read in the configuration file specified by name, in path

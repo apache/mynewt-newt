@@ -36,9 +36,6 @@ import (
 const TARGET_KEYWORD_ALL string = "all"
 const TARGET_DEFAULT_DIR string = "targets"
 
-var Logger *log.Logger
-var OK_STRING = " ok!\n"
-
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
 		sErr := err.(*util.NewtError)
