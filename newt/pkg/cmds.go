@@ -21,19 +21,5 @@ package pkg
 
 import "github.com/spf13/cobra"
 
-func pkgRunCmd(cmd *cobra.Command, args []string) {
-}
-
 func AddCommands(cmd *cobra.Command) {
-	pkgHelpText := ""
-	pkgHelpEx := ""
-	pkgCmd := &cobra.Command{
-		Use:     "package",
-		Short:   "Commands for manipulating packages",
-		Long:    pkgHelpText,
-		Example: pkgHelpEx,
-		Run:     pkgRunCmd,
-	}
-
-	cmd.AddCommand(pkgCmd)
 }

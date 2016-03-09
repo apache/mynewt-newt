@@ -21,12 +21,10 @@ package project
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/util"
 )
 
 var Force bool = false
@@ -53,41 +51,7 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Repos successfully upgrade")
 }
 
-func projectRunCmd(cmd *cobra.Command, args []string) {
-	wd, err := os.Getwd()
-	if err != nil {
-		cli.NewtUsage(cmd, util.NewNewtError(err.Error()))
-	}
-
-	proj, err := LoadProject(wd)
-	if err != nil {
-		cli.NewtUsage(cmd, err)
-	}
-	proj.LoadPackageList()
-
-	for rName, list := range proj.PackageList() {
-		fmt.Printf("repository name: %s\n", rName)
-		for pkgName, _ := range *list {
-			fmt.Printf("  %s\n", pkgName)
-		}
-	}
-
-	fmt.Printf("Project %s\n", proj.Name)
-	fmt.Printf("  BasePath: %s\n", proj.BasePath)
-}
-
 func AddCommands(cmd *cobra.Command) {
-	projectHelpText := ""
-	projectHelpEx := ""
-	projectCmd := &cobra.Command{
-		Use:     "project",
-		Short:   "Command for manipulating projects",
-		Long:    projectHelpText,
-		Example: projectHelpEx,
-		Run:     projectRunCmd,
-	}
-	cmd.AddCommand(projectCmd)
-
 	installHelpText := ""
 	installHelpEx := ""
 	installCmd := &cobra.Command{
