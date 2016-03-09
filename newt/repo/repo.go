@@ -48,11 +48,11 @@ type Repo struct {
 
 type RepoDesc struct {
 	name string
-	vers map[string]*Version
+	vers map[*Version]string
 }
 
 func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
-	for curBranch, vers := range rd.vers {
+	for vers, curBranch := range rd.vers {
 		if vers.CompareVersions(vers, searchVers) == 0 {
 			return curBranch, vers, true
 		}
@@ -61,7 +61,7 @@ func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
 }
 
 func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
-	for branch, vers := range rd.vers {
+	for vers, branch := range rd.vers {
 		if vers.SatisfiesVersion(r.VersionRequirements()) {
 			log.Printf("[DEBUG] Found matching version %s for repo %s",
 				vers.String(), r.Name())
@@ -85,25 +85,59 @@ func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 	return "", nil, false
 }
 
+func (rd *RepoDesc) SatisfiesVersion(vers *Version, versReqs []interfaces.VersionReqInterface) bool {
+	var err error
+	versMatches := []interfaces.VersionReqInterface{}
+	for _, versReq := range versReqs {
+		versMatch := &VersionMatch{}
+		versMatch.compareType = versReq.CompareType()
+
+		if versReq.Version().Stability() != VERSION_STABILITY_NONE {
+			// Look up this item in the RepoDescription, and get a version
+			searchVers := versReq.Version().(*Version)
+			branch, _, ok := rd.MatchVersion(searchVers)
+			if !ok {
+				return false
+			}
+			versMatch.Vers, err = LoadVersion(branch)
+			if err != nil {
+				return false
+			}
+		} else {
+			versMatch.Vers = versReq.Version().(*Version)
+		}
+
+		versMatches = append(versMatches, versMatch)
+	}
+
+	return vers.SatisfiesVersion(versMatches)
+}
+
 func (rd *RepoDesc) Init(name string, versBranchMap map[string]string) error {
 	rd.name = name
-	rd.vers = map[string]*Version{}
-	for k, v := range versBranchMap {
-		log.Printf("[DEBUG] Printing version %s for remote repo %s", k, name)
-		vers, err := LoadVersion(k)
+	rd.vers = map[*Version]string{}
+	for versStr, branch := range versBranchMap {
+		log.Printf("[DEBUG] Printing version %s for remote repo %s", versStr, name)
+		vers, err := LoadVersion(versStr)
 		if err != nil {
 			return err
 		}
 
 		// store branch->version mapping
-		rd.vers[v] = vers
+		rd.vers[vers] = branch
 	}
 
 	return nil
 }
 
 func (rd *RepoDesc) String() string {
-	return rd.name
+	name := rd.name + "@"
+	for k, v := range rd.vers {
+		name += fmt.Sprintf("%s=%s", k.String(), v)
+		name += "#"
+	}
+
+	return name
 }
 
 func NewRepoDesc(name string, versBranchMap map[string]string) (*RepoDesc, error) {
@@ -166,7 +200,8 @@ func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 	// Download the git repo, returns the git repo, checked out to that branch
 	tmpdir, err := dl.DownloadRepo(branchName)
 	if err != nil {
-		return nil, err
+		return nil, util.NewNewtError(fmt.Sprintf("Error download repository %s, : %s",
+			r.Name(), err.Error()))
 	}
 
 	// Copy the Git repo into the the desired local path of the repo
@@ -184,6 +219,9 @@ func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 func (r *Repo) DownloadDesc() error {
 	dl := r.downloader
 
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
+		"repository description for %s...", r.Name()))
+
 	// Configuration path
 	cpath := r.repoFilePath()
 	if cli.NodeNotExist(cpath) {
@@ -195,8 +233,11 @@ func (r *Repo) DownloadDesc() error {
 	dl.SetBranch("master")
 	if err := dl.FetchFile("repository.yml",
 		cpath+"/"+"repository.yml"); err != nil {
+		cli.StatusMessage(cli.VERBOSITY_DEFAULT, " failed\n")
 		return err
 	}
+
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, " success!\n")
 
 	return nil
 }

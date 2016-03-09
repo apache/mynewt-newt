@@ -36,7 +36,7 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	if err := proj.Install(false, Force); err != nil {
-		panic(err.Error())
+		cli.NewtUsage(cmd, err)
 	}
 
 	fmt.Println("Repos successfully installed")
@@ -47,7 +47,7 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	if err := proj.Upgrade(Force); err != nil {
-		panic(err.Error())
+		cli.NewtUsage(cmd, err)
 	}
 
 	fmt.Println("Repos successfully upgrade")
@@ -92,7 +92,7 @@ func AddCommands(cmd *cobra.Command) {
 	installHelpEx := ""
 	installCmd := &cobra.Command{
 		Use:     "install",
-		Short:   "Command to install project dependencies from project.yml",
+		Short:   "Command to install project dependencies",
 		Long:    installHelpText,
 		Example: installHelpEx,
 		Run:     installRunCmd,
@@ -107,7 +107,7 @@ func AddCommands(cmd *cobra.Command) {
 	upgradeHelpEx := ""
 	upgradeCmd := &cobra.Command{
 		Use:     "upgrade",
-		Short:   "Command to upgrade project dependencies from project.yml",
+		Short:   "Command to upgrade project dependencies",
 		Long:    upgradeHelpText,
 		Example: upgradeHelpEx,
 		Run:     upgradeRunCmd,

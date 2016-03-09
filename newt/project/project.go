@@ -160,21 +160,52 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 
 		vers := proj.projState.GetInstalledVersion(rname)
 		if vers != nil {
-			// Project is already installed, let's see if we match the version
-			// requirements.  If we don't print a warning.
-			// Either way, continue processing.
-			ok := vers.SatisfiesVersion(r.VersionRequirements())
+			ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
 			if !ok && !upgrade {
 				fmt.Printf("WARNING: Installed version %s of repository %s "+
-					"does not match desired versions %s in project.yml\n",
+					"does not match desired versions %s in project\n",
 					vers, rname, r.VersionRequirementsString())
 				continue
 			}
+
+			if !upgrade {
+				cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+					fmt.Sprintf("Installed repository %s matches project requirements, "+
+						"moving on to next repository.\n", r.Name()))
+				continue
+			} else {
+				_, newVers, _ := rdesc.Match(r)
+				if newVers == nil {
+					return util.NewNewtError(fmt.Sprintf(
+						"No matching version for repository %s\n", r.Name()))
+				}
+				if vers.CompareVersions(newVers, vers) != 0 ||
+					vers.Stability() != newVers.Stability() {
+					// Prompt for upgrade, unless force option present
+					if !force {
+						branch, newVers, _ := rdesc.Match(r)
+
+						str := ""
+						if newVers.Stability() != repo.VERSION_STABILITY_NONE {
+							str += "(" + branch + ")"
+						}
+
+						fmt.Printf("Would you like to upgrade repository %s from %s to %s %s",
+							r.Name(), vers.String(), newVers.String(), str)
+
+					}
+				} else {
+					fmt.Printf("Repository %s doesn't need to be upgraded, latest "+
+						"version installed.\n", r.Name())
+					continue
+				}
+			}
 		}
+
 		_, _, ok := rdesc.Match(r)
 		if !ok {
 			fmt.Printf("WARNING: No matching repository version found for repository "+
-				"%s specified in project.yml, skipping...\n", r.Name())
+				"%s specified in project, skipping...\n", r.Name())
 			continue
 		}
 

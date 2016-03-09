@@ -26,6 +26,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/util"
@@ -62,7 +63,6 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 }
 
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
-
 	fmtStr := "https://raw.githubusercontent.com/%s/%s/%s/%s"
 	url := fmt.Sprintf(fmtStr, gd.User, gd.Repo, gd.Branch(), name)
 
@@ -93,10 +93,27 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 	}
 
 	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
+	cli.StatusMessage(cli.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
+		"repository %s (branch: %s) at %s\n", gd.Repo, branch, url))
 
-	_, err = cli.ShellCommand(fmt.Sprintf("git clone -b %s %s %s",
-		branch, url, tmpdir))
+	gitPath, err := exec.LookPath("git")
 	if err != nil {
+		os.RemoveAll(tmpdir)
+		return "", util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
+			err.Error()))
+	}
+
+	cmds := []string{
+		gitPath,
+		"clone",
+		"-b",
+		branch,
+		url,
+		tmpdir,
+	}
+
+	if err := cli.ShellInteractiveCommand(cmds); err != nil {
+		os.RemoveAll(tmpdir)
 		return "", err
 	}
 
