@@ -45,6 +45,8 @@ func (b *Builder) Download() error {
 		/*
 		 *
 		 */
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"No download script for BSP %s\n", b.Bsp.Name())
 		return nil
 	}
 
