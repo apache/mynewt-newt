@@ -21,6 +21,7 @@ package builder
 
 import (
 	"fmt"
+    "os"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
@@ -60,19 +61,37 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	t := target.ResolveTarget(args[0])
-	if t == nil {
-		cli.NewtUsage(cmd, util.NewNewtError("invalid target name"+args[0]))
-	}
+    cleanAll := false
+    targets := []*target.Target{}
+    for _, arg := range args {
+        if arg == target.TARGET_KEYWORD_ALL {
+            cleanAll = true
+        } else {
+            t := target.ResolveTarget(arg)
+            if t == nil {
+                cli.NewtUsage(cmd, util.NewNewtError("invalid target name"+arg))
+            }
+            targets = append(targets, t)
+        }
+    }
 
-	b, err := NewBuilder(t)
-	if err != nil {
-		cli.NewtUsage(cmd, err)
-	}
-	err = b.Clean()
-	if err != nil {
-		cli.NewtUsage(cmd, err)
-	}
+    if cleanAll {
+        err := os.RemoveAll(BinRoot())
+        if err != nil {
+            cli.NewtUsage(cmd, err)
+        }
+    } else {
+        for _,t := range targets {
+            b, err := NewBuilder(t)
+            if err != nil {
+                cli.NewtUsage(cmd, err)
+            }
+            err = b.Clean()
+            if err != nil {
+                cli.NewtUsage(cmd, err)
+            }
+        }
+    }
 }
 
 func testRunCmd(cmd *cobra.Command, args []string) {

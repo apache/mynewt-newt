@@ -28,44 +28,48 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func (b *Builder) binDir() string {
-	return project.GetProject().Path() + "/bin/" + b.target.ShortName()
+func BinRoot() string {
+	return project.GetProject().Path() + "/bin"
 }
 
-func (b *Builder) pkgBinDir(pkgName string) string {
-	return b.binDir() + "/" + pkgName
+func (b *Builder) BinDir() string {
+	return BinRoot() + "/" + b.target.ShortName()
+}
+
+func (b *Builder) PkgBinDir(pkgName string) string {
+	return b.BinDir() + "/" + pkgName
 }
 
 // Generates the path+filename of the specified package's .a file.
-func (b *Builder) archivePath(pkgName string) string {
-	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".a"
+func (b *Builder) ArchivePath(pkgName string) string {
+	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".a"
 }
 
 func (b *Builder) AppElfPath() string {
 	pkgName := b.target.App().Name()
-	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".elf"
+	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".elf"
 }
 
 func (b *Builder) AppImgPath() string {
 	pkgName := b.target.App().Name()
-	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".img"
+	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".img"
 }
 
 func (b *Builder) AppPath() string {
 	pkgName := b.target.App().Name()
-	return b.pkgBinDir(pkgName) + "/"
+	return b.PkgBinDir(pkgName) + "/"
 }
 
-func (b *Builder) appBinBasePath() string {
+func (b *Builder) AppBinBasePath() string {
 	pkgName := b.target.App().Name()
-	return b.pkgBinDir(pkgName) + "/" + filepath.Base(pkgName)
+	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName)
 }
 
-func (b *Builder) testExePath(pkgName string) string {
-	return b.pkgBinDir(pkgName) + "/test_" + filepath.Base(pkgName)
+func (b *Builder) TestExePath(pkgName string) string {
+	return b.PkgBinDir(pkgName) + "/test_" + filepath.Base(pkgName)
 }
 
-func (b *Builder) featureString() string {
+func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
 	first := true

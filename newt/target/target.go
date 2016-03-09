@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -34,6 +35,7 @@ import (
 
 const TARGET_FILENAME string = "target.yml"
 const TARGET_DEFAULT_DIR string = "targets"
+const TARGET_KEYWORD_ALL string = "all"
 
 var globalTargetMap map[string]*Target
 
@@ -280,4 +282,32 @@ func ResolveTargetNames(names ...string) ([]*Target, error) {
 	}
 
 	return targets, nil
+}
+
+func ResolveNewTargetName(name string) (string, error) {
+	repoName, pkgName, err := cli.ParsePackageString(name)
+	if err != nil {
+		return "", err
+	}
+
+	if repoName != "" {
+		return "", util.NewNewtError("Target name cannot contain repo; " +
+			"must be local")
+	}
+
+    if pkgName == TARGET_KEYWORD_ALL {
+        return "", util.NewNewtError("Target name " + TARGET_KEYWORD_ALL +
+            " is reserved")
+    }
+
+	// "Naked" target names translate to "targets/<name>".
+	if !strings.Contains(pkgName, "/") {
+		pkgName = TARGET_DEFAULT_DIR + "/" + pkgName
+	}
+
+	if GetTargets()[pkgName] != nil {
+		return "", util.NewNewtError("Target already exists: " + pkgName)
+	}
+
+    return pkgName, nil
 }

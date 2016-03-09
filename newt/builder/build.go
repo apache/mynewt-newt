@@ -122,7 +122,7 @@ func (b *Builder) loadDeps() error {
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Building with the following "+
-		"feature set: ["+b.featureString()+"]\n")
+		"feature set: ["+b.FeatureString()+"]\n")
 
 	return nil
 }
@@ -193,7 +193,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	}
 
 	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(),
-		b.pkgBinDir(bpkg.Name()), b.target.BuildProfile)
+		b.PkgBinDir(bpkg.Name()), b.target.BuildProfile)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	if err := os.Chdir(bpkg.BasePath() + "/"); err != nil {
 		return util.NewNewtError(err.Error())
 	}
-	archiveFile := b.archivePath(bpkg.Name())
+	archiveFile := b.ArchivePath(bpkg.Name())
 	if err = c.CompileArchive(archiveFile); err != nil {
 		return err
 	}
@@ -238,14 +238,14 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 
 func (b *Builder) link(elfName string) error {
 	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(),
-		b.pkgBinDir(elfName), b.target.BuildProfile)
+		b.PkgBinDir(elfName), b.target.BuildProfile)
 	if err != nil {
 		return err
 	}
 
 	pkgNames := []string{}
 	for _, bpkg := range b.Packages {
-		archivePath := b.archivePath(bpkg.Name())
+		archivePath := b.ArchivePath(bpkg.Name())
 		if util.NodeExist(archivePath) {
 			pkgNames = append(pkgNames, archivePath)
 		}
@@ -445,7 +445,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 		}
 	}
 
-	testFilename := b.testExePath(p.Name())
+	testFilename := b.TestExePath(p.Name())
 	err = b.link(testFilename)
 	if err != nil {
 		return err
@@ -473,7 +473,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 }
 
 func (b *Builder) Clean() error {
-	path := b.binDir()
+	path := b.BinDir()
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n", path)
 	err := os.RemoveAll(path)
 	return err

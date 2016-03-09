@@ -42,29 +42,6 @@ func resolveExistingTargetArg(arg string) (*Target, error) {
 	return t, nil
 }
 
-func resolveNewTargetArg(arg string) (string, error) {
-	repoName, pkgName, err := cli.ParsePackageString(arg)
-	if err != nil {
-		return "", err
-	}
-
-	if repoName != "" {
-		return "", util.NewNewtError("Target name cannot contain repo; " +
-			"must be local")
-	}
-
-	// "Naked" target names go in the "targets/" directory.
-	if !strings.Contains(pkgName, "/") {
-		pkgName = "targets/" + pkgName
-	}
-
-	if GetTargets()[pkgName] != nil {
-		return "", util.NewNewtError("Target already exists: " + pkgName)
-	}
-
-	return pkgName, nil
-}
-
 func targetShowCmd(cmd *cobra.Command, args []string) {
 	proj := project.GetProject()
 	err := proj.LoadPackageList()
@@ -192,7 +169,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	pkgName, err := resolveNewTargetArg(args[0])
+	pkgName, err := ResolveNewTargetName(args[0])
 	if err != nil {
 		cli.NewtUsage(cmd, err)
 	}
@@ -271,7 +248,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 		cli.NewtUsage(cmd, err)
 	}
 
-	dstName, err := resolveNewTargetArg(args[1])
+	dstName, err := ResolveNewTargetName(args[1])
 	if err != nil {
 		cli.NewtUsage(cmd, err)
 	}

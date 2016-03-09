@@ -50,8 +50,8 @@ func (b *Builder) Download() error {
 
 	bspPath := b.Bsp.BasePath()
 	downloadScript := filepath.Join(bspPath, b.Bsp.DownloadScript)
-	binBaseName := b.appBinBasePath()
-	featureString := b.featureString()
+	binBaseName := b.AppBinBasePath()
+	featureString := b.FeatureString()
 
 	downloadCmd := fmt.Sprintf("%s %s %s %s",
 		downloadScript, bspPath, binBaseName, featureString)
@@ -77,8 +77,8 @@ func (b *Builder) Debug() error {
 
 	bspPath := b.Bsp.BasePath()
 	debugScript := filepath.Join(bspPath, b.Bsp.DebugScript)
-	binBaseName := b.appBinBasePath()
-	featureString := b.featureString()
+	binBaseName := b.AppBinBasePath()
+	featureString := b.FeatureString()
 
 	os.Chdir(project.GetProject().Path())
 
