@@ -177,14 +177,14 @@ func (image *Image) SetVersion(versStr string) error {
 func (image *Image) Generate() error {
 	binFile, err := os.Open(image.sourceBin)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't open target binary %s: %s",
-			image.sourceBin, err.Error()))
+		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
+			err.Error()))
 	}
 	defer binFile.Close()
 
 	binInfo, err := binFile.Stat()
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't stat target binary %s: %s",
+		return util.NewNewtError(fmt.Sprintf("Can't stat app binary %s: %s",
 			image.sourceBin, err.Error()))
 	}
 
