@@ -139,99 +139,146 @@ func (proj *Project) PackageSearchDirs() []string {
 	return proj.packageSearchDirs
 }
 
+func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
+	upgrade bool, force bool) (bool, error) {
+	rdesc, err := r.GetRepoDesc()
+	if err != nil {
+		return false, err
+	}
+
+	if !upgrade {
+		cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+			fmt.Sprintf("Installed repository %s has version %s, "+
+				"which meets project requirements. Moving on to next repository.\n",
+				r.Name(), vers))
+		return true, nil
+	} else {
+		_, newVers, _ := rdesc.Match(r)
+		if newVers == nil {
+			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+				"No matching version to upgrade to "+
+					"found for %s.  Please check your project requirements, and use the "+
+					"project show-repo command to see available repository versions.",
+				r.Name())
+			return false, util.NewNewtError(fmt.Sprintf("Cannot find a "+
+				"version of repository %s that matches project requirements.",
+				r.Name()))
+		}
+
+		// If the change between the old repository and the new repository would cause
+		// and upgrade.  Then prompt for an upgrade response, unless the force option
+		// is present.
+		if vers.CompareVersions(newVers, vers) != 0 ||
+			vers.Stability() != newVers.Stability() {
+			if !force {
+				branch, newVers, _ := rdesc.Match(r)
+
+				str := ""
+				if newVers.Stability() != repo.VERSION_STABILITY_NONE {
+					str += "(" + branch + ")"
+				}
+
+				fmt.Printf("Would you like to upgrade repository %s from %s to %s %s? [Yn] ",
+					r.Name(), vers.String(), newVers.String(), str)
+
+				line, more, err := bufio.NewReader(os.Stdin).ReadLine()
+				if more || err != nil {
+					return false, util.NewNewtError(fmt.Sprintf(
+						"Couldn't read upgrade response: %s\n", err.Error()))
+				}
+				// Anything but no means yes.
+				answer := strings.ToUpper(strings.Trim(string(line), " "))
+				if answer == "N" || answer == "NO" {
+					fmt.Printf("Users says don't upgrade, skipping upgrade of %s\n",
+						r.Name())
+					return true, nil
+				}
+			}
+		} else {
+			cli.StatusMessage(cli.VERBOSITY_DEFAULT,
+				"Repository %s doesn't need to be upgraded, latest "+
+					"version installed.\n", r.Name())
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force bool) (bool, error) {
+	rdesc, err := r.GetRepoDesc()
+	if err != nil {
+		return false, err
+	}
+
+	rname := r.Name()
+
+	vers := proj.projState.GetInstalledVersion(rname)
+	if vers != nil {
+		ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
+		if !ok && !upgrade {
+			cli.StatusMessage(cli.VERBOSITY_DEFAULT, "WARNING: Installed"+
+				"version %s of repository %s does not match desired "+
+				"version %s in project file.  You can fix this by either upgrading"+
+				" your repository, or modifying the project.yml file.\n",
+				vers, rname, r.VersionRequirementsString())
+			return true, err
+		} else {
+			skip, err := proj.upgradeCheck(r, vers, upgrade, force)
+			return skip, err
+		}
+	} else {
+		// Fallthrough and perform the installation.
+		// Check to make sure that this repository contains a version
+		// that can satisfy.
+		_, _, ok := rdesc.Match(r)
+		if !ok {
+			fmt.Printf("WARNING: No matching repository version found for repository "+
+				"%s specified in project.  To find available versions for a repository"+
+				" issue the project show-repo command.\n", r.Name())
+			return true, err
+		}
+	}
+
+	return false, nil
+}
+
 func (proj *Project) Install(upgrade bool, force bool) error {
 	repoList := proj.Repos()
+
 	for rname, r := range repoList {
 		// Ignore the local repo on install
 		if rname == repo.REPO_NAME_LOCAL {
 			continue
 		}
-		// Download repository description.  Try and resolve this
-		// repository out of the repo list (repodesc for each repo.)
-		// If matching repository is found, then prompt for install and install
-		// that repository.
-		if err := r.DownloadDesc(); err != nil {
+		// First thing we do is update repository description.  This
+		// will get us available branches and versions in the repository.
+		if err := r.UpdateDesc(); err != nil {
 			return err
 		}
 
-		rdesc, err := r.ReadDesc()
+		// Check the version requirements on this repository, and see
+		// whether or not we need to install/upgrade it.
+		skip, err := proj.checkVersionRequirements(r, upgrade, force)
 		if err != nil {
 			return err
 		}
-
-		vers := proj.projState.GetInstalledVersion(rname)
-		if vers != nil {
-			ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
-			if !ok && !upgrade {
-				fmt.Printf("WARNING: Installed version %s of repository %s "+
-					"does not match desired versions %s in project\n",
-					vers, rname, r.VersionRequirementsString())
-				continue
-			}
-
-			if !upgrade {
-				cli.StatusMessage(cli.VERBOSITY_DEFAULT,
-					fmt.Sprintf("Installed repository %s matches project requirements, "+
-						"moving on to next repository.\n", r.Name()))
-				continue
-			} else {
-				_, newVers, _ := rdesc.Match(r)
-				if newVers == nil {
-					return util.NewNewtError(fmt.Sprintf(
-						"No matching version for repository %s\n", r.Name()))
-				}
-				if vers.CompareVersions(newVers, vers) != 0 ||
-					vers.Stability() != newVers.Stability() {
-					// Prompt for upgrade, unless force option present
-					if !force {
-						branch, newVers, _ := rdesc.Match(r)
-
-						str := ""
-						if newVers.Stability() != repo.VERSION_STABILITY_NONE {
-							str += "(" + branch + ")"
-						}
-
-						fmt.Printf("Would you like to upgrade repository %s from %s to %s %s? [Yn] ",
-							r.Name(), vers.String(), newVers.String(), str)
-
-						line, more, err := bufio.NewReader(os.Stdin).ReadLine()
-						if more || err != nil {
-							return util.NewNewtError(fmt.Sprintf(
-								"Couldn't read upgrade response: %s\n", err.Error()))
-						}
-						answer := strings.ToUpper(strings.Trim(string(line), " "))
-						if answer == "N" || answer == "NO" {
-							fmt.Printf("Users says don't upgrade, skipping upgrade of %s\n",
-								r.Name())
-							continue
-						}
-
-					}
-				} else {
-					fmt.Printf("Repository %s doesn't need to be upgraded, latest "+
-						"version installed.\n", r.Name())
-					continue
-				}
-			}
-		}
-
-		_, _, ok := rdesc.Match(r)
-		if !ok {
-			fmt.Printf("WARNING: No matching repository version found for repository "+
-				"%s specified in project, skipping...\n", r.Name())
+		if skip {
 			continue
 		}
 
-		rvers, err := r.Install(rdesc, upgrade || force)
+		// Do the hard work of actually copying and installing the repository.
+		rvers, err := r.Install(upgrade || force)
 		if err != nil {
 			return err
 		}
 
-		if rvers != nil {
-			proj.projState.Replace(rname, rvers)
-		}
+		// Update the project state with the new repository version information.
+		proj.projState.Replace(rname, rvers)
 	}
 
+	// Save the project state, including any updates or changes to the project
+	// information that either install or upgrade caused.
 	if err := proj.projState.Save(); err != nil {
 		return err
 	}

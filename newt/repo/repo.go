@@ -150,6 +150,16 @@ func NewRepoDesc(name string, versBranchMap map[string]string) (*RepoDesc, error
 	return rd, nil
 }
 
+func (r *Repo) GetRepoDesc() (*RepoDesc, error) {
+	if r.rdesc == nil {
+		return nil, util.NewNewtError(fmt.Sprintf(
+			"Repository description for %s not yet initailized.  Must "+
+				"download it first. ", r.Name()))
+	} else {
+		return r.rdesc, nil
+	}
+}
+
 func (r *Repo) Name() string {
 	return r.name
 }
@@ -180,7 +190,7 @@ func (r *Repo) repoFilePath() string {
 		".configs/" + r.name + "/"
 }
 
-func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
+func (r *Repo) Install(force bool) (*Version, error) {
 	// Copy the git repo into /repos/, error'ing out if the repo already exists
 	if cli.NodeExist(r.Path()) {
 		if force {
@@ -193,10 +203,10 @@ func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 		}
 	}
 
-	branchName, vers, found := rdesc.Match(r)
+	branchName, vers, found := r.rdesc.Match(r)
 	if !found {
 		return nil, util.NewNewtError(fmt.Sprintf("No repository matching description %s found",
-			rdesc.String()))
+			r.rdesc.String()))
 	}
 
 	dl := r.downloader
@@ -217,6 +227,20 @@ func (r *Repo) Install(rdesc *RepoDesc, force bool) (*Version, error) {
 	}
 
 	return vers, nil
+}
+
+func (r *Repo) UpdateDesc() error {
+	var err error
+
+	if err = r.DownloadDesc(); err != nil {
+		return err
+	}
+
+	_, err = r.ReadDesc()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Download the repository description.
