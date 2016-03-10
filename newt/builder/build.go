@@ -247,12 +247,12 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	// code, and not easy to generalize into a single operation:
 	//     * src/arch/<target-arch>
 	//     * src/test/arch/<target-arch>
-	if err = buildDir(srcDir, c, b.target.Arch, []string{"test"}); err != nil {
+	if err = buildDir(srcDir, c, b.Bsp.Arch, []string{"test"}); err != nil {
 		return err
 	}
 	if b.features["TEST"] {
 		testSrcDir := srcDir + "/test"
-		if err = buildDir(testSrcDir, c, b.target.Arch, nil); err != nil {
+		if err = buildDir(testSrcDir, c, b.Bsp.Arch, nil); err != nil {
 			return err
 		}
 	}
@@ -391,7 +391,7 @@ func (b *Builder) PrepBuild() error {
 	// Define a cpp symbol indicating the target architecture.
 	// XXX: This should probably happen in the bsp after we move the arch field
 	// from target to bsp.
-	targetCi.Cflags = append(targetCi.Cflags, "-DARCH_"+b.target.Arch)
+	targetCi.Cflags = append(targetCi.Cflags, "-DARCH_"+b.Bsp.Arch)
 
 	baseCi.AddCompilerInfo(targetCi)
 

@@ -26,6 +26,7 @@ import (
 type BspPackage struct {
 	*LocalPackage
 	CompilerName   string
+	Arch           string
 	LinkerScript   string
 	DownloadScript string
 	DebugScript    string
@@ -34,6 +35,8 @@ type BspPackage struct {
 func (bsp *BspPackage) Reload(features map[string]bool) {
 	bsp.CompilerName = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
 		features, "pkg.compiler")
+	bsp.Arch = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+		features, "pkg.arch")
 	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
 		features, "pkg.linkerscript")
 	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,

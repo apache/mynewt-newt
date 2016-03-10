@@ -272,7 +272,7 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 
 	return []string{
 		bpkg.BasePath() + "/include",
-		bpkg.BasePath() + "/include/" + pkgBase + "/arch/" + b.target.Arch,
+		bpkg.BasePath() + "/include/" + pkgBase + "/arch/" + b.Bsp.Arch,
 	}
 }
 
@@ -281,12 +281,12 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 
 	incls := []string{}
 	incls = append(incls, srcDir)
-	incls = append(incls, srcDir+"/arch/"+b.target.Arch)
+	incls = append(incls, srcDir+"/arch/"+b.Bsp.Arch)
 
 	if b.Features()["TEST"] {
 		testSrcDir := srcDir + "/test"
 		incls = append(incls, testSrcDir)
-		incls = append(incls, testSrcDir+"/arch/"+b.target.Arch)
+		incls = append(incls, testSrcDir+"/arch/"+b.Bsp.Arch)
 	}
 
 	return incls

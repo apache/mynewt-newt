@@ -45,7 +45,6 @@ type Target struct {
 	// initializiation of dummy targets.
 	BspName      string
 	AppName      string
-	Arch         string
 	BuildProfile string
 
 	// target.yml configuration structure
@@ -89,7 +88,6 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	target.BspName = target.Vars["target.bsp"]
 	target.AppName = target.Vars["target.app"]
-	target.Arch = target.Vars["target.arch"]
 	target.BuildProfile = target.Vars["target.build_profile"]
 
 	// Remember the name of the configuration file so that it can be specified
