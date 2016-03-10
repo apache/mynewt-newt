@@ -113,6 +113,12 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	c.ocPath = v.GetString("compiler.path.objcopy")
 
 	cflags := v.GetStringSlice("compiler.flags." + buildProfile)
+	if len(cflags) == 0 {
+		// Assume no flags implies an unsupported build profile.
+		return util.FmtNewtError("Compiler doesn't support build profile "+
+			"specified by target (build_profile=\"%s\")", buildProfile)
+	}
+
 	for _, flag := range cflags {
 		if strings.HasPrefix(flag, "compiler.flags") {
 			c.info.Cflags = append(c.info.Cflags,

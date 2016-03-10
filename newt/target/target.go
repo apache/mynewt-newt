@@ -33,6 +33,7 @@ import (
 )
 
 const TARGET_FILENAME string = "target.yml"
+const DEFAULT_BUILD_PROFILE string = "default"
 
 var globalTargetMap map[string]*Target
 
@@ -52,7 +53,9 @@ type Target struct {
 }
 
 func NewTarget(basePkg *pkg.LocalPackage) *Target {
-	target := &Target{}
+	target := &Target{
+		BuildProfile: DEFAULT_BUILD_PROFILE,
+	}
 	target.Init(basePkg)
 	return target
 }

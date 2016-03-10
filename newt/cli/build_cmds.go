@@ -49,11 +49,11 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := builder.NewBuilder(t)
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 	err = b.Build()
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "App successfully built: %s\n",
