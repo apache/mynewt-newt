@@ -21,6 +21,7 @@ package builder
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -162,6 +163,8 @@ func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
 		if !ok {
 			b.AddFeature(nfeature)
 			foundNewFeature = true
+			log.Printf("[DEBUG] Detected new feature: %s (%s)", nfeature,
+				bpkg.Name())
 		}
 	}
 
