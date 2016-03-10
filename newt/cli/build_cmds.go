@@ -20,7 +20,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -111,26 +110,12 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	testAll := false
 	packs := []*pkg.LocalPackage{}
 	for _, pkgName := range args {
-		if pkgName == "all" {
-			testAll = true
-		} else {
-			dep, err := pkg.NewDependency(nil, pkgName)
-			if err != nil {
-				NewtUsage(cmd, util.NewNewtError(fmt.Sprintf("invalid "+
-					"package name: %s (%s)", pkgName, err.Error())))
-			}
-			if dep == nil {
-				NewtUsage(cmd, util.NewNewtError("invalid package name: "+
-					pkgName))
-			}
-			pack := project.GetProject().ResolveDependency(dep)
-			if pack == nil {
-				NewtUsage(cmd, util.NewNewtError("unknown package: "+
-					pkgName))
-			}
-
-			packs = append(packs, pack.(*pkg.LocalPackage))
+		pack, err := ResolvePackage(pkgName)
+		if err != nil {
+			NewtUsage(cmd, err)
 		}
+
+		packs = append(packs, pack)
 	}
 
 	// Test each specified package.

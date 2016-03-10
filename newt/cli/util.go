@@ -29,6 +29,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
@@ -71,6 +73,10 @@ func FormatHelp(text string) string {
 }
 
 func ResolveTarget(name string) *target.Target {
+	// Trim trailing slash from name.  This is necessary when tab
+	// completion is used to specify the name.
+	name = strings.TrimSuffix(name, "/")
+
 	targetMap := target.GetTargets()
 
 	// Check for fully-qualified name.
@@ -139,4 +145,25 @@ func ResolveNewTargetName(name string) (string, error) {
 	}
 
 	return pkgName, nil
+}
+
+func ResolvePackage(name string) (*pkg.LocalPackage, error) {
+	// Trim trailing slash from name.  This is necessary when tab
+	// completion is used to specify the name.
+	name = strings.TrimSuffix(name, "/")
+
+	dep, err := pkg.NewDependency(nil, name)
+	if err != nil {
+		return nil, util.FmtNewtError("invalid package name: %s (%s)", name,
+			err.Error())
+	}
+	if dep == nil {
+		return nil, util.NewNewtError("invalid package name: " + name)
+	}
+	pack := project.GetProject().ResolveDependency(dep)
+	if pack == nil {
+		return nil, util.NewNewtError("unknown package: " + name)
+	}
+
+	return pack.(*pkg.LocalPackage), nil
 }
