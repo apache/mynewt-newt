@@ -35,7 +35,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 
 	t := ResolveTarget(args[0])
 	if t == nil {
-		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
 	b, err := builder.NewBuilder(t)
