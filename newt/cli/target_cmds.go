@@ -97,8 +97,10 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 		sort.Strings(keys)
 		for _, k := range keys {
-			util.StatusMessage(util.VERBOSITY_QUIET, "    %s=%s\n", k,
-				target.Vars[k])
+			varName := strings.TrimPrefix(k, "target.")
+			value := target.Vars[k]
+			util.StatusMessage(util.VERBOSITY_QUIET, "    %s=%s\n",
+				varName, value)
 		}
 	}
 }
