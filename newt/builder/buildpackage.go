@@ -211,13 +211,8 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 			return false, err
 		}
 
-		pkg := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
-		if pkg == nil {
-			return false, util.NewNewtError("Cannot resolve dependency: " +
-				newDep.String())
-		}
-
-		if pkg == nil {
+		pkg, ok := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
+		if !ok {
 			return false,
 				util.NewNewtError("Could not resolve package dependency " +
 					newDep.String())
