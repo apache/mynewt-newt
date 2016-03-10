@@ -155,6 +155,10 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 			return
 		}
 
+		// Trim trailing slash from value.  This is necessary when tab
+		// completion is used to fill in the value.
+		kv[1] = strings.TrimSuffix(kv[1], "/")
+
 		vars = append(vars, kv)
 	}
 
