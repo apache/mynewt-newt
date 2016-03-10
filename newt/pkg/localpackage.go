@@ -65,6 +65,9 @@ type LocalPackage struct {
 
 	// Pointer to pkg.yml configuration structure
 	Viper *viper.Viper
+
+	// Names of all source yml files; used to determine if rebuild required.
+	cfgFilenames []string
 }
 
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
@@ -156,6 +159,14 @@ func (pkg *LocalPackage) Hash() (string, error) {
 	return hashStr, nil
 }
 
+func (pkg *LocalPackage) CfgFilenames() []string {
+	return pkg.cfgFilenames
+}
+
+func (pkg *LocalPackage) AddCfgFilename(cfgFilename string) {
+	pkg.cfgFilenames = append(pkg.cfgFilenames, cfgFilename)
+}
+
 func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
 	for _, dep := range pkg.deps {
 		if dep.String() == searchDep.String() {
@@ -166,6 +177,8 @@ func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
 }
 
 func (pkg *LocalPackage) AddDep(dep *Dependency) {
+	// Remember the name of the configuration file so that it can be specified
+	// as a dependency to the compiler.
 	pkg.deps = append(pkg.deps, dep)
 }
 
@@ -268,6 +281,8 @@ func (pkg *LocalPackage) Load() error {
 	if err != nil {
 		return err
 	}
+
+	pkg.AddCfgFilename(pkg.basePath + PACKAGE_FILE_NAME)
 
 	return nil
 }

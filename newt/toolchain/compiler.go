@@ -32,6 +32,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+const COMPILER_FILENAME string = "compiler.yml"
+
 const (
 	COMPILER_TYPE_C   = 0
 	COMPILER_TYPE_ASM = 1
@@ -60,6 +62,8 @@ type Compiler struct {
 	dstDir                string
 
 	info CompilerInfo
+
+	extraDeps []string
 }
 
 func NewCompilerInfo() *CompilerInfo {
@@ -85,6 +89,7 @@ func NewCompiler(compilerDir string, dstDir string,
 	c := &Compiler{
 		ObjPathList: map[string]bool{},
 		dstDir:      filepath.Clean(dstDir),
+		extraDeps:   []string{compilerDir + COMPILER_FILENAME},
 	}
 
 	c.depTracker = NewDepTracker(c)
@@ -146,6 +151,10 @@ func (c *Compiler) DstDir() string {
 	return c.dstDir
 }
 
+func (c *Compiler) AddDeps(depFilenames ...string) {
+	c.extraDeps = append(c.extraDeps, depFilenames...)
+}
+
 // Skips compilation of the specified C or assembly file, but adds the name of
 // the object file that would have been generated to the compiler's list of
 // object files.  This function is used when the object file is already up to
@@ -187,6 +196,11 @@ func (c *Compiler) cflagsString() string {
 func (c *Compiler) lflagsString() string {
 	lflags := util.SortFields(c.info.Lflags...)
 	return strings.Join(lflags, " ")
+}
+
+func (c *Compiler) depsString() string {
+	extraDeps := util.SortFields(c.extraDeps...)
+	return strings.Join(extraDeps, " ") + "\n"
 }
 
 // Calculates the command-line invocation necessary to compile the specified C
@@ -239,6 +253,18 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	_, err = util.ShellCommand(cmd)
 	if err != nil {
 		return err
+	}
+
+	// Append the extra dependencies (.yml files) to the .d file.
+	f, err := os.OpenFile(depFile, os.O_APPEND|os.O_WRONLY, 0666)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+	defer f.Close()
+
+	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
+	if _, err := f.WriteString(objFile + ": " + c.depsString()); err != nil {
+		return util.NewNewtError(err.Error())
 	}
 
 	return nil

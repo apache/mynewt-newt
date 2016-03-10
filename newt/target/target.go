@@ -92,6 +92,10 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	target.Arch = target.Vars["target.arch"]
 	target.BuildProfile = target.Vars["target.build_profile"]
 
+	// Remember the name of the configuration file so that it can be specified
+	// as a dependency to the compiler.
+	target.basePkg.AddCfgFilename(basePkg.BasePath() + TARGET_FILENAME)
+
 	return nil
 }
 

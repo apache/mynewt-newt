@@ -34,6 +34,7 @@ type Builder struct {
 	features map[string]bool
 	apis     map[string]*BuildPackage
 
+	appPkg       *BuildPackage
 	Bsp          *pkg.BspPackage
 	compilerPkg  *pkg.LocalPackage
 	compilerInfo *toolchain.CompilerInfo
@@ -201,6 +202,29 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	return nil
 }
 
+func (b *Builder) newCompiler(bpkg *BuildPackage, dstDir string) (*toolchain.Compiler, error) {
+	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(), dstDir,
+		b.target.BuildProfile)
+	if err != nil {
+		return nil, err
+	}
+	c.AddInfo(b.compilerInfo)
+
+	ci, err := bpkg.CompilerInfo(b)
+	if err != nil {
+		return nil, err
+	}
+	c.AddInfo(ci)
+
+	// Specify all the source yml files as dependencies.  If a yml file has
+	// changed, a full rebuild is required.
+	for _, bp := range b.Packages {
+		c.AddDeps(bp.CfgFilenames()...)
+	}
+
+	return c, nil
+}
+
 // Compiles and archives a package.
 func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	srcDir := bpkg.BasePath() + "/src"
@@ -209,18 +233,10 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 		return nil
 	}
 
-	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(),
-		b.PkgBinDir(bpkg.Name()), b.target.BuildProfile)
+	c, err := b.newCompiler(bpkg, b.PkgBinDir(bpkg.Name()))
 	if err != nil {
 		return err
 	}
-	c.AddInfo(b.compilerInfo)
-
-	ci, err := bpkg.CompilerInfo(b)
-	if err != nil {
-		return err
-	}
-	c.AddInfo(ci)
 
 	// Build the package source in two phases:
 	// 1. Non-test code.
@@ -254,8 +270,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 }
 
 func (b *Builder) link(elfName string) error {
-	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(),
-		b.PkgBinDir(elfName), b.target.BuildProfile)
+	c, err := b.newCompiler(b.appPkg, b.PkgBinDir(elfName))
 	if err != nil {
 		return err
 	}
@@ -321,6 +336,7 @@ func (b *Builder) PrepBuild() error {
 		if appBpkg == nil {
 			appBpkg = b.AddPackage(appPkg)
 		}
+		b.appPkg = appBpkg
 	}
 
 	bspBpkg := b.Packages[bspPkg]
