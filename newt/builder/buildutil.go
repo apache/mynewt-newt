@@ -131,3 +131,27 @@ func (b *Builder) verifyApisSatisfied() error {
 
 	return nil
 }
+
+func (b *Builder) logDepInfo() {
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Feature set: ["+
+		b.FeatureString()+"]\n")
+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "API set:\n")
+	for api, bpkg := range b.apis {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "    * %s (%s)\n", api,
+			bpkg.Name())
+	}
+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Dependency graph:\n")
+	for _, bpkg := range b.Packages {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "    * %s: [", bpkg.Name())
+
+		for i, dep := range bpkg.Deps() {
+			if i != 0 {
+				util.StatusMessage(util.VERBOSITY_VERBOSE, " ")
+			}
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", dep.String())
+		}
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "]\n")
+	}
+}
