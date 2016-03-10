@@ -401,7 +401,9 @@ func (b *Builder) PrepBuild() error {
 
 	// Read the BSP configuration.  These settings are necessary for the link
 	// step.
-	b.Bsp.Reload(b.Features())
+	if err := b.Bsp.Reload(b.Features()); err != nil {
+		return err
+	}
 
 	b.compilerPkg = compilerPkg
 	b.compilerInfo = baseCi
@@ -412,7 +414,8 @@ func (b *Builder) PrepBuild() error {
 func (b *Builder) Build() error {
 	if b.target.App() == nil {
 		if b.target.AppName == "" {
-			return util.NewNewtError("App package not specified by target")
+			return util.NewNewtError("App package not specified by target " +
+				"(target.app)")
 		} else {
 			return util.NewNewtError("App package not found: " +
 				b.target.AppName)

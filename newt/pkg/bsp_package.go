@@ -21,6 +21,7 @@ package pkg
 
 import (
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/util"
 )
 
 type BspPackage struct {
@@ -32,7 +33,7 @@ type BspPackage struct {
 	DebugScript    string
 }
 
-func (bsp *BspPackage) Reload(features map[string]bool) {
+func (bsp *BspPackage) Reload(features map[string]bool) error {
 	bsp.CompilerName = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
 		features, "pkg.compiler")
 	bsp.Arch = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
@@ -43,6 +44,17 @@ func (bsp *BspPackage) Reload(features map[string]bool) {
 		features, "pkg.downloadscript")
 	bsp.DebugScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
 		features, "pkg.debugscript")
+
+	if bsp.CompilerName == "" {
+		return util.NewNewtError("BSP does not specify a compiler " +
+			"(pkg.compiler)")
+	}
+	if bsp.Arch == "" {
+		return util.NewNewtError("BSP does not specify an architecture " +
+			"(pkg.arch)")
+	}
+
+	return nil
 }
 
 func NewBspPackage(lpkg *LocalPackage) *BspPackage {

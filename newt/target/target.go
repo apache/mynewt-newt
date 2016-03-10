@@ -40,9 +40,6 @@ var globalTargetMap map[string]*Target
 type Target struct {
 	basePkg *pkg.LocalPackage
 
-	// XXX: Probably don't need the below four fields; they can just be
-	// retrieved from the viper object.  Keep them here for now for easy
-	// initializiation of dummy targets.
 	BspName      string
 	AppName      string
 	BuildProfile string
@@ -52,9 +49,7 @@ type Target struct {
 }
 
 func NewTarget(basePkg *pkg.LocalPackage) *Target {
-	target := &Target{
-		BuildProfile: DEFAULT_BUILD_PROFILE,
-	}
+	target := &Target{}
 	target.Init(basePkg)
 	return target
 }
@@ -89,6 +84,16 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	target.BspName = target.Vars["target.bsp"]
 	target.AppName = target.Vars["target.app"]
 	target.BuildProfile = target.Vars["target.build_profile"]
+
+	if target.BspName == "" {
+		return util.NewNewtError("Target does not specify a BSP package " +
+			"(target.bsp)")
+	}
+	if target.BuildProfile == "" {
+		target.BuildProfile = DEFAULT_BUILD_PROFILE
+	}
+
+	// Note: App not required in the case of unit tests.
 
 	// Remember the name of the configuration file so that it can be specified
 	// as a dependency to the compiler.
