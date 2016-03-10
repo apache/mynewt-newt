@@ -234,7 +234,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	if err = buildDir(srcDir, c, b.target.Arch, []string{"test"}); err != nil {
 		return err
 	}
-	if b.features["test"] {
+	if b.features["TEST"] {
 		testSrcDir := srcDir + "/test"
 		if err = buildDir(testSrcDir, c, b.target.Arch, nil); err != nil {
 			return err
@@ -432,10 +432,10 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 
 	// A few features are automatically supported when the test command is
 	// used:
-	//     * test:      ensures that the test code gets compiled.
-	//     * selftest:  indicates that there is no app.
-	b.AddFeature("test")
-	b.AddFeature("selftest")
+	//     * TEST:      ensures that the test code gets compiled.
+	//     * SELFTEST:  indicates that there is no app.
+	b.AddFeature("TEST")
+	b.AddFeature("SELFTEST")
 
 	// Populate the package and feature sets and calculate the base compiler
 	// flags.
@@ -451,7 +451,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	if err != nil {
 		return err
 	}
-	testPkgCi.Cflags = append(testPkgCi.Cflags, "-DPKG_TEST")
+	testPkgCi.Cflags = append(testPkgCi.Cflags, "-DMYNEWT_SELFTEST")
 
 	// XXX: If any yml files have changed, a full rebuild is required.  We
 	// don't currently check this.
