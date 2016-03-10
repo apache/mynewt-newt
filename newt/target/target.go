@@ -85,10 +85,6 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	target.AppName = target.Vars["target.app"]
 	target.BuildProfile = target.Vars["target.build_profile"]
 
-	if target.BspName == "" {
-		return util.NewNewtError("Target does not specify a BSP package " +
-			"(target.bsp)")
-	}
 	if target.BuildProfile == "" {
 		target.BuildProfile = DEFAULT_BUILD_PROFILE
 	}
@@ -98,6 +94,35 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	// Remember the name of the configuration file so that it can be specified
 	// as a dependency to the compiler.
 	target.basePkg.AddCfgFilename(basePkg.BasePath() + TARGET_FILENAME)
+
+	return nil
+}
+
+func (target *Target) Validate(appRequired bool) error {
+	if target.BspName == "" {
+		return util.NewNewtError("Target does not specify a BSP package " +
+			"(target.bsp)")
+	}
+	bsp := target.resolvePackageName(target.BspName)
+	if bsp.Type() != pkg.PACKAGE_TYPE_BSP {
+		return util.FmtNewtError("bsp package (%s) is not of "+
+			"type bsp; type is: %s\n", bsp.Name(),
+			pkg.PackageTypeNames[bsp.Type()])
+	}
+
+	if appRequired {
+		if target.AppName == "" {
+			return util.NewNewtError("Target does not specify an app " +
+				"package (target.bsp)")
+		}
+
+		app := target.resolvePackageName(target.AppName)
+		if app.Type() != pkg.PACKAGE_TYPE_APP {
+			return util.FmtNewtError("target.app package (%s) is not of "+
+				"type app; type is: %s\n", app.Name(),
+				pkg.PackageTypeNames[app.Type()])
+		}
+	}
 
 	return nil
 }

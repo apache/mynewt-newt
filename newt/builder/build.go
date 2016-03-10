@@ -405,20 +405,13 @@ func (b *Builder) PrepBuild() error {
 }
 
 func (b *Builder) Build() error {
-	if b.target.App() == nil {
-		if b.target.AppName == "" {
-			return util.NewNewtError("App package not specified by target " +
-				"(target.app)")
-		} else {
-			return util.NewNewtError("App package not found: " +
-				b.target.AppName)
-		}
+	if err := b.target.Validate(true); err != nil {
+		return err
 	}
 
 	// Populate the package and feature sets and calculate the base compiler
 	// flags.
-	err := b.PrepBuild()
-	if err != nil {
+	if err := b.PrepBuild(); err != nil {
 		return err
 	}
 
@@ -426,14 +419,12 @@ func (b *Builder) Build() error {
 	// don't currently check this.
 
 	for _, bpkg := range b.Packages {
-		err = b.buildPackage(bpkg)
-		if err != nil {
+		if err := b.buildPackage(bpkg); err != nil {
 			return err
 		}
 	}
 
-	err = b.link(b.AppElfPath())
-	if err != nil {
+	if err := b.link(b.AppElfPath()); err != nil {
 		return err
 	}
 
@@ -441,6 +432,10 @@ func (b *Builder) Build() error {
 }
 
 func (b *Builder) Test(p *pkg.LocalPackage) error {
+	if err := b.target.Validate(false); err != nil {
+		return err
+	}
+
 	// Seed the builder with the package under test.
 	testBpkg := b.AddPackage(p)
 
