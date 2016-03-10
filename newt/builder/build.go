@@ -279,7 +279,7 @@ func (b *Builder) link(elfName string) error {
 	return nil
 }
 
-// Populates the builder with all the packages that need to be built, and
+// Populates the builder with all the packages that need to be built and
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
 func (b *Builder) PrepBuild() error {

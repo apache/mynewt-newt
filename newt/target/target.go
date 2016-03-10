@@ -119,8 +119,8 @@ func (target *Target) Clone(newRepo *repo.Repo, newName string) *Target {
 	return &newTarget
 }
 
-func resolvePackageName(name string) *pkg.LocalPackage {
-	dep, err := pkg.NewDependency(nil, name)
+func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
+	dep, err := pkg.NewDependency(target.basePkg.Repo(), name)
 	if err != nil {
 		return nil
 	}
@@ -134,11 +134,11 @@ func resolvePackageName(name string) *pkg.LocalPackage {
 }
 
 func (target *Target) App() *pkg.LocalPackage {
-	return resolvePackageName(target.AppName)
+	return target.resolvePackageName(target.AppName)
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {
-	return resolvePackageName(target.BspName)
+	return target.resolvePackageName(target.BspName)
 }
 
 func (target *Target) BinBasePath() string {

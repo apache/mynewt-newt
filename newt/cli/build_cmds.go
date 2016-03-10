@@ -31,7 +31,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const TARGET_TEST_NAME = "targets/unittest"
+const TARGET_TEST_NAME = "unittest"
 
 func pkgIsTestable(pack *pkg.LocalPackage) bool {
 	return util.NodeExist(pack.BasePath() + "/src/test")
