@@ -73,7 +73,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		} else {
 			t := ResolveTarget(arg)
 			if t == nil {
-				NewtUsage(cmd, util.NewNewtError("invalid target name"+arg))
+				NewtUsage(cmd, util.NewNewtError("invalid target name: "+arg))
 			}
 			targets = append(targets, t)
 		}
@@ -173,7 +173,7 @@ func downloadRunCmd(cmd *cobra.Command, args []string) {
 
 	t := ResolveTarget(args[0])
 	if t == nil {
-		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
 	b, err := builder.NewBuilder(t)
@@ -194,7 +194,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 
 	t := ResolveTarget(args[0])
 	if t == nil {
-		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
 	b, err := builder.NewBuilder(t)
@@ -215,7 +215,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 
 	t := ResolveTarget(args[0])
 	if t == nil {
-		NewtUsage(cmd, util.NewNewtError("Invalid target name"+args[0]))
+		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
 	b, err := builder.NewBuilder(t)
