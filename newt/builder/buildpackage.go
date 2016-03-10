@@ -243,9 +243,14 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 	return changed, nil
 }
 
-func (bpkg *BuildPackage) satisfyApis(b *Builder) {
-	// Assume all this package's APIs are satisfied.
+// @return bool                 true if a new dependency was detected as a
+//                                  result of satisfying an API for this
+//                                  package.
+func (bpkg *BuildPackage) satisfyApis(b *Builder) bool {
+	// Assume all this package's APIs are satisfied and that no new
+	// dependencies will be detected.
 	bpkg.apisSatisfied = true
+	newDeps := false
 
 	// Determine if any of the package's API requirements can now be satisfied.
 	// If so, another full iteration is required.
@@ -260,11 +265,19 @@ func (bpkg *BuildPackage) satisfyApis(b *Builder) {
 
 		if reqStatus == REQ_API_STATUS_UNSATISFIED {
 			apiSatisfied := bpkg.satisfyReqApi(b, reqApi)
-			if !apiSatisfied {
-				bpkg.apisSatisfied = false
+			if apiSatisfied {
+				// An API was satisfied; the package now has a new dependency
+				// that needs to be resolved.
+				newDeps = true
+				reqStatus = REQ_API_STATUS_SATISFIED
 			}
 		}
+		if reqStatus == REQ_API_STATUS_UNSATISFIED {
+			bpkg.apisSatisfied = false
+		}
 	}
+
+	return newDeps
 }
 
 func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
@@ -294,30 +307,44 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 
 // Attempts to resolve all of a build package's dependencies, identities, APIs,
 // and required APIs.  This function should be called repeatedly until the
-// package is fully resolved.  If a new supported feature is discovered by this
-// function, all pacakges need to be reprocessed from scratch.
+// package is fully resolved.
 //
-// @return bool                 true if one or more new features was discovered
-//                              false if no new features were discovered
-func (bpkg *BuildPackage) Resolve(b *Builder) (bool, error) {
+// If a dependency is resolved by this function, the new dependency needs to be
+// processed.  The caller should attempt to resolve all packages again.
+//
+// If a new supported feature is detected by this function, all pacakges need
+// to be reprocessed from scratch.  The caller should set all packages'
+// depsResolved and apisSatisfied variables to false and attempt to resolve
+// everything again.
+//
+// @return bool                 true if >=1 dependencies were resolved
+//         bool                 true if >=1 new features were detected
+func (bpkg *BuildPackage) Resolve(b *Builder) (bool, bool, error) {
+	var err error
+	newDeps := false
 	newFeatures := false
+
 	if !bpkg.depsResolved {
 		var features map[string]bool
 
 		features, newFeatures = bpkg.loadFeatures(b)
-		newDeps, err := bpkg.loadDeps(b, features)
+		newDeps, err = bpkg.loadDeps(b, features)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 
 		bpkg.depsResolved = !newFeatures && !newDeps
+
 	}
 
 	if !bpkg.apisSatisfied {
-		bpkg.satisfyApis(b)
+		newApiDep := bpkg.satisfyApis(b)
+		if newApiDep {
+			newDeps = true
+		}
 	}
 
-	return newFeatures, nil
+	return newDeps, newFeatures, nil
 }
 
 func (bp *BuildPackage) Init(pkg *pkg.LocalPackage) {

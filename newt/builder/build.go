@@ -107,7 +107,7 @@ func (b *Builder) loadDeps() error {
 	for {
 		reprocess := false
 		for _, bpkg := range b.Packages {
-			newFeatures, err := bpkg.Resolve(b)
+			newDeps, newFeatures, err := bpkg.Resolve(b)
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func (b *Builder) loadDeps() error {
 				reprocess = true
 				break
 			}
-			if !bpkg.depsResolved || !bpkg.apisSatisfied {
+			if newDeps {
 				reprocess = true
 			}
 		}
@@ -210,11 +210,13 @@ func (b *Builder) newCompiler(bpkg *BuildPackage, dstDir string) (*toolchain.Com
 	}
 	c.AddInfo(b.compilerInfo)
 
-	ci, err := bpkg.CompilerInfo(b)
-	if err != nil {
-		return nil, err
+	if bpkg != nil {
+		ci, err := bpkg.CompilerInfo(b)
+		if err != nil {
+			return nil, err
+		}
+		c.AddInfo(ci)
 	}
-	c.AddInfo(ci)
 
 	// Specify all the source yml files as dependencies.  If a yml file has
 	// changed, a full rebuild is required.
