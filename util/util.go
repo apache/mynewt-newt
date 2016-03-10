@@ -41,6 +41,7 @@ import (
 )
 
 var Verbosity int
+var logFile *os.File
 
 func ParseEqualsPair(v string) (string, string, error) {
 	s := strings.Split(v, "=")
@@ -81,9 +82,14 @@ func FmtNewtError(format string, args ...interface{}) *NewtError {
 // Print Silent, Quiet and Verbose aware status messages to stdout.
 func StatusMessage(level int, message string, args ...interface{}) {
 	if Verbosity >= level {
-		fmt.Printf(message, args...)
+		str := fmt.Sprintf(message, args...)
+		os.Stdout.WriteString(str)
+		os.Stdout.Sync()
+
+		if logFile != nil {
+			logFile.WriteString(str)
+		}
 	}
-	os.Stdout.Sync()
 }
 
 // Print Silent, Quiet and Verbose aware status messages to stderr.
@@ -158,17 +164,18 @@ func Max(x, y int) int {
 	return y
 }
 
-func initLog(level string, logFile string) error {
+func initLog(level string, logFilename string) error {
 	var writer io.Writer
-	if logFile == "" {
+	if logFilename == "" {
 		writer = os.Stderr
 	} else {
-		f, err := os.Create(logFile)
+		var err error
+		logFile, err = os.Create(logFilename)
 		if err != nil {
 			return NewNewtError(err.Error())
 		}
 
-		writer = io.MultiWriter(os.Stderr, f)
+		writer = io.MultiWriter(os.Stderr, logFile)
 	}
 
 	filter := &logutils.LevelFilter{
