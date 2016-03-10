@@ -113,7 +113,7 @@ func (target *Target) Validate(appRequired bool) error {
 	if appRequired {
 		if target.AppName == "" {
 			return util.NewNewtError("Target does not specify an app " +
-				"package (target.bsp)")
+				"package (target.app)")
 		}
 
 		app := target.resolvePackageName(target.AppName)
