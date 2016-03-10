@@ -294,13 +294,17 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 
 // Attempts to resolve all of a build package's dependencies, identities, APIs,
 // and required APIs.  This function should be called repeatedly until the
-// package is fully resolved.
+// package is fully resolved.  If a new supported feature is discovered by this
+// function, all pacakges need to be reprocessed from scratch.
 //
-// @return bool                 true if the package is fully resolved;
-//                              false if another call is required.
+// @return bool                 true if one or more new features was discovered
+//                              false if no new features were discovered
 func (bpkg *BuildPackage) Resolve(b *Builder) (bool, error) {
+	newFeatures := false
 	if !bpkg.depsResolved {
-		features, newFeatures := bpkg.loadFeatures(b)
+		var features map[string]bool
+
+		features, newFeatures = bpkg.loadFeatures(b)
 		newDeps, err := bpkg.loadDeps(b, features)
 		if err != nil {
 			return false, err
@@ -313,7 +317,7 @@ func (bpkg *BuildPackage) Resolve(b *Builder) (bool, error) {
 		bpkg.satisfyApis(b)
 	}
 
-	return bpkg.depsResolved && bpkg.apisSatisfied, nil
+	return newFeatures, nil
 }
 
 func (bp *BuildPackage) Init(pkg *pkg.LocalPackage) {

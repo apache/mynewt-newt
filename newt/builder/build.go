@@ -106,12 +106,23 @@ func (b *Builder) loadDeps() error {
 	for {
 		reprocess := false
 		for _, bpkg := range b.Packages {
-			resolved, err := bpkg.Resolve(b)
+			newFeatures, err := bpkg.Resolve(b)
 			if err != nil {
 				return err
 			}
 
-			if !resolved {
+			if newFeatures {
+				// A new supported feature was discovered.  It is impossible to
+				// determine what new dependency and API requirements are
+				// generated as a result.  All packages need to be reprocessed.
+				for _, bpkg := range b.Packages {
+					bpkg.depsResolved = false
+					bpkg.apisSatisfied = false
+				}
+				reprocess = true
+				break
+			}
+			if !bpkg.depsResolved || !bpkg.apisSatisfied {
 				reprocess = true
 			}
 		}
