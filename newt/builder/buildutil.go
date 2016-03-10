@@ -21,7 +21,9 @@ package builder
 
 import (
 	"bytes"
+	"log"
 	"path/filepath"
+	"sort"
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -72,8 +74,14 @@ func (b *Builder) TestExePath(pkgName string) string {
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
+	features := make([]string, 0, len(b.Features()))
+	for f, _ := range b.Features() {
+		features = append(features, f)
+	}
+	sort.Strings(features)
+
 	first := true
-	for feature, _ := range b.Features() {
+	for _, feature := range features {
 		if !first {
 			buffer.WriteString(" ")
 		} else {
@@ -132,26 +140,57 @@ func (b *Builder) verifyApisSatisfied() error {
 	return nil
 }
 
-func (b *Builder) logDepInfo() {
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Feature set: ["+
-		b.FeatureString()+"]\n")
+type bpkgSorter struct {
+	bpkgs []*BuildPackage
+}
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "API set:\n")
-	for api, bpkg := range b.apis {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "    * %s (%s)\n", api,
-			bpkg.Name())
+func (b bpkgSorter) Len() int {
+	return len(b.bpkgs)
+}
+func (b bpkgSorter) Swap(i, j int) {
+	b.bpkgs[i], b.bpkgs[j] = b.bpkgs[j], b.bpkgs[i]
+}
+func (b bpkgSorter) Less(i, j int) bool {
+	return b.bpkgs[i].Name() < b.bpkgs[j].Name()
+}
+
+func (b *Builder) logDepInfo() {
+	// Log feature set.
+	log.Printf("[DEBUG] Feature set: [" + b.FeatureString() + "]")
+
+	// Log API set.
+	apis := make([]string, 0, len(b.apis))
+	for api, _ := range b.apis {
+		apis = append(apis, api)
+	}
+	sort.Strings(apis)
+
+	log.Printf("[DEBUG] API set:")
+	for _, api := range apis {
+		bpkg := b.apis[api]
+		log.Printf("[DEBUG]     * " + api + " (" + bpkg.Name() + ")")
 	}
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Dependency graph:\n")
+	// Log dependency graph.
+	bpkgSorter := bpkgSorter{
+		bpkgs: make([]*BuildPackage, 0, len(b.Packages)),
+	}
 	for _, bpkg := range b.Packages {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "    * %s: [", bpkg.Name())
+		bpkgSorter.bpkgs = append(bpkgSorter.bpkgs, bpkg)
+	}
+	sort.Sort(bpkgSorter)
 
+	log.Printf("[DEBUG] Dependency graph:")
+	var buffer bytes.Buffer
+	for _, bpkg := range bpkgSorter.bpkgs {
+		buffer.Reset()
 		for i, dep := range bpkg.Deps() {
 			if i != 0 {
-				util.StatusMessage(util.VERBOSITY_VERBOSE, " ")
+				buffer.WriteString(" ")
 			}
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", dep.String())
+			buffer.WriteString(dep.String())
 		}
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "]\n")
+		log.Printf("[DEBUG]     * " + bpkg.Name() + " [" +
+			buffer.String() + "]")
 	}
 }
