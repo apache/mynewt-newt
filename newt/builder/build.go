@@ -123,6 +123,12 @@ func (b *Builder) loadDeps() error {
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Building with the following "+
 		"feature set: ["+b.FeatureString()+"]\n")
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Building with the following "+
+		"api set:\n")
+	for api, bpkg := range b.apis {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "    * %s (%s)\n", api,
+			bpkg.Name())
+	}
 
 	return nil
 }
