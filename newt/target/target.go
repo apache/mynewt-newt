@@ -104,6 +104,11 @@ func (target *Target) Validate(appRequired bool) error {
 			"(target.bsp)")
 	}
 	bsp := target.resolvePackageName(target.BspName)
+	if bsp == nil {
+		return util.FmtNewtError("Could not resolve BSP package: %s",
+			target.BspName)
+	}
+
 	if bsp.Type() != pkg.PACKAGE_TYPE_BSP {
 		return util.FmtNewtError("bsp package (%s) is not of "+
 			"type bsp; type is: %s\n", bsp.Name(),
@@ -117,6 +122,10 @@ func (target *Target) Validate(appRequired bool) error {
 		}
 
 		app := target.resolvePackageName(target.AppName)
+		if app == nil {
+			return util.FmtNewtError("Could not resolve app package: %s",
+				target.AppName)
+		}
 		if app.Type() != pkg.PACKAGE_TYPE_APP {
 			return util.FmtNewtError("target.app package (%s) is not of "+
 				"type app; type is: %s\n", app.Name(),
