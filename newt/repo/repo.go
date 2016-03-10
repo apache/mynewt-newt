@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"mynewt.apache.org/newt/viper"
+
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
@@ -43,11 +45,83 @@ type Repo struct {
 	localPath  string
 	versreq    []interfaces.VersionReqInterface
 	rdesc      *RepoDesc
+	deps       []*RepoDependency
+	updated    bool
 }
 
 type RepoDesc struct {
 	name string
 	vers map[*Version]string
+}
+
+type RepoDependency struct {
+	versreq   []interfaces.VersionReqInterface
+	name      string
+	Storerepo *Repo
+}
+
+func (r *Repo) Deps() []*RepoDependency {
+	return r.deps
+}
+
+func (r *Repo) AddDependency(rd *RepoDependency) {
+	r.deps = append(r.deps, rd)
+}
+
+func (rd *RepoDependency) Name() string {
+	return rd.name
+}
+
+func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
+	var err error
+
+	rd := &RepoDependency{}
+	rd.versreq, err = LoadVersionMatches(verstr)
+	if err != nil {
+		return nil, err
+	}
+	rd.name = rname
+
+	return rd, nil
+}
+
+func CheckDeps(checkRepos map[string]*Repo) error {
+	// For each dependency, get it's version
+	depArray := map[string][]*Version{}
+
+	for _, checkRepo := range checkRepos {
+		for _, rd := range checkRepo.Deps() {
+			lookupRepo := checkRepos[rd.Name()]
+
+			_, vers, ok := lookupRepo.rdesc.Match(rd.Storerepo)
+			if !ok {
+				return util.NewNewtError(fmt.Sprintf("No "+
+					"matching version for dependent repository %s", rd.name))
+			}
+
+			_, ok = depArray[rd.Name()]
+			if !ok {
+				depArray[rd.Name()] = []*Version{}
+			}
+			depArray[rd.Name()] = append(depArray[rd.Name()], vers)
+		}
+	}
+
+	for repoName, depVersList := range depArray {
+		for _, depVers := range depVersList {
+			for _, curVers := range depVersList {
+				if depVers.CompareVersions(depVers, curVers) != 0 ||
+					depVers.Stability() != curVers.Stability() {
+					return util.NewNewtError(fmt.Sprintf(
+						"Conflict detected.  Repository %s has multiple versions. "+
+							"Notion of repository version is %s, whereas required is "+
+							"%s\n", repoName, curVers, depVers))
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
@@ -115,6 +189,7 @@ func (rd *RepoDesc) SatisfiesVersion(vers *Version, versReqs []interfaces.Versio
 func (rd *RepoDesc) Init(name string, versBranchMap map[string]string) error {
 	rd.name = name
 	rd.vers = map[*Version]string{}
+
 	for versStr, branch := range versBranchMap {
 		log.Printf("[DEBUG] Printing version %s for remote repo %s", versStr, name)
 		vers, err := LoadVersion(versStr)
@@ -228,18 +303,25 @@ func (r *Repo) Install(force bool) (*Version, error) {
 	return vers, nil
 }
 
-func (r *Repo) UpdateDesc() error {
+func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 	var err error
 
-	if err = r.DownloadDesc(); err != nil {
-		return err
+	if r.updated {
+		return nil, false, nil
 	}
 
-	_, err = r.ReadDesc()
-	if err != nil {
-		return err
+	if err = r.DownloadDesc(); err != nil {
+		return nil, false, err
 	}
-	return nil
+
+	_, repos, err := r.ReadDesc()
+	if err != nil {
+		return nil, false, err
+	}
+
+	r.updated = true
+
+	return repos, true, nil
 }
 
 // Download the repository description.
@@ -269,16 +351,61 @@ func (r *Repo) DownloadDesc() error {
 	return nil
 }
 
-func (r *Repo) ReadDesc() (*RepoDesc, error) {
+func (r *Repo) readDepRepos(v *viper.Viper) ([]*Repo, error) {
+	rdesc := r.rdesc
+	repos := []*Repo{}
+
+	branch, _, ok := rdesc.Match(r)
+	if !ok {
+		// No matching branch, barf!
+		return nil, util.NewNewtError(fmt.Sprintf("No "+
+			"matching branch for %s repo", r.Name()))
+	}
+
+	repoTag := fmt.Sprintf("%s.repositories", branch)
+
+	repoList := v.GetStringMap(repoTag)
+	for repoName, repoItf := range repoList {
+		repoVars := repoItf.(map[interface{}]interface{})
+
+		if repoVars["type"] != "github" {
+			return nil, util.NewNewtError("Only github repositories are currently supported.")
+		}
+
+		rversreq := repoVars["vers"].(string)
+		dl := downloader.NewGithubDownloader()
+		dl.User = repoVars["user"].(string)
+		dl.Repo = repoVars["repo"].(string)
+
+		newRepo, err := NewRepo(repoName, rversreq, dl)
+		if err != nil {
+			return nil, err
+		}
+
+		rd, err := NewRepoDependency(repoName, rversreq)
+		if err != nil {
+			return nil, err
+		}
+		rd.Storerepo = newRepo
+
+		r.AddDependency(rd)
+
+		repos = append(repos, newRepo)
+	}
+
+	return repos, nil
+}
+
+func (r *Repo) ReadDesc() (*RepoDesc, []*Repo, error) {
 	if util.NodeNotExist(r.repoFilePath() + REPO_FILE_NAME) {
-		return nil,
+		return nil, nil,
 			util.NewNewtError("No configuration exists for repository " + r.name)
 	}
 
 	v, err := util.ReadConfig(r.repoFilePath(),
 		strings.TrimSuffix(REPO_FILE_NAME, ".yml"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	name := v.GetString("repo.name")
@@ -286,11 +413,16 @@ func (r *Repo) ReadDesc() (*RepoDesc, error) {
 
 	rdesc, err := NewRepoDesc(name, versMap)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	r.rdesc = rdesc
 
-	return rdesc, nil
+	repos, err := r.readDepRepos(v)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rdesc, repos, nil
 }
 
 func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) error {
@@ -298,6 +430,7 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 
 	r.name = repoName
 	r.downloader = d
+	r.deps = []*RepoDependency{}
 	r.versreq, err = LoadVersionMatches(rversreq)
 	if err != nil {
 		return err

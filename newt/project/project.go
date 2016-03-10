@@ -242,20 +242,74 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 	return false, nil
 }
 
+func (proj *Project) checkDeps(r *repo.Repo) error {
+	repos, updated, err := r.UpdateDesc()
+	if err != nil {
+		return err
+	}
+
+	if !updated {
+		return nil
+	}
+
+	for _, newRepo := range repos {
+		curRepo, ok := proj.repos[newRepo.Name()]
+		if !ok {
+			proj.repos[newRepo.Name()] = newRepo
+			return proj.UpdateRepos()
+		} else {
+			// Add any dependencies we might have found here.
+			for _, dep := range newRepo.Deps() {
+				newRepo.DownloadDesc()
+				newRepo.ReadDesc()
+				curRepo.AddDependency(dep)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (proj *Project) UpdateRepos() error {
+	repoList := proj.Repos()
+	for rname, r := range repoList {
+		if rname == repo.REPO_NAME_LOCAL {
+			continue
+		}
+
+		err := proj.checkDeps(r)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (proj *Project) Install(upgrade bool, force bool) error {
 	repoList := proj.Repos()
 
-	for rname, r := range repoList {
+	for rname, _ := range repoList {
 		// Ignore the local repo on install
 		if rname == repo.REPO_NAME_LOCAL {
 			continue
 		}
+
 		// First thing we do is update repository description.  This
 		// will get us available branches and versions in the repository.
-		if err := r.UpdateDesc(); err != nil {
+		if err := proj.UpdateRepos(); err != nil {
 			return err
 		}
+	}
 
+	// Get repository list, and print every repo and it's dependencies.
+	if err := repo.CheckDeps(proj.Repos()); err != nil {
+		return err
+	}
+
+	for rname, r := range proj.Repos() {
+		if rname == repo.REPO_NAME_LOCAL {
+			continue
+		}
 		// Check the version requirements on this repository, and see
 		// whether or not we need to install/upgrade it.
 		skip, err := proj.checkVersionRequirements(r, upgrade, force)
@@ -307,6 +361,14 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 	if err != nil {
 		return err
 	}
+
+	rd, err := repo.NewRepoDependency(rname, rversreq)
+	if err != nil {
+		return err
+	}
+	rd.Storerepo = r
+
+	proj.localRepo.AddDependency(rd)
 
 	log.Printf("[VERBOSE] Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
 		repoVars["type"], repoVars["user"], repoVars["repo"])
