@@ -126,7 +126,8 @@ func CheckDeps(checkRepos map[string]*Repo) error {
 
 func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
 	for vers, curBranch := range rd.vers {
-		if vers.CompareVersions(vers, searchVers) == 0 {
+		if vers.CompareVersions(vers, searchVers) == 0 &&
+			searchVers.Stability() == vers.Stability() {
 			return curBranch, vers, true
 		}
 	}
@@ -135,20 +136,28 @@ func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
 
 func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 	for vers, branch := range rd.vers {
+		log.Printf("[DEBUG] Repository version requires for %s are %s\n", r.Name(), r.VersionRequirements())
 		if vers.SatisfiesVersion(r.VersionRequirements()) {
 			log.Printf("[DEBUG] Found matching version %s for repo %s",
 				vers.String(), r.Name())
 			if vers.Stability() != VERSION_STABILITY_NONE {
+				// Load the branch as a version, and search for it
 				searchVers, err := LoadVersion(branch)
 				if err != nil {
 					return "", nil, false
 				}
+				// Need to match the NONE stability in order to find the right
+				// branch.
+				searchVers.stability = VERSION_STABILITY_NONE
 
 				var ok bool
 				branch, vers, ok = rd.MatchVersion(searchVers)
 				if !ok {
 					return "", nil, false
 				}
+				log.Printf("[DEBUG] Founding matching version %s for search version %s, related branch is %s\n",
+					vers, searchVers, branch)
+
 			}
 
 			return branch, vers, true

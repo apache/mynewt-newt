@@ -125,8 +125,7 @@ func (v *Version) SatisfiesVersion(versMatches []interfaces.VersionReqInterface)
 			}
 		}
 
-		if match.Version().Stability() != VERSION_STABILITY_NONE &&
-			match.Version().Stability() != v.Stability() {
+		if match.Version().Stability() != v.Stability() {
 			return false
 		}
 	}
