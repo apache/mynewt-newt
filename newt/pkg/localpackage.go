@@ -248,10 +248,14 @@ func (pkg *LocalPackage) Save() error {
 	file.WriteString("pkg.repository: " +
 		yaml.EscapeString(pkg.Repo().Name()) + "\n")
 
+    // Write feature set.  The viper object is nil if this is a new package
+    // rather than a loaded package.
 	file.WriteString("pkg.features:\n")
-	for _, f := range pkg.Viper.GetStringSlice("pkg.features") {
-		file.WriteString("    - " + yaml.EscapeString(f) + "\n")
-	}
+    if pkg.Viper != nil {
+        for _, f := range pkg.Viper.GetStringSlice("pkg.features") {
+            file.WriteString("    - " + yaml.EscapeString(f) + "\n")
+        }
+    }
 
 	return nil
 }
