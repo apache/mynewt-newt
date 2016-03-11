@@ -91,6 +91,19 @@ func InitProject(dir string) error {
 	return nil
 }
 
+func Initialize() error {
+	if globalProject == nil {
+		wd, err := os.Getwd()
+		if err != nil {
+			return util.NewNewtError(err.Error())
+		}
+		if err = InitProject(wd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func GetProject() *Project {
 	if globalProject == nil {
 		wd, err := os.Getwd()
@@ -351,7 +364,14 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 	varName := fmt.Sprintf("repository.%s", rname)
 
 	repoVars := v.GetStringMapString(varName)
-
+	if len(repoVars) == 0 {
+		return util.NewNewtError(fmt.Sprintf("Missing configuration for "+
+			"repository %s.", rname))
+	}
+	if repoVars["type"] == "" {
+		return util.NewNewtError(fmt.Sprintf("Missing type for repository " +
+			rname))
+	}
 	if repoVars["type"] != "github" {
 		return util.NewNewtError("Only github repositories are currently supported.")
 	}
