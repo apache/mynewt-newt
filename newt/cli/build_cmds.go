@@ -145,6 +145,10 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	if len(packs) == 0 {
+		NewtUsage(nil, util.NewNewtError("No testable packages found"))
+	}
+
 	passedPkgs := []*pkg.LocalPackage{}
 	failedPkgs := []*pkg.LocalPackage{}
 	for _, pack := range packs {
