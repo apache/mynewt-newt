@@ -87,7 +87,13 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	targetNames := []string{}
 	if len(args) == 0 {
 		for name, _ := range target.GetTargets() {
-			targetNames = append(targetNames, name)
+			// Don't display the special unittest target; this is used
+			// internally by newt, so the user doesn't need to know about it.
+			// XXX: This is a hack; come up with a better solution for hiding
+			// targets.
+			if name != "targets/unittest" {
+				targetNames = append(targetNames, name)
+			}
 		}
 	} else {
 		targetSlice, err := ResolveTargets(args...)
