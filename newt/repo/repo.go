@@ -85,11 +85,15 @@ func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
 	return rd, nil
 }
 
-func CheckDeps(checkRepos map[string]*Repo) error {
+func CheckDeps(upgrade bool, checkRepos map[string]*Repo) error {
 	// For each dependency, get it's version
 	depArray := map[string][]*Version{}
 
 	for _, checkRepo := range checkRepos {
+		if checkRepo.Name() == REPO_NAME_LOCAL {
+			continue
+		}
+
 		for _, rd := range checkRepo.Deps() {
 			lookupRepo := checkRepos[rd.Name()]
 
@@ -98,6 +102,7 @@ func CheckDeps(checkRepos map[string]*Repo) error {
 				return util.NewNewtError(fmt.Sprintf("No "+
 					"matching version for dependent repository %s", rd.name))
 			}
+			log.Printf("[DEBUG] Dependency for %s: %s (%s)", checkRepo.Name(), rd.Name(), vers.String())
 
 			_, ok = depArray[rd.Name()]
 			if !ok {
@@ -113,9 +118,9 @@ func CheckDeps(checkRepos map[string]*Repo) error {
 				if depVers.CompareVersions(depVers, curVers) != 0 ||
 					depVers.Stability() != curVers.Stability() {
 					return util.NewNewtError(fmt.Sprintf(
-						"Conflict detected.  Repository %s has multiple versions. "+
-							"Notion of repository version is %s, whereas required is "+
-							"%s\n", repoName, curVers, depVers))
+						"Conflict detected.  Repository %s has multiple dependency versions on %s. "+
+							"Notion of repository version is %s, whereas required is %s ",
+						repoName, curVers, depVers))
 				}
 			}
 		}

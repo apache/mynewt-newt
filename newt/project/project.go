@@ -306,7 +306,7 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 	}
 
 	// Get repository list, and print every repo and it's dependencies.
-	if err := repo.CheckDeps(proj.Repos()); err != nil {
+	if err := repo.CheckDeps(upgrade, proj.Repos()); err != nil {
 		return err
 	}
 
