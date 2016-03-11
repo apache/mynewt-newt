@@ -73,6 +73,8 @@ type LocalPackage struct {
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 	pkg := &LocalPackage{
 		desc: &PackageDesc{},
+        // XXX: Initialize viper object; clients should not need to check for
+        // nil pointer.
 	}
 	pkg.Init(r, pkgDir)
 	return pkg
@@ -109,6 +111,8 @@ func (pkg *LocalPackage) Desc() *PackageDesc {
 
 func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
+    // XXX: Also set "pkg.name" in viper object (possibly just remove cached
+    // variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetBasePath(basePath string) {
@@ -117,10 +121,14 @@ func (pkg *LocalPackage) SetBasePath(basePath string) {
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
+    // XXX: Also set "pkg.type" in viper object (possibly just remove cached
+    // variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
 	pkg.desc = desc
+    // XXX: Also set desc fields in viper object (possibly just remove cached
+    // variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetRepo(r *repo.Repo) {
