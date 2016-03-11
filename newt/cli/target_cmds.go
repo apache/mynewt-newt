@@ -21,6 +21,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -67,6 +68,18 @@ func targetContainsUserFiles(t *target.Target) (bool, error) {
 	return userFiles, nil
 }
 
+func featuresString(pack *pkg.LocalPackage) string {
+	features := pack.Viper.GetStringSlice("pkg.features")
+	sort.Strings(features)
+
+	var buffer bytes.Buffer
+	for _, f := range features {
+		buffer.WriteString(f)
+		buffer.WriteString(" ")
+	}
+	return buffer.String()
+}
+
 func targetShowCmd(cmd *cobra.Command, args []string) {
 	targetNames := []string{}
 	if len(args) == 0 {
@@ -102,6 +115,8 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "    %s=%s\n",
 				varName, value)
 		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "    features=%s\n",
+			featuresString(target.Package()))
 	}
 }
 
@@ -164,12 +179,24 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 	// Set each specified variable in the target.
 	for _, kv := range vars {
-		if kv[1] == "" {
-			// User specified empty value; delete variable.
-			delete(t.Vars, kv[0])
+		// "features" is a special case; it goes in the base package and not
+		// the target.
+		if kv[0] == "target.features" {
+			if kv[1] == "" {
+				// User specified empty value; delete variable.
+				t.Package().Viper.Set("pkg.features", nil)
+			} else {
+				features := strings.Fields(kv[1])
+				t.Package().Viper.Set("pkg.features", features)
+			}
 		} else {
-			// Assign value to specified variable.
-			t.Vars[kv[0]] = kv[1]
+			if kv[1] == "" {
+				// User specified empty value; delete variable.
+				delete(t.Vars, kv[0])
+			} else {
+				// Assign value to specified variable.
+				t.Vars[kv[0]] = kv[1]
+			}
 		}
 	}
 
