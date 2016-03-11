@@ -90,10 +90,6 @@ func CheckDeps(upgrade bool, checkRepos map[string]*Repo) error {
 	depArray := map[string][]*Version{}
 
 	for _, checkRepo := range checkRepos {
-		if checkRepo.Name() == REPO_NAME_LOCAL {
-			continue
-		}
-
 		for _, rd := range checkRepo.Deps() {
 			lookupRepo := checkRepos[rd.Name()]
 
