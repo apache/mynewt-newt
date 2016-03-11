@@ -20,7 +20,7 @@
 package cli
 
 import (
-	"bytes"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -145,6 +145,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	passedPkgs := []*pkg.LocalPackage{}
 	failedPkgs := []*pkg.LocalPackage{}
 	for _, pack := range packs {
 		// Reset the global project for the next test.
@@ -171,23 +172,23 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		if err == nil {
 			err = b.Test(pack)
 		}
-		if err != nil {
+		if err == nil {
+			passedPkgs = append(passedPkgs, pack)
+		} else {
 			failedPkgs = append(failedPkgs, pack)
 		}
 	}
 
+	passStr := fmt.Sprintf("Passed tests: [%s]", PackageNameList(passedPkgs))
+	failStr := fmt.Sprintf("Failed tests: [%s]", PackageNameList(failedPkgs))
+
 	if len(failedPkgs) > 0 {
-		var buffer bytes.Buffer
-		for i, pack := range failedPkgs {
-			if i != 0 {
-				buffer.WriteString(" ")
-			}
-			buffer.WriteString(pack.Name())
-		}
-		NewtUsage(nil, util.NewNewtError("Tests failed for: ["+buffer.String()+
-			"]"))
+		NewtUsage(nil, util.FmtNewtError("Test failure(s):\n%s\n%s", passStr,
+			failStr))
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", passStr)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "All tests passed\n")
 	}
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "All tests passed\n")
 }
 
 func downloadRunCmd(cmd *cobra.Command, args []string) {

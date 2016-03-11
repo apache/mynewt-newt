@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -166,4 +167,16 @@ func ResolvePackage(name string) (*pkg.LocalPackage, error) {
 	}
 
 	return pack.(*pkg.LocalPackage), nil
+}
+
+func PackageNameList(pkgs []*pkg.LocalPackage) string {
+	var buffer bytes.Buffer
+	for i, pack := range pkgs {
+		if i != 0 {
+			buffer.WriteString(" ")
+		}
+		buffer.WriteString(pack.Name())
+	}
+
+	return buffer.String()
 }
