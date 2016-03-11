@@ -111,19 +111,16 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	testAll := false
 	packs := []*pkg.LocalPackage{}
 	for _, pkgName := range args {
-		pack, err := ResolvePackage(pkgName)
-		if err != nil {
-			NewtUsage(cmd, err)
+		if pkgName == "all" {
+			testAll = true
+		} else {
+			pack, err := ResolvePackage(pkgName)
+			if err != nil {
+				NewtUsage(cmd, err)
+			}
+
+			packs = append(packs, pack)
 		}
-
-		packs = append(packs, pack)
-	}
-
-	// Test each specified package.
-	t := ResolveTarget(TARGET_TEST_NAME)
-	if t == nil {
-		NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
-			TARGET_TEST_NAME))
 	}
 
 	if testAll {
@@ -141,6 +138,16 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 
 	failedPkgs := []*pkg.LocalPackage{}
 	for _, pack := range packs {
+		// Reset the global project for the next test.
+		project.ResetProject()
+
+		// Use the standard unit test target for all tests.
+		t := ResolveTarget(TARGET_TEST_NAME)
+		if t == nil {
+			NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
+				TARGET_TEST_NAME))
+		}
+
 		b, err := builder.NewBuilder(t)
 		if err != nil {
 			NewtUsage(nil, err)
@@ -148,13 +155,16 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
 			pack.Name())
-		err = b.Test(pack)
+
+		// The package under test needs to be resolved again now that the
+		// project has been reset.
+		pack, err = ResolvePackage(pack.Name())
+		if err == nil {
+			err = b.Test(pack)
+		}
 		if err != nil {
 			failedPkgs = append(failedPkgs, pack)
 		}
-
-		// Reset the global project for the next test.
-		project.ResetProject()
 	}
 
 	if len(failedPkgs) > 0 {
