@@ -242,7 +242,7 @@ func buildTargetMap() error {
 		if err != nil {
 			nerr := err.(*util.NewtError)
 			util.ErrorMessage(util.VERBOSITY_QUIET,
-				"Warning: failed to load target \"%s\": %s\n", pack.Name,
+				"Warning: failed to load target \"%s\": %s\n", pack.Name(),
 				nerr.Text)
 		} else {
 			globalTargetMap[pack.FullName()] = target
