@@ -30,6 +30,9 @@ import (
 var projectForce bool = false
 
 func installRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	proj := project.GetProject()
 	interfaces.SetProject(proj)
 
@@ -41,6 +44,9 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	proj := project.GetProject()
 	interfaces.SetProject(proj)
 

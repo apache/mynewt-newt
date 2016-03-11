@@ -23,10 +23,14 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
 func createImageRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
 	}

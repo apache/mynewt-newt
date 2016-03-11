@@ -38,6 +38,9 @@ func pkgIsTestable(pack *pkg.LocalPackage) bool {
 }
 
 func buildRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, nil)
 	}
@@ -61,6 +64,9 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func cleanRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
@@ -103,6 +109,9 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func testRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, nil)
 	}
@@ -182,6 +191,9 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func downloadRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
@@ -203,6 +215,9 @@ func downloadRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func debugRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
@@ -224,6 +239,9 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func sizeRunCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}

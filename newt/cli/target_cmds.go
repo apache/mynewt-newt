@@ -81,6 +81,9 @@ func featuresString(pack *pkg.LocalPackage) string {
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	targetNames := []string{}
 	if len(args) == 0 {
 		for name, _ := range target.GetTargets() {
@@ -142,6 +145,9 @@ func showValidSettings(varName string) error {
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 2 {
 		NewtUsage(cmd,
 			util.NewNewtError("Must specify at least two arguments "+
@@ -220,6 +226,9 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetCreateCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) != 1 {
 		NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
@@ -275,6 +284,9 @@ func targetDelOne(t *target.Target) error {
 }
 
 func targetDelCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify at least one "+
 			"target to delete"))
@@ -293,6 +305,9 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetCopyCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
 	if len(args) != 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify exactly one "+
 			"source target and one destination target"))
