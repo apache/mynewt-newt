@@ -164,7 +164,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		}
 
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
-			pack.Name())
+			pack.FullName())
 
 		// The package under test needs to be resolved again now that the
 		// project has been reset.
