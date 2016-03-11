@@ -17,6 +17,8 @@
  * under the License.
  */
 
+// XXX: This should be moved to the cli package.
+
 package target
 
 import (

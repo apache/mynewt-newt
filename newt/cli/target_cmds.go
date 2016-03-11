@@ -338,6 +338,30 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func targetVarsCmd(cmd *cobra.Command, args []string) {
+	varNames := []string{
+		"target.app",
+		"target.bsp",
+		"target.build_profile",
+		"target.features",
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "The following target "+
+		"variables are recognized:\n")
+	for _, varName := range varNames {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "    * %s\n",
+			strings.TrimPrefix(varName, "target."))
+
+		varValues, err := target.VarValues(varName)
+		if err == nil {
+			for _, varValue := range varValues {
+				util.StatusMessage(util.VERBOSITY_VERBOSE, "        * %s\n",
+					varValue)
+			}
+		}
+	}
+}
+
 func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpText := ""
 	targetHelpEx := ""
@@ -428,4 +452,17 @@ func AddTargetCommands(cmd *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(copyCmd)
+
+	varsHelpText := "Displays a list of valid target variable names"
+	varsHelpEx := "  newt target vars\n"
+
+	varsCmd := &cobra.Command{
+		Use:     "vars",
+		Short:   "Show variable names",
+		Long:    varsHelpText,
+		Example: varsHelpEx,
+		Run:     targetVarsCmd,
+	}
+
+	targetCmd.AddCommand(varsCmd)
 }
