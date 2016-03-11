@@ -244,6 +244,8 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString("### Package: " + pkg.Name() + "\n")
 
+    // XXX: Just iterate viper object's settings rather than calling out
+    // cached settings individually.
 	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
 	file.WriteString("pkg.type: " +
 		yaml.EscapeString(PackageTypeNames[pkg.Type()]) + "\n")
