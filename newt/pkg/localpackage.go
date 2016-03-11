@@ -250,7 +250,7 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString("pkg.features:\n")
 	for _, f := range pkg.Viper.GetStringSlice("pkg.features") {
-		file.WriteString("    - " + f + "\n")
+		file.WriteString("    - " + yaml.EscapeString(f) + "\n")
 	}
 
 	return nil

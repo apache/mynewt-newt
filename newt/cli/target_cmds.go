@@ -115,8 +115,11 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "    %s=%s\n",
 				varName, value)
 		}
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "    features=%s\n",
-			featuresString(target.Package()))
+		features := featuresString(target.Package())
+		if len(features) > 0 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "    features=%s\n",
+				features)
+		}
 	}
 }
 
