@@ -94,8 +94,8 @@ func (b *Builder) AddApi(apiString string, bpkg *BuildPackage) bool {
 	} else {
 		if curBpkg != bpkg {
 			util.StatusMessage(util.VERBOSITY_QUIET,
-				"Warning: API conflict: %s <-> %s\n", curBpkg.Name(),
-				bpkg.Name())
+				"Warning: API conflict: %s (%s <-> %s)\n", apiString,
+				curBpkg.Name(), bpkg.Name())
 		}
 		return false
 	}
@@ -124,6 +124,8 @@ func (b *Builder) loadDeps() error {
 				break
 			}
 			if newDeps {
+				// The new dependencies need to be processed.  Iterate again
+				// after this iteration completes.
 				reprocess = true
 			}
 		}
@@ -147,16 +149,12 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"compiling src in base directory: %s\n", srcDir)
+		"Compiling src in base directory: %s\n", srcDir)
 
 	// Start from the source directory.
 	if err := os.Chdir(srcDir); err != nil {
 		return util.NewNewtError(err.Error())
 	}
-
-	// Don't recurse into destination directories.
-	ignDirs = append(ignDirs, "obj")
-	ignDirs = append(ignDirs, "bin")
 
 	// Ignore architecture-specific source files for now.  Use a temporary
 	// string slice here so that the "arch" directory is not ignored in the
@@ -168,21 +166,22 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	}
 
 	archDir := srcDir + "/arch/" + arch + "/"
-	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"compiling architecture specific src pkgs in directory: %s\n",
-		archDir)
-
 	if util.NodeExist(archDir) {
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
+			"Compiling architecture specific src pkgs in directory: %s\n",
+			archDir)
 		if err := os.Chdir(archDir); err != nil {
 			return util.NewNewtError(err.Error())
 		}
+
+		// Compile C source.
 		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_C,
 			ignDirs); err != nil {
 
 			return err
 		}
 
-		// compile assembly sources in recursive compile as well
+		// Compile assembly source (only architecture-specific).
 		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ASM,
 			ignDirs); err != nil {
 
@@ -193,7 +192,9 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	return nil
 }
 
-func (b *Builder) newCompiler(bpkg *BuildPackage, dstDir string) (*toolchain.Compiler, error) {
+func (b *Builder) newCompiler(bpkg *BuildPackage,
+	dstDir string) (*toolchain.Compiler, error) {
+
 	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(), dstDir,
 		b.target.BuildProfile)
 	if err != nil {

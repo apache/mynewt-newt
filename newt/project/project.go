@@ -212,7 +212,7 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 	if vers != nil {
 		ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
 		if !ok && !upgrade {
-			util.StatusMessage(util.VERBOSITY_DEFAULT, "WARNING: Installed "+
+			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: Installed "+
 				"version %s of repository %s does not match desired "+
 				"version %s in project file.  You can fix this by either upgrading"+
 				" your repository, or modifying the project.yml file.\n",
