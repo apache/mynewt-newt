@@ -168,8 +168,7 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	if newVers == nil {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"No matching version to upgrade to "+
-				"found for %s.  Please check your project requirements, and use the "+
-				"project show-repo command to see available repository versions.",
+				"found for %s.  Please check your project requirements.",
 			r.Name())
 		return false, util.NewNewtError(fmt.Sprintf("Cannot find a "+
 			"version of repository %s that matches project requirements.",
@@ -250,8 +249,7 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 		_, _, ok := rdesc.Match(r)
 		if !ok {
 			fmt.Printf("WARNING: No matching repository version found for repository "+
-				"%s specified in project.  To find available versions for a repository"+
-				" issue the project show-repo command.\n", r.Name())
+				"%s specified in project.\n", r.Name())
 			return true, err
 		}
 	}
