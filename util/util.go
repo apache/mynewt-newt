@@ -67,10 +67,11 @@ func (se *NewtError) Error() string {
 func NewNewtError(msg string) *NewtError {
 	err := &NewtError{
 		Text:       msg,
-		StackTrace: []byte{},
+		StackTrace: make([]byte, 65536),
 	}
 
-	runtime.Stack(err.StackTrace, true)
+	stackLen := runtime.Stack(err.StackTrace, true)
+	err.StackTrace = err.StackTrace[:stackLen]
 
 	return err
 }
