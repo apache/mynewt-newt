@@ -21,13 +21,49 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/util"
 )
 
 var projectForce bool = false
+
+func newRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify "+
+			"a project directory to newt new"))
+	}
+
+	newDir := args[0]
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Downloading "+
+		"project skeleton from apache/incubator-mynewt-blinky...\n")
+	dl := downloader.NewGithubDownloader()
+	dl.User = "apache"
+	dl.Repo = "incubator-mynewt-blinky"
+
+	dir, err := dl.DownloadRepo("develop")
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Installing "+
+		"skeleton in %s...\n", newDir)
+
+	if err := util.CopyDir(dir, newDir); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if err := os.RemoveAll(newDir + "/" + "/.git/"); err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	fmt.Printf("Project %s successfully created\n", newDir)
+}
 
 func installRunCmd(cmd *cobra.Command, args []string) {
 	if err := project.Initialize(); err != nil {
@@ -86,5 +122,17 @@ func AddProjectCommands(cmd *cobra.Command) {
 		"Force upgrade of the repositories to latest state in project.yml")
 
 	cmd.AddCommand(upgradeCmd)
+
+	newHelpText := ""
+	newHelpEx := ""
+	newCmd := &cobra.Command{
+		Use:     "new",
+		Short:   "Create a new project",
+		Long:    newHelpText,
+		Example: newHelpEx,
+		Run:     newRunCmd,
+	}
+
+	cmd.AddCommand(newCmd)
 
 }
