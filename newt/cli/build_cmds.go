@@ -168,10 +168,14 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 
 		// The package under test needs to be resolved again now that the
 		// project has been reset.
-		pack, err = ResolvePackage(pack.Name())
-		if err == nil {
-			err = b.Test(pack)
+		newPack, err := ResolvePackage(pack.FullName())
+		if err != nil {
+			NewtUsage(nil, util.NewNewtError("Failed to resolve package: "+
+				pack.Name()))
 		}
+		pack = newPack
+
+		err = b.Test(pack)
 		if err == nil {
 			passedPkgs = append(passedPkgs, pack)
 		} else {

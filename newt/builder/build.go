@@ -481,6 +481,8 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 		return err
 	}
 
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing test: %s\n",
+		testFilename)
 	if _, err := util.ShellCommand(testFilename); err != nil {
 		return util.NewNewtError("Test failure: " + err.Error())
 	}
