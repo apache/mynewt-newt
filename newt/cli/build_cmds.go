@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -138,17 +139,36 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	failedPkgs := []*pkg.LocalPackage{}
 	for _, pack := range packs {
 		b, err := builder.NewBuilder(t)
 		if err != nil {
 			NewtUsage(nil, err)
 		}
 
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
+			pack.Name())
 		err = b.Test(pack)
 		if err != nil {
-			NewtUsage(nil, err)
+			failedPkgs = append(failedPkgs, pack)
 		}
+
+		// Reset the global project for the next test.
+		project.ResetProject()
 	}
+
+	if len(failedPkgs) > 0 {
+		var buffer bytes.Buffer
+		for i, pack := range failedPkgs {
+			if i != 0 {
+				buffer.WriteString(" ")
+			}
+			buffer.WriteString(pack.Name())
+		}
+		NewtUsage(nil, util.NewNewtError("Tests failed for: ["+buffer.String()+
+			"]"))
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "All tests passed\n")
 }
 
 func downloadRunCmd(cmd *cobra.Command, args []string) {

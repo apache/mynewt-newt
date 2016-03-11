@@ -105,6 +105,10 @@ func GetProject() *Project {
 	return globalProject
 }
 
+func ResetProject() {
+	globalProject = nil
+}
+
 func NewProject(dir string) (*Project, error) {
 	proj := &Project{}
 

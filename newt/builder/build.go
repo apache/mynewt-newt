@@ -476,21 +476,13 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	}
 
 	// Run the tests.
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n", p.Name())
-
 	if err := os.Chdir(filepath.Dir(testFilename)); err != nil {
 		return err
 	}
 
-	o, err := util.ShellCommand(testFilename)
-	if err != nil {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
-
-		return util.NewNewtError("Test crashed: " + testFilename)
+	if _, err := util.ShellCommand(testFilename); err != nil {
+		return util.NewNewtError("Test failure: " + err.Error())
 	}
-
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", string(o))
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Test %s ok!\n", testFilename)
 
 	return nil
 }
