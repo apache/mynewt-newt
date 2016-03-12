@@ -51,7 +51,7 @@ func AddPackageCommands(cmd *cobra.Command) {
 	packageHelpText := ""
 	packageHelpEx := ""
 	packageCmd := &cobra.Command{
-		Use:     "package",
+		Use:     "pkg",
 		Short:   "Command for manipulating packages",
 		Long:    packageHelpText,
 		Example: packageHelpEx,
@@ -63,7 +63,7 @@ func AddPackageCommands(cmd *cobra.Command) {
 	cmd.AddCommand(packageCmd)
 
 	listHelpText := "List all packages in the project."
-	listHelpEx := "  newt package list\n"
+	listHelpEx := "  newt pkg list\n"
 
 	listCmd := &cobra.Command{
 		Use:     "list",
