@@ -114,6 +114,7 @@ func main() {
 	cli.AddBuildCommands(cmd)
 	cli.AddImageCommands(cmd)
 	cli.AddRunCommands(cmd)
+	cli.AddPackageCommands(cmd)
 
 	cmd.Execute()
 }
