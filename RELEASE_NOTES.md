@@ -4,7 +4,7 @@
 
 This is the first source release of the "New" Newt.  More information on the 
 genesis of Newt, and a description can be found 
-[here](http://mail-archives.apache.org/mod_mbox/incubator-mynewt-dev/201603.mbox/browser).
+[here](http://mail-archives.apache.org/mod_mbox/incubator-mynewt-dev/201603.mbox/%3C56E21C13.9050303%40apache.org%3E)
 
 As an early beta release of Newt, all the normal caveats apply:
 
@@ -27,5 +27,4 @@ Future versions will add:
 The next release of the Newt tool is planned for April 15th, 2016.  If working on 
 next-generation build and source package management systems sounds exciting to you,
 get in touch, by sending a mail to the Apache Mynewt Developer's list, dev@mynewt.incubator.apache.org.
-
 
