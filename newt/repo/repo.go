@@ -320,6 +320,8 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 		return nil, false, nil
 	}
 
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", r.Name())
+
 	if err = r.DownloadDesc(); err != nil {
 		return nil, false, err
 	}
@@ -338,7 +340,7 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 func (r *Repo) DownloadDesc() error {
 	dl := r.downloader
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, fmt.Sprintf("Downloading "+
 		"repository description for %s...", r.Name()))
 
 	// Configuration path
@@ -352,11 +354,11 @@ func (r *Repo) DownloadDesc() error {
 	dl.SetBranch("master")
 	if err := dl.FetchFile("repository.yml",
 		cpath+"/"+"repository.yml"); err != nil {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, " failed\n")
+		util.StatusMessage(util.VERBOSITY_VERBOSE, " failed\n")
 		return err
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, " success!\n")
+	util.StatusMessage(util.VERBOSITY_VERBOSE, " success!\n")
 
 	return nil
 }

@@ -20,7 +20,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -64,7 +63,8 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	fmt.Printf("Project %s successfully created\n", newDir)
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Project %s successfully created.\n", newDir)
 }
 
 func installRunCmd(cmd *cobra.Command, args []string) {
@@ -77,8 +77,6 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 	if err := proj.Install(false, projectForce); err != nil {
 		NewtUsage(cmd, err)
 	}
-
-	fmt.Println("Repos successfully installed")
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
@@ -91,11 +89,9 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	if err := proj.Upgrade(projectForce); err != nil {
 		NewtUsage(cmd, err)
 	}
-
-	fmt.Println("Repos successfully upgrade")
 }
 
-func showRunCmd(cmd *cobra.Command, args []string) {
+func infoRunCmd(cmd *cobra.Command, args []string) {
 	reqRepoName := ""
 	if len(args) >= 1 {
 		reqRepoName = strings.TrimPrefix(args[0], "@")
@@ -191,31 +187,16 @@ func AddProjectCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(newCmd)
 
-	// Top level project command.
-	projectHelpText := ""
-	projectHelpEx := ""
-	projectCmd := &cobra.Command{
-		Use:     "project",
-		Short:   "Display information about your project",
-		Long:    projectHelpText,
-		Example: projectHelpEx,
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Usage()
-		},
-	}
+	infoHelpText := "Show information about the current project."
+	infoHelpEx := "  newt info\n"
 
-	cmd.AddCommand(projectCmd)
-
-	showHelpText := "Show information about the project."
-	showHelpEx := "  newt pkg show\n"
-
-	showCmd := &cobra.Command{
-		Use:     "show [repo-name|all]",
+	infoCmd := &cobra.Command{
+		Use:     "info",
 		Short:   "Show project info",
-		Long:    showHelpText,
-		Example: showHelpEx,
-		Run:     showRunCmd,
+		Long:    infoHelpText,
+		Example: infoHelpEx,
+		Run:     infoRunCmd,
 	}
 
-	projectCmd.AddCommand(showCmd)
+	cmd.AddCommand(infoCmd)
 }

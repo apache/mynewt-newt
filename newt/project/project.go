@@ -197,13 +197,13 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 			// Anything but no means yes.
 			answer := strings.ToUpper(strings.Trim(string(line), " "))
 			if answer == "N" || answer == "NO" {
-				fmt.Printf("Users says don't upgrade, skipping upgrade of %s\n",
+				fmt.Printf("User says don't upgrade, skipping upgrade of %s\n",
 					r.Name())
 				return true, nil
 			}
 		}
 	} else {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
 			"Repository %s doesn't need to be upgraded, latest "+
 				"version installed.\n", r.Name())
 		return true, nil
@@ -232,10 +232,7 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 			return true, err
 		} else {
 			if !upgrade {
-				util.StatusMessage(util.VERBOSITY_DEFAULT,
-					fmt.Sprintf("Installed repository %s has version %s, "+
-						"which meets project requirements. Moving on to next repository.\n",
-						r.Name(), vers))
+				util.StatusMessage(util.VERBOSITY_VERBOSE, "%s correct version already installed\n", r.Name())
 				return true, nil
 			} else {
 				skip, err := proj.upgradeCheck(r, vers, force)
@@ -339,6 +336,14 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 		rvers, err := r.Install(upgrade || force)
 		if err != nil {
 			return err
+		}
+
+		if upgrade {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s successfully upgraded to version %s\n",
+				r.Name(), rvers.String())
+		} else {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s successfully installed version %s\n",
+				r.Name(), rvers.String())
 		}
 
 		// Update the project state with the new repository version information.

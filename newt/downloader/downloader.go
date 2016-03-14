@@ -92,7 +92,7 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 	}
 
 	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
-	util.StatusMessage(util.VERBOSITY_DEFAULT, fmt.Sprintf("Downloading "+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, fmt.Sprintf("Downloading "+
 		"repository %s (branch: %s) at %s\n", gd.Repo, branch, url))
 
 	gitPath, err := exec.LookPath("git")
