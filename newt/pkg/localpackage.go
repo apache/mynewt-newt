@@ -272,8 +272,6 @@ func (pkg *LocalPackage) Save() error {
 		yaml.EscapeString(pkg.Desc().Author) + "\n")
 	file.WriteString("pkg.homepage: " +
 		yaml.EscapeString(pkg.Desc().Homepage) + "\n")
-	file.WriteString("pkg.repository: " +
-		yaml.EscapeString(pkg.Repo().Name()) + "\n")
 
 	file.WriteString("\n")
 
