@@ -178,7 +178,7 @@ func AddProjectCommands(cmd *cobra.Command) {
 	newHelpText := ""
 	newHelpEx := ""
 	newCmd := &cobra.Command{
-		Use:     "new",
+		Use:     "new <project-dir>",
 		Short:   "Create a new project",
 		Long:    newHelpText,
 		Example: newHelpEx,
