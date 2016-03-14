@@ -20,6 +20,7 @@
 package pkg
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
@@ -73,8 +74,8 @@ type LocalPackage struct {
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 	pkg := &LocalPackage{
 		desc: &PackageDesc{},
-        // XXX: Initialize viper object; clients should not need to check for
-        // nil pointer.
+		// XXX: Initialize viper object; clients should not need to check for
+		// nil pointer.
 	}
 	pkg.Init(r, pkgDir)
 	return pkg
@@ -111,8 +112,8 @@ func (pkg *LocalPackage) Desc() *PackageDesc {
 
 func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
-    // XXX: Also set "pkg.name" in viper object (possibly just remove cached
-    // variable from code entirely).
+	// XXX: Also set "pkg.name" in viper object (possibly just remove cached
+	// variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetBasePath(basePath string) {
@@ -121,14 +122,14 @@ func (pkg *LocalPackage) SetBasePath(basePath string) {
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
-    // XXX: Also set "pkg.type" in viper object (possibly just remove cached
-    // variable from code entirely).
+	// XXX: Also set "pkg.type" in viper object (possibly just remove cached
+	// variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
 	pkg.desc = desc
-    // XXX: Also set desc fields in viper object (possibly just remove cached
-    // variable from code entirely).
+	// XXX: Also set desc fields in viper object (possibly just remove cached
+	// variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetRepo(r *repo.Repo) {
@@ -226,6 +227,22 @@ func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) {
 	pkg.basePath = filepath.Clean(pkgDir) + "/"
 }
 
+func (pkg *LocalPackage) sequenceString(key string) string {
+	var buffer bytes.Buffer
+
+	if pkg.Viper != nil {
+		for _, f := range pkg.Viper.GetStringSlice(key) {
+			buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
+		}
+	}
+
+	if buffer.Len() == 0 {
+		return ""
+	} else {
+		return key + ":\n" + buffer.String()
+	}
+}
+
 // Saves the package's pkg.yml file.
 // NOTE: This does not save every field in the package.  Only the fields
 // necessary for creating a new target get saved.
@@ -244,8 +261,8 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString("### Package: " + pkg.Name() + "\n")
 
-    // XXX: Just iterate viper object's settings rather than calling out
-    // cached settings individually.
+	// XXX: Just iterate viper object's settings rather than calling out
+	// cached settings individually.
 	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
 	file.WriteString("pkg.type: " +
 		yaml.EscapeString(PackageTypeNames[pkg.Type()]) + "\n")
@@ -258,14 +275,12 @@ func (pkg *LocalPackage) Save() error {
 	file.WriteString("pkg.repository: " +
 		yaml.EscapeString(pkg.Repo().Name()) + "\n")
 
-    // Write feature set.  The viper object is nil if this is a new package
-    // rather than a loaded package.
-	file.WriteString("pkg.features:\n")
-    if pkg.Viper != nil {
-        for _, f := range pkg.Viper.GetStringSlice("pkg.features") {
-            file.WriteString("    - " + yaml.EscapeString(f) + "\n")
-        }
-    }
+	file.WriteString("\n")
+
+	file.WriteString(pkg.sequenceString("pkg.aflags"))
+	file.WriteString(pkg.sequenceString("pkg.cflags"))
+	file.WriteString(pkg.sequenceString("pkg.features"))
+	file.WriteString(pkg.sequenceString("pkg.lflags"))
 
 	return nil
 }

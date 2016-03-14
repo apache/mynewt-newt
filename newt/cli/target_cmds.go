@@ -68,8 +68,8 @@ func targetContainsUserFiles(t *target.Target) (bool, error) {
 	return userFiles, nil
 }
 
-func featuresString(pack *pkg.LocalPackage) string {
-	features := pack.Viper.GetStringSlice("pkg.features")
+func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
+	features := pack.Viper.GetStringSlice(key)
 	sort.Strings(features)
 
 	var buffer bytes.Buffer
@@ -108,26 +108,33 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 	sort.Strings(targetNames)
 
+	kvPairs := map[string]string{}
 	for _, name := range targetNames {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, name+"\n")
 
 		target := target.GetTargets()[name]
-		keys := []string{}
-		for k, _ := range target.Vars {
-			keys = append(keys, k)
+		for k, v := range target.Vars {
+			kvPairs[strings.TrimPrefix(k, "target.")] = v
 		}
 
+		// A few variables come from the base package rather than the target.
+		kvPairs["features"] = pkgVarSliceString(target.Package(),
+			"pkg.features")
+		kvPairs["cflags"] = pkgVarSliceString(target.Package(), "pkg.cflags")
+		kvPairs["lflags"] = pkgVarSliceString(target.Package(), "pkg.lflags")
+		kvPairs["aflags"] = pkgVarSliceString(target.Package(), "pkg.aflags")
+
+		keys := []string{}
+		for k, _ := range kvPairs {
+			keys = append(keys, k)
+		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			varName := strings.TrimPrefix(k, "target.")
-			value := target.Vars[k]
-			util.StatusMessage(util.VERBOSITY_DEFAULT, "    %s=%s\n",
-				varName, value)
-		}
-		features := featuresString(target.Package())
-		if len(features) > 0 {
-			util.StatusMessage(util.VERBOSITY_DEFAULT, "    features=%s\n",
-				features)
+			val := kvPairs[k]
+			if len(val) > 0 {
+				util.StatusMessage(util.VERBOSITY_DEFAULT, "    %s=%s\n",
+					k, kvPairs[k])
+			}
 		}
 	}
 }
@@ -194,15 +201,19 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 	// Set each specified variable in the target.
 	for _, kv := range vars {
-		// "features" is a special case; it goes in the base package and not
-		// the target.
-		if kv[0] == "target.features" {
+		// A few variables are special cases; they get set in the base package
+		// instead of the target.
+		if kv[0] == "target.features" ||
+			kv[0] == "target.cflags" ||
+			kv[0] == "target.lflags" ||
+			kv[0] == "target.aflags" {
+
+			kv[0] = "pkg." + strings.TrimPrefix(kv[0], "target.")
 			if kv[1] == "" {
 				// User specified empty value; delete variable.
-				t.Package().Viper.Set("pkg.features", nil)
+				t.Package().Viper.Set(kv[0], nil)
 			} else {
-				features := strings.Fields(kv[1])
-				t.Package().Viper.Set("pkg.features", features)
+				t.Package().Viper.Set(kv[0], strings.Fields(kv[1]))
 			}
 		} else {
 			if kv[1] == "" {
