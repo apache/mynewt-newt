@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	"mynewt.apache.org/newt/util"
 )
@@ -111,9 +112,15 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 		tmpdir,
 	}
 
-	if err := util.ShellInteractiveCommand(cmds); err != nil {
-		os.RemoveAll(tmpdir)
-		return "", err
+	if util.Verbosity >= util.VERBOSITY_VERBOSE {
+		if err := util.ShellInteractiveCommand(cmds); err != nil {
+			os.RemoveAll(tmpdir)
+			return "", err
+		}
+	} else {
+		if _, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+			return "", err
+		}
 	}
 
 	return tmpdir, nil
