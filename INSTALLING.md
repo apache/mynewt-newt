@@ -1,7 +1,7 @@
 # Installing Newt
 
-There are two methods for the installation of newt.  From source, and 
-binary releases.  This document contains information on how to do both.
+There are two methods for the installation of newt, either from source, or  
+from a binary release.  This document contains information on how to do both.
 
 # Downloading Binary Newt
 
@@ -17,36 +17,48 @@ visit the Golang website for more information on installing Go.
 Once you have go installed, you must install the Apache Mynewt sources 
 in: 
 
+```no-highlight 
   $GOPATH/src/mynewt.apache.org/newt 
+```
 
 You can do this by either using go get: 
 
+```no-highlight
   $ go get -v mynewt.apache.org/newt
+```
 
 Or manually git cloning the directory: 
   
+```no-highlight
   $ mkdir -p $GOPATH/src/mynewt.apache.org/
   $ cd $GOPATH/src/mynewt.apache.org/
   $ git clone https://github.com/apache/incubator-mynewt-newt
+```
 
-NOTE: To get the latest development version of newt, you should checkout the 
+*NOTE:* To get the latest development version of newt, you should checkout the 
 "develop" branch, once you've cloned newt.  The master branch represents the
 latest stable newt.
 
 Once you've done this, the next step is to install newt's dependencies, this 
 can be done with the go get command: 
 
+```no-highlight
   $ cd $GOPATH/src/mynewt.apache.org/newt/newt
   $ go get -v 
+```
 
 Once you've fetched all the sources, the final step is to install newt.  To do this
 issue the go install command: 
 
+```no-highlight
   $ go install -v
+```
 
 This should install the newt binary in the following location:
 
+```no-highlight
   $GOPATH/bin
+```
 
 Which should be added to your path during the installation of Go. 
 

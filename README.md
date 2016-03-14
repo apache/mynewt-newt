@@ -34,7 +34,7 @@ or the documentation on https://mynewt.apache.org/
 Once you've installed newt, you can get started by creating a new project: 
 
 ```no-highlight
-  $ newt new your\_project
+  $ newt new your_project
 ```
 
 For more information, and a tutorial for getting started, please take a look at 
