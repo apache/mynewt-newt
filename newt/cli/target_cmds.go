@@ -445,7 +445,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	targetCmd.AddCommand(delCmd)
 
-	copyHelpText := "Creates a new target by cloning <src-target>."
+	copyHelpText := "Create a new target by cloning <src-target>."
 	copyHelpEx := "  newt target copy <src-target> <dst-target>\n"
 	copyHelpEx += "  newt target copy blinky_sim my_target"
 

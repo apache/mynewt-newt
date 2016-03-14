@@ -22,6 +22,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/downloader"
@@ -93,6 +95,60 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Repos successfully upgrade")
 }
 
+func showRunCmd(cmd *cobra.Command, args []string) {
+	reqRepoName := ""
+	if len(args) >= 1 {
+		reqRepoName = strings.TrimPrefix(args[0], "@")
+	}
+
+	if err := project.Initialize(); err != nil {
+		NewtUsage(nil, err)
+	}
+	proj := project.GetProject()
+
+	repoNames := []string{}
+	for repoName, _ := range proj.PackageList() {
+		repoNames = append(repoNames, repoName)
+	}
+	sort.Strings(repoNames)
+
+	if reqRepoName == "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Repositories in %s:\n",
+			proj.Name())
+
+		for _, repoName := range repoNames {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "    * @%s\n", repoName)
+		}
+
+		// Now display the packages in the local repository.
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		reqRepoName = "local"
+	}
+
+	firstRepo := true
+	for _, repoName := range repoNames {
+		if reqRepoName == "all" || reqRepoName == repoName {
+			packNames := []string{}
+			for _, pack := range *proj.PackageList()[repoName] {
+				packNames = append(packNames, pack.Name())
+			}
+
+			sort.Strings(packNames)
+			if !firstRepo {
+				util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+			} else {
+				firstRepo = false
+			}
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "Packages in @%s:\n",
+				repoName)
+			for _, pkgName := range packNames {
+				util.StatusMessage(util.VERBOSITY_DEFAULT, "    * %s\n",
+					pkgName)
+			}
+		}
+	}
+}
+
 func AddProjectCommands(cmd *cobra.Command) {
 	installHelpText := ""
 	installHelpEx := ""
@@ -135,4 +191,31 @@ func AddProjectCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(newCmd)
 
+	// Top level project command.
+	projectHelpText := ""
+	projectHelpEx := ""
+	projectCmd := &cobra.Command{
+		Use:     "project",
+		Short:   "Display information about your project",
+		Long:    projectHelpText,
+		Example: projectHelpEx,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Usage()
+		},
+	}
+
+	cmd.AddCommand(projectCmd)
+
+	showHelpText := "Show information about the project."
+	showHelpEx := "  newt pkg show\n"
+
+	showCmd := &cobra.Command{
+		Use:     "show [repo-name|all]",
+		Short:   "Show project info",
+		Long:    showHelpText,
+		Example: showHelpEx,
+		Run:     showRunCmd,
+	}
+
+	projectCmd.AddCommand(showCmd)
 }
