@@ -25,11 +25,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
 
 const COMPILER_FILENAME string = "compiler.yml"
@@ -104,38 +107,57 @@ func NewCompiler(compilerDir string, dstDir string,
 	return c, nil
 }
 
+func loadFlags(v *viper.Viper, features map[string]bool,
+	key string) []string {
+
+	flags := []string{}
+
+	rawFlags := newtutil.GetStringSliceFeatures(v, features, key)
+	for _, rawFlag := range rawFlags {
+		if strings.HasPrefix(rawFlag, key) {
+			flags = append(flags, strings.Trim(v.GetString(rawFlag), "\n"))
+		} else {
+			flags = append(flags, strings.Trim(rawFlag, "\n"))
+		}
+	}
+
+	return flags
+}
+
 func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	v, err := util.ReadConfig(compilerDir, "compiler")
 	if err != nil {
 		return err
 	}
 
-	c.ccPath = v.GetString("compiler.path.cc")
-	c.asPath = v.GetString("compiler.path.as")
-	c.arPath = v.GetString("compiler.path.archive")
-	c.odPath = v.GetString("compiler.path.objdump")
-	c.osPath = v.GetString("compiler.path.objsize")
-	c.ocPath = v.GetString("compiler.path.objcopy")
+	features := map[string]bool{
+		buildProfile:                  true,
+		strings.ToUpper(runtime.GOOS): true,
+	}
 
-	cflags := v.GetStringSlice("compiler.flags." + buildProfile)
-	if len(cflags) == 0 {
-		// Assume no flags implies an unsupported build profile.
+	c.ccPath = newtutil.GetStringFeatures(v, features, "compiler.path.cc")
+	c.asPath = newtutil.GetStringFeatures(v, features, "compiler.path.as")
+	c.arPath = newtutil.GetStringFeatures(v, features, "compiler.path.archive")
+	c.odPath = newtutil.GetStringFeatures(v, features, "compiler.path.objdump")
+	c.osPath = newtutil.GetStringFeatures(v, features, "compiler.path.objsize")
+	c.ocPath = newtutil.GetStringFeatures(v, features, "compiler.path.objcopy")
+
+	c.info.Cflags = loadFlags(v, features, "compiler.flags")
+	c.info.Lflags = loadFlags(v, features, "compiler.ld.flags")
+	c.info.Aflags = loadFlags(v, features, "compiler.as.flags")
+
+	c.ldResolveCircularDeps, err = newtutil.GetBoolFeatures(v, features,
+		"compiler.ld.resolve_circular_deps")
+	if err != nil {
+		return err
+	}
+
+	if len(c.info.Cflags) == 0 {
+		// Assume no Cflags implies an unsupported build profile.
 		return util.FmtNewtError("Compiler doesn't support build profile "+
-			"specified by target (build_profile=\"%s\")", buildProfile)
+			"specified by target on this OS (build_profile=\"%s\" OS=\"%s\")",
+			buildProfile, runtime.GOOS)
 	}
-
-	for _, flag := range cflags {
-		if strings.HasPrefix(flag, "compiler.flags") {
-			c.info.Cflags = append(c.info.Cflags,
-				strings.Trim(v.GetString(flag), "\n"))
-		} else {
-			c.info.Cflags = append(c.info.Cflags, strings.Trim(flag, "\n"))
-		}
-	}
-
-	c.info.Lflags = v.GetStringSlice("compiler.ld.flags")
-	c.ldResolveCircularDeps = v.GetBool("compiler.ld.resolve_circular_deps")
-	c.ldMapFile = v.GetBool("compiler.ld.mapfile")
 
 	log.Printf("[INFO] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
 		c.arPath, c.info.Cflags)

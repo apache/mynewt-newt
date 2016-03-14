@@ -22,6 +22,7 @@ package newtutil
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"mynewt.apache.org/newt/util"
@@ -53,6 +54,23 @@ func GetStringFeatures(v *viper.Viper, features map[string]bool,
 		}
 	}
 	return strings.TrimSpace(val)
+}
+
+func GetBoolFeatures(v *viper.Viper, features map[string]bool,
+	key string) (bool, error) {
+
+	s := GetStringFeatures(v, features, key)
+	if s == "" {
+		return false, nil
+	}
+
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		return false, util.FmtNewtError("invalid bool value for %s: %s",
+			key, s)
+	}
+
+	return b, nil
 }
 
 func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
