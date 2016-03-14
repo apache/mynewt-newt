@@ -41,6 +41,11 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 
 	newDir := args[0]
 
+	if util.NodeExist(newDir) {
+		NewtUsage(cmd, util.NewNewtError("Cannot create new project, "+
+			"directory already exists"))
+	}
+
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Downloading "+
 		"project skeleton from apache/incubator-mynewt-blinky...\n")
 	dl := downloader.NewGithubDownloader()
