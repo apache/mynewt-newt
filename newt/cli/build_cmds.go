@@ -199,7 +199,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func downloadRunCmd(cmd *cobra.Command, args []string) {
+func loadRunCmd(cmd *cobra.Command, args []string) {
 	if err := project.Initialize(); err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -217,7 +217,7 @@ func downloadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	err = b.Download()
+	err = b.Load()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -308,17 +308,17 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(testCmd)
 
-	downloadHelpText := "Download app image to target for <target-name>."
-	downloadHelpEx := "  newt download <target-name>\n"
+	loadHelpText := "Load app image to target for <target-name>."
+	loadHelpEx := "  newt load <target-name>\n"
 
-	downloadCmd := &cobra.Command{
-		Use:     "download",
-		Short:   "Download built target to board",
-		Long:    downloadHelpText,
-		Example: downloadHelpEx,
-		Run:     downloadRunCmd,
+	loadCmd := &cobra.Command{
+		Use:     "load",
+		Short:   "Load built target to board",
+		Long:    loadHelpText,
+		Example: loadHelpEx,
+		Run:     loadRunCmd,
 	}
-	cmd.AddCommand(downloadCmd)
+	cmd.AddCommand(loadCmd)
 
 	debugHelpText := "Open debugger session for <target-name>."
 	debugHelpEx := "  newt debug <target-name>\n"

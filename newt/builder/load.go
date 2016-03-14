@@ -28,7 +28,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func (b *Builder) Download() error {
+func (b *Builder) Load() error {
 	if b.target.App() == nil {
 		return util.NewNewtError("app package not specified")
 	}

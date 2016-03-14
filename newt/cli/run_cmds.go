@@ -78,7 +78,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	} else {
 		os.Remove(b.AppImgPath())
 	}
-	err = b.Download()
+	err = b.Load()
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -92,7 +92,7 @@ func AddRunCommands(cmd *cobra.Command) {
 	runHelpText := "Same as running\n" +
 		" - build <target>\n" +
 		" - create-image <target> <version>\n" +
-		" - download <target>\n" +
+		" - load <target>\n" +
 		" - debug <target>\n\n" +
 		"Note if version number is omitted, create-image step is skipped\n"
 	runHelpEx := "  newt run <target-name> [<version>]\n"
