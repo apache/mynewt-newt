@@ -324,7 +324,10 @@ func (b *Builder) Size() error {
 	if err != nil {
 		return err
 	}
-
+	if b.Bsp.Arch == "sim" {
+		fmt.Println("'newt size' not supported for sim targets.")
+		return nil
+	}
 	mapFile := b.AppElfPath() + ".map"
 
 	pkgSizes, memSections, err := ParseMapFileSizes(mapFile)
