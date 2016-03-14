@@ -115,7 +115,10 @@ func loadFlags(v *viper.Viper, features map[string]bool,
 	rawFlags := newtutil.GetStringSliceFeatures(v, features, key)
 	for _, rawFlag := range rawFlags {
 		if strings.HasPrefix(rawFlag, key) {
-			flags = append(flags, strings.Trim(v.GetString(rawFlag), "\n"))
+			expandedFlags := newtutil.GetStringSliceFeatures(v, features,
+				rawFlag)
+
+			flags = append(flags, expandedFlags...)
 		} else {
 			flags = append(flags, strings.Trim(rawFlag, "\n"))
 		}

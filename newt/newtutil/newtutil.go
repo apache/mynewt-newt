@@ -88,6 +88,12 @@ func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
 	}
 
 	for item, _ := range features {
+		overwriteVal := v.GetStringSlice(key + "." + item + ".OVERWRITE")
+		if overwriteVal != nil {
+			result = overwriteVal
+			break
+		}
+
 		result = append(result, v.GetStringSlice(key+"."+item)...)
 	}
 
