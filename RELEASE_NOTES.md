@@ -29,7 +29,7 @@ Future versions will add:
   * Plenty of helper commands for seeing what's installed, what's changed, 
     and why things failed.
 
-The next release of the Newt tool is planned for April 15th, 2016.  If working on 
+The next release of the Newt tool is planned for April 22nd, 2016.  If working on 
 next-generation build and source package management systems sounds exciting to you,
 get in touch, by sending a mail to the Apache Mynewt Developer's list, dev@mynewt.incubator.apache.org.
 
