@@ -59,9 +59,12 @@ func (b *Builder) Load() error {
 		downloadScript, bspPath, binBaseName, featureString)
 
 	rsp, err := util.ShellCommand(downloadCmd)
-	fmt.Printf("%s", rsp)
+	if err != nil {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", rsp)
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (b *Builder) Debug() error {
