@@ -52,7 +52,7 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	dl.User = "apache"
 	dl.Repo = "incubator-mynewt-blinky"
 
-	dir, err := dl.DownloadRepo("develop")
+	dir, err := dl.DownloadRepo("master")
 	if err != nil {
 		NewtUsage(cmd, err)
 	}

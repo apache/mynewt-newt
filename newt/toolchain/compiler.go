@@ -275,9 +275,9 @@ func (c *Compiler) GenDepsForFile(file string) error {
 
 	cmd = c.ccPath + " " + c.cflagsString() + " " + c.includesString() +
 		" -MM -MG " + file + " > " + depFile
-	_, err = util.ShellCommand(cmd)
+	o, err := util.ShellCommand(cmd)
 	if err != nil {
-		return err
+		return util.NewNewtError(string(o))
 	}
 
 	// Append the extra dependencies (.yml files) to the .d file.
