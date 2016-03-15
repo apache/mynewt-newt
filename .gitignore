@@ -18,7 +18,8 @@
 #
 
 *.swp
-*.swo 
+*.swo
+*~
 tags
 newt/newt
 newtmgr/newtmgr

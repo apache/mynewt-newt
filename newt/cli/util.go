@@ -20,430 +20,163 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"mynewt.apache.org/newt/viper"
-	"mynewt.apache.org/newt/yaml"
-	"github.com/hashicorp/logutils"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
-	"os/signal"
-	"path"
 	"path/filepath"
-	"runtime"
-	"sort"
+	"regexp"
 	"strings"
-	"syscall"
-	"time"
+
+	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/util"
 )
 
-type NewtError struct {
-	Text       string
-	StackTrace []byte
-}
+const TARGET_KEYWORD_ALL string = "all"
+const TARGET_DEFAULT_DIR string = "targets"
 
-var Logger *log.Logger
-var Verbosity int
-var OK_STRING = " ok!\n"
-
-const (
-	VERBOSITY_SILENT  = 0
-	VERBOSITY_QUIET   = 1
-	VERBOSITY_DEFAULT = 2
-	VERBOSITY_VERBOSE = 3
-)
-
-func (se *NewtError) Error() string {
-	return se.Text + "\n" + string(se.StackTrace)
-}
-
-func NewNewtError(msg string) *NewtError {
-	err := &NewtError{
-		Text:       msg,
-		StackTrace: make([]byte, 1<<16),
-	}
-
-	runtime.Stack(err.StackTrace, true)
-
-	return err
-}
-
-func NewtErrorNoTrace(msg string) *NewtError {
-	return &NewtError{
-		Text:       msg,
-		StackTrace: nil,
-	}
-}
-
-// Initialize the CLI module
-func Init(level string, silent bool, quiet bool, verbose bool) {
-	if level == "" {
-		level = "WARN"
-	}
-
-	filter := &logutils.LevelFilter{
-		Levels: []logutils.LogLevel{"DEBUG", "VERBOSE", "INFO",
-			"WARN", "ERROR"},
-		MinLevel: logutils.LogLevel(level),
-		Writer:   os.Stderr,
-	}
-
-	log.SetOutput(filter)
-
-	if silent {
-		Verbosity = VERBOSITY_SILENT
-	} else if quiet {
-		Verbosity = VERBOSITY_QUIET
-	} else if verbose {
-		Verbosity = VERBOSITY_VERBOSE
-	} else {
-		Verbosity = VERBOSITY_DEFAULT
-	}
-}
-
-func checkBoolMap(mapVar map[string]bool, item string) bool {
-	v, ok := mapVar[item]
-	return v && ok
-}
-
-// Read in the configuration file specified by name, in path
-// return a new viper config object if successful, and error if not
-func ReadConfig(path string, name string) (*viper.Viper, error) {
-	v := viper.New()
-	v.SetConfigType("yaml")
-	v.SetConfigName(name)
-	v.AddConfigPath(path)
-	yaml.SetFilename(path + "/" + name + ".yml")
-
-	err := v.ReadInConfig()
+func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
-		return nil, NewNewtError(err.Error())
-	} else {
-		return v, nil
+		sErr := err.(*util.NewtError)
+		log.Printf("[DEBUG] %s", sErr.StackTrace)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", sErr.Text)
 	}
+
+	if cmd != nil {
+		fmt.Printf("\n")
+		fmt.Printf("%s - ", cmd.Name())
+		cmd.Help()
+	}
+	os.Exit(1)
 }
 
-func GetStringIdentities(v *viper.Viper, idents map[string]string, key string) string {
-	val := v.GetString(key)
-
-	// Process the identities in alphabetical order to ensure consistent
-	// results across repeated runs.
-	var identKeys []string
-	for ident, _ := range idents {
-		identKeys = append(identKeys, ident)
-	}
-	sort.Strings(identKeys)
-
-	for _, ident := range identKeys {
-		overwriteVal := v.GetString(key + "." + ident + ".OVERWRITE")
-		if overwriteVal != "" {
-			val = strings.Trim(overwriteVal, "\n")
-			break
+// Display help text with a max line width of 79 characters
+func FormatHelp(text string) string {
+	// first compress all new lines and extra spaces
+	words := regexp.MustCompile("\\s+").Split(text, -1)
+	linelen := 0
+	fmtText := ""
+	for _, word := range words {
+		word = strings.Trim(word, "\n ") + " "
+		tmplen := linelen + len(word)
+		if tmplen >= 80 {
+			fmtText += "\n"
+			linelen = 0
 		}
+		fmtText += word
+		linelen += len(word)
+	}
+	return fmtText
+}
 
-		appendVal := v.GetString(key + "." + ident)
-		if appendVal != "" {
-			val += " " + strings.Trim(appendVal, "\n")
+func ResolveTarget(name string) *target.Target {
+	// Trim trailing slash from name.  This is necessary when tab
+	// completion is used to specify the name.
+	name = strings.TrimSuffix(name, "/")
+
+	targetMap := target.GetTargets()
+
+	// Check for fully-qualified name.
+	if t := targetMap[name]; t != nil {
+		return t
+	}
+
+	// Check the local "targets" directory.
+	if t := targetMap[TARGET_DEFAULT_DIR+"/"+name]; t != nil {
+		return t
+	}
+
+	// Check each repo alphabetically.
+	fullNames := []string{}
+	for fullName, _ := range targetMap {
+		fullNames = append(fullNames, fullName)
+	}
+	for _, fullName := range util.SortFields(fullNames...) {
+		if name == filepath.Base(fullName) {
+			return targetMap[fullName]
 		}
-	}
-	return strings.TrimSpace(val)
-}
-
-func GetStringSliceIdentities(v *viper.Viper, idents map[string]string,
-	key string) []string {
-
-	val := v.GetStringSlice(key)
-
-	// string empty items
-	result := []string{}
-	for _, item := range val {
-		if item == "" || item == " " {
-			continue
-		}
-		result = append(result, item)
-	}
-
-	for item, _ := range idents {
-		result = append(result, v.GetStringSlice(key+"."+item)...)
-	}
-
-	return result
-}
-
-func NodeExist(path string) bool {
-	if _, err := os.Stat(path); err == nil {
-		return true
-	} else {
-		return false
-	}
-}
-
-// Check whether the node (either dir or file) specified by path exists
-func NodeNotExist(path string) bool {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return true
-	} else {
-		return false
-	}
-}
-
-func FileModificationTime(path string) (time.Time, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		epoch := time.Unix(0, 0)
-		if os.IsNotExist(err) {
-			return epoch, nil
-		} else {
-			return epoch, NewNewtError(err.Error())
-		}
-	}
-
-	return fileInfo.ModTime(), nil
-}
-
-func ChildDirs(path string) ([]string, error) {
-	children, err := ioutil.ReadDir(path)
-	if err != nil {
-		return nil, NewNewtError(err.Error())
-	}
-
-	childDirs := []string{}
-	for _, child := range children {
-		name := child.Name()
-		if !filepath.HasPrefix(name, ".") &&
-			!filepath.HasPrefix(name, "..") &&
-			child.IsDir() {
-
-			childDirs = append(childDirs, name)
-		}
-	}
-
-	return childDirs, nil
-}
-
-func DescendantDirsOfParent(rootPath string, parentName string, fullPath bool) ([]string, error) {
-	rootPath = path.Clean(rootPath)
-
-	if NodeNotExist(rootPath) {
-		return []string{}, nil
-	}
-
-	children, err := ChildDirs(rootPath)
-	if err != nil {
-		return nil, err
-	}
-
-	dirs := []string{}
-	if path.Base(rootPath) == parentName {
-		for _, child := range children {
-			if fullPath {
-				child = rootPath + "/" + child
-			}
-
-			dirs = append(dirs, child)
-		}
-	} else {
-		for _, child := range children {
-			childPath := rootPath + "/" + child
-			subDirs, err := DescendantDirsOfParent(childPath, parentName,
-				fullPath)
-			if err != nil {
-				return nil, err
-			}
-
-			dirs = append(dirs, subDirs...)
-		}
-	}
-
-	return dirs, nil
-}
-
-// Execute the command specified by cmdStr on the shell and return results
-func ShellCommand(cmdStr string) ([]byte, error) {
-	log.Print("[VERBOSE] " + cmdStr)
-	cmd := exec.Command("sh", "-c", cmdStr)
-
-	o, err := cmd.CombinedOutput()
-	log.Print("[VERBOSE] o=" + string(o))
-	if err != nil {
-		return o, NewNewtError(err.Error())
-	} else {
-		return o, nil
-	}
-}
-
-// Run interactive shell command
-func ShellInteractiveCommand(cmdStr []string) error {
-	log.Print("[VERBOSE] " + cmdStr[0])
-
-	//
-	// Block SIGINT, at least.
-	// Otherwise Ctrl-C meant for gdb would kill newt.
-	//
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-	go func() {
-		<-c
-	}()
-
-	// Transfer stdin, stdout, and stderr to the new process
-	// and also set target directory for the shell to start in.
-	pa := os.ProcAttr{
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-	}
-
-	// Start up a new shell.
-	proc, err := os.StartProcess(cmdStr[0], cmdStr, &pa)
-	if err != nil {
-		signal.Stop(c)
-		return NewNewtError(err.Error())
-	}
-
-	// Release and exit
-	_, err = proc.Wait()
-	if err != nil {
-		signal.Stop(c)
-		return NewNewtError(err.Error())
-	}
-	signal.Stop(c)
-	return nil
-}
-
-func CopyFile(srcFile string, destFile string) error {
-	_, err := ShellCommand(fmt.Sprintf("mkdir -p %s", filepath.Dir(destFile)))
-	if err != nil {
-		return err
-	}
-	if _, err := ShellCommand(fmt.Sprintf("cp -Rf %s %s", srcFile,
-		destFile)); err != nil {
-		return err
-	}
-	return nil
-}
-
-func CopyDir(srcDir, destDir string) error {
-	return CopyFile(srcDir, destDir)
-}
-
-// Print Silent, Quiet and Verbose aware status messages
-func StatusMessage(level int, message string, args ...interface{}) {
-	if Verbosity >= level {
-		fmt.Printf(message, args...)
-	}
-}
-
-// Reads each line from the specified text file into an array of strings.  If a
-// line ends with a backslash, it is concatenated with the following line.
-func ReadLines(path string) ([]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, NewNewtError(err.Error())
-	}
-	defer file.Close()
-
-	lines := []string{}
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		concatted := false
-
-		if len(lines) != 0 {
-			prevLine := lines[len(lines)-1]
-			if len(prevLine) > 0 && prevLine[len(prevLine)-1:] == "\\" {
-				prevLine = prevLine[:len(prevLine)-1]
-				prevLine += line
-				lines[len(lines)-1] = prevLine
-
-				concatted = true
-			}
-		}
-
-		if !concatted {
-			lines = append(lines, line)
-		}
-	}
-
-	if scanner.Err() != nil {
-		return lines, NewNewtError(scanner.Err().Error())
-	}
-
-	return lines, nil
-}
-
-// Determines if a file was previously built with a command line invocation
-// different from the one specified.
-//
-// @param dstFile               The output file whose build invocation is being
-//                                  tested.
-// @param cmd                   The command that would be used to generate the
-//                                  specified destination file.
-//
-// @return                      true if the command has changed or if the
-//                                  destination file was never built;
-//                              false otherwise.
-func CommandHasChanged(dstFile string, cmd string) bool {
-	cmdFile := dstFile + ".cmd"
-	prevCmd, err := ioutil.ReadFile(cmdFile)
-	if err != nil {
-		return true
-	}
-
-	return bytes.Compare(prevCmd, []byte(cmd)) != 0
-}
-
-// Writes a file containing the command-line invocation used to generate the
-// specified file.  The file that this function writes can be used later to
-// determine if the set of compiler options has changed.
-//
-// @param dstFile               The output file whose build invocation is being
-//                                  recorded.
-// @param cmd                   The command to write.
-func WriteCommandFile(dstFile string, cmd string) error {
-	cmdPath := dstFile + ".cmd"
-	err := ioutil.WriteFile(cmdPath, []byte(cmd), 0644)
-	if err != nil {
-		return err
 	}
 
 	return nil
 }
 
-// Removes all duplicate strings from the specified array, while preserving
-// order.
-func UniqueStrings(elems []string) []string {
-	set := make(map[string]bool)
-	result := make([]string, 0)
+func ResolveTargets(names ...string) ([]*target.Target, error) {
+	targets := []*target.Target{}
 
-	for _, elem := range elems {
-		if !set[elem] {
-			result = append(result, elem)
-			set[elem] = true
+	for _, name := range names {
+		t := ResolveTarget(name)
+		if t == nil {
+			return nil, util.NewNewtError("Could not resolve target name: " +
+				name)
 		}
+
+		targets = append(targets, t)
 	}
 
-	return result
+	return targets, nil
 }
 
-// Sorts whitespace-delimited lists of strings.
-//
-// @param wsSepStrings          A list of strings; each string contains one or
-//                                  more whitespace-delimited tokens.
-//
-// @return                      A slice containing all the input tokens, sorted
-//                                  alphabetically.
-func SortFields(wsSepStrings ...string) []string {
-	slice := []string{}
-
-	for _, s := range wsSepStrings {
-		slice = append(slice, strings.Fields(s)...)
+func ResolveNewTargetName(name string) (string, error) {
+	repoName, pkgName, err := newtutil.ParsePackageString(name)
+	if err != nil {
+		return "", err
 	}
 
-	slice = UniqueStrings(slice)
-	sort.Strings(slice)
-	return slice
+	if repoName != "" {
+		return "", util.NewNewtError("Target name cannot contain repo; " +
+			"must be local")
+	}
+
+	if pkgName == TARGET_KEYWORD_ALL {
+		return "", util.NewNewtError("Target name " + TARGET_KEYWORD_ALL +
+			" is reserved")
+	}
+
+	// "Naked" target names translate to "targets/<name>".
+	if !strings.Contains(pkgName, "/") {
+		pkgName = TARGET_DEFAULT_DIR + "/" + pkgName
+	}
+
+	if target.GetTargets()[pkgName] != nil {
+		return "", util.NewNewtError("Target already exists: " + pkgName)
+	}
+
+	return pkgName, nil
+}
+
+func ResolvePackage(name string) (*pkg.LocalPackage, error) {
+	// Trim trailing slash from name.  This is necessary when tab
+	// completion is used to specify the name.
+	name = strings.TrimSuffix(name, "/")
+
+	dep, err := pkg.NewDependency(nil, name)
+	if err != nil {
+		return nil, util.FmtNewtError("invalid package name: %s (%s)", name,
+			err.Error())
+	}
+	if dep == nil {
+		return nil, util.NewNewtError("invalid package name: " + name)
+	}
+	pack := project.GetProject().ResolveDependency(dep)
+	if pack == nil {
+		return nil, util.NewNewtError("unknown package: " + name)
+	}
+
+	return pack.(*pkg.LocalPackage), nil
+}
+
+func PackageNameList(pkgs []*pkg.LocalPackage) string {
+	var buffer bytes.Buffer
+	for i, pack := range pkgs {
+		if i != 0 {
+			buffer.WriteString(" ")
+		}
+		buffer.WriteString(pack.Name())
+	}
+
+	return buffer.String()
 }
