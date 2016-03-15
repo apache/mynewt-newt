@@ -85,16 +85,27 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	return nil
 }
 
-func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
+func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
+	// Retrieve the current directory so that we can get back to where we
+	// started after the download completes.
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", util.NewNewtError(err.Error())
+	}
+
 	// Get a temporary directory, and copy the repository into that directory.
 	tmpdir, err := ioutil.TempDir("", "newt-repo")
 	if err != nil {
 		return "", err
 	}
 
+	// Currently only the master branch is supported.
+	branch := "master"
+
 	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, fmt.Sprintf("Downloading "+
-		"repository %s (branch: %s) at %s\n", gd.Repo, branch, url))
+		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
+		commit, url))
 
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
@@ -103,6 +114,7 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 			err.Error()))
 	}
 
+	// Clone the repository.
 	cmds := []string{
 		gitPath,
 		"clone",
@@ -121,6 +133,25 @@ func (gd *GithubDownloader) DownloadRepo(branch string) (string, error) {
 		if _, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
 			return "", err
 		}
+	}
+
+	if err := os.Chdir(tmpdir); err != nil {
+		return "", util.NewNewtError(err.Error())
+	}
+
+	// Checkout the specified commit.
+	cmds = []string{
+		gitPath,
+		"checkout",
+		commit,
+	}
+
+	if o, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+		return "", util.NewNewtError(string(o))
+	}
+
+	if err := os.Chdir(pwd); err != nil {
+		return "", util.NewNewtError(err.Error())
 	}
 
 	return tmpdir, nil
