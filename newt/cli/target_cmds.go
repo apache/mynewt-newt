@@ -108,8 +108,9 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 	sort.Strings(targetNames)
 
-	kvPairs := map[string]string{}
 	for _, name := range targetNames {
+		kvPairs := map[string]string{}
+
 		util.StatusMessage(util.VERBOSITY_DEFAULT, name+"\n")
 
 		target := target.GetTargets()[name]
