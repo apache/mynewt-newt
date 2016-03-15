@@ -6,5 +6,50 @@
 .gdb_out
 tags
 
-# Viper - MIT License.
+# Non-source files
+COMPATIBLE
+COPYING
+INSTALLING.md
+RELEASE_NOTES.md
+Godeps.json
+.gitignore
+
+
+# Viper - MIT license.
 viper
+
+# TOML - Apache-compatible license.
+BurntSushi
+
+# logutils - Mozilla Public License.
+logutils
+
+# HCL - Mozilla Public License.
+hcl
+
+# kr/pretty, ky/text - MIT license
+kr
+
+# goproperties - 2-clause BSD.
+magiconair
+
+# go-sqlite3 - MIT license.
+mattn
+
+# mapstructure - MIT license.
+mitchellh
+
+# Cast - MIT license.
+cast
+
+# Cobra - Apache.
+cobra
+
+# jWalterWeatherman - MIT license.
+jwalterweatherman
+
+# pflag - 3-clause BSD.
+pflag
+
+# fsnotify.v1 - 3-clause BSD.
+fsnotify.v1
