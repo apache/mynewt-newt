@@ -190,8 +190,8 @@ func (bpkg *BuildPackage) satisfyReqApi(b *Builder, reqApi string) bool {
 	// This package now has a new unresolved dependency.
 	bpkg.depsResolved = false
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "API requirement satisfied; "+
-		"pkg=%s API=(%s, %s)\n", bpkg.Name(), reqApi, dep.String())
+	log.Printf("[DEBUG] API requirement satisfied; pkg=%s API=(%s, %s)",
+		bpkg.Name(), reqApi, dep.String())
 
 	return true
 }
