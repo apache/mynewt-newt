@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -45,14 +44,6 @@ type testUnmarshalExtra struct {
 	Existing bool
 }
 
-var tomlExample = []byte(`
-title = "TOML Example"
-
-[owner]
-organization = "MongoDB"
-Bio = "MongoDB Chief Developer Advocate & Hacker at Large"
-dob = 1979-05-27T07:32:00Z # First class dates? Why not?`)
-
 var jsonExample = []byte(`{
 "id": "0001",
 "type": "donut",
@@ -68,34 +59,6 @@ var jsonExample = []byte(`{
     }
 }`)
 
-var hclExample = []byte(`
-id = "0001"
-type = "donut"
-name = "Cake"
-ppu = 0.55
-foos {
-	foo {
-		key = 1
-	}
-	foo {
-		key = 2
-	}
-	foo {
-		key = 3
-	}
-	foo {
-		key = 4
-	}
-}`)
-
-var propertiesExample = []byte(`
-p_id: 0001
-p_type: donut
-p_name: Cake
-p_ppu: 0.55
-p_batters.batter.type: Regular
-`)
-
 var remoteExample = []byte(`{
 "id":"0002",
 "type":"cronut",
@@ -110,18 +73,6 @@ func initConfigs() {
 
 	SetConfigType("json")
 	r = bytes.NewReader(jsonExample)
-	unmarshalReader(r, v.config)
-
-	SetConfigType("hcl")
-	r = bytes.NewReader(hclExample)
-	unmarshalReader(r, v.config)
-
-	SetConfigType("properties")
-	r = bytes.NewReader(propertiesExample)
-	unmarshalReader(r, v.config)
-
-	SetConfigType("toml")
-	r = bytes.NewReader(tomlExample)
 	unmarshalReader(r, v.config)
 
 	SetConfigType("json")
@@ -141,30 +92,6 @@ func initJSON() {
 	Reset()
 	SetConfigType("json")
 	r := bytes.NewReader(jsonExample)
-
-	unmarshalReader(r, v.config)
-}
-
-func initProperties() {
-	Reset()
-	SetConfigType("properties")
-	r := bytes.NewReader(propertiesExample)
-
-	unmarshalReader(r, v.config)
-}
-
-func initTOML() {
-	Reset()
-	SetConfigType("toml")
-	r := bytes.NewReader(tomlExample)
-
-	unmarshalReader(r, v.config)
-}
-
-func initHcl() {
-	Reset()
-	SetConfigType("hcl")
-	r := bytes.NewReader(hclExample)
 
 	unmarshalReader(r, v.config)
 }
@@ -197,8 +124,8 @@ func initDirs(t *testing.T) (string, string, func()) {
 		assert.Nil(t, err)
 
 		err = ioutil.WriteFile(
-			path.Join(dir, config+".toml"),
-			[]byte("key = \"value is "+dir+"\"\n"),
+			path.Join(dir, config+".yml"),
+			[]byte("key: \"value is "+dir+"\"\n"),
 			0640)
 		assert.Nil(t, err)
 	}
@@ -312,27 +239,6 @@ func TestJSON(t *testing.T) {
 	assert.Equal(t, "0001", Get("id"))
 }
 
-func TestProperties(t *testing.T) {
-	initProperties()
-	assert.Equal(t, "0001", Get("p_id"))
-}
-
-func TestTOML(t *testing.T) {
-	initTOML()
-	assert.Equal(t, "TOML Example", Get("title"))
-}
-
-func TestHCL(t *testing.T) {
-	initHcl()
-	assert.Equal(t, "0001", Get("id"))
-	assert.Equal(t, 0.55, Get("ppu"))
-	assert.Equal(t, "donut", Get("type"))
-	assert.Equal(t, "Cake", Get("name"))
-	Set("id", "0002")
-	assert.Equal(t, "0002", Get("id"))
-	assert.NotEqual(t, "cronut", Get("type"))
-}
-
 func TestRemotePrecedence(t *testing.T) {
 	initJSON()
 
@@ -420,9 +326,30 @@ func TestSetEnvReplacer(t *testing.T) {
 func TestAllKeys(t *testing.T) {
 	initConfigs()
 
-	ks := sort.StringSlice{"title", "newkey", "owner", "name", "beard", "ppu", "batters", "hobbies", "clothing", "age", "hacker", "id", "type", "eyes", "p_id", "p_ppu", "p_batters.batter.type", "p_type", "p_name", "foos"}
-	dob, _ := time.Parse(time.RFC3339, "1979-05-27T07:32:00Z")
-	all := map[string]interface{}{"owner": map[string]interface{}{"organization": "MongoDB", "Bio": "MongoDB Chief Developer Advocate & Hacker at Large", "dob": dob}, "title": "TOML Example", "ppu": 0.55, "eyes": "brown", "clothing": map[interface{}]interface{}{"trousers": "denim", "jacket": "leather", "pants": map[interface{}]interface{}{"size": "large"}}, "id": "0001", "batters": map[string]interface{}{"batter": []interface{}{map[string]interface{}{"type": "Regular"}, map[string]interface{}{"type": "Chocolate"}, map[string]interface{}{"type": "Blueberry"}, map[string]interface{}{"type": "Devil's Food"}}}, "hacker": true, "beard": true, "hobbies": []interface{}{"skateboarding", "snowboarding", "go"}, "age": 35, "type": "donut", "newkey": "remote", "name": "Cake", "p_id": "0001", "p_ppu": "0.55", "p_name": "Cake", "p_batters.batter.type": "Regular", "p_type": "donut", "foos": []map[string]interface{}{map[string]interface{}{"foo": []map[string]interface{}{map[string]interface{}{"key": 1}, map[string]interface{}{"key": 2}, map[string]interface{}{"key": 3}, map[string]interface{}{"key": 4}}}}}
+	ks := sort.StringSlice{"age", "batters", "beard", "clothing", "eyes", "hacker", "hobbies", "id", "name", "newkey", "ppu", "type"}
+	all := map[string]interface{}{
+		"age": 35,
+		"batters": map[string]interface{}{
+			"batter": []interface{}{
+				map[string]interface{}{"type": "Regular"},
+				map[string]interface{}{"type": "Chocolate"},
+				map[string]interface{}{"type": "Blueberry"},
+				map[string]interface{}{"type": "Devil's Food"}},
+		},
+		"beard": true,
+		"clothing": map[interface{}]interface{}{
+			"trousers": "denim",
+			"jacket":   "leather",
+			"pants":    map[interface{}]interface{}{"size": "large"}},
+		"eyes":    "brown",
+		"hacker":  true,
+		"hobbies": []interface{}{"skateboarding", "snowboarding", "go"},
+		"id":      "0001",
+		"name":    "Cake",
+		"newkey":  "remote",
+		"ppu":     0.55,
+		"type":    "donut",
+	}
 
 	var allkeys sort.StringSlice
 	allkeys = AllKeys()
@@ -574,7 +501,6 @@ func TestSizeInBytes(t *testing.T) {
 
 func TestFindsNestedKeys(t *testing.T) {
 	initConfigs()
-	dob, _ := time.Parse(time.RFC3339, "1979-05-27T07:32:00Z")
 
 	Set("super", map[string]interface{}{
 		"deep": map[string]interface{}{
@@ -591,8 +517,7 @@ func TestFindsNestedKeys(t *testing.T) {
 		"super.deep": map[string]interface{}{
 			"nested": "value",
 		},
-		"super.deep.nested":  "value",
-		"owner.organization": "MongoDB",
+		"super.deep.nested": "value",
 		"batters.batter": []interface{}{
 			map[string]interface{}{
 				"type": "Regular",
@@ -610,7 +535,6 @@ func TestFindsNestedKeys(t *testing.T) {
 		"hobbies": []interface{}{
 			"skateboarding", "snowboarding", "go",
 		},
-		"title":  "TOML Example",
 		"newkey": "remote",
 		"batters": map[string]interface{}{
 			"batter": []interface{}{
@@ -626,19 +550,13 @@ func TestFindsNestedKeys(t *testing.T) {
 				},
 			},
 		},
-		"eyes": "brown",
-		"age":  35,
-		"owner": map[string]interface{}{
-			"organization": "MongoDB",
-			"Bio":          "MongoDB Chief Developer Advocate & Hacker at Large",
-			"dob":          dob,
-		},
-		"owner.Bio": "MongoDB Chief Developer Advocate & Hacker at Large",
-		"type":      "donut",
-		"id":        "0001",
-		"name":      "Cake",
-		"hacker":    true,
-		"ppu":       0.55,
+		"eyes":   "brown",
+		"age":    35,
+		"type":   "donut",
+		"id":     "0001",
+		"name":   "Cake",
+		"hacker": true,
+		"ppu":    0.55,
 		"clothing": map[interface{}]interface{}{
 			"jacket":   "leather",
 			"trousers": "denim",
@@ -649,30 +567,10 @@ func TestFindsNestedKeys(t *testing.T) {
 		"clothing.jacket":     "leather",
 		"clothing.pants.size": "large",
 		"clothing.trousers":   "denim",
-		"owner.dob":           dob,
 		"beard":               true,
-		"foos": []map[string]interface{}{
-			map[string]interface{}{
-				"foo": []map[string]interface{}{
-					map[string]interface{}{
-						"key": 1,
-					},
-					map[string]interface{}{
-						"key": 2,
-					},
-					map[string]interface{}{
-						"key": 3,
-					},
-					map[string]interface{}{
-						"key": 4,
-					},
-				},
-			},
-		},
 	}
 
 	for key, expectedValue := range expected {
-
 		assert.Equal(t, expectedValue, v.Get(key))
 	}
 
