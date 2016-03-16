@@ -21,10 +21,10 @@ package util
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -36,7 +36,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hashicorp/logutils"
+	log "github.com/Sirupsen/logrus"
+
 	"mynewt.apache.org/newt/viper"
 )
 
@@ -165,7 +166,24 @@ func Max(x, y int) int {
 	return y
 }
 
-func initLog(level string, logFilename string) error {
+type logFormatter struct{}
+
+func (f *logFormatter) Format(entry *log.Entry) ([]byte, error) {
+	// 2016/03/16 12:50:47 [DEBUG]
+
+	b := &bytes.Buffer{}
+
+	b.WriteString(entry.Time.Format("2006/01/02 15:04:05 "))
+	b.WriteString("[" + strings.ToUpper(entry.Level.String()) + "] ")
+	b.WriteString(entry.Message)
+	b.WriteByte('\n')
+
+	return b.Bytes(), nil
+}
+
+func initLog(level log.Level, logFilename string) error {
+	log.SetLevel(level)
+
 	var writer io.Writer
 	if logFilename == "" {
 		writer = os.Stderr
@@ -179,24 +197,14 @@ func initLog(level string, logFilename string) error {
 		writer = io.MultiWriter(os.Stderr, logFile)
 	}
 
-	filter := &logutils.LevelFilter{
-		Levels: []logutils.LogLevel{"DEBUG", "VERBOSE", "INFO",
-			"WARN", "ERROR"},
-		MinLevel: logutils.LogLevel(level),
-		Writer:   writer,
-	}
-
-	log.SetOutput(filter)
+	log.SetOutput(writer)
+	log.SetFormatter(&logFormatter{})
 
 	return nil
 }
 
 // Initialize the util module
-func Init(logLevel string, logFile string, verbosity int) error {
-	if logLevel == "" {
-		logLevel = "WARN"
-	}
-
+func Init(logLevel log.Level, logFile string, verbosity int) error {
 	// Configure logging twice.  First just configure the filter for stderr;
 	// second configure the logfile if there is one.  This needs to happen in
 	// two steps so that the log level is configured prior to the attempt to
@@ -272,11 +280,11 @@ func DescendantDirsOfParent(rootPath string, parentName string, fullPath bool) (
 
 // Execute the command specified by cmdStr on the shell and return results
 func ShellCommand(cmdStr string) ([]byte, error) {
-	log.Print("[VERBOSE] " + cmdStr)
+	log.Debug(cmdStr)
 	cmd := exec.Command("sh", "-c", cmdStr)
 
 	o, err := cmd.CombinedOutput()
-	log.Print("[VERBOSE] o=" + string(o))
+	log.Debugf("o=%s", string(o))
 	if err != nil {
 		return o, NewNewtError(err.Error())
 	} else {

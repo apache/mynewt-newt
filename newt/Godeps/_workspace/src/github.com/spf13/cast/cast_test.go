@@ -23,6 +23,17 @@ func TestToInt(t *testing.T) {
 	assert.Equal(t, ToInt(eight), 8)
 }
 
+func TestToInt64(t *testing.T) {
+	var eight interface{} = 8
+	assert.Equal(t, ToInt64(int64(8)), int64(8))
+	assert.Equal(t, ToInt64(8), int64(8))
+	assert.Equal(t, ToInt64(8.31), int64(8))
+	assert.Equal(t, ToInt64("8"), int64(8))
+	assert.Equal(t, ToInt64(true), int64(1))
+	assert.Equal(t, ToInt64(false), int64(0))
+	assert.Equal(t, ToInt64(eight), int64(8))
+}
+
 func TestToFloat64(t *testing.T) {
 	var eight interface{} = 8
 	assert.Equal(t, ToFloat64(8), 8.00)
@@ -34,10 +45,14 @@ func TestToFloat64(t *testing.T) {
 func TestToString(t *testing.T) {
 	var foo interface{} = "one more time"
 	assert.Equal(t, ToString(8), "8")
+	assert.Equal(t, ToString(int64(16)), "16")
 	assert.Equal(t, ToString(8.12), "8.12")
 	assert.Equal(t, ToString([]byte("one time")), "one time")
 	assert.Equal(t, ToString(template.HTML("one time")), "one time")
 	assert.Equal(t, ToString(template.URL("http://somehost.foo")), "http://somehost.foo")
+	assert.Equal(t, ToString(template.JS("(1+2)")), "(1+2)")
+	assert.Equal(t, ToString(template.CSS("a")), "a")
+	assert.Equal(t, ToString(template.HTMLAttr("a")), "a")
 	assert.Equal(t, ToString(foo), "one more time")
 	assert.Equal(t, ToString(nil), "")
 	assert.Equal(t, ToString(true), "true")

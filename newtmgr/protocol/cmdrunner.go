@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"log"
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newtmgr/transport"
 )
@@ -52,7 +52,7 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 	data := []byte{}
 
-	log.Printf("[DEBUG] Writing netmgr request %s", nmr)
+	log.Debugf("Writing netmgr request %s", nmr)
 
 	data, err := nmr.SerializeRequest(data)
 	if err != nil {

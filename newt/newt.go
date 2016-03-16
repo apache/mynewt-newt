@@ -21,16 +21,16 @@ package main
 
 import (
 	"fmt"
-	"strings"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/util"
-
-	"github.com/spf13/cobra"
 )
 
 var NewtVersion string = "0.8.0"
-var NewtLogLevel string = ""
+var NewtLogLevel log.Level
 var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
@@ -52,14 +52,13 @@ func newtCmd() *cobra.Command {
 	newtHelpEx += "    For help on <command-name>.  If not specified, " +
 		"print this message."
 
+	logLevelStr := ""
 	newtCmd := &cobra.Command{
 		Use:     "newt",
 		Short:   "Newt is a tool to help you compose and build your own OS",
 		Long:    newtHelpText,
 		Example: newtHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			NewtLogLevel = strings.ToUpper(NewtLogLevel)
-
 			verbosity := util.VERBOSITY_DEFAULT
 			if newtSilent {
 				verbosity = util.VERBOSITY_SILENT
@@ -69,7 +68,13 @@ func newtCmd() *cobra.Command {
 				verbosity = util.VERBOSITY_VERBOSE
 			}
 
-			err := util.Init(NewtLogLevel, newtLogFile, verbosity)
+			var err error
+			NewtLogLevel, err = log.ParseLevel(logLevelStr)
+			if err != nil {
+				cli.NewtUsage(nil, util.NewNewtError(err.Error()))
+			}
+
+			err = util.Init(NewtLogLevel, newtLogFile, verbosity)
 			if err != nil {
 				cli.NewtUsage(nil, err)
 			}
@@ -85,7 +90,7 @@ func newtCmd() *cobra.Command {
 		"Be quiet; only display error output.")
 	newtCmd.PersistentFlags().BoolVarP(&newtSilent, "silent", "s", false,
 		"Be silent; don't output anything.")
-	newtCmd.PersistentFlags().StringVarP(&NewtLogLevel, "loglevel", "l",
+	newtCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l",
 		"WARN", "Log level, defaults to WARN.")
 	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
 		"", "Filename to tee log output to")

@@ -22,6 +22,5 @@ package main
 import "mynewt.apache.org/newt/newtmgr/cli"
 
 func main() {
-	cli.SetupLog()
 	cli.Commands().Execute()
 }

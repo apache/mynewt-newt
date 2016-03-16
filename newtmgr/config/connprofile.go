@@ -20,9 +20,9 @@
 package config
 
 import (
-	"log"
-
+	log "github.com/Sirupsen/logrus"
 	"github.com/mitchellh/go-homedir"
+
 	"mynewt.apache.org/newt/util"
 )
 
@@ -69,7 +69,7 @@ func (cpm *ConnProfileMgr) Init() error {
 }
 
 func (cpm *ConnProfileMgr) GetConnProfileList() ([]*ConnProfile, error) {
-	log.Printf("[DEBUG] Getting list of connection profiles")
+	log.Debugf("Getting list of connection profiles")
 	cpMap, err := cpm.cDb.GetSect("conn_profile_list")
 	if err != nil {
 		return nil, err

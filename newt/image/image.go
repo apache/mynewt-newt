@@ -26,13 +26,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/target"
@@ -168,7 +169,7 @@ func (image *Image) SetVersion(versStr string) error {
 	image.version.Minor = uint8(minor)
 	image.version.Rev = uint16(rev)
 	image.version.BuildNum = uint32(buildNum)
-	log.Printf("[VERBOSE] Assigning version number %d.%d.%d.%d\n",
+	log.Debugf("Assigning version number %d.%d.%d.%d\n",
 		image.version.Major, image.version.Minor,
 		image.version.Rev, image.version.BuildNum)
 

@@ -18,15 +18,6 @@ Godeps.json
 # Viper - MIT license.
 viper
 
-# TOML - Apache-compatible license.
-BurntSushi
-
-# logutils - Mozilla Public License.
-logutils
-
-# HCL - Mozilla Public License.
-hcl
-
 # kr/pretty, ky/text - MIT license
 kr
 
@@ -38,6 +29,9 @@ mattn
 
 # mapstructure - MIT license.
 mitchellh
+
+# logrus - MIT license.
+Sirupsen
 
 # Cast - MIT license.
 cast

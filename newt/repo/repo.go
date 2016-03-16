@@ -21,16 +21,16 @@ package repo
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"mynewt.apache.org/newt/viper"
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
 
 const REPO_NAME_LOCAL = "local"
@@ -98,7 +98,7 @@ func CheckDeps(upgrade bool, checkRepos map[string]*Repo) error {
 				return util.NewNewtError(fmt.Sprintf("No "+
 					"matching version for dependent repository %s", rd.name))
 			}
-			log.Printf("[DEBUG] Dependency for %s: %s (%s)", checkRepo.Name(), rd.Name(), vers.String())
+			log.Debugf("Dependency for %s: %s (%s)", checkRepo.Name(), rd.Name(), vers.String())
 
 			_, ok = depArray[rd.Name()]
 			if !ok {
@@ -137,9 +137,9 @@ func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
 
 func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 	for vers, branch := range rd.vers {
-		log.Printf("[DEBUG] Repository version requires for %s are %s\n", r.Name(), r.VersionRequirements())
+		log.Debugf("Repository version requires for %s are %s\n", r.Name(), r.VersionRequirements())
 		if vers.SatisfiesVersion(r.VersionRequirements()) {
-			log.Printf("[DEBUG] Found matching version %s for repo %s",
+			log.Debugf("Found matching version %s for repo %s",
 				vers.String(), r.Name())
 			if vers.Stability() != VERSION_STABILITY_NONE {
 				// Load the branch as a version, and search for it
@@ -156,7 +156,7 @@ func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 				if !ok {
 					return "", nil, false
 				}
-				log.Printf("[DEBUG] Founding matching version %s for search version %s, related branch is %s\n",
+				log.Debugf("Founding matching version %s for search version %s, related branch is %s\n",
 					vers, searchVers, branch)
 
 			}
@@ -201,7 +201,7 @@ func (rd *RepoDesc) Init(name string, versBranchMap map[string]string) error {
 	rd.vers = map[*Version]string{}
 
 	for versStr, branch := range versBranchMap {
-		log.Printf("[DEBUG] Printing version %s for remote repo %s", versStr, name)
+		log.Debugf("Printing version %s for remote repo %s", versStr, name)
 		vers, err := LoadVersion(versStr)
 		if err != nil {
 			return err

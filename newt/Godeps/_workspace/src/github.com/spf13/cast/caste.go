@@ -111,6 +111,42 @@ func ToFloat64E(i interface{}) (float64, error) {
 	}
 }
 
+// ToInt64E casts an empty interface to an int64.
+func ToInt64E(i interface{}) (int64, error) {
+	i = indirect(i)
+	jww.DEBUG.Println("ToInt64E called on type:", reflect.TypeOf(i))
+
+	switch s := i.(type) {
+	case int64:
+		return s, nil
+	case int:
+		return int64(s), nil
+	case int32:
+		return int64(s), nil
+	case int16:
+		return int64(s), nil
+	case int8:
+		return int64(s), nil
+	case string:
+		v, err := strconv.ParseInt(s, 0, 0)
+		if err == nil {
+			return v, nil
+		}
+		return 0, fmt.Errorf("Unable to Cast %#v to int64", i)
+	case float64:
+		return int64(s), nil
+	case bool:
+		if bool(s) {
+			return int64(1), nil
+		}
+		return int64(0), nil
+	case nil:
+		return int64(0), nil
+	default:
+		return int64(0), fmt.Errorf("Unable to Cast %#v to int64", i)
+	}
+}
+
 // ToIntE casts an empty interface to an int.
 func ToIntE(i interface{}) (int, error) {
 	i = indirect(i)
@@ -198,6 +234,8 @@ func ToStringE(i interface{}) (string, error) {
 		return strconv.FormatBool(s), nil
 	case float64:
 		return strconv.FormatFloat(i.(float64), 'f', -1, 64), nil
+	case int64:
+		return strconv.FormatInt(i.(int64), 10), nil
 	case int:
 		return strconv.FormatInt(int64(i.(int)), 10), nil
 	case []byte:
@@ -205,6 +243,12 @@ func ToStringE(i interface{}) (string, error) {
 	case template.HTML:
 		return string(s), nil
 	case template.URL:
+		return string(s), nil
+	case template.JS:
+		return string(s), nil
+	case template.CSS:
+		return string(s), nil
+	case template.HTMLAttr:
 		return string(s), nil
 	case nil:
 		return "", nil

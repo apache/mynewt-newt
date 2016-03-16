@@ -22,10 +22,11 @@ package project
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
@@ -397,7 +398,7 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 
 	proj.localRepo.AddDependency(rd)
 
-	log.Printf("[VERBOSE] Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
+	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
 		repoVars["type"], repoVars["user"], repoVars["repo"])
 
 	proj.repos[r.Name()] = r
@@ -479,9 +480,9 @@ func findProjectDir(dir string) (string, error) {
 	for {
 		projFile := path.Clean(dir) + "/" + PROJECT_FILE_NAME
 
-		log.Printf("[DEBUG] Searching for project file %s", projFile)
+		log.Debugf("Searching for project file %s", projFile)
 		if util.NodeExist(projFile) {
-			log.Printf("[INFO] Project file found at %s", projFile)
+			log.Infof("Project file found at %s", projFile)
 			if firstProjectDir == "" {
 				firstProjectDir = dir
 			} else {
@@ -510,7 +511,7 @@ func (proj *Project) loadPackageList() error {
 	// packages / store them in the project package list.
 	repos := proj.Repos()
 	for name, repo := range repos {
-		log.Printf("[VERBOSE] Loading packages in repository %s", repo.Path())
+		log.Debugf("Loading packages in repository %s", repo.Path())
 		list, err := pkg.ReadLocalPackages(repo, repo.Path(),
 			proj.PackageSearchDirs())
 		if err != nil {

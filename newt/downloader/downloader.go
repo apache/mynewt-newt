@@ -23,11 +23,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/util"
 )
@@ -66,7 +67,7 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	fmtStr := "https://raw.githubusercontent.com/%s/%s/%s/%s"
 	url := fmt.Sprintf(fmtStr, gd.User, gd.Repo, gd.Branch(), name)
 
-	log.Printf("[DEBUG] Fetching file %s (url: %s) to %s", name, url, dest)
+	log.Debugf("Fetching file %s (url: %s) to %s", name, url, dest)
 
 	rsp, err := http.Get(url)
 	if err != nil {

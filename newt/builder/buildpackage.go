@@ -21,8 +21,9 @@ package builder
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -163,7 +164,7 @@ func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
 		if !ok {
 			b.AddFeature(nfeature)
 			foundNewFeature = true
-			log.Printf("[DEBUG] Detected new feature: %s (%s)", nfeature,
+			log.Debugf("Detected new feature: %s (%s)", nfeature,
 				bpkg.Name())
 		}
 	}
@@ -190,7 +191,7 @@ func (bpkg *BuildPackage) satisfyReqApi(b *Builder, reqApi string) bool {
 	// This package now has a new unresolved dependency.
 	bpkg.depsResolved = false
 
-	log.Printf("[DEBUG] API requirement satisfied; pkg=%s API=(%s, %s)",
+	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s)",
 		bpkg.Name(), reqApi, dep.String())
 
 	return true

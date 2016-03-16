@@ -3,17 +3,9 @@
 	"GoVersion": "go1.6",
 	"Deps": [
 		{
-			"ImportPath": "github.com/BurntSushi/toml",
-			"Comment": "v0.1.0-46-gbbd5bb6",
-			"Rev": "bbd5bb678321a0d6e58f1099321dfa73391c1b6f"
-		},
-		{
-			"ImportPath": "github.com/hashicorp/hcl",
-			"Rev": "71c7409f1abba841e528a80556ed2c67671744c3"
-		},
-		{
-			"ImportPath": "github.com/hashicorp/logutils",
-			"Rev": "0dc08b1671f34c4250ce212759ebd880f743d883"
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.9.0-17-ga26f435",
+			"Rev": "a26f43589d737684363ff856c5a0f9f24b946510"
 		},
 		{
 			"ImportPath": "github.com/kr/pretty",
@@ -25,14 +17,9 @@
 			"Rev": "bb797dc4fb8320488f47bf11de07a733d7233e1f"
 		},
 		{
-			"ImportPath": "github.com/magiconair/properties",
-			"Comment": "v1.6.0-5-g497d0af",
-			"Rev": "497d0afefddf378f9ffb3c89db6a326985908519"
-		},
-		{
 			"ImportPath": "github.com/mattn/go-sqlite3",
-			"Comment": "v1.1.0-46-g10876d7",
-			"Rev": "10876d7dac65f02064c03d7372a2f1dfb90043fe"
+			"Comment": "v1.1.0-49-g76e335f",
+			"Rev": "76e335f60bbcee20755df9864f0153af1a80ad2d"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
@@ -40,15 +27,15 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/cast",
-			"Rev": "ee7b3e0353166ab1f3a605294ac8cd2b77953778"
+			"Rev": "27b586b42e29bec072fe7379259cc719e1289da6"
 		},
 		{
 			"ImportPath": "github.com/spf13/cobra",
-			"Rev": "65a708cee0a4424f4e353d031ce440643e312f92"
+			"Rev": "1bacefc9a216c93293e670067bd159a64b4d72c3"
 		},
 		{
 			"ImportPath": "github.com/spf13/jwalterweatherman",
-			"Rev": "d00654080cddbd2b082acaa74007cb94a2b40866"
+			"Rev": "33c24e77fb80341fe7130ee7c594256ff08ccc46"
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",

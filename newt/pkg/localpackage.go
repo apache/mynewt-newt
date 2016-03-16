@@ -24,10 +24,11 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -287,7 +288,7 @@ func (pkg *LocalPackage) Save() error {
 // package
 func (pkg *LocalPackage) Load() error {
 	// Load configuration
-	log.Printf("[DEBUG] Loading configuration for package %s", pkg.basePath)
+	log.Debugf("Loading configuration for package %s", pkg.basePath)
 
 	v, err := util.ReadConfig(pkg.basePath,
 		strings.TrimSuffix(PACKAGE_FILE_NAME, ".yml"))

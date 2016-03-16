@@ -24,11 +24,12 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"log"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/tarm/serial"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
-	"github.com/tarm/serial"
 )
 
 type ConnSerial struct {
@@ -115,7 +116,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 }
 
 func (cs *ConnSerial) writeData(bytes []byte) {
-	log.Printf("[DEBUG] Writing %b to data channel", bytes)
+	log.Debugf("Writing %b to data channel", bytes)
 	cs.serialChannel.Write(bytes)
 }
 

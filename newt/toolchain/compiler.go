@@ -21,7 +21,6 @@ package toolchain
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -29,6 +28,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
@@ -162,7 +163,7 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 			buildProfile, runtime.GOOS)
 	}
 
-	log.Printf("[INFO] ccPath = %s, arPath = %s, flags = %s", c.ccPath,
+	log.Infof("ccPath = %s, arPath = %s, flags = %s", c.ccPath,
 		c.arPath, c.info.Cflags)
 
 	return nil
@@ -369,7 +370,7 @@ func (c *Compiler) CompileC() error {
 		return err
 	}
 
-	log.Printf("[INFO] Compiling C if outdated (%s/*.c) %s", wd,
+	log.Infof("Compiling C if outdated (%s/*.c) %s", wd,
 		strings.Join(files, " "))
 	for _, file := range files {
 		file = filepath.ToSlash(file)
@@ -403,7 +404,7 @@ func (c *Compiler) CompileAs() error {
 		return err
 	}
 
-	log.Printf("[INFO] Compiling assembly if outdated (%s/*.s) %s", wd,
+	log.Infof("Compiling assembly if outdated (%s/*.s) %s", wd,
 		strings.Join(files, " "))
 	for _, file := range files {
 		compileRequired, err := c.depTracker.CompileRequired(file,

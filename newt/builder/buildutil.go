@@ -21,9 +21,10 @@ package builder
 
 import (
 	"bytes"
-	"log"
 	"path/filepath"
 	"sort"
+
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -156,7 +157,7 @@ func (b bpkgSorter) Less(i, j int) bool {
 
 func (b *Builder) logDepInfo() {
 	// Log feature set.
-	log.Printf("[DEBUG] Feature set: [" + b.FeatureString() + "]")
+	log.Debugf("Feature set: [" + b.FeatureString() + "]")
 
 	// Log API set.
 	apis := make([]string, 0, len(b.apis))
@@ -165,10 +166,10 @@ func (b *Builder) logDepInfo() {
 	}
 	sort.Strings(apis)
 
-	log.Printf("[DEBUG] API set:")
+	log.Debugf("API set:")
 	for _, api := range apis {
 		bpkg := b.apis[api]
-		log.Printf("[DEBUG]     * " + api + " (" + bpkg.Name() + ")")
+		log.Debugf("    * " + api + " (" + bpkg.Name() + ")")
 	}
 
 	// Log dependency graph.
@@ -180,7 +181,7 @@ func (b *Builder) logDepInfo() {
 	}
 	sort.Sort(bpkgSorter)
 
-	log.Printf("[DEBUG] Dependency graph:")
+	log.Debugf("Dependency graph:")
 	var buffer bytes.Buffer
 	for _, bpkg := range bpkgSorter.bpkgs {
 		buffer.Reset()
@@ -190,7 +191,7 @@ func (b *Builder) logDepInfo() {
 			}
 			buffer.WriteString(dep.String())
 		}
-		log.Printf("[DEBUG]     * " + bpkg.Name() + " [" +
+		log.Debugf("    * " + bpkg.Name() + " [" +
 			buffer.String() + "]")
 	}
 }

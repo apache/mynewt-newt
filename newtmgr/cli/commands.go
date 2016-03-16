@@ -20,32 +20,27 @@
 package cli
 
 import (
-	"log"
-	"os"
-
-	"github.com/hashicorp/logutils"
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"mynewt.apache.org/newt/util"
 )
 
 var ConnProfileName string
-
-var LogLevel string = "WARN"
-
-func SetupLog() {
-	filter := &logutils.LevelFilter{
-		Levels: []logutils.LogLevel{"DEBUG", "VERBOSE", "INFO",
-			"WARN", "ERROR"},
-		MinLevel: logutils.LogLevel(LogLevel),
-		Writer:   os.Stderr,
-	}
-
-	log.SetOutput(filter)
-}
+var NewtmgrLogLevel log.Level
 
 func Commands() *cobra.Command {
+	logLevelStr := ""
 	nmCmd := &cobra.Command{
 		Use:   "newtmgr",
 		Short: "Newtmgr helps you manage remote instances of the Mynewt OS.",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			NewtmgrLogLevel, err := log.ParseLevel(logLevelStr)
+			err = util.Init(NewtmgrLogLevel, "", util.VERBOSITY_DEFAULT)
+			if err != nil {
+				nmUsage(nil, err)
+			}
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
@@ -54,7 +49,7 @@ func Commands() *cobra.Command {
 	nmCmd.PersistentFlags().StringVarP(&ConnProfileName, "conn", "c", "",
 		"connection profile to use.")
 
-	nmCmd.PersistentFlags().StringVarP(&LogLevel, "loglevel", "l", "",
+	nmCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l", "",
 		"log level to use (default WARN.)")
 
 	nmCmd.AddCommand(connProfileCmd())

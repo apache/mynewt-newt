@@ -22,13 +22,14 @@ package cli
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -42,7 +43,7 @@ const TARGET_DEFAULT_DIR string = "targets"
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
 		sErr := err.(*util.NewtError)
-		log.Printf("[DEBUG] %s", sErr.StackTrace)
+		log.Debugf("%s", sErr.StackTrace)
 		fmt.Fprintf(os.Stderr, "Error: %s\n", sErr.Text)
 	}
 

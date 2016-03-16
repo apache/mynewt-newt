@@ -22,8 +22,8 @@ package util
 import (
 	"database/sql"
 	"fmt"
-	"log"
 
+	log "github.com/Sirupsen/logrus"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -76,7 +76,7 @@ func (c *CfgDb) Init(prefix string, dbPath string) error {
 	}
 	c.db = db
 
-	log.Printf("[DEBUG] Reading config from %s for %s", dbPath, prefix)
+	log.Debugf("Reading config from %s for %s", dbPath, prefix)
 
 	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s_cfg", prefix))
 	if err != nil {
@@ -93,7 +93,7 @@ func (c *CfgDb) Init(prefix string, dbPath string) error {
 			return NewNewtError(err.Error())
 		}
 
-		log.Printf("[DEBUG] Setting sect %s, key %s to val %s", cName.String,
+		log.Debugf("Setting sect %s, key %s to val %s", cName.String,
 			cKey.String, cVal.String)
 
 		if _, ok := c.Config[cName.String]; !ok {
@@ -152,7 +152,7 @@ func (c *CfgDb) GetSect(sect string) (map[string]string, error) {
 }
 
 func (c *CfgDb) DeleteSect(sect string) error {
-	log.Printf("[DEBUG] Deleting sect %s", sect)
+	log.Debugf("Deleting sect %s", sect)
 
 	tx, err := c.db.Begin()
 	if err != nil {
@@ -174,10 +174,10 @@ func (c *CfgDb) DeleteSect(sect string) error {
 	tx.Commit()
 
 	if naffected, err := r.RowsAffected(); naffected > 0 && err == nil {
-		log.Printf("[DEBUG] Successfully deleted sect %s from db %s",
+		log.Debugf("Successfully deleted sect %s from db %s",
 			sect, c.DbPath)
 	} else {
-		log.Printf("[DEBUG] Sect %s not found in db %s.  Delete "+
+		log.Debugf("Sect %s not found in db %s.  Delete "+
 			"successful", sect, c.DbPath)
 	}
 
@@ -185,7 +185,7 @@ func (c *CfgDb) DeleteSect(sect string) error {
 }
 
 func (c *CfgDb) DeleteKey(sect string, key string) error {
-	log.Printf("[DEBUG] Deleting sect %s, key %s", sect, key)
+	log.Debugf("Deleting sect %s, key %s", sect, key)
 
 	tx, err := c.db.Begin()
 	if err != nil {
@@ -207,10 +207,10 @@ func (c *CfgDb) DeleteKey(sect string, key string) error {
 	tx.Commit()
 
 	if naffected, err := r.RowsAffected(); naffected > 0 && err == nil {
-		log.Printf("[DEBUG] Successfully deleted sect %s, key %s from db %s",
+		log.Debugf("Successfully deleted sect %s, key %s from db %s",
 			sect, key, c.DbPath)
 	} else {
-		log.Printf("[DEBUG] Sect %s, key %s not found in db %s.  Delete "+
+		log.Debugf("Sect %s, key %s not found in db %s.  Delete "+
 			"successful", sect, key, c.DbPath)
 	}
 
@@ -219,12 +219,12 @@ func (c *CfgDb) DeleteKey(sect string, key string) error {
 
 func (c *CfgDb) SetKey(sect string, key string, val string) error {
 	if _, ok := c.Config[sect]; !ok {
-		log.Printf("[DEBUG] Section %s doesn't exist, creating it!", sect)
+		log.Debugf("Section %s doesn't exist, creating it!", sect)
 		c.Config[sect] = make(map[string]string)
 	}
 	c.Config[sect][key] = val
 
-	log.Printf("[DEBUG] Storing value %s in section %s, key %s",
+	log.Debugf("Storing value %s in section %s, key %s",
 		val, sect, key)
 
 	tx, err := c.db.Begin()
@@ -247,7 +247,7 @@ func (c *CfgDb) SetKey(sect string, key string, val string) error {
 	// If update succeeded, then exit out.
 	if naffected, err := r.RowsAffected(); naffected > 0 && err == nil {
 		tx.Commit()
-		log.Printf("[DEBUG] Sect %s, key %s successfully updated to %s",
+		log.Debugf("Sect %s, key %s successfully updated to %s",
 			sect, key, val)
 		return nil
 	}
@@ -266,7 +266,7 @@ func (c *CfgDb) SetKey(sect string, key string, val string) error {
 
 	tx.Commit()
 
-	log.Printf("[DEBUG] Section %s, key %s successfully created.  Value set"+
+	log.Debugf("Section %s, key %s successfully created.  Value set"+
 		"to %s", sect, key, val)
 
 	return nil
