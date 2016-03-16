@@ -25,12 +25,9 @@ import (
 	"strings"
 	"unicode"
 
-	"mynewt.apache.org/newt/yaml"
-	"github.com/BurntSushi/toml"
-	"github.com/hashicorp/hcl"
-	"github.com/magiconair/properties"
 	"github.com/spf13/cast"
 	jww "github.com/spf13/jwalterweatherman"
+	"mynewt.apache.org/newt/yaml"
 )
 
 // Denotes failing to parse configuration file.
@@ -147,31 +144,6 @@ func unmarshallConfigReader(in io.Reader, c map[string]interface{}, configType s
 	case "json":
 		if err := json.Unmarshal(buf.Bytes(), &c); err != nil {
 			return ConfigParseError{err}
-		}
-
-	case "hcl":
-		obj, err := hcl.Parse(string(buf.Bytes()))
-		if err != nil {
-			return ConfigParseError{err}
-		}
-		if err = hcl.DecodeObject(&c, obj); err != nil {
-			return ConfigParseError{err}
-		}
-
-	case "toml":
-		if _, err := toml.Decode(buf.String(), &c); err != nil {
-			return ConfigParseError{err}
-		}
-
-	case "properties", "props", "prop":
-		var p *properties.Properties
-		var err error
-		if p, err = properties.Load(buf.Bytes(), properties.UTF8); err != nil {
-			return ConfigParseError{err}
-		}
-		for _, key := range p.Keys() {
-			value, _ := p.Get(key)
-			c[key] = value
 		}
 	}
 
