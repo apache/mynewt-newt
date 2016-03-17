@@ -21,16 +21,16 @@
 
 # Newt
 
-Newt is a build and package management tool, designed for C and C++ 
+Apache Newt is a build and package management tool, designed for C and C++ 
 applications in embedded contexts.  Newt was developed as a part of the 
 Apache Mynewt Operating System, more information on Apache Mynewt can be found 
 at https://mynewt.apache.org/.
 
 # Getting Started
 
-The included build.sh script can be used to build newt.  For more information
-on how to install Newt, please read [INSTALLING](/INSTALLING.md) or the
-documentation on https://mynewt.apache.org/
+To build Apache Newt, simply run the included build.sh script.  For more
+information on building and installng Apache Newt, please read
+[INSTALLING](/INSTALLING.md) or the documentation on https://mynewt.apache.org/
 
 Once you've installed newt, you can get started by creating a new project: 
 
@@ -39,7 +39,7 @@ Once you've installed newt, you can get started by creating a new project:
 ```
 
 For more information, and a tutorial for getting started, please take a look at 
-the [Apache Mynewt documentation](http://mynewt.apache.org/os/get_started/introduction/).
+the [Apache Mynewt documentation](https://mynewt.apache.org/os/get_started/introduction/).
 
 # Contributing 
 
@@ -60,7 +60,7 @@ If you are suggesting a new feature, please email the developer list directly,
 with a description of the feature you are planning to work on.  
 
 We do not merge pull requests directly on Github, all PRs will be pulled and 
-pushed through http://git.apache.org/.
+pushed through https://git.apache.org/.
 
 ## Filing Bugs
 
@@ -87,7 +87,7 @@ to get involved with the Apache Mynewt project.
 
 Pull requests to the apache-mynewt-site repository on Github are the best 
 way to submit documentation.  For more information on contributing to the 
-documentation, the [FAQ](http://mynewt.apache.org/faq/answers/) has some 
+documentation, the [FAQ](https://mynewt.apache.org/faq/answers/) has some 
 more information.
 
 ## Getting Help
