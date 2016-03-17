@@ -201,35 +201,35 @@
    limitations under the License.
 
 This product bundles pretty, which is available under the MIT license.  For
-details, see newt/Godeps/_workspace/src/github.com/kr/pretty/License
+details, see newt/vendor/github.com/kr/pretty/License
 
 This product bundles kr/text, which is available under the MIT license.  For
-details, see newt/Godeps/_workspace/src/github.com/kr/text/License
+details, see newt/vendor/github.com/kr/text/License
 
 This product bundles go-sqlite3, which is available under the MIT license.  For
-details, see newt/Godeps/_workspace/src/github.com/mattn/go-sqlite3/LICENSE
+details, see newt/vendor/github.com/mattn/go-sqlite3/LICENSE
 
 This product bundles mapstructure, which is available under the MIT license.
-For details, see
-newt/Godeps/_workspace/src/github.com/mitchellh/mapstructure/LICENSE
+For details, see newt/vendor/github.com/mitchellh/mapstructure/LICENSE
 
 This product bundles logrus, which is available under the MIT license.  For
-details, see newt/Godeps/_workspace/src/github.com/Sirupsen/logrus/LICENSE
+details, see newt/vendor/github.com/Sirupsen/logrus/LICENSE
 
 This product bundles Cast, which is available under the MIT license.  For
-details, see newt/Godeps/_workspace/src/github.com/spf13/cast/LICENSE
+details, see newt/vendor/github.com/spf13/cast/LICENSE
 
 This product bundles jWalterWeatherman, which is available under the MIT
 license.  For details, see
-newt/Godeps/_workspace/src/github.com/spf13/jwalterweatherman/LICENSE
+newt/vendor/github.com/spf13/jwalterweatherman/LICENSE
 
 This product bundles pflag, which is available under the "3-clause BSD"
-license.  For details, see
-newt/Godeps/_workspace/src/github.com/spf13/pflag/LICENSE
+license.  For details, see newt/vendor/github.com/spf13/pflag/LICENSE
+
+This product bundles the unix Go package, which is available under the
+"3-clause BSD" license.  For details, see newt/vendor/golang.org/x/sys/LICENSE
 
 This product bundles fsnotify.v1, which is available under the "3-clause BSD"
-license.  For details, see
-newt/Godeps/_workspace/src/gopkg.in/fsnotify.v1/LICENSE
+license.  For details, see newt/vendor/gopkg.in/fsnotify.v1/LICENSE
 
 This product bundles yaml.v2's Go port of libyaml, which is available under the
 MIT license.  For details, see:
