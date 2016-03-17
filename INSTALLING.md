@@ -1,79 +1,49 @@
 # Installing Newt
 
-There are two methods for the installation of newt, either from source, or  
+There are two methods for the installation of newt, either from source, or
 from a binary release.  This document contains information on how to do both.
 
 # Downloading Binary Newt
 
-Binary releases of newt will be published on the Apache Mynewt website 
+Binary releases of newt will be published on the Apache Mynewt website
 when available.  To find these, please go to https://mynewt.apache.org/.
 
 # Installing From Source
 
-The newt tool is written in Go (https://golang.org/).  In order to build 
-Apache Mynewt, you must have Go 1.6 installed on your system.  Please 
-visit the Golang website for more information on installing Go.
+The newt tool is written in Go (https://golang.org/).  In order to build Apache
+Mynewt, you must have Go 1.5 or later installed on your system.  Please visit
+the Golang website for more information on installing Go (https://golang.org/).
 
-Once you have go installed, you must install the Apache Mynewt sources 
-in: 
-
-```no-highlight 
-  $GOPATH/src/mynewt.apache.org/newt 
-```
-
-You can do this by either using go get: 
+Once you have Go installed, you can build newt by running the contained
+build.sh script.  This script will create the newt executable with the
+following path, relative to the source directory:
 
 ```no-highlight
-  $ go get -v mynewt.apache.org/newt
+    newt/newt
 ```
 
-Or manually git cloning the directory: 
-  
-```no-highlight
-  $ mkdir -p $GOPATH/src/mynewt.apache.org/
-  $ cd $GOPATH/src/mynewt.apache.org/
-  $ git clone https://github.com/apache/incubator-mynewt-newt
-```
-
-*NOTE:* To get the latest development version of newt, you should checkout the 
-"develop" branch, once you've cloned newt.  The master branch represents the
-latest stable newt.
-
-Once you've done this, the next step is to install newt's dependencies, this 
-can be done with the go get command: 
+If you do not wish to run the included script, you can build newt manually with Go as follows (executed from the source directory):
 
 ```no-highlight
-  $ cd $GOPATH/src/mynewt.apache.org/newt/newt
-  $ go get -v 
+    $ mkdir "$GOPATH"/src/mynewt.apache.org
+    $ cp -r * "$GOPATH"/src/mynewt.apache.org     # Or untar to this path
+    $ go install mynewt.apache.org/newt/newt
 ```
 
-Once you've fetched all the sources, the final step is to install newt.  To do this
-issue the go install command: 
+This puts the newt binary in $GOPATH/bin
 
-```no-highlight
-  $ go install -v
-```
-
-This should install the newt binary in the following location:
-
-```no-highlight
-  $GOPATH/bin
-```
-
-Which should be added to your path during the installation of Go. 
-
-You can test the installation by typing newt: 
+You can test the installation by running newt:
 
 ```no-highlight
 $ newt
-Newt allows you to create your own embedded application based on the Mynewt 
-operating system. Newt provides both build and package management in a single 
-tool, which allows you to compose an embedded application, and set of 
-projects, and then build the necessary artifacts from those projects. For more 
-information on the Mynewt operating system, please visit 
-https://mynewt.apache.org/. 
+Newt allows you to create your own embedded application based on the Mynewt
+operating system. Newt provides both build and package management in a single
+tool, which allows you to compose an embedded application, and set of
+projects, and then build the necessary artifacts from those projects. For more
+information on the Mynewt operating system, please visit
+https://mynewt.apache.org/.
 
-Please use the newt help command, and specify the name of the command you want 
+Please use the newt help command, and specify the name of the command you want
 help for, for help on how to use a specific command
 
 Usage:
@@ -110,6 +80,4 @@ Flags:
   -v, --verbose           Enable verbose output when executing commands.
 
 Use "newt [command] --help" for more information about a command.
-$ 
 ```
-

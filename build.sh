@@ -15,7 +15,7 @@ then
     exit 1
 fi
 
-### Create a temporary go tree in /tmp and build newt.
+### Create a temporary go tree in /tmp.
 installdir="$(realpath "$(dirname "$0")")"
 godir="$(mktemp -d /tmp/mynewt.XXXXXXXXXX)"
 mynewtdir="$godir"/src/mynewt.apache.org
@@ -26,10 +26,15 @@ dstfile="$installdir"/newt/newt
 mkdir -p "$mynewtdir"
 ln -s "$installdir" "$repodir"
 
+### Build newt.
 (
     cd "$newtdir"
+
+    printf "Building newt.  This may take a minute...\n"
     GOPATH="$godir" GO15VENDOREXPERIMENT=1 go install
+
     mv "$godir"/bin/newt "$dstfile"
+
     printf "Successfully built executable: %s\n" "$dstfile"
 )
 

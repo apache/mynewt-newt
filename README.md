@@ -28,8 +28,8 @@ at https://mynewt.apache.org/.
 
 # Getting Started
 
-For information on how to install Newt, please read [INSTALLING](/INSTALLING.md) 
-or the documentation on https://mynewt.apache.org/
+For information on how to install Newt, please read
+[INSTALLING](/INSTALLING.md) or the documentation on https://mynewt.apache.org/
 
 Once you've installed newt, you can get started by creating a new project: 
 
