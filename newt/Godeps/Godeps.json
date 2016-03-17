@@ -1,11 +1,16 @@
 {
 	"ImportPath": "mynewt.apache.org/newt/newt",
 	"GoVersion": "go1.6",
+	"GodepVersion": "v58",
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.9.0-17-ga26f435",
 			"Rev": "a26f43589d737684363ff856c5a0f9f24b946510"
+		},
+		{
+			"ImportPath": "github.com/inconshreveable/mousetrap",
+			"Rev": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
 		},
 		{
 			"ImportPath": "github.com/kr/pretty",
@@ -42,9 +47,28 @@
 			"Rev": "7f60f83a2c81bc3c3c0d5297f61ddfa68da9d3b7"
 		},
 		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "9d4e42a20653790449273b3c85e67d6d8bae6e2e"
+		},
+		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
 			"Comment": "v1.2.10",
 			"Rev": "875cf421b32f8f1b31bd43776297876d01542279"
+		},
+		{
+			"ImportPath": "mynewt.apache.org/newt/util",
+			"Comment": "mynewt_0_8_0_b2_tag-8-g1f5bf0b",
+			"Rev": "1f5bf0b3307517a0e848208077a83557c0550f5f"
+		},
+		{
+			"ImportPath": "mynewt.apache.org/newt/viper",
+			"Comment": "mynewt_0_8_0_b2_tag-8-g1f5bf0b",
+			"Rev": "1f5bf0b3307517a0e848208077a83557c0550f5f"
+		},
+		{
+			"ImportPath": "mynewt.apache.org/newt/yaml",
+			"Comment": "mynewt_0_8_0_b2_tag-8-g1f5bf0b",
+			"Rev": "1f5bf0b3307517a0e848208077a83557c0550f5f"
 		}
 	]
 }
