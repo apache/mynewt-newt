@@ -89,9 +89,9 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		for name, _ := range target.GetTargets() {
 			// Don't display the special unittest target; this is used
 			// internally by newt, so the user doesn't need to know about it.
-			// XXX: This is a hack; come up with a better solution for hiding
-			// targets.
-			if name != "targets/unittest" {
+			// XXX: This is a hack; come up with a better solution for unit
+			// testing.
+			if !strings.HasSuffix(name, "/unittest") {
 				targetNames = append(targetNames, name)
 			}
 		}

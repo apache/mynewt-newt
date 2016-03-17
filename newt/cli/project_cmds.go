@@ -131,7 +131,14 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 		if reqRepoName == "all" || reqRepoName == repoName {
 			packNames := []string{}
 			for _, pack := range *proj.PackageList()[repoName] {
-				packNames = append(packNames, pack.Name())
+				// Don't display the special unittest target; this is used
+				// internally by newt, so the user doesn't need to know about
+				// it.
+				// XXX: This is a hack; come up with a better solution for
+				// unit testing.
+				if !strings.HasSuffix(pack.Name(), "/unittest") {
+					packNames = append(packNames, pack.Name())
+				}
 			}
 
 			sort.Strings(packNames)
