@@ -476,28 +476,19 @@ func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) inter
 }
 
 func findProjectDir(dir string) (string, error) {
-	firstProjectDir := ""
 	for {
 		projFile := path.Clean(dir) + "/" + PROJECT_FILE_NAME
 
 		log.Debugf("Searching for project file %s", projFile)
 		if util.NodeExist(projFile) {
 			log.Infof("Project file found at %s", projFile)
-			if firstProjectDir == "" {
-				firstProjectDir = dir
-			} else {
-				break
-			}
+			break
 		}
 
 		// Move back one directory and continue searching
 		dir = path.Clean(dir + "../../")
 		if dir == "/" {
-			if firstProjectDir != "" {
-				return firstProjectDir, nil
-			} else {
-				return "", util.NewNewtError("No project file found!")
-			}
+			return "", util.NewNewtError("No project file found!")
 		}
 	}
 
