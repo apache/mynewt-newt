@@ -21,10 +21,33 @@
 
 # Newt
 
-Apache Newt is a build and package management tool, designed for C and C++ 
+Apache Newt is a smart build and package management tool, designed for C and C++ 
 applications in embedded contexts.  Newt was developed as a part of the 
 Apache Mynewt Operating System, more information on Apache Mynewt can be found 
 at https://mynewt.apache.org/.
+
+# Features
+
+Newt is a build system that can read a directory tree, build a dependency tree, and emit the right build artifacts. It then allows you to do the following:
+
+* Download built target to board
+* Generate full flash images
+* Download debug images to a target board using a debugger
+* Conditionally compile libraries & code based upon build settings
+
+Newt is also a source management system that allows you to do the following:
+
+* Create reusable source distributions (called repo) from a collection of code.
+* Use third-party components with licenses that are not comptatible with the ASF (Apache Software Foundation) license
+* Upgrade repos
+
+
+# How it Works
+ 
+When Newt sees a directory tree that contains a "project.yml" file, it recognizes it as the base directory of a project, and automatically builds a package tree. It can also recognize two important package directories in the package tree - "apps" and "targets", and use them to recursively resolve dependencies and build correct images for specified targets. 
+
+More information can be found in the "Newt Tool Manual" under Docs at https://mynewt.apache.org/.
+
 
 # Getting Started
 
@@ -40,6 +63,8 @@ Once you've installed newt, you can get started by creating a new project:
 
 For more information, and a tutorial for getting started, please take a look at 
 the [Apache Mynewt documentation](https://mynewt.apache.org/os/get_started/introduction/).
+
+
 
 # Contributing 
 
