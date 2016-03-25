@@ -156,6 +156,12 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 		return err
 	}
 
+	c.ldMapFile, err = newtutil.GetBoolFeatures(v, features,
+		"compiler.ld.mapfile")
+	if err != nil {
+		return err
+	}
+
 	if len(c.info.Cflags) == 0 {
 		// Assume no Cflags implies an unsupported build profile.
 		return util.FmtNewtError("Compiler doesn't support build profile "+
