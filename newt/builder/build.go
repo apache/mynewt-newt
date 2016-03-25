@@ -413,9 +413,6 @@ func (b *Builder) Build() error {
 		return err
 	}
 
-	// XXX: If any yml files have changed, a full rebuild is required.  We
-	// don't currently check this.
-
 	for _, bpkg := range b.Packages {
 		if err := b.buildPackage(bpkg); err != nil {
 			return err
@@ -459,9 +456,6 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 		return err
 	}
 	testPkgCi.Cflags = append(testPkgCi.Cflags, "-DMYNEWT_SELFTEST")
-
-	// XXX: If any yml files have changed, a full rebuild is required.  We
-	// don't currently check this.
 
 	for _, bpkg := range b.Packages {
 		err = b.buildPackage(bpkg)
