@@ -20,6 +20,7 @@
 package builder
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -478,7 +479,10 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing test: %s\n",
 		testFilename)
 	if _, err := util.ShellCommand(testFilename); err != nil {
-		return util.NewNewtError("Test failure: " + err.Error())
+		newtError := err.(*util.NewtError)
+		newtError.Text = fmt.Sprintf("Test failure (%s):\n%s", p.Name(),
+			newtError.Text)
+		return newtError
 	}
 
 	return nil

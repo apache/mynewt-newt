@@ -286,7 +286,7 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 	o, err := cmd.CombinedOutput()
 	log.Debugf("o=%s", string(o))
 	if err != nil {
-		return o, NewNewtError(err.Error())
+		return o, NewNewtError(string(o))
 	} else {
 		return o, nil
 	}
