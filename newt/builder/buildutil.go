@@ -155,6 +155,19 @@ func (b bpkgSorter) Less(i, j int) bool {
 	return b.bpkgs[i].Name() < b.bpkgs[j].Name()
 }
 
+func (b *Builder) sortedBuildPackages() []*BuildPackage {
+	sorter := bpkgSorter{
+		bpkgs: make([]*BuildPackage, 0, len(b.Packages)),
+	}
+
+	for _, bpkg := range b.Packages {
+		sorter.bpkgs = append(sorter.bpkgs, bpkg)
+	}
+
+	sort.Sort(sorter)
+	return sorter.bpkgs
+}
+
 func (b *Builder) logDepInfo() {
 	// Log feature set.
 	log.Debugf("Feature set: [" + b.FeatureString() + "]")

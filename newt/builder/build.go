@@ -414,7 +414,9 @@ func (b *Builder) Build() error {
 		return err
 	}
 
-	for _, bpkg := range b.Packages {
+	// Build the packages alphabetically to ensure a consistent order.
+	bpkgs := b.sortedBuildPackages()
+	for _, bpkg := range bpkgs {
 		if err := b.buildPackage(bpkg); err != nil {
 			return err
 		}
@@ -458,7 +460,9 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	}
 	testPkgCi.Cflags = append(testPkgCi.Cflags, "-DMYNEWT_SELFTEST")
 
-	for _, bpkg := range b.Packages {
+	// Build the packages alphabetically to ensure a consistent order.
+	bpkgs := b.sortedBuildPackages()
+	for _, bpkg := range bpkgs {
 		err = b.buildPackage(bpkg)
 		if err != nil {
 			return err
