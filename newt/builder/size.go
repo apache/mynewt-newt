@@ -339,5 +339,18 @@ func (b *Builder) Size() error {
 		return err
 	}
 	fmt.Printf("%s", output)
+
+	c, err := b.newCompiler(b.appPkg, b.PkgBinDir(b.AppElfPath()))
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\nobjsize\n")
+	output, err = c.PrintSize(b.AppElfPath())
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", output)
+
 	return nil
 }

@@ -618,6 +618,15 @@ func (c *Compiler) generateExtras(elfFilename string,
 	return nil
 }
 
+func (c *Compiler) PrintSize(elfFilename string) (string, error) {
+	cmd := c.osPath + " " + elfFilename
+	rsp, err := util.ShellCommand(cmd)
+	if err != nil {
+		return "", err
+	}
+	return string(rsp), nil
+}
+
 // Links the specified elf file and generates some associated artifacts (lst,
 // bin, and map files).
 //
