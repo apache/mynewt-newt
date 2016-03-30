@@ -84,12 +84,8 @@ func varsFromPackageType(pt PackageType, fullPath bool) ([]string, error) {
 }
 
 var varsMap = map[string]func() ([]string, error){
-	"target.arch": func() ([]string, error) {
-		return varsFromChildDirs("arch", false)
-	},
-
 	"target.bsp": func() ([]string, error) {
-		return varsFromChildDirs("bsp", true)
+		return varsFromPackageType(pkg.PACKAGE_TYPE_BSP, true)
 	},
 
 	"target.app": func() ([]string, error) {
