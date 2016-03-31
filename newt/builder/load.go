@@ -58,7 +58,8 @@ func (b *Builder) Load() error {
 	downloadCmd := fmt.Sprintf("%s %s %s %s",
 		downloadScript, bspPath, binBaseName, featureString)
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Loading image with: %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Loading image\n")
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		downloadCmd)
 	rsp, err := util.ShellCommand(downloadCmd)
 	if err != nil {
