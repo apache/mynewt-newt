@@ -252,6 +252,10 @@ func buildTargetMap() error {
 	return nil
 }
 
+func ResetTargets() {
+	globalTargetMap = nil
+}
+
 func GetTargets() map[string]*Target {
 	if globalTargetMap == nil {
 		err := buildTargetMap()

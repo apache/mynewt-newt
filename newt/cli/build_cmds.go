@@ -45,22 +45,42 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, nil)
 	}
 
-	t := ResolveTarget(args[0])
-	if t == nil {
-		NewtUsage(cmd, util.NewNewtError("invalid target name: "+args[0]))
+	// Verify that all target names are valid.
+	_, err := ResolveTargets(args...)
+	if err != nil {
+		NewtUsage(cmd, err)
 	}
 
-	b, err := builder.NewBuilder(t)
-	if err != nil {
-		NewtUsage(nil, err)
-	}
-	err = b.Build()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
+	for _, targetName := range args {
+		// Reset the global state for the next build.
+		if err := ResetGlobalState(); err != nil {
+			NewtUsage(nil, err)
+		}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "App successfully built: %s\n",
-		b.AppElfPath())
+		// Lookup the target by name.  This has to be done a second time here
+		// now that the project has been reset.
+		t := ResolveTarget(targetName)
+		if t == nil {
+			NewtUsage(nil, util.NewNewtError("Failed to resolve target: "+
+				targetName))
+		}
+
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Building target %s\n",
+			t.FullName())
+
+		b, err := builder.NewBuilder(t)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+
+		err = b.Build()
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "App successfully built: "+
+			"%s\n", b.AppElfPath())
+	}
 }
 
 func cleanRunCmd(cmd *cobra.Command, args []string) {
@@ -157,8 +177,10 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 	passedPkgs := []*pkg.LocalPackage{}
 	failedPkgs := []*pkg.LocalPackage{}
 	for _, pack := range packs {
-		// Reset the global project for the next test.
-		project.ResetProject()
+		// Reset the global state for the next test.
+		if err := ResetGlobalState(); err != nil {
+			NewtUsage(nil, err)
+		}
 
 		// Use the standard unit test target for all tests.
 		t := ResolveTarget(TARGET_TEST_NAME)
@@ -279,76 +301,58 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func AddBuildCommands(cmd *cobra.Command) {
-	buildHelpText := ""
-	buildHelpEx := ""
 	buildCmd := &cobra.Command{
-		Use:     "build",
-		Short:   "Builds one or more apps.",
-		Long:    buildHelpText,
-		Example: buildHelpEx,
-		Run:     buildRunCmd,
+		Use:   "build <target-name> [target-names...]",
+		Short: "Builds one or more targets.",
+		Run:   buildRunCmd,
 	}
 
 	cmd.AddCommand(buildCmd)
 
-	cleanHelpText := ""
-	cleanHelpEx := ""
 	cleanCmd := &cobra.Command{
-		Use:     "clean",
-		Short:   "Deletes app build artifacts.",
-		Long:    cleanHelpText,
-		Example: cleanHelpEx,
-		Run:     cleanRunCmd,
+		Use:   "clean <target-name> [target-names...] | all",
+		Short: "Deletes build artifacts for one or more targets.",
+		Run:   cleanRunCmd,
 	}
 
 	cmd.AddCommand(cleanCmd)
 
-	testHelpText := ""
-	testHelpEx := ""
 	testCmd := &cobra.Command{
-		Use:     "test",
-		Short:   "Executes unit tests for one or more packages",
-		Long:    testHelpText,
-		Example: testHelpEx,
-		Run:     testRunCmd,
+		Use:   "test <package-name> [package-names...] | all",
+		Short: "Executes unit tests for one or more packages",
+		Run:   testRunCmd,
 	}
 
 	cmd.AddCommand(testCmd)
 
 	loadHelpText := "Load app image to target for <target-name>."
-	loadHelpEx := "  newt load <target-name>\n"
 
 	loadCmd := &cobra.Command{
-		Use:     "load",
-		Short:   "Load built target to board",
-		Long:    loadHelpText,
-		Example: loadHelpEx,
-		Run:     loadRunCmd,
+		Use:   "load <target-name>",
+		Short: "Load built target to board",
+		Long:  loadHelpText,
+		Run:   loadRunCmd,
 	}
 	cmd.AddCommand(loadCmd)
 
 	debugHelpText := "Open debugger session for <target-name>."
-	debugHelpEx := "  newt debug <target-name>\n"
 
 	debugCmd := &cobra.Command{
-		Use:     "debug",
-		Short:   "Open debugger session to target",
-		Long:    debugHelpText,
-		Example: debugHelpEx,
-		Run:     debugRunCmd,
+		Use:   "debug <target-name>",
+		Short: "Open debugger session to target",
+		Long:  debugHelpText,
+		Run:   debugRunCmd,
 	}
 	cmd.AddCommand(debugCmd)
 
 	sizeHelpText := "Calculate the size of target components specified by " +
 		"<target-name>."
-	sizeHelpEx := "  newt size <target-name>\n"
 
 	sizeCmd := &cobra.Command{
-		Use:     "size",
-		Short:   "Size of target components",
-		Long:    sizeHelpText,
-		Example: sizeHelpEx,
-		Run:     sizeRunCmd,
+		Use:   "size <target-name>",
+		Short: "Size of target components",
+		Long:  sizeHelpText,
+		Run:   sizeRunCmd,
 	}
 	cmd.AddCommand(sizeCmd)
 }

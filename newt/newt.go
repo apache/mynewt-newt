@@ -85,15 +85,15 @@ func newtCmd() *cobra.Command {
 	}
 
 	newtCmd.PersistentFlags().BoolVarP(&newtVerbose, "verbose", "v", false,
-		"Enable verbose output when executing commands.")
+		"Enable verbose output when executing commands")
 	newtCmd.PersistentFlags().BoolVarP(&newtQuiet, "quiet", "q", false,
-		"Be quiet; only display error output.")
+		"Be quiet; only display error output")
 	newtCmd.PersistentFlags().BoolVarP(&newtSilent, "silent", "s", false,
-		"Be silent; don't output anything.")
+		"Be silent; don't output anything")
 	newtCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l",
-		"WARN", "Log level, defaults to WARN.")
+		"WARN", "Log level")
 	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
-		"", "Filename to tee log output to")
+		"", "Filename to tee output to")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"

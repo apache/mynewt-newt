@@ -181,3 +181,16 @@ func PackageNameList(pkgs []*pkg.LocalPackage) string {
 
 	return buffer.String()
 }
+
+func ResetGlobalState() error {
+	// Make sure the current working directory is at the project base.
+	if err := os.Chdir(project.GetProject().Path()); err != nil {
+		return util.NewNewtError("Failed to reset global state: " +
+			err.Error())
+	}
+
+	target.ResetTargets()
+	project.ResetProject()
+
+	return nil
+}
