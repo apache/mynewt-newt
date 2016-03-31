@@ -128,6 +128,11 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 				NewtUsage(cmd, err)
 			}
 
+			if !pkgIsTestable(pack) {
+				NewtUsage(nil, util.FmtNewtError("Package %s contains no "+
+					"unit tests", pack.FullName()))
+			}
+
 			packs = append(packs, pack)
 		}
 	}
