@@ -21,11 +21,17 @@ package image
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -54,6 +60,7 @@ type Image struct {
 	targetImg    string
 	manifestFile string
 	version      ImageVersion
+	signingKey   *rsa.PrivateKey
 	hash         []byte
 }
 
@@ -85,15 +92,17 @@ const (
  * Image header flags.
  */
 const (
-	IMAGE_F_PIC        = 0x00000001
-	IMAGE_F_HAS_SHA256 = 0x00000002 /* Image contains hash TLV */
+	IMAGE_F_PIC                   = 0x00000001
+	IMAGE_F_SHA256                = 0x00000002 /* Image contains hash TLV */
+	IMAGE_F_PKCS15_RSA2048_SHA256 = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
 )
 
 /*
  * Image trailer TLV types.
  */
 const (
-	IMAGE_TLV_SHA256 = 1
+	IMAGE_TLV_SHA256  = 1
+	IMAGE_TLV_RSA2048 = 2
 )
 
 /*
@@ -183,6 +192,31 @@ func (image *Image) SetVersion(versStr string) error {
 	return nil
 }
 
+func (image *Image) SetSigningKey(fileName string) error {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
+	}
+
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return util.NewNewtError(fmt.Sprintf("No RSA private key in file"))
+	}
+
+	/*
+	 * ParsePKCS1PrivateKey returns an RSA private key from its ASN.1 PKCS#1 DER
+	 * encoded form.
+	 */
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Private key parsing failed: %s",
+			err))
+	}
+	image.signingKey = privateKey
+
+	return nil
+}
+
 func (image *Image) Generate() error {
 	binFile, err := os.Open(image.sourceBin)
 	if err != nil {
@@ -215,12 +249,19 @@ func (image *Image) Generate() error {
 	 */
 	hdr := &ImageHdr{
 		Magic: IMAGE_MAGIC,
-		TlvSz: 4 + 32,
+		TlvSz: 0,
 		HdrSz: IMAGE_HEADER_SIZE,
 		ImgSz: uint32(binInfo.Size()),
-		Flags: IMAGE_F_HAS_SHA256,
+		Flags: 0,
 		Vers:  image.version,
 		Pad:   0,
+	}
+	if image.signingKey != nil {
+		hdr.TlvSz = 4 + 256
+		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
+	} else {
+		hdr.TlvSz = 4 + 32
+		hdr.Flags = IMAGE_F_SHA256
 	}
 
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
@@ -261,25 +302,52 @@ func (image *Image) Generate() error {
 
 	image.hash = hash.Sum(nil)
 
-	/*
-	 * Trailer with hash of the data
-	 */
-	tlv := &ImageTrailerTlv{
-		Type: IMAGE_TLV_SHA256,
-		Pad:  0,
-		Len:  uint16(len(image.hash)),
-	}
-	err = binary.Write(imgFile, binary.LittleEndian, tlv)
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-			"trailer: %s", err.Error()))
-	}
-	_, err = imgFile.Write(image.hash)
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
-			err.Error()))
-	}
+	if image.signingKey == nil {
+		/*
+		 * Trailer with hash of the data
+		 */
+		tlv := &ImageTrailerTlv{
+			Type: IMAGE_TLV_SHA256,
+			Pad:  0,
+			Len:  uint16(len(image.hash)),
+		}
+		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+				"trailer: %s", err.Error()))
+		}
+		_, err = imgFile.Write(image.hash)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
+				err.Error()))
+		}
+	} else {
+		/*
+		 * If signing key was set, generate TLV for that.
+		 */
+		tlv := &ImageTrailerTlv{
+			Type: IMAGE_TLV_RSA2048,
+			Pad:  0,
+			Len:  256, /* 2048 bits */
+		}
+		signature, err := rsa.SignPKCS1v15(rand.Reader, image.signingKey,
+			crypto.SHA256, image.hash)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf(
+				"Failed to compute signature: %s", err))
+		}
 
+		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+				"trailer: %s", err.Error()))
+		}
+		_, err = imgFile.Write(signature)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
+				err.Error()))
+		}
+	}
 	return nil
 }
 
