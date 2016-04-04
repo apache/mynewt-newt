@@ -20,6 +20,8 @@
 package cli
 
 import (
+	"strconv"
+
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/image"
@@ -65,7 +67,16 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if len(args) > 2 {
-		err = image.SetSigningKey(args[2])
+		var keyId uint8 = 0
+		if len(args) > 3 {
+			keyId64, err := strconv.ParseUint(args[3], 10, 8)
+			if err != nil {
+				NewtUsage(cmd,
+					util.NewNewtError("Key ID must be between 0-255"))
+			}
+			keyId = uint8(keyId64)
+		}
+		err = image.SetSigningKey(args[2], keyId)
 		if err != nil {
 			NewtUsage(cmd, err)
 		}

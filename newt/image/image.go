@@ -61,17 +61,21 @@ type Image struct {
 	manifestFile string
 	version      ImageVersion
 	signingKey   *rsa.PrivateKey
+	keyId        uint8
 	hash         []byte
 }
 
 type ImageHdr struct {
 	Magic uint32
-	TlvSz uint32
-	HdrSz uint32
+	TlvSz uint16
+	KeyId uint8
+	Pad1  uint8
+	HdrSz uint16
+	Pad2  uint16
 	ImgSz uint32
 	Flags uint32
 	Vers  ImageVersion
-	Pad   uint32
+	Pad3  uint32
 }
 
 type ImageTrailerTlv struct {
@@ -192,7 +196,7 @@ func (image *Image) SetVersion(versStr string) error {
 	return nil
 }
 
-func (image *Image) SetSigningKey(fileName string) error {
+func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
@@ -213,6 +217,7 @@ func (image *Image) SetSigningKey(fileName string) error {
 			err))
 	}
 	image.signingKey = privateKey
+	image.keyId = keyId
 
 	return nil
 }
@@ -250,15 +255,19 @@ func (image *Image) Generate() error {
 	hdr := &ImageHdr{
 		Magic: IMAGE_MAGIC,
 		TlvSz: 0,
+		KeyId: 0,
+		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
+		Pad2:  0,
 		ImgSz: uint32(binInfo.Size()),
 		Flags: 0,
 		Vers:  image.version,
-		Pad:   0,
+		Pad3:  0,
 	}
 	if image.signingKey != nil {
 		hdr.TlvSz = 4 + 256
 		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
+		hdr.KeyId = image.keyId
 	} else {
 		hdr.TlvSz = 4 + 32
 		hdr.Flags = IMAGE_F_SHA256
