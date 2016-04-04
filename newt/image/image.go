@@ -265,8 +265,8 @@ func (image *Image) Generate() error {
 		Pad3:  0,
 	}
 	if image.signingKey != nil {
-		hdr.TlvSz = 4 + 256
-		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
+		hdr.TlvSz = 4 + 256 + 4 + 32
+		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256 | IMAGE_F_SHA256
 		hdr.KeyId = image.keyId
 	} else {
 		hdr.TlvSz = 4 + 32
@@ -311,26 +311,26 @@ func (image *Image) Generate() error {
 
 	image.hash = hash.Sum(nil)
 
-	if image.signingKey == nil {
-		/*
-		 * Trailer with hash of the data
-		 */
-		tlv := &ImageTrailerTlv{
-			Type: IMAGE_TLV_SHA256,
-			Pad:  0,
-			Len:  uint16(len(image.hash)),
-		}
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
-		}
-		_, err = imgFile.Write(image.hash)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
-				err.Error()))
-		}
-	} else {
+	/*
+	 * Trailer with hash of the data
+	 */
+	tlv := &ImageTrailerTlv{
+		Type: IMAGE_TLV_SHA256,
+		Pad:  0,
+		Len:  uint16(len(image.hash)),
+	}
+	err = binary.Write(imgFile, binary.LittleEndian, tlv)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+			"trailer: %s", err.Error()))
+	}
+	_, err = imgFile.Write(image.hash)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
+			err.Error()))
+	}
+
+	if image.signingKey != nil {
 		/*
 		 * If signing key was set, generate TLV for that.
 		 */
