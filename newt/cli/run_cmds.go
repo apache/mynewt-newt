@@ -44,12 +44,12 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 
 	b, err := builder.NewBuilder(t)
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 
 	err = b.Build()
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 
 	/*
