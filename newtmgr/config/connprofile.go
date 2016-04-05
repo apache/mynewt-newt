@@ -23,11 +23,14 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/mitchellh/go-homedir"
 
+	"encoding/json"
+	"io/ioutil"
+
 	"mynewt.apache.org/newt/util"
 )
 
 type ConnProfileMgr struct {
-	cDb *util.CfgDb
+	profiles map[string]*ConnProfile
 }
 
 type NewtmgrConnProfile interface {
@@ -43,7 +46,9 @@ type ConnProfile struct {
 }
 
 func NewConnProfileMgr() (*ConnProfileMgr, error) {
-	cpm := &ConnProfileMgr{}
+	cpm := &ConnProfileMgr{
+		profiles: map[string]*ConnProfile{},
+	}
 
 	if err := cpm.Init(); err != nil {
 		return nil, err
@@ -52,17 +57,38 @@ func NewConnProfileMgr() (*ConnProfileMgr, error) {
 	return cpm, nil
 }
 
-func (cpm *ConnProfileMgr) Init() error {
-	var err error
-
+func connProfileCfgFilename() (string, error) {
 	dir, err := homedir.Dir()
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return "", util.NewNewtError(err.Error())
 	}
 
-	cpm.cDb, err = util.NewCfgDb("cp", dir+"/.newtmgr.cp.db")
+	return dir + "/.newtmgr.cp.json", nil
+}
+
+func (cpm *ConnProfileMgr) Init() error {
+	filename, err := connProfileCfgFilename()
 	if err != nil {
 		return err
+	}
+
+	// XXX: Should determine whether file exists by attempting to read it.
+	if util.NodeExist(filename) {
+		blob, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return util.NewNewtError(err.Error())
+		}
+
+		var profiles []*ConnProfile
+		err = json.Unmarshal(blob, &profiles)
+		if err != nil {
+			return util.FmtNewtError("error reading connection profile "+
+				"config (%s): %s", filename, err.Error())
+		}
+
+		for _, p := range profiles {
+			cpm.profiles[p.MyName] = p
+		}
 	}
 
 	return nil
@@ -70,31 +96,45 @@ func (cpm *ConnProfileMgr) Init() error {
 
 func (cpm *ConnProfileMgr) GetConnProfileList() ([]*ConnProfile, error) {
 	log.Debugf("Getting list of connection profiles")
-	cpMap, err := cpm.cDb.GetSect("conn_profile_list")
-	if err != nil {
-		return nil, err
-	}
 
-	cpList := make([]*ConnProfile, 0)
-
-	for _, profileName := range cpMap {
-		cp, err := cpm.GetConnProfile(profileName)
-		if err != nil {
-			return nil, err
-		}
-
-		cpList = append(cpList, cp)
+	cpList := make([]*ConnProfile, 0, len(cpm.profiles))
+	for _, p := range cpm.profiles {
+		cpList = append(cpList, p)
 	}
 
 	return cpList, nil
 }
 
-func (cpm *ConnProfileMgr) DeleteConnProfile(name string) error {
-	if err := cpm.cDb.DeleteSect("_conn_profile_" + name); err != nil {
+func (cpm *ConnProfileMgr) save() error {
+	list, _ := cpm.GetConnProfileList()
+	b, err := json.Marshal(list)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	filename, err := connProfileCfgFilename()
+	if err != nil {
 		return err
 	}
 
-	if err := cpm.cDb.DeleteKey("conn_profile_list", name); err != nil {
+	err = ioutil.WriteFile(filename, b, 0644)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	return nil
+}
+
+func (cpm *ConnProfileMgr) DeleteConnProfile(name string) error {
+	if cpm.profiles[name] == nil {
+		return util.FmtNewtError("connection profile \"%s\" doesn't exist",
+			name)
+	}
+
+	delete(cpm.profiles, name)
+
+	err := cpm.save()
+	if err != nil {
 		return err
 	}
 
@@ -102,16 +142,12 @@ func (cpm *ConnProfileMgr) DeleteConnProfile(name string) error {
 }
 
 func (cpm *ConnProfileMgr) AddConnProfile(cp *ConnProfile) error {
-	sect := "_conn_profile_" + cp.Name()
-	cDb := cpm.cDb
+	cpm.profiles[cp.Name()] = cp
 
-	// First serialize the conn profile into the configuration database
-	cDb.SetKey(sect, "name", cp.Name())
-	cDb.SetKey(sect, "type", cp.Type())
-	cDb.SetKey(sect, "connstring", cp.ConnString())
-
-	// Then write the ConnProfile to the ConnProfileList
-	cDb.SetKey("conn_profile_list", cp.Name(), cp.Name())
+	err := cpm.save()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -123,33 +159,13 @@ func (cpm *ConnProfileMgr) GetConnProfile(pName string) (*ConnProfile, error) {
 		return nil, util.NewNewtError("Need to specify connection profile")
 	}
 
-	sectName := "_conn_profile_" + pName
-
-	cpVals, err := cpm.cDb.GetSect(sectName)
-	if err != nil {
-		return nil, err
+	p := cpm.profiles[pName]
+	if p == nil {
+		return nil, util.FmtNewtError("connection profile \"%s\" doesn't "+
+			"exist", pName)
 	}
 
-	cp, err := NewConnProfile(pName)
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range cpVals {
-		switch k {
-		case "name":
-			cp.MyName = v
-		case "type":
-			cp.MyType = v
-		case "connstring":
-			cp.MyConnString = v
-		default:
-			return nil, util.NewNewtError(
-				"Invalid key " + k + " with val " + v)
-		}
-	}
-
-	return cp, nil
+	return p, nil
 }
 
 func (cp *ConnProfile) Name() string {
