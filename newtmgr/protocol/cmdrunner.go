@@ -39,6 +39,8 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 		bytes := pkt.GetBytes()
 		bytes = bytes[8:]
 
+		log.Debugf("before deserializing:%s", string(bytes))
+
 		nmr, err := DeserializeNmgrReq(pkt.GetBytes())
 		if err != nil {
 			return nil, err
@@ -52,7 +54,7 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 	data := []byte{}
 
-	log.Debugf("Writing netmgr request %s", nmr)
+	log.Debugf("Writing netmgr request %+v", nmr)
 
 	data, err := nmr.SerializeRequest(data)
 	if err != nil {

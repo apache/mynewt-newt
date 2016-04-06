@@ -116,7 +116,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 }
 
 func (cs *ConnSerial) writeData(bytes []byte) {
-	log.Debugf("Writing %b to data channel", bytes)
+	log.Debugf("Writing %+v to data channel", bytes)
 	cs.serialChannel.Write(bytes)
 }
 

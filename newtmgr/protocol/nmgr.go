@@ -78,7 +78,6 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 }
 
 func (nmr *NmgrReq) SerializeRequest(data []byte) ([]byte, error) {
-	log.Debugf("Serializing request %s into buffer %s", nmr, data)
 
 	u16b := make([]byte, 2)
 
@@ -96,5 +95,6 @@ func (nmr *NmgrReq) SerializeRequest(data []byte) ([]byte, error) {
 
 	data = append(data, nmr.Data...)
 
+	log.Debugf("Serializing request %+v into buffer %+v", nmr, data)
 	return data, nil
 }
