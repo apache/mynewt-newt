@@ -60,6 +60,7 @@ func Commands() *cobra.Command {
 	nmCmd.AddCommand(mempoolStatsCmd())
 	nmCmd.AddCommand(configCmd())
 	nmCmd.AddCommand(logsCmd())
+	nmCmd.AddCommand(dTimeCmd())
 
 	return nmCmd
 }
