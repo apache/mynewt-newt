@@ -31,9 +31,17 @@ const (
 type LogsShowReq struct {
 }
 
+type LogEntry struct {
+	Timestamp int64  `json:"ts"`
+	Msg       string `json:"msg"`
+	Level     uint64 `json:"level"`
+	Index     uint64 `json:"index"`
+}
+
 type LogsShowLog struct {
-	Timestamp uint64 `json:"ts"`
-	Log       string `json:"log"`
+	Name    string     `json:"name"`
+	Type    uint64     `json:"type"`
+	Entries []LogEntry `json:"entries"`
 }
 
 type LogsShowRsp struct {

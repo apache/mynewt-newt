@@ -22,11 +22,63 @@ package cli
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
 	"mynewt.apache.org/newt/newtmgr/transport"
-	"github.com/spf13/cobra"
 )
+
+const (
+	DEBUG    uint64 = 1
+	INFO     uint64 = 2
+	WARN     uint64 = 4
+	ERROR    uint64 = 8
+	CRITICAL uint64 = 10
+	/* Upto 7 custom loglevels */
+	PERUSER uint64 = 12
+)
+
+const (
+	STREAM_LOG  uint64 = 0
+	MEMORY_LOG  uint64 = 1
+	STORAGE_LOG uint64 = 2
+)
+
+func LoglevelToString(ll uint64) string {
+	s := ""
+	switch ll {
+	case DEBUG:
+		s = "DEBUG"
+	case INFO:
+		s = "INFO"
+	case WARN:
+		s = "WARN"
+	case ERROR:
+		s = "ERROR"
+	case CRITICAL:
+		s = "CRITICAL"
+	case PERUSER:
+		s = "PERUSER"
+	default:
+		s = "CUSTOM"
+	}
+	return s
+}
+
+func LogTypeToString(lt uint64) string {
+	s := ""
+	switch lt {
+	case STREAM_LOG:
+		s = "STREAM"
+	case MEMORY_LOG:
+		s = "MEMORY"
+	case STORAGE_LOG:
+		s = "STORAGE"
+	default:
+		s = "UNDEFINED"
+	}
+	return s
+}
 
 func logsShowCmd(cmd *cobra.Command, args []string) {
 	cpm, err := config.NewConnProfileMgr()
@@ -72,8 +124,19 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-	for i := 0; i < len(decodedResponse.Logs); i++ {
-		fmt.Println(decodedResponse.Logs[i])
+
+	for j := 0; j < len(decodedResponse.Logs); j++ {
+
+		fmt.Println("Name:", decodedResponse.Logs[j].Name)
+		fmt.Println("Type:", LogTypeToString(decodedResponse.Logs[j].Type))
+
+		for i := 0; i < len(decodedResponse.Logs[j].Entries); i++ {
+			fmt.Println(fmt.Sprintf("%+v:> %+v usecs :%s: %s",
+				decodedResponse.Logs[j].Entries[i].Index,
+				decodedResponse.Logs[j].Entries[i].Timestamp,
+				LoglevelToString(decodedResponse.Logs[j].Entries[i].Level),
+				decodedResponse.Logs[j].Entries[i].Msg))
+		}
 	}
 }
 
