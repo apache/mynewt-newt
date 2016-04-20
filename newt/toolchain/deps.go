@@ -22,6 +22,7 @@ package toolchain
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -216,7 +217,11 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// Check if any dependencies are newer than the destination object file.
 	for _, dep := range deps {
 		if util.NodeNotExist(dep) {
-			// The dependency has been deleted; a rebuild is required.
+			// The dependency has been deleted; a rebuild is required.  Also,
+			// the dependency file is out of date, so it needs to be deleted.
+			// We cannot regenerate it now because the source file might be
+			// including a nonexistent header.
+			os.Remove(depFile)
 			return true, nil
 		} else {
 			depModTime, err = util.FileModificationTime(dep)
