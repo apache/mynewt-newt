@@ -216,14 +216,8 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// Check if any dependencies are newer than the destination object file.
 	for _, dep := range deps {
 		if util.NodeNotExist(dep) {
-			// The dependency has been deleted; the .d file is out of date.
-			// Recreate the dependency file and repeat this entire function.
-			err := tracker.compiler.GenDepsForFile(srcFile)
-			if err != nil {
-				return false, err
-			}
-
-			return tracker.CompileRequired(srcFile, compilerType)
+			// The dependency has been deleted; a rebuild is required.
+			return true, nil
 		} else {
 			depModTime, err = util.FileModificationTime(dep)
 			if err != nil {
