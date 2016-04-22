@@ -21,6 +21,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newtmgr/config"
@@ -29,13 +30,14 @@ import (
 )
 
 const (
-	DEBUG    uint64 = 1
-	INFO     uint64 = 2
-	WARN     uint64 = 4
-	ERROR    uint64 = 8
-	CRITICAL uint64 = 10
+	LEVEL_DEBUG    uint64 = 0
+	LEVEL_INFO     uint64 = 1
+	LEVEL_WARN     uint64 = 2
+	LEVEL_ERROR    uint64 = 3
+	LEVEL_CRITICAL uint64 = 4
 	/* Upto 7 custom loglevels */
-	PERUSER uint64 = 12
+	LEVEL_PERUSER uint64 = 64
+	LEVEL_MAX     uint64 = 255
 )
 
 const (
@@ -44,20 +46,54 @@ const (
 	STORAGE_LOG uint64 = 2
 )
 
+const (
+	MODULE_DEFAULT     uint64 = 0
+	MODULE_OS          uint64 = 1
+	MODULE_NEWTMGR     uint64 = 2
+	MODULE_NIMBLE_CTLR uint64 = 3
+	MODULE_NIMBLE_HOST uint64 = 4
+	MODULE_NFFS        uint64 = 5
+	MODULE_PERUSER     uint64 = 64
+	MODULE_MAX         uint64 = 255
+)
+
+func LogModuleToString(lm uint64) string {
+	s := ""
+	switch lm {
+	case MODULE_DEFAULT:
+		s = "DEFAULT"
+	case MODULE_OS:
+		s = "OS"
+	case MODULE_NEWTMGR:
+		s = "NEWTMGR"
+	case MODULE_NIMBLE_CTLR:
+		s = "NIMBLE_CTLR"
+	case MODULE_NIMBLE_HOST:
+		s = "NIMBLE_HOST"
+	case MODULE_NFFS:
+		s = "NFFS"
+	case MODULE_PERUSER:
+		s = "PERUSER"
+	default:
+		s = "CUSTOM"
+	}
+	return s
+}
+
 func LoglevelToString(ll uint64) string {
 	s := ""
 	switch ll {
-	case DEBUG:
+	case LEVEL_DEBUG:
 		s = "DEBUG"
-	case INFO:
+	case LEVEL_INFO:
 		s = "INFO"
-	case WARN:
+	case LEVEL_WARN:
 		s = "WARN"
-	case ERROR:
+	case LEVEL_ERROR:
 		s = "ERROR"
-	case CRITICAL:
+	case LEVEL_CRITICAL:
 		s = "CRITICAL"
-	case PERUSER:
+	case LEVEL_PERUSER:
 		s = "PERUSER"
 	default:
 		s = "CUSTOM"
@@ -106,6 +142,20 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
+	if len(args) > 0 {
+		req.Name = args[0]
+		if len(args) > 1 {
+			req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
+			if len(args) > 2 {
+				req.Index, err = strconv.ParseUint(args[2], 0, 64)
+			}
+		}
+
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+	}
+
 	nmr, err := req.Encode()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -131,13 +181,115 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 		fmt.Println("Type:", LogTypeToString(decodedResponse.Logs[j].Type))
 
 		for i := 0; i < len(decodedResponse.Logs[j].Entries); i++ {
-			fmt.Println(fmt.Sprintf("%+v:> %+v usecs :%s: %s",
+			fmt.Println(fmt.Sprintf("%+v:> %+v usecs :%s:%s:%s",
 				decodedResponse.Logs[j].Entries[i].Index,
 				decodedResponse.Logs[j].Entries[i].Timestamp,
+				LogModuleToString(decodedResponse.Logs[j].Entries[i].Module),
 				LoglevelToString(decodedResponse.Logs[j].Entries[i].Level),
 				decodedResponse.Logs[j].Entries[i].Msg))
 		}
 	}
+
+	fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+}
+
+func logsModuleListCmd(cmd *cobra.Command, args []string) {
+	cpm, err := config.NewConnProfileMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	req, err := protocol.NewLogsModuleListReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	decodedResponse, err := protocol.DecodeLogsModuleListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	fmt.Println(decodedResponse.ModuleList)
+	fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+
+}
+
+func logsLevelListCmd(cmd *cobra.Command, args []string) {
+	cpm, err := config.NewConnProfileMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	req, err := protocol.NewLogsLevelListReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	decodedResponse, err := protocol.DecodeLogsLevelListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	fmt.Println(decodedResponse.LevelList)
+	fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
 }
 
 func logsClearCmd(cmd *cobra.Command, args []string) {
@@ -211,5 +363,19 @@ func logsCmd() *cobra.Command {
 	}
 	logsCmd.AddCommand(clearCmd)
 
+	moduleListCmd := &cobra.Command{
+		Use:   "module_list",
+		Short: "Module List Command",
+		Run:   logsModuleListCmd,
+	}
+	logsCmd.AddCommand(moduleListCmd)
+
+	levelListCmd := &cobra.Command{
+		Use:   "level_list",
+		Short: "Level List Command",
+		Run:   logsLevelListCmd,
+	}
+
+	logsCmd.AddCommand(levelListCmd)
 	return logsCmd
 }
