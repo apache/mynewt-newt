@@ -36,8 +36,7 @@ const (
 	LEVEL_ERROR    uint64 = 3
 	LEVEL_CRITICAL uint64 = 4
 	/* Upto 7 custom loglevels */
-	LEVEL_PERUSER uint64 = 64
-	LEVEL_MAX     uint64 = 255
+	LEVEL_MAX uint64 = 255
 )
 
 const (
@@ -53,7 +52,6 @@ const (
 	MODULE_NIMBLE_CTLR uint64 = 3
 	MODULE_NIMBLE_HOST uint64 = 4
 	MODULE_NFFS        uint64 = 5
-	MODULE_PERUSER     uint64 = 64
 	MODULE_MAX         uint64 = 255
 )
 
@@ -72,8 +70,6 @@ func LogModuleToString(lm uint64) string {
 		s = "NIMBLE_HOST"
 	case MODULE_NFFS:
 		s = "NFFS"
-	case MODULE_PERUSER:
-		s = "PERUSER"
 	default:
 		s = "CUSTOM"
 	}
@@ -93,8 +89,6 @@ func LoglevelToString(ll uint64) string {
 		s = "ERROR"
 	case LEVEL_CRITICAL:
 		s = "CRITICAL"
-	case LEVEL_PERUSER:
-		s = "PERUSER"
 	default:
 		s = "CUSTOM"
 	}
@@ -238,7 +232,7 @@ func logsModuleListCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	fmt.Println(decodedResponse.ModuleList)
+	fmt.Println(decodedResponse.Map)
 	fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
 
 }
@@ -288,7 +282,7 @@ func logsLevelListCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	fmt.Println(decodedResponse.LevelList)
+	fmt.Println(decodedResponse.Map)
 	fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
 }
 

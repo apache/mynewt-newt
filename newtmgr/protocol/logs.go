@@ -56,29 +56,19 @@ type LogsShowLog struct {
 	Entries []LogEntry `json:"entries"`
 }
 
-type LogsModuleList struct {
-	ModuleName string `json:"module_name"`
-	Module     uint64 `json:"module"`
-}
-
-type LogsLevelList struct {
-	LevelName string `json:"level_name"`
-	Level     uint64 `json:"level"`
-}
-
 type LogsShowRsp struct {
 	ReturnCode int           `json:"rc"`
 	Logs       []LogsShowLog `json:"logs"`
 }
 
 type LogsModuleListRsp struct {
-	ReturnCode int              `json:"rc"`
-	ModuleList []LogsModuleList `json:"log_module_map"`
+	ReturnCode int            `json:"rc"`
+	Map        map[string]int `json:"module_map"`
 }
 
 type LogsLevelListRsp struct {
-	ReturnCode int             `json:"rc"`
-	LevelList  []LogsLevelList `json:"log_level_map"`
+	ReturnCode int            `json:"rc"`
+	Map        map[string]int `json:"level_map"`
 }
 
 func NewLogsShowReq() (*LogsShowReq, error) {
