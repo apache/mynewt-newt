@@ -403,6 +403,8 @@ func (c *Compiler) CompileC() error {
 //                                  to compile.
 func (c *Compiler) CompileAs() error {
 	files, _ := filepath.Glob("*.s")
+	Sfiles, _ := filepath.Glob("*.S")
+	files = append(files, Sfiles...)
 
 	wd, err := os.Getwd()
 	if err != nil {
