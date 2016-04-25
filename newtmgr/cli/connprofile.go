@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
-	"github.com/spf13/cobra"
 )
 
 func connProfileAddCmd(cmd *cobra.Command, args []string) {

@@ -22,10 +22,10 @@ package cli
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
 	"mynewt.apache.org/newt/newtmgr/transport"
-	"github.com/spf13/cobra"
 )
 
 func statsRunCmd(cmd *cobra.Command, args []string) {
