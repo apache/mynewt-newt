@@ -35,4 +35,5 @@ const (
 	NMGR_ID_TASKSTATS      = 2
 	NMGR_ID_MPSTATS        = 3
 	NMGR_ID_DATETIME_STR   = 4
+	NMGR_ID_RESET          = 5
 )
