@@ -20,52 +20,23 @@
 package protocol
 
 import (
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"mynewt.apache.org/newt/util"
 )
 
-type ImageList struct {
-	Images []string
+type ImageList2 struct {
+	Images map[string]string
 }
 
-const (
-	IMGMGR_NMGR_OP_LIST   = 0
-	IMGMGR_NMGR_OP_UPLOAD = 1
-	IMGMGR_NMGR_OP_BOOT   = 2
-	IMGMGR_NMGR_OP_FILE   = 3
-	IMGMGR_NMGR_OP_LIST2  = 4
-	IMGMGR_NMGR_OP_BOOT2  = 5
-)
-
-func HashDecode(src string) (string, error) {
-	imgHex, err := base64.StdEncoding.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash decode error: %s",
-			err.Error()))
-	}
-	return hex.EncodeToString(imgHex), nil
-}
-
-func HashEncode(src string) (string, error) {
-	imgHex, err := hex.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash encode error: %s",
-			err.Error()))
-	}
-	return base64.StdEncoding.EncodeToString(imgHex), nil
-}
-
-func NewImageList() (*ImageList, error) {
-	s := &ImageList{}
-	s.Images = []string{}
+func NewImageList2() (*ImageList2, error) {
+	s := &ImageList2{}
+	s.Images = map[string]string{}
 	return s, nil
 }
 
-func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
+func (i *ImageList2) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -74,19 +45,36 @@ func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_LIST
+	nmr.Id = IMGMGR_NMGR_OP_LIST2
 	nmr.Len = 0
 
 	return nmr, nil
 }
 
-func DecodeImageListResponse(data []byte) (*ImageList, error) {
-	list := &ImageList{}
+func DecodeImageListResponse2(data []byte) (*ImageList2, error) {
+	type ImageInfoJson map[string]string
+
+	type ImageListJson struct {
+		Images []ImageInfoJson
+	}
+
+	list := &ImageListJson{}
 
 	err := json.Unmarshal(data, &list)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
-	return list, nil
+
+	list2, _ := NewImageList2()
+	for _, info := range list.Images {
+		for hash, ver := range info {
+			hash, err := HashDecode(hash)
+			if err != nil {
+				return nil, err
+			}
+			list2.Images[hash] = ver
+		}
+	}
+	return list2, nil
 }

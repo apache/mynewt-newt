@@ -20,52 +20,29 @@
 package protocol
 
 import (
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"mynewt.apache.org/newt/util"
 )
 
-type ImageList struct {
-	Images []string
+type ImageBoot2 struct {
+	BootTarget string
+	Test       string
+	Main       string
+	Active     string
 }
 
-const (
-	IMGMGR_NMGR_OP_LIST   = 0
-	IMGMGR_NMGR_OP_UPLOAD = 1
-	IMGMGR_NMGR_OP_BOOT   = 2
-	IMGMGR_NMGR_OP_FILE   = 3
-	IMGMGR_NMGR_OP_LIST2  = 4
-	IMGMGR_NMGR_OP_BOOT2  = 5
-)
-
-func HashDecode(src string) (string, error) {
-	imgHex, err := base64.StdEncoding.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash decode error: %s",
-			err.Error()))
-	}
-	return hex.EncodeToString(imgHex), nil
-}
-
-func HashEncode(src string) (string, error) {
-	imgHex, err := hex.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash encode error: %s",
-			err.Error()))
-	}
-	return base64.StdEncoding.EncodeToString(imgHex), nil
-}
-
-func NewImageList() (*ImageList, error) {
-	s := &ImageList{}
-	s.Images = []string{}
+func NewImageBoot2() (*ImageBoot2, error) {
+	s := &ImageBoot2{}
+	s.BootTarget = ""
+	s.Test = ""
+	s.Main = ""
+	s.Active = ""
 	return s, nil
 }
 
-func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
+func (i *ImageBoot2) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -74,19 +51,57 @@ func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_LIST
+	nmr.Id = IMGMGR_NMGR_OP_BOOT2
 	nmr.Len = 0
 
+	if i.BootTarget != "" {
+		type BootReq struct {
+			Test string `json:"test"`
+		}
+
+		hash, err := HashEncode(i.BootTarget)
+		if err != nil {
+			return nil, err
+		}
+		bReq := &BootReq{
+			Test: hash,
+		}
+		data, _ := json.Marshal(bReq)
+		nmr.Data = data
+		nmr.Len = uint16(len(data))
+		nmr.Op = NMGR_OP_WRITE
+	}
 	return nmr, nil
 }
 
-func DecodeImageListResponse(data []byte) (*ImageList, error) {
-	list := &ImageList{}
+func DecodeImageBoot2Response(data []byte) (*ImageBoot2, error) {
+	i := &ImageBoot2{}
 
-	err := json.Unmarshal(data, &list)
+	if len(data) == 0 {
+		return i, nil
+	}
+	err := json.Unmarshal(data, &i)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
-	return list, nil
+	if i.Test != "" {
+		i.Test, err = HashDecode(i.Test)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if i.Main != "" {
+		i.Main, err = HashDecode(i.Main)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if i.Active != "" {
+		i.Active, err = HashDecode(i.Active)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return i, nil
 }
