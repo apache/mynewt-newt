@@ -237,6 +237,55 @@ func logsModuleListCmd(cmd *cobra.Command, args []string) {
 
 }
 
+func logsListCmd(cmd *cobra.Command, args []string) {
+	cpm, err := config.NewConnProfileMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	req, err := protocol.NewLogsListReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	decodedResponse, err := protocol.DecodeLogsListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	fmt.Println(decodedResponse.List)
+	fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+}
+
 func logsLevelListCmd(cmd *cobra.Command, args []string) {
 	cpm, err := config.NewConnProfileMgr()
 	if err != nil {
@@ -371,5 +420,13 @@ func logsCmd() *cobra.Command {
 	}
 
 	logsCmd.AddCommand(levelListCmd)
+
+	ListCmd := &cobra.Command{
+		Use:   "log_list",
+		Short: "Log List Command",
+		Run:   logsListCmd,
+	}
+
+	logsCmd.AddCommand(ListCmd)
 	return logsCmd
 }

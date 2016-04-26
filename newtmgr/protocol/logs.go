@@ -28,6 +28,7 @@ const (
 	LOGS_NMGR_OP_APPEND      = 2
 	LOGS_NMGR_OP_MODULE_LIST = 3
 	LOGS_NMGR_OP_LEVEL_LIST  = 4
+	LOGS_NMGR_OP_LOGS_LIST   = 5
 )
 
 type LogsShowReq struct {
@@ -40,6 +41,9 @@ type LogsModuleListReq struct {
 }
 
 type LogsLevelListReq struct {
+}
+
+type LogsListReq struct {
 }
 
 type LogEntry struct {
@@ -71,6 +75,11 @@ type LogsLevelListRsp struct {
 	Map        map[string]int `json:"level_map"`
 }
 
+type LogsListRsp struct {
+	ReturnCode int      `json:"rc"`
+	List       []string `json:"log_list"`
+}
+
 func NewLogsShowReq() (*LogsShowReq, error) {
 	s := &LogsShowReq{}
 
@@ -89,6 +98,12 @@ func NewLogsLevelListReq() (*LogsLevelListReq, error) {
 	return s, nil
 }
 
+func NewLogsListReq() (*LogsListReq, error) {
+	s := &LogsListReq{}
+
+	return s, nil
+}
+
 func (sr *LogsModuleListReq) Encode() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -101,6 +116,37 @@ func (sr *LogsModuleListReq) Encode() (*NmgrReq, error) {
 	nmr.Id = LOGS_NMGR_OP_MODULE_LIST
 
 	req := &LogsModuleListReq{}
+
+	data, _ := json.Marshal(req)
+	nmr.Data = data
+	nmr.Len = uint16(len(data))
+
+	return nmr, nil
+}
+
+func DecodeLogsListResponse(data []byte) (*LogsListRsp, error) {
+	var resp LogsListRsp
+	err := json.Unmarshal(data, &resp)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
+
+	return &resp, nil
+}
+
+func (sr *LogsListReq) Encode() (*NmgrReq, error) {
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
+
+	nmr.Op = NMGR_OP_READ
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_LOGS
+	nmr.Id = LOGS_NMGR_OP_LOGS_LIST
+
+	req := &LogsListReq{}
 
 	data, _ := json.Marshal(req)
 	nmr.Data = data
