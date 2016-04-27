@@ -22,7 +22,6 @@
 			"Rev": "bb797dc4fb8320488f47bf11de07a733d7233e1f"
 		},
 		{
-		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
 			"Rev": "d2dd0262208475919e1a362f675cfc0e7c10e905"
 		},
