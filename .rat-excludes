@@ -47,3 +47,9 @@ pflag
 
 # fsnotify.v1 - 3-clause BSD.
 fsnotify.v1
+
+# unix go package - 3-clause BSD
+x
+
+# mousetrap - Apache
+mousetrap
