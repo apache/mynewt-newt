@@ -29,7 +29,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-var NewtVersionStr string = "Apache Newt (incubating) version: 0.8.0-b2"
+var NewtVersionStr string = "Apache Newt (incubating) version: 0.8.0"
 var NewtLogLevel log.Level
 var newtSilent bool
 var newtQuiet bool
