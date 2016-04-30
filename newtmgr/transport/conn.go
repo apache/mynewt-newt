@@ -21,13 +21,14 @@ package transport
 
 import (
 	"bytes"
+	"time"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
 )
 
 type Conn interface {
-	Open(cp config.NewtmgrConnProfile) error
+	Open(cp config.NewtmgrConnProfile, timeout time.Duration) error
 	ReadPacket() (*Packet, error)
 	WritePacket(pkt *Packet) error
 }
@@ -68,13 +69,21 @@ func (pkt *Packet) TrimEnd(count int) {
 }
 
 func NewConn(cp config.NewtmgrConnProfile) (Conn, error) {
+	return newConn(cp, 0)
+}
+
+func NewConnWithTimeout(cp config.NewtmgrConnProfile, readTimeout time.Duration) (Conn, error) {
+	return newConn(cp, readTimeout)
+}
+
+func newConn(cp config.NewtmgrConnProfile, readTimeout time.Duration) (Conn, error) {
 	// Based on ConnProfile, instantiate the right type of conn object, that
 	// implements the conn interface.
 	var c Conn
 	switch cp.Type() {
 	case "serial":
 		c = &ConnSerial{}
-		if err := c.Open(cp); err != nil {
+		if err := c.Open(cp, readTimeout); err != nil {
 			return nil, err
 		}
 	default:

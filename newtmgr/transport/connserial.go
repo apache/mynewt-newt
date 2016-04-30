@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/joaojeronimo/go-crc16"
@@ -41,12 +42,13 @@ type ConnSerial struct {
 	serialChannel *serial.Port
 }
 
-func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile) error {
+func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration) error {
 	var err error
 
 	c := &serial.Config{
-		Name: cp.ConnString(),
-		Baud: 115200,
+		Name:        cp.ConnString(),
+		Baud:        115200,
+		ReadTimeout: readTimeout,
 	}
 
 	cs.serialChannel, err = serial.OpenPort(c)
