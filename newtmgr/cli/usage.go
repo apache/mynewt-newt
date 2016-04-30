@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"os"
 
-	"mynewt.apache.org/newt/util"
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/util"
 )
 
 func nmUsage(cmd *cobra.Command, err error) {
