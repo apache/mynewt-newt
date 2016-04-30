@@ -31,6 +31,7 @@ type ImageBoot2 struct {
 	Test       string
 	Main       string
 	Active     string
+	ReturnCode int `json:"rc"`
 }
 
 func NewImageBoot2() (*ImageBoot2, error) {
@@ -84,6 +85,10 @@ func DecodeImageBoot2Response(data []byte) (*ImageBoot2, error) {
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
+	}
+	if i.ReturnCode != 0 {
+		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
+			i.ReturnCode))
 	}
 	if i.Test != "" {
 		i.Test, err = HashDecode(i.Test)

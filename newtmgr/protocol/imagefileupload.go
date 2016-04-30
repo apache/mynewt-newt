@@ -27,10 +27,11 @@ import (
 )
 
 type FileUpload struct {
-	Offset uint32 `json:"off"`
-	Name   string
-	Size   uint32
-	Data   []byte
+	Offset     uint32 `json:"off"`
+	Name       string
+	Size       uint32
+	Data       []byte
+	ReturnCode int `json:"rc"`
 }
 
 func NewFileUpload() (*FileUpload, error) {
@@ -91,6 +92,10 @@ func DecodeFileUploadResponse(data []byte) (*FileUpload, error) {
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
+	}
+	if f.ReturnCode != 0 {
+		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
+			f.ReturnCode))
 	}
 	return f, nil
 }
