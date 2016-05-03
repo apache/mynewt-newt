@@ -33,7 +33,8 @@ type NmgrReq struct {
 	Flags uint8
 	Len   uint16
 	Group uint16
-	Id    uint16
+	Seq   uint8
+	Id    uint8
 	Data  []byte
 }
 
@@ -63,7 +64,8 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 	nmr.Flags = uint8(data[1])
 	nmr.Len = binary.BigEndian.Uint16(data[2:4])
 	nmr.Group = binary.BigEndian.Uint16(data[4:6])
-	nmr.Id = binary.BigEndian.Uint16(data[6:8])
+	nmr.Seq = uint8(data[6])
+	nmr.Id = uint8(data[7])
 
 	data = data[8:]
 	if int(nmr.Len) != len(data) {
@@ -73,6 +75,8 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 				len(data)))
 	}
 	nmr.Data = data
+
+	log.Debugf("Deserialized response %+v", nmr)
 
 	return nmr, nil
 }
@@ -90,8 +94,8 @@ func (nmr *NmgrReq) SerializeRequest(data []byte) ([]byte, error) {
 	binary.BigEndian.PutUint16(u16b, nmr.Group)
 	data = append(data, u16b...)
 
-	binary.BigEndian.PutUint16(u16b, nmr.Id)
-	data = append(data, u16b...)
+	data = append(data, byte(nmr.Seq))
+	data = append(data, byte(nmr.Id))
 
 	data = append(data, nmr.Data...)
 
