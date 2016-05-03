@@ -206,9 +206,6 @@ details, see newt/vendor/github.com/kr/pretty/License
 This product bundles kr/text, which is available under the MIT license.  For
 details, see newt/vendor/github.com/kr/text/License
 
-This product bundles go-sqlite3, which is available under the MIT license.  For
-details, see newt/vendor/github.com/mattn/go-sqlite3/LICENSE
-
 This product bundles mapstructure, which is available under the MIT license.
 For details, see newt/vendor/github.com/mitchellh/mapstructure/LICENSE
 
