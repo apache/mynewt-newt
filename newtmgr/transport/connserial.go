@@ -26,6 +26,7 @@ import (
 	"fmt"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/joaojeronimo/go-crc16"
 	"github.com/tarm/serial"
 
 	"mynewt.apache.org/newt/newtmgr/config"
@@ -106,6 +107,14 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 
 		full := cs.currentPacket.AddBytes(data)
 		if full {
+			if crc16.Crc16(cs.currentPacket.GetBytes()) != 0 {
+				return nil, util.NewNewtError("CRC error")
+			}
+
+			/*
+			 * Trim away the 2 bytes of CRC
+			 */
+			cs.currentPacket.TrimEnd(2)
 			pkt := cs.currentPacket
 			cs.currentPacket = nil
 			return pkt, nil
@@ -122,10 +131,14 @@ func (cs *ConnSerial) writeData(bytes []byte) {
 
 func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 	data := pkt.GetBytes()
-	dLen := uint16(len(data))
 
 	pktData := make([]byte, 2)
 
+	crc := crc16.Crc16(data)
+	binary.BigEndian.PutUint16(pktData, crc)
+	data = append(data, pktData...)
+
+	dLen := uint16(len(data))
 	binary.BigEndian.PutUint16(pktData, dLen)
 	pktData = append(pktData, data...)
 

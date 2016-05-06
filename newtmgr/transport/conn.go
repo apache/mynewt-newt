@@ -59,6 +59,14 @@ func (pkt *Packet) GetBytes() []byte {
 	return pkt.buffer.Bytes()
 }
 
+func (pkt *Packet) TrimEnd(count int) {
+
+	if pkt.buffer.Len() < count {
+		count = pkt.buffer.Len()
+	}
+	pkt.buffer.Truncate(pkt.buffer.Len() - count)
+}
+
 func NewConn(cp config.NewtmgrConnProfile) (Conn, error) {
 	// Based on ConnProfile, instantiate the right type of conn object, that
 	// implements the conn interface.
