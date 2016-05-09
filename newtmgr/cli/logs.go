@@ -175,9 +175,9 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 		fmt.Println("Type:", LogTypeToString(decodedResponse.Logs[j].Type))
 
 		for i := 0; i < len(decodedResponse.Logs[j].Entries); i++ {
-			fmt.Println(fmt.Sprintf("%+v:> %+v usecs :%s:%s:%s",
-				decodedResponse.Logs[j].Entries[i].Index,
+			fmt.Println(fmt.Sprintf("%+v usecs, %+v > %s: %s: %s",
 				decodedResponse.Logs[j].Entries[i].Timestamp,
+				decodedResponse.Logs[j].Entries[i].Index,
 				LogModuleToString(decodedResponse.Logs[j].Entries[i].Module),
 				LoglevelToString(decodedResponse.Logs[j].Entries[i].Level),
 				decodedResponse.Logs[j].Entries[i].Msg))
