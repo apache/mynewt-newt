@@ -45,6 +45,15 @@ const (
 	NMGR_OP_WRITE_RSP = 3
 )
 
+const (
+	NMGR_ERR_OK       = 0
+	NMGR_ERR_EUNKNOWN = 1
+	NMGR_ERR_ENOMEM   = 2
+	NMGR_ERR_EINVAL   = 3
+	NMGR_ERR_ETIMEOUT = 4
+	NMGR_ERR_ENOENT   = 5
+)
+
 func NewNmgrReq() (*NmgrReq, error) {
 	nmr := &NmgrReq{}
 	nmr.Data = []byte{}

@@ -26,9 +26,11 @@ import (
 	"os"
 
 	"mynewt.apache.org/newt/newtmgr/config"
+	"mynewt.apache.org/newt/newtmgr/core"
 	"mynewt.apache.org/newt/newtmgr/protocol"
 	"mynewt.apache.org/newt/newtmgr/transport"
 	"mynewt.apache.org/newt/util"
+
 	"github.com/spf13/cobra"
 )
 
@@ -396,6 +398,192 @@ func fileDownloadCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Done")
 }
 
+func coreDownloadCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Need to specify target filename to download")
+		return
+	}
+
+	cpm, err := config.NewConnProfileMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	tmpName := args[0] + ".tmp"
+	file, err := os.OpenFile(tmpName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	if err != nil {
+		nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
+			"Cannot open file %s - %s", tmpName, err.Error())))
+	}
+
+	coreDownload, err := protocol.NewCoreDownload()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	coreDownload.Runner = runner
+	coreDownload.File = file
+
+	err = coreDownload.Download()
+	file.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Coredump download completed")
+
+	/*
+	 * Download finished. Now convert to ELF corefile format.
+	 */
+	coreConvert := core.NewCoreConvert()
+
+	file, err = os.OpenFile(tmpName, os.O_RDONLY, 0)
+	if err != nil {
+		nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
+			"Cannot open file %s - %s", tmpName, err.Error())))
+	}
+
+	coreConvert.Source = file
+
+	file, err = os.OpenFile(args[0], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	if err != nil {
+		nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
+			"Cannot open file %s - %s", args[0], err.Error())))
+	}
+	coreConvert.Target = file
+
+	err = coreConvert.Convert()
+
+	coreConvert.Source.Close()
+	coreConvert.Target.Close()
+	os.Remove(tmpName)
+
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Printf("Corefile created for\n   %x\n", coreConvert.ImageHash)
+	}
+}
+
+func coreListCmd(cmd *cobra.Command, args []string) {
+	cpm, err := config.NewConnProfileMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	coreList, err := protocol.NewCoreList()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := coreList.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	clRsp, err := protocol.DecodeCoreListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	if clRsp.ErrCode == protocol.NMGR_ERR_OK {
+		fmt.Printf("Corefile present\n")
+	} else if clRsp.ErrCode == protocol.NMGR_ERR_ENOENT {
+		fmt.Printf("No corefiles\n")
+	} else {
+		fmt.Printf("List failed: %d\n", clRsp.ErrCode)
+	}
+}
+
+func coreEraseCmd(cmd *cobra.Command, args []string) {
+	cpm, err := config.NewConnProfileMgr()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	profile, err := cpm.GetConnProfile(ConnProfileName)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	conn, err := transport.NewConn(profile)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := protocol.NewCmdRunner(conn)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	coreErase, err := protocol.NewCoreErase()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := coreErase.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	ceRsp, err := protocol.DecodeCoreEraseResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	if ceRsp.ErrCode != 0 {
+		fmt.Printf("Erase failed: %d\n", ceRsp.ErrCode)
+	} else {
+		fmt.Printf("Done\n")
+	}
+}
+
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
@@ -412,33 +600,81 @@ func imageCmd() *cobra.Command {
 	}
 	imageCmd.AddCommand(listCmd)
 
+	uploadEx := "  newtmgr -c olimex image upload <image_file\n"
+	uploadEx += "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
+
 	uploadCmd := &cobra.Command{
-		Use:   "upload",
-		Short: "Upload image to target",
-		Run:   imageUploadCmd,
+		Use:     "upload",
+		Short:   "Upload image to target",
+		Example: uploadEx,
+		Run:     imageUploadCmd,
 	}
 	imageCmd.AddCommand(uploadCmd)
 
+	bootEx := "  newtmgr -c olimex image boot [<version>]\n"
+	bootEx += "  newtmgr -c olimex image boot\n"
+	bootEx += "  newtmgr -c olimex image boot 1.2.3\n"
+
 	bootCmd := &cobra.Command{
-		Use:   "boot",
-		Short: "Which image to boot",
-		Run:   imageBootCmd,
+		Use:     "boot",
+		Short:   "Which image to boot",
+		Example: bootEx,
+		Run:     imageBootCmd,
 	}
 	imageCmd.AddCommand(bootCmd)
 
+	fileUploadEx := "  newtmgr -c olimex image fileupload <filename> <tgt_file>\n"
+	fileUploadEx += "  newtmgr -c olimex image fileupload sample.lua /sample.lua\n"
+
 	fileUploadCmd := &cobra.Command{
-		Use:   "fileupload",
-		Short: "Upload file to target",
-		Run:   fileUploadCmd,
+		Use:     "fileupload",
+		Short:   "Upload file to target",
+		Example: fileUploadEx,
+		Run:     fileUploadCmd,
 	}
 	imageCmd.AddCommand(fileUploadCmd)
 
+	fileDownloadEx := "  newtmgr -c olimex image filedownload <tgt_file> <filename>\n"
+	fileDownloadEx += "  newtmgr -c olimex image filedownload /cfg/mfg mfg.txt\n"
+
 	fileDownloadCmd := &cobra.Command{
-		Use:   "filedownload",
-		Short: "Download file from target",
-		Run:   fileDownloadCmd,
+		Use:     "filedownload",
+		Short:   "Download file from target",
+		Example: fileDownloadEx,
+		Run:     fileDownloadCmd,
 	}
 	imageCmd.AddCommand(fileDownloadCmd)
+
+	coreListEx := "  newtmgr -c olimex image corelist\n"
+
+	coreListCmd := &cobra.Command{
+		Use:     "corelist",
+		Short:   "List core(s) on target",
+		Example: coreListEx,
+		Run:     coreListCmd,
+	}
+	imageCmd.AddCommand(coreListCmd)
+
+	coreEx := "  newtmgr -c olimex image coredownload <filename>\n"
+	coreEx += "  newtmgr -c olimex image coredownload core\n"
+
+	coreDownloadCmd := &cobra.Command{
+		Use:     "coredownload",
+		Short:   "Download core from target",
+		Example: coreEx,
+		Run:     coreDownloadCmd,
+	}
+	imageCmd.AddCommand(coreDownloadCmd)
+
+	coreEraseEx := "  newtmgr -c olimex image coreerase\n"
+
+	coreEraseCmd := &cobra.Command{
+		Use:     "coreerase",
+		Short:   "Erase core on target",
+		Example: coreEraseEx,
+		Run:     coreEraseCmd,
+	}
+	imageCmd.AddCommand(coreEraseCmd)
 
 	return imageCmd
 }
