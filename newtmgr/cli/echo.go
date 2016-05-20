@@ -56,7 +56,7 @@ func echoRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if len(args) != 1 {
-		nmUsage(cmd, nil);
+		nmUsage(cmd, nil)
 	}
 	echo.Message = args[0]
 
