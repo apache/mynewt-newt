@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"mynewt.apache.org/newt/util"
+
 	"github.com/spf13/cobra"
 )
 

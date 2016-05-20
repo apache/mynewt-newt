@@ -26,6 +26,7 @@ import (
 	"mynewt.apache.org/newt/newtmgr/protocol"
 	"mynewt.apache.org/newt/newtmgr/transport"
 	"mynewt.apache.org/newt/util"
+
 	"github.com/spf13/cobra"
 )
 
