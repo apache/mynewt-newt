@@ -153,6 +153,7 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 
 	for written < totlen {
 		if written == 0 {
+			cs.writeData([]byte{'\n'})
 			cs.writeData([]byte{6, 9})
 		} else {
 			cs.writeData([]byte{4, 20})
