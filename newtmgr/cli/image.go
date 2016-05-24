@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/core"
@@ -45,7 +46,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	conn, err := transport.NewConn(profile)
+	conn, err := transport.NewConnWithTimeout(profile, time.Second * 3)
 	if err != nil {
 		nmUsage(nil, err)
 	}
@@ -154,7 +155,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	conn, err := transport.NewConn(profile)
+	conn, err := transport.NewConnWithTimeout(profile, time.Second)
 	if err != nil {
 		nmUsage(nil, err)
 	}
@@ -169,6 +170,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	}
 	var currOff uint32 = 0
 	imageSz := uint32(len(imageFile))
+	rexmits := 0
 
 	for currOff < imageSz {
 		imageUpload, err := protocol.NewImageUpload()
@@ -180,7 +182,6 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		if blockSz > 36 {
 			blockSz = 36
 		}
-
 		imageUpload.Offset = currOff
 		imageUpload.Size = imageSz
 		imageUpload.Data = imageFile[currOff : currOff+blockSz]
@@ -190,11 +191,35 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 			nmUsage(cmd, err)
 		}
 
-		if err := runner.WriteReq(nmr); err != nil {
-			nmUsage(cmd, err)
-		}
+		var rsp *protocol.NmgrReq
+		var i int
+		for i = 0; i < 5; i++ {
+			if err := runner.WriteReq(nmr); err != nil {
+				nmUsage(cmd, err)
+			}
 
-		rsp, err := runner.ReadResp()
+			rsp, err = runner.ReadResp()
+			if err == nil {
+				break;
+			}
+
+			/*
+			 * Failed. Reopening tty.
+			 */
+			conn, err = transport.NewConnWithTimeout(profile, time.Second)
+			if err != nil {
+				nmUsage(nil, err)
+			}
+
+			runner, err = protocol.NewCmdRunner(conn)
+			if err != nil {
+				nmUsage(cmd, err)
+			}
+		}
+		rexmits += i
+		if i == 5 {
+			err = util.NewNewtError("Maximum number of TX retries reached")
+		}
 		if err != nil {
 			nmUsage(cmd, err)
 		}
@@ -209,6 +234,9 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	err = echoCtrl(runner, "1")
 	if err != nil {
 		nmUsage(cmd, err)
+	}
+	if rexmits != 0 {
+		fmt.Printf(" %d retransmits\n", rexmits)
 	}
 	fmt.Println("Done")
 }
