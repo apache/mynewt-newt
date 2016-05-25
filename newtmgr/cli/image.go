@@ -155,7 +155,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	conn, err := transport.NewConnWithTimeout(profile, time.Second)
+	conn, err := transport.NewConnWithTimeout(profile, time.Second * 16)
 	if err != nil {
 		nmUsage(nil, err)
 	}
@@ -172,6 +172,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	imageSz := uint32(len(imageFile))
 	rexmits := 0
 
+	fmt.Println(currOff)
 	for currOff < imageSz {
 		imageUpload, err := protocol.NewImageUpload()
 		if err != nil {
