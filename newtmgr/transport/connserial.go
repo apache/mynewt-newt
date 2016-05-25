@@ -123,7 +123,14 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 		}
 	}
 
-	return nil, util.NewNewtError("Scanning incoming data failed")
+	err := scanner.Err()
+	if err == nil {
+		// Scanner hit EOF, so we'll need to create a new one.  This only
+		// happens on timeouts.
+		err = util.NewNewtError("Timeout reading from serial connection")
+		cs.scanner = bufio.NewScanner(cs.serialChannel)
+	}
+	return nil, err
 }
 
 func (cs *ConnSerial) writeData(bytes []byte) {
