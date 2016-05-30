@@ -29,6 +29,9 @@ import (
 	"mynewt.apache.org/newt/viper"
 )
 
+var NewtVersionStr string = "Apache Newt (incubating) version: 0.9.0"
+var NewtBlinkyTag string = "mynewt_0_9_0_tag"
+
 func GetStringFeatures(v *viper.Viper, features map[string]bool,
 	key string) string {
 	val := v.GetString(key)
