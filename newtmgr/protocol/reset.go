@@ -17,27 +17,32 @@
  * under the License.
  */
 
-package cli
+package protocol
 
-import (
-	"fmt"
-	"os"
+type Reset struct {
+}
 
-	"mynewt.apache.org/newt/util"
+func NewReset() (*Reset, error) {
+	r := &Reset{}
+	return r, nil
+}
 
-	"github.com/spf13/cobra"
-)
+func (r *Reset) EncodeWriteRequest() (*NmgrReq, error) {
+	msg := "{}"
 
-func nmUsage(cmd *cobra.Command, err error) {
+	data := []byte(msg)
+
+	nmr, err := NewNmgrReq()
 	if err != nil {
-		sErr := err.(*util.NewtError)
-		fmt.Printf("ERROR: %s\n", err.Error())
-		fmt.Fprintf(os.Stderr, "[DEBUG] %s", sErr.StackTrace)
+		return nil, err
 	}
 
-	if cmd != nil {
-		cmd.Help()
-	}
+	nmr.Op = NMGR_OP_WRITE
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_DEFAULT
+	nmr.Id = NMGR_ID_RESET
+	nmr.Len = uint16(len(data))
+	nmr.Data = data
 
-	os.Exit(1)
+	return nmr, nil
 }

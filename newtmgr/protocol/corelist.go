@@ -20,54 +20,23 @@
 package protocol
 
 import (
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"mynewt.apache.org/newt/util"
 )
 
-type ImageList struct {
-	Images []string
+type CoreList struct {
+	ErrCode uint32 `json:"rc"`
 }
 
-const (
-	IMGMGR_NMGR_OP_LIST     = 0
-	IMGMGR_NMGR_OP_UPLOAD   = 1
-	IMGMGR_NMGR_OP_BOOT     = 2
-	IMGMGR_NMGR_OP_FILE     = 3
-	IMGMGR_NMGR_OP_LIST2    = 4
-	IMGMGR_NMGR_OP_BOOT2    = 5
-	IMGMGR_NMGR_OP_CORELIST = 6
-	IMGMGR_NMGR_OP_CORELOAD = 7
-)
+func NewCoreList() (*CoreList, error) {
+	ce := &CoreList{}
 
-func HashDecode(src string) (string, error) {
-	imgHex, err := base64.StdEncoding.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash decode error: %s",
-			err.Error()))
-	}
-	return hex.EncodeToString(imgHex), nil
+	return ce, nil
 }
 
-func HashEncode(src string) (string, error) {
-	imgHex, err := hex.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash encode error: %s",
-			err.Error()))
-	}
-	return base64.StdEncoding.EncodeToString(imgHex), nil
-}
-
-func NewImageList() (*ImageList, error) {
-	s := &ImageList{}
-	s.Images = []string{}
-	return s, nil
-}
-
-func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
+func (ce *CoreList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -76,19 +45,19 @@ func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_LIST
+	nmr.Id = IMGMGR_NMGR_OP_CORELIST
 	nmr.Len = 0
 
 	return nmr, nil
 }
 
-func DecodeImageListResponse(data []byte) (*ImageList, error) {
-	list := &ImageList{}
+func DecodeCoreListResponse(data []byte) (*CoreList, error) {
+	cl := &CoreList{}
 
-	err := json.Unmarshal(data, &list)
+	err := json.Unmarshal(data, &cl)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
-	return list, nil
+	return cl, nil
 }

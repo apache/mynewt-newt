@@ -25,6 +25,7 @@ import (
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
 	"mynewt.apache.org/newt/newtmgr/transport"
+
 	"github.com/spf13/cobra"
 )
 
@@ -54,6 +55,9 @@ func echoRunCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
+	if len(args) != 1 {
+		nmUsage(cmd, nil)
+	}
 	echo.Message = args[0]
 
 	nmr, err := echo.EncodeWriteRequest()

@@ -70,9 +70,10 @@ func (f *FileDownload) EncodeWriteRequest() (*NmgrReq, error) {
 
 func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
 	type DownloadResp struct {
-		Off  uint32 `json:"off"`
-		Size uint32 `json:"len"`
-		Data string `json:"data"`
+		Off        uint32 `json:"off"`
+		Size       uint32 `json:"len"`
+		Data       string `json:"data"`
+		ReturnCode int    `json:"rc"`
 	}
 	resp := &DownloadResp{}
 
@@ -80,6 +81,10 @@ func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
+	}
+	if resp.ReturnCode != 0 {
+		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
+			resp.ReturnCode))
 	}
 	decodedData, err := base64.StdEncoding.DecodeString(resp.Data)
 	if err != nil {

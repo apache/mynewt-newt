@@ -20,82 +20,93 @@
 package protocol
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
 	"mynewt.apache.org/newt/util"
 )
 
-type FileUpload struct {
-	Offset     uint32 `json:"off"`
-	Name       string
-	Size       uint32
-	Data       []byte
+type ImageBoot2 struct {
+	BootTarget string
+	Test       string
+	Main       string
+	Active     string
 	ReturnCode int `json:"rc"`
 }
 
-func NewFileUpload() (*FileUpload, error) {
-	f := &FileUpload{}
-	f.Offset = 0
-
-	return f, nil
+func NewImageBoot2() (*ImageBoot2, error) {
+	s := &ImageBoot2{}
+	s.BootTarget = ""
+	s.Test = ""
+	s.Main = ""
+	s.Active = ""
+	return s, nil
 }
 
-func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
-	type UploadReq struct {
-		Off  uint32 `json:"off"`
-		Data string `json:"data"`
-	}
-	type UploadFirstReq struct {
-		Off  uint32 `json:"off"`
-		Size uint32 `json:"len"`
-		Name string `json:"name"`
-		Data string `json:"data"`
-	}
+func (i *ImageBoot2) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
 	}
 
-	nmr.Op = NMGR_OP_WRITE
+	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_FILE
+	nmr.Id = IMGMGR_NMGR_OP_BOOT2
+	nmr.Len = 0
 
-	data := []byte{}
+	if i.BootTarget != "" {
+		type BootReq struct {
+			Test string `json:"test"`
+		}
 
-	if f.Offset == 0 {
-		uploadReq := &UploadFirstReq{
-			Off:  f.Offset,
-			Size: f.Size,
-			Name: f.Name,
-			Data: base64.StdEncoding.EncodeToString(f.Data),
+		hash, err := HashEncode(i.BootTarget)
+		if err != nil {
+			return nil, err
 		}
-		data, _ = json.Marshal(uploadReq)
-	} else {
-		uploadReq := &UploadReq{
-			Off:  f.Offset,
-			Data: base64.StdEncoding.EncodeToString(f.Data),
+		bReq := &BootReq{
+			Test: hash,
 		}
-		data, _ = json.Marshal(uploadReq)
+		data, _ := json.Marshal(bReq)
+		nmr.Data = data
+		nmr.Len = uint16(len(data))
+		nmr.Op = NMGR_OP_WRITE
 	}
-	nmr.Len = uint16(len(data))
-	nmr.Data = data
-
 	return nmr, nil
 }
 
-func DecodeFileUploadResponse(data []byte) (*FileUpload, error) {
-	f := &FileUpload{}
+func DecodeImageBoot2Response(data []byte) (*ImageBoot2, error) {
+	i := &ImageBoot2{}
 
-	err := json.Unmarshal(data, &f)
+	if len(data) == 0 {
+		return i, nil
+	}
+	err := json.Unmarshal(data, &i)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
-	if f.ReturnCode != 0 {
+	if i.ReturnCode != 0 {
 		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
-			f.ReturnCode))
+			i.ReturnCode))
 	}
-	return f, nil
+	if i.Test != "" {
+		i.Test, err = HashDecode(i.Test)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if i.Main != "" {
+		i.Main, err = HashDecode(i.Main)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if i.Active != "" {
+		i.Active, err = HashDecode(i.Active)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return i, nil
 }

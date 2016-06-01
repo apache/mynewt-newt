@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/joaojeronimo/go-crc16"
@@ -41,12 +42,13 @@ type ConnSerial struct {
 	serialChannel *serial.Port
 }
 
-func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile) error {
+func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration) error {
 	var err error
 
 	c := &serial.Config{
-		Name: cp.ConnString(),
-		Baud: 115200,
+		Name:        cp.ConnString(),
+		Baud:        115200,
+		ReadTimeout: readTimeout,
 	}
 
 	cs.serialChannel, err = serial.OpenPort(c)
@@ -121,7 +123,14 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 		}
 	}
 
-	return nil, util.NewNewtError("Scanning incoming data failed")
+	err := scanner.Err()
+	if err == nil {
+		// Scanner hit EOF, so we'll need to create a new one.  This only
+		// happens on timeouts.
+		err = util.NewNewtError("Timeout reading from serial connection")
+		cs.scanner = bufio.NewScanner(cs.serialChannel)
+	}
+	return nil, err
 }
 
 func (cs *ConnSerial) writeData(bytes []byte) {
@@ -151,13 +160,15 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 
 	for written < totlen {
 		if written == 0 {
+			cs.writeData([]byte{'\n'})
 			cs.writeData([]byte{6, 9})
 		} else {
 			cs.writeData([]byte{4, 20})
 		}
 
-		writeLen := util.Min(122, totlen)
-		writeBytes := base64Data[:writeLen]
+		writeLen := util.Min(120, totlen - written)
+
+		writeBytes := base64Data[written:written+writeLen]
 		cs.writeData(writeBytes)
 		cs.writeData([]byte{'\n'})
 

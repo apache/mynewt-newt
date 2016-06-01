@@ -25,6 +25,7 @@ import (
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
+
 	"github.com/spf13/cobra"
 )
 

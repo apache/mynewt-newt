@@ -22,14 +22,13 @@ package cli
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
 	"mynewt.apache.org/newt/newtmgr/transport"
-
-	"github.com/spf13/cobra"
 )
 
-func taskStatsRunCmd(cmd *cobra.Command, args []string) {
+func resetRunCmd(cmd *cobra.Command, args []string) {
 	cpm, err := config.NewConnProfileMgr()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -50,12 +49,12 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	srr, err := protocol.NewTaskStatsReadReq()
+	reset, err := protocol.NewReset()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
 
-	nmr, err := srr.EncodeWriteRequest()
+	nmr, err := reset.EncodeWriteRequest()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -64,41 +63,20 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	rsp, err := runner.ReadResp()
+	_, err = runner.ReadResp()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
 
-	tsrsp, err := protocol.DecodeTaskStatsReadResponse(rsp.Data)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	fmt.Printf("Return Code = %d\n", tsrsp.ReturnCode)
-	if tsrsp.ReturnCode == 0 {
-		for k, info := range tsrsp.Tasks {
-			fmt.Printf("  %s ", k)
-			fmt.Printf("(prio=%d tid=%d runtime=%d cswcnt=%d stksize=%d "+
-				"stkusage=%d last_checkin=%d next_checkin=%d)",
-				int(info["prio"].(float64)),
-				int(info["tid"].(float64)),
-				int(info["runtime"].(float64)),
-				int(info["cswcnt"].(float64)),
-				int(info["stksiz"].(float64)),
-				int(info["stkuse"].(float64)),
-				int(info["last_checkin"].(float64)),
-				int(info["next_checkin"].(float64)))
-			fmt.Printf("\n")
-		}
-	}
+	fmt.Println("Done")
 }
 
-func taskStatsCmd() *cobra.Command {
-	taskStatsCmd := &cobra.Command{
-		Use:   "taskstats",
-		Short: "Read statistics from a remote endpoint",
-		Run:   taskStatsRunCmd,
+func resetCmd() *cobra.Command {
+	resetCmd := &cobra.Command{
+		Use:   "reset",
+		Short: "Send reset request to remote endpoint using newtmgr",
+		Run:   resetRunCmd,
 	}
 
-	return taskStatsCmd
+	return resetCmd
 }

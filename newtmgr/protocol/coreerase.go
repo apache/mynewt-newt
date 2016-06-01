@@ -17,27 +17,47 @@
  * under the License.
  */
 
-package cli
+package protocol
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
 
 	"mynewt.apache.org/newt/util"
-
-	"github.com/spf13/cobra"
 )
 
-func nmUsage(cmd *cobra.Command, err error) {
+type CoreErase struct {
+	ErrCode uint32 `json:"rc"`
+}
+
+func NewCoreErase() (*CoreErase, error) {
+	ce := &CoreErase{}
+
+	return ce, nil
+}
+
+func (ce *CoreErase) EncodeWriteRequest() (*NmgrReq, error) {
+	nmr, err := NewNmgrReq()
 	if err != nil {
-		sErr := err.(*util.NewtError)
-		fmt.Printf("ERROR: %s\n", err.Error())
-		fmt.Fprintf(os.Stderr, "[DEBUG] %s", sErr.StackTrace)
+		return nil, err
 	}
 
-	if cmd != nil {
-		cmd.Help()
-	}
+	nmr.Op = NMGR_OP_WRITE
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_IMAGE
+	nmr.Id = IMGMGR_NMGR_OP_CORELOAD
+	nmr.Len = 0
 
-	os.Exit(1)
+	return nmr, nil
+}
+
+func DecodeCoreEraseResponse(data []byte) (*CoreErase, error) {
+	ce := &CoreErase{}
+
+	err := json.Unmarshal(data, &ce)
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
+	return ce, nil
 }

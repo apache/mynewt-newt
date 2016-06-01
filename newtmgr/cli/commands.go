@@ -61,6 +61,7 @@ func Commands() *cobra.Command {
 	nmCmd.AddCommand(configCmd())
 	nmCmd.AddCommand(logsCmd())
 	nmCmd.AddCommand(dTimeCmd())
+	nmCmd.AddCommand(resetCmd())
 
 	return nmCmd
 }
