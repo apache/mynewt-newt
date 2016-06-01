@@ -52,6 +52,7 @@ const (
 	MODULE_NIMBLE_CTLR uint64 = 3
 	MODULE_NIMBLE_HOST uint64 = 4
 	MODULE_NFFS        uint64 = 5
+	MODULE_REBOOT      uint64 = 6
 	MODULE_MAX         uint64 = 255
 )
 
@@ -70,6 +71,8 @@ func LogModuleToString(lm uint64) string {
 		s = "NIMBLE_HOST"
 	case MODULE_NFFS:
 		s = "NFFS"
+	case MODULE_REBOOT:
+		s = "REBOOT"
 	default:
 		s = "CUSTOM"
 	}
