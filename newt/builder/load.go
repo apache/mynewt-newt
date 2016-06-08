@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -87,10 +88,11 @@ func (b *Builder) Debug() error {
 	bspPath := b.Bsp.BasePath()
 	debugScript := filepath.Join(bspPath, b.Bsp.DebugScript)
 	binBaseName := b.AppBinBasePath()
-	featureString := b.FeatureString()
+	featureString := strings.Split(b.FeatureString(), " ")
 
 	os.Chdir(project.GetProject().Path())
 
-	cmdLine := []string{debugScript, bspPath, binBaseName, featureString}
+	cmdLine := []string{debugScript, bspPath, binBaseName}
+	cmdLine = append(cmdLine, featureString...)
 	return util.ShellInteractiveCommand(cmdLine)
 }
