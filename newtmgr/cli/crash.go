@@ -83,10 +83,13 @@ func crashRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func crashCmd() *cobra.Command {
+	crashEx := "   newtmgr -c olimex crash div0\n"
+
 	crashCmd := &cobra.Command{
-		Use:   "crash",
-		Short: "Send crash command to remote endpoint using newtmgr",
-		Run:   crashRunCmd,
+		Use:     "crash [div0|jump0|ref0|assert]",
+		Short:   "Send crash command to remote endpoint using newtmgr",
+		Example: crashEx,
+		Run:     crashRunCmd,
 	}
 
 	return crashCmd
