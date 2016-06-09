@@ -574,6 +574,16 @@ func (c *Compiler) generateExtras(elfFilename string,
 
 	var cmd string
 
+	if options["binFile"] {
+		binFile := elfFilename + ".bin"
+		cmd = c.ocPath + " -R .bss -R .bss.core -R .bss.core.nz -O binary " +
+			elfFilename + " " + binFile
+		_, err := util.ShellCommand(cmd)
+		if err != nil {
+			return err
+		}
+	}
+
 	if options["listFile"] {
 		listFile := elfFilename + ".lst"
 		// if list file exists, remove it
@@ -600,16 +610,6 @@ func (c *Compiler) generateExtras(elfFilename string,
 
 		cmd = c.osPath + " " + elfFilename + " >> " + listFile
 		_, err = util.ShellCommand(cmd)
-		if err != nil {
-			return err
-		}
-	}
-
-	if options["binFile"] {
-		binFile := elfFilename + ".bin"
-		cmd = c.ocPath + " -R .bss -R .bss.core -R .bss.core.nz -O binary " +
-			elfFilename + " " + binFile
-		_, err := util.ShellCommand(cmd)
 		if err != nil {
 			return err
 		}
