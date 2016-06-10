@@ -79,22 +79,7 @@ func statsListRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func statsRunCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
