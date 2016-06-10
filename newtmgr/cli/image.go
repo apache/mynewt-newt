@@ -86,22 +86,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 }
 
 func imageListCmd2(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(nil, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -286,22 +271,7 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 }
 
 func imageBoot2Cmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(nil, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -496,22 +466,7 @@ func coreDownloadCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -573,22 +528,7 @@ func coreDownloadCmd(cmd *cobra.Command, args []string) {
 }
 
 func coreListCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -626,22 +566,7 @@ func coreListCmd(cmd *cobra.Command, args []string) {
 }
 
 func coreEraseCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}

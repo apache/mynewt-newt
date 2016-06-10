@@ -23,29 +23,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
-	"mynewt.apache.org/newt/newtmgr/transport"
 	"mynewt.apache.org/newt/util"
 )
 
 func dateTimeCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConn(profile)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runner, err := protocol.NewCmdRunner(conn)
+	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
