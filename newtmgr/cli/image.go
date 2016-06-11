@@ -46,7 +46,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	conn, err := transport.NewConnWithTimeout(profile, time.Second * 3)
+	conn, err := transport.NewConnWithTimeout(profile, time.Second*3)
 	if err != nil {
 		nmUsage(nil, err)
 	}
@@ -140,7 +140,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	conn, err := transport.NewConnWithTimeout(profile, time.Second * 16)
+	conn, err := transport.NewConnWithTimeout(profile, time.Second*16)
 	if err != nil {
 		nmUsage(nil, err)
 	}
@@ -190,7 +190,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 
 			rsp, err = runner.ReadResp()
 			if err == nil {
-				break;
+				break
 			}
 
 			/*
