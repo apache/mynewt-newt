@@ -51,7 +51,7 @@ func NewCoreDownload() (*CoreDownload, error) {
 	return f, nil
 }
 
-func (cl *CoreDownload) Download() error {
+func (cl *CoreDownload) Download(off, size uint32) error {
 	if cl.File == nil {
 		return util.NewNewtError("Missing target file")
 	}
@@ -60,13 +60,13 @@ func (cl *CoreDownload) Download() error {
 	}
 
 	imageDone := 0
+	var bytesWritten uint32 = 0
 
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return err
 	}
 	req := &coreLoadReq{}
-	var off uint32 = 0
 
 	for imageDone != 1 {
 		req.Off = off
@@ -113,6 +113,10 @@ func (cl *CoreDownload) Download() error {
 				err.Error()))
 		}
 		if len(data) > 0 {
+			if size > 0 && uint32(len(data))+bytesWritten >= size {
+				data = data[:size-bytesWritten]
+				imageDone = 1
+			}
 			n, err := cl.File.Write(data)
 			if err == nil && n < len(data) {
 				err = io.ErrShortWrite
@@ -123,6 +127,7 @@ func (cl *CoreDownload) Download() error {
 						err.Error()))
 			}
 			off += uint32(len(data))
+			bytesWritten += uint32(len(data))
 		} else {
 			imageDone = 1
 		}

@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,6 +34,12 @@ import (
 	"mynewt.apache.org/newt/util"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	coreElfify   bool
+	coreOffset   uint32
+	coreNumBytes uint32
 )
 
 func imageListCmd(cmd *cobra.Command, args []string) {
@@ -462,7 +469,7 @@ func fileDownloadCmd(cmd *cobra.Command, args []string) {
 
 func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Need to specify target filename to download")
+		nmUsage(cmd, errors.New("Need to specify target filename to download"))
 		return
 	}
 
@@ -485,7 +492,7 @@ func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	coreDownload.Runner = runner
 	coreDownload.File = file
 
-	err = coreDownload.Download()
+	err = coreDownload.Download(coreOffset, coreNumBytes)
 	file.Close()
 	if err != nil {
 		fmt.Println(err)
@@ -493,6 +500,11 @@ func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println("Coredump download completed")
+
+	if !coreElfify {
+		os.Rename(tmpName, args[0])
+		return
+	}
 
 	/*
 	 * Download finished. Now convert to ELF corefile format.
@@ -686,8 +698,9 @@ func imageCmd() *cobra.Command {
 	}
 	imageCmd.AddCommand(coreListCmd)
 
-	coreEx := "  newtmgr -c olimex image coredownload <filename>\n"
-	coreEx += "  newtmgr -c olimex image coredownload core\n"
+	coreEx := "  newtmgr -c olimex image coredownload -e <filename>\n"
+	coreEx += "  newtmgr -c olimex image coredownload -e core\n"
+	coreEx += "  newtmgr -c olimex image coredownload --offset 10 -n 10 core\n"
 
 	coreDownloadCmd := &cobra.Command{
 		Use:     "coredownload",
@@ -695,6 +708,9 @@ func imageCmd() *cobra.Command {
 		Example: coreEx,
 		Run:     coreDownloadCmd,
 	}
+	coreDownloadCmd.Flags().BoolVarP(&coreElfify, "elfify", "e", false, "Creat an elf file")
+	coreDownloadCmd.Flags().Uint32Var(&coreOffset, "offset", 0, "Start offset")
+	coreDownloadCmd.Flags().Uint32VarP(&coreNumBytes, "bytes", "n", 0, "Number of bytes of the core to download")
 	imageCmd.AddCommand(coreDownloadCmd)
 
 	coreEraseEx := "  newtmgr -c olimex image coreerase\n"
