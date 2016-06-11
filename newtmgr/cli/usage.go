@@ -23,16 +23,12 @@ import (
 	"fmt"
 	"os"
 
-	"mynewt.apache.org/newt/util"
-
 	"github.com/spf13/cobra"
 )
 
 func nmUsage(cmd *cobra.Command, err error) {
 	if err != nil {
-		sErr := err.(*util.NewtError)
 		fmt.Printf("ERROR: %s\n", err.Error())
-		fmt.Fprintf(os.Stderr, "[DEBUG] %s", sErr.StackTrace)
 	}
 
 	if cmd != nil {
