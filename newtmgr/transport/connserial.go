@@ -166,9 +166,9 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 			cs.writeData([]byte{4, 20})
 		}
 
-		writeLen := util.Min(120, totlen - written)
+		writeLen := util.Min(120, totlen-written)
 
-		writeBytes := base64Data[written:written+writeLen]
+		writeBytes := base64Data[written : written+writeLen]
 		cs.writeData(writeBytes)
 		cs.writeData([]byte{'\n'})
 
