@@ -377,8 +377,14 @@ func (b *Builder) PrepBuild() error {
 	if err != nil {
 		return err
 	}
-	// Define a cpp symbol indicating the BSP architecture.
+	// Define a cpp symbol indicating the BSP architecture, name of the BSP and app.
 	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.Bsp.Arch)
+	bspCi.Cflags = append(bspCi.Cflags,
+		"-DBSP_NAME=\""+filepath.Base(b.Bsp.Name())+"\"");
+	if appPkg != nil {
+		bspCi.Cflags = append(bspCi.Cflags,
+			"-DAPP_NAME=\""+filepath.Base(appPkg.Name())+"\"");
+	}
 	baseCi.AddCompilerInfo(bspCi)
 
 	// Target flags.
