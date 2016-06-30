@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -52,7 +53,7 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	dl.User = "apache"
 	dl.Repo = "incubator-mynewt-blinky"
 
-	dir, err := dl.DownloadRepo("mynewt_0_8_0_b2_tag")
+	dir, err := dl.DownloadRepo(newtutil.NewtBlinkyTag)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}

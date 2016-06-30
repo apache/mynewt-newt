@@ -26,10 +26,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/newt/cli"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
-var NewtVersionStr string = "Apache Newt (incubating) version: 0.8.0"
 var NewtLogLevel log.Level
 var newtSilent bool
 var newtQuiet bool
@@ -103,7 +103,7 @@ func newtCmd() *cobra.Command {
 		Long:    versHelpText,
 		Example: versHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%s\n", NewtVersionStr)
+			fmt.Printf("%s\n", newtutil.NewtVersionStr)
 		},
 	}
 
