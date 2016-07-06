@@ -344,11 +344,11 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 
 	incls := []string{
 		bp + "/include",
-		bp + "/include/" + pkgBase + "/arch/" + b.Bsp.Arch,
+		bp + "/include/" + pkgBase + "/arch/" + b.target.Bsp.Arch,
 	}
 
 	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
-		incls = append(incls, b.Bsp.BasePath()+"/include/bsp/")
+		incls = append(incls, b.target.Bsp.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
@@ -362,18 +362,18 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 
 	incls := []string{}
 	incls = append(incls, srcDir)
-	incls = append(incls, srcDir+"/arch/"+b.Bsp.Arch)
+	incls = append(incls, srcDir+"/arch/"+b.target.Bsp.Arch)
 
 	if b.Features(bpkg)["TEST"] {
 		testSrcDir := srcDir + "/test"
 		incls = append(incls, testSrcDir)
-		incls = append(incls, testSrcDir+"/arch/"+b.Bsp.Arch)
+		incls = append(incls, testSrcDir+"/arch/"+b.target.Bsp.Arch)
 	}
 
 	// If pkgType == SDK, include all the items in "ext" directly into the
 	// include path
 	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
-		incls = append(incls, b.Bsp.BasePath()+"/include/bsp/")
+		incls = append(incls, b.target.Bsp.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)

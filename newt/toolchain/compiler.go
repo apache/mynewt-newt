@@ -27,12 +27,14 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
 )
@@ -631,18 +633,32 @@ func (c *Compiler) getObjFiles(baseObjFiles []string) string {
 //
 // @return                      (success) The command string.
 func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
-	objFiles []string) string {
+	objFiles []string, keepSymbols []string, elfLib string) string {
 
 	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
 	cmd := c.ccPath + " -o " + dstFile + " " + " " + c.cflagsString()
+
+	if elfLib != "" {
+		cmd += " -Wl,--just-symbols=" + elfLib
+	}
+
 	if c.ldResolveCircularDeps {
 		cmd += " -Wl,--start-group " + objList + " -Wl,--end-group "
 	} else {
 		cmd += " " + objList
 	}
 
+	if keepSymbols != nil {
+		for _, name := range keepSymbols {
+			cmd += " -Wl,--undefined=" + name
+		}
+	}
+
 	cmd += " " + c.lflagsString()
+
+	/* so we don't get multiple global definitions of the same vartiable */
+	//cmd += " -Wl,--warn-common "
 
 	if c.LinkerScript != "" {
 		cmd += " -T " + c.LinkerScript
@@ -662,20 +678,23 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 //                                  gets generated.
 // @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
-	objFiles []string) error {
+	objFiles []string, keepSymbols []string, elfLib string) error {
 
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
 
 	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n",
-		path.Base(dstFile))
-	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"Linking %s with input files %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", dstFile)
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
 		dstFile, objList)
 
-	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
+	if elfLib != "" {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with rom image %s\n",
+			dstFile, elfLib)
+	}
+
+	cmd := c.CompileBinaryCmd(dstFile, options, objFiles, keepSymbols, elfLib)
 	_, err := util.ShellCommand(cmd)
 	if err != nil {
 		return err
@@ -764,14 +783,16 @@ func (c *Compiler) PrintSize(elfFilename string) (string, error) {
 // @param options               Some build options specifying how the elf file
 //                                  gets generated.
 // @param objFiles              An array of the source .o and .a filenames.
-func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
+func (c *Compiler) CompileElf(binFile string, objFiles []string,
+	keepSymbols []string, elfLib string) error {
 	options := map[string]bool{"mapFile": c.ldMapFile,
 		"listFile": true, "binFile": c.ldBinFile}
 
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
 
-	linkRequired, err := c.depTracker.LinkRequired(binFile, options, objFiles)
+	linkRequired, err := c.depTracker.LinkRequired(binFile, options,
+		objFiles, keepSymbols, elfLib)
 	if err != nil {
 		return err
 	}
@@ -779,7 +800,7 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
 		if err := os.MkdirAll(filepath.Dir(binFile), 0755); err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		err := c.CompileBinary(binFile, options, objFiles)
+		err := c.CompileBinary(binFile, options, objFiles, keepSymbols, elfLib)
 		if err != nil {
 			return err
 		}
@@ -791,6 +812,35 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
 	}
 
 	return nil
+}
+
+func (c *Compiler) RenameSymbolsCmd(sm *symbol.SymbolMap, libraryFile string, ext string) string {
+	val := c.ocPath
+
+	for s, _ := range *sm {
+		val += " --redefine-sym " + s + "=" + s + ext
+	}
+
+	val += " " + libraryFile
+	return val
+}
+
+func (c *Compiler) ParseLibraryCmd(libraryFile string) string {
+	val := c.odPath + " -t " + libraryFile
+	return val
+}
+
+func (c *Compiler) CopySymbolsCmd(infile string, outfile string, sm *symbol.SymbolMap) string {
+
+	val := c.ocPath + " -S "
+
+	for symbol, _ := range *sm {
+		val += " -K " + symbol
+	}
+
+	val += " " + infile
+	val += " " + outfile
+	return val
 }
 
 // Calculates the command-line invocation necessary to archive the specified
@@ -805,6 +855,54 @@ func (c *Compiler) CompileArchiveCmd(archiveFile string,
 
 	objList := c.getObjFiles(objFiles)
 	return c.arPath + " rcs " + archiveFile + " " + objList
+}
+
+func linkerScriptFileName(archiveFile string) string {
+	ar_script_name := strings.TrimSuffix(archiveFile, filepath.Ext(archiveFile)) + "_ar.mri"
+	return ar_script_name
+}
+
+/* this create a new library combining all of the other libraries */
+func createSplitArchiveLinkerFile(archiveFile string,
+	archFiles []string) error {
+
+	/* create a name for this script */
+	ar_script_name := linkerScriptFileName(archiveFile)
+
+	// open the file and write out the script
+	f, err := os.OpenFile(ar_script_name, os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString("CREATE " + archiveFile + "\n"); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	for _, arch := range archFiles {
+		if _, err := f.WriteString("ADDLIB " + arch + "\n"); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+	}
+
+	if _, err := f.WriteString("SAVE\n"); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	if _, err := f.WriteString("END\n"); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	return nil
+}
+
+// calculates the command-line invocation necessary to build a split all
+// archive from the collection of archive files
+func (c *Compiler) BuildSplitArchiveCmd(archiveFile string) string {
+
+	str := c.arPath + " -M < " + linkerScriptFileName(archiveFile)
+	return str
 }
 
 // Archives the specified static library.
@@ -853,4 +951,103 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	}
 
 	return nil
+}
+
+func getParseRexeg() (error, *regexp.Regexp) {
+	r, err := regexp.Compile("^([0-9A-Fa-f]+)[\t ]+([lgu! ][w ][C ][W ][Ii ][Dd ][FfO ])[\t ]+([^\t\n\f\r ]+)[\t ]+([0-9a-fA-F]+)[\t ]([^\t\n\f\r ]+)")
+
+	if err != nil {
+		return err, nil
+	}
+
+	return nil, r
+}
+
+/* This is a tricky thing to parse. Right now, I keep all the
+ * flags together and just store the offset, size, name and flags.
+* 00012970 l       .bss	00000000 _end
+* 00011c60 l       .init_array	00000000 __init_array_start
+* 00011c60 l       .init_array	00000000 __preinit_array_start
+* 000084b0 g     F .text	00000034 os_arch_start
+* 00000000 g       .debug_aranges	00000000 __HeapBase
+* 00011c88 g     O .data	00000008 g_os_task_list
+* 000082cc g     F .text	0000004c os_idle_task
+* 000094e0 g     F .text	0000002e .hidden __gnu_uldivmod_helper
+* 00000000 g       .svc_table	00000000 SVC_Count
+* 000125e4 g     O .bss	00000004 g_console_is_init
+* 00009514 g     F .text	0000029c .hidden __divdi3
+* 000085a8 g     F .text	00000054 os_eventq_put
+*/
+func ParseObjectLine(line string, r *regexp.Regexp) (error, *symbol.SymbolInfo) {
+
+	answer := r.FindAllStringSubmatch(line, 11)
+
+	if len(answer) == 0 {
+		return nil, nil
+	}
+
+	data := answer[0]
+
+	if len(data) != 6 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Not enough content in object file line --- %s", line)
+		return nil, nil
+	}
+
+	si := symbol.NewSymbolInfo()
+
+	si.Name = data[5]
+
+	v, err := strconv.ParseUint(data[1], 16, 32)
+
+	if err != nil {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Could not convert location from object file line --- %s", line)
+		return nil, nil
+	}
+
+	si.Loc = int(v)
+
+	v, err = strconv.ParseUint(data[4], 16, 32)
+
+	if err != nil {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Could not convert size form object file line --- %s", line)
+		return nil, nil
+	}
+
+	si.Size = int(v)
+	si.Code = data[2]
+	si.Section = data[3]
+
+	return nil, si
+}
+
+func (c *Compiler) RenameSymbols(sm *symbol.SymbolMap, libraryFile string, ext string) error {
+
+	cmd := c.RenameSymbolsCmd(sm, libraryFile, ext)
+
+	_, err := util.ShellCommand(cmd)
+
+	return err
+}
+
+func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
+	cmd := c.ParseLibraryCmd(libraryFile)
+
+	out, err := util.ShellCommand(cmd)
+	if err != nil {
+		return err, nil
+	}
+	return err, out
+}
+
+func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolMap) error {
+	cmd := c.CopySymbolsCmd(infile, outfile, sm)
+
+	_, err := util.ShellCommand(cmd)
+	if err != nil {
+		return err
+	}
+	return err
 }

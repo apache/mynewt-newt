@@ -23,43 +23,63 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
-func (b *Builder) Load() error {
-	if b.target.App() == nil {
+func (t *TargetBuilder) Load() error {
+
+	err := t.PrepBuild()
+
+	if err != nil {
+		return err
+	}
+
+	if t.Loader != nil {
+		err = t.App.Load(1)
+		if err == nil {
+			err = t.Loader.Load(0)
+		}
+	} else {
+		err = t.App.Load(0)
+	}
+
+	return err
+}
+
+func (b *Builder) Load(image_slot int) error {
+	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified")
 	}
 
 	/*
 	 * Populate the package list and feature sets.
 	 */
-	err := b.PrepBuild()
+	err := b.target.PrepBuild()
 	if err != nil {
 		return err
 	}
 
-	if b.Bsp.DownloadScript == "" {
+	if b.target.Bsp.DownloadScript == "" {
 		/*
 		 *
 		 */
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"No download script for BSP %s\n", b.Bsp.Name())
+			"No download script for BSP %s\n", b.target.Bsp.Name())
 		return nil
 	}
 
-	bspPath := b.Bsp.BasePath()
-	downloadScript := filepath.Join(bspPath, b.Bsp.DownloadScript)
+	bspPath := b.target.Bsp.BasePath()
+	downloadScript := filepath.Join(bspPath, b.target.Bsp.DownloadScript)
 	binBaseName := b.AppBinBasePath()
 	featureString := b.FeatureString()
 
-	downloadCmd := fmt.Sprintf("%s %s %s %s",
-		downloadScript, bspPath, binBaseName, featureString)
+	downloadCmd := fmt.Sprintf("%s %s %s %d %s",
+		downloadScript, bspPath, binBaseName, image_slot, featureString)
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Loading image\n")
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Loading %s image int slot %d\n", b.buildName, image_slot)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		downloadCmd)
 	rsp, err := util.ShellCommand(downloadCmd)
@@ -72,27 +92,49 @@ func (b *Builder) Load() error {
 	return nil
 }
 
-func (b *Builder) Debug() error {
-	if b.target.App() == nil {
+func (t *TargetBuilder) Debug() error {
+	//var additional_libs []string
+	err := t.PrepBuild()
+
+	if err != nil {
+		return err
+	}
+
+	//	if t.Loader != nil {
+	//		basename := t.Loader.AppElfPath()
+	//		name := strings.TrimSuffix(basename, filepath.Ext(basename))
+	//		additional_libs = append(additional_libs, name)
+	//	}
+
+	//	return t.App.Debug(additional_libs)
+	if t.Loader == nil {
+		return t.App.Debug(nil)
+	}
+	return t.Loader.Debug(nil)
+}
+
+func (b *Builder) Debug(addlibs []string) error {
+	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified")
 	}
 
 	/*
 	 * Populate the package list and feature sets.
 	 */
-	err := b.PrepBuild()
+	err := b.target.PrepBuild()
 	if err != nil {
 		return err
 	}
 
-	bspPath := b.Bsp.BasePath()
-	debugScript := filepath.Join(bspPath, b.Bsp.DebugScript)
+	bspPath := b.target.Bsp.BasePath()
+	debugScript := filepath.Join(bspPath, b.target.Bsp.DebugScript)
 	binBaseName := b.AppBinBasePath()
-	featureString := strings.Split(b.FeatureString(), " ")
 
 	os.Chdir(project.GetProject().Path())
 
 	cmdLine := []string{debugScript, bspPath, binBaseName}
-	cmdLine = append(cmdLine, featureString...)
+	cmdLine = append(cmdLine, addlibs...)
+
+	fmt.Printf("%s\n", cmdLine)
 	return util.ShellInteractiveCommand(cmdLine)
 }

@@ -20,6 +20,8 @@
 package cli
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -124,8 +126,21 @@ func imageListCmd2(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 	fmt.Println("Images:")
-	for hash, ver := range iRsp.Images {
-		fmt.Printf(" %8s %s\n", ver, hash)
+	for _, img := range iRsp.Images {
+
+		fmt.Printf(" slot=%d\n", img.Slot)
+		fmt.Printf("    version=%s\n", img.Version)
+		fmt.Printf("    bootable=%v\n", img.Bootable)
+		if img.Hash == "" {
+			fmt.Printf("    hash=Unavailable\n")
+		} else {
+			dec, err := base64.StdEncoding.DecodeString(img.Hash)
+			if err != nil {
+				fmt.Printf("    hash=Unable to Decode")
+			} else {
+				fmt.Printf("    hash=%s\n", hex.EncodeToString(dec[:]))
+			}
+		}
 	}
 }
 

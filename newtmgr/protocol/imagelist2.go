@@ -26,13 +26,19 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+type Image2 struct {
+	Slot     int    `json:"slot"`
+	Version  string `json:"version"`
+	Hash     string `json:"hash"`
+	Bootable bool   `json:"bootable"`
+}
+
 type ImageList2 struct {
-	Images map[string]string
+	Images []Image2 `json:"images"`
 }
 
 func NewImageList2() (*ImageList2, error) {
 	s := &ImageList2{}
-	s.Images = map[string]string{}
 	return s, nil
 }
 
@@ -52,29 +58,13 @@ func (i *ImageList2) EncodeWriteRequest() (*NmgrReq, error) {
 }
 
 func DecodeImageListResponse2(data []byte) (*ImageList2, error) {
-	type ImageInfoJson map[string]string
 
-	type ImageListJson struct {
-		Images []ImageInfoJson
-	}
+	list2 := &ImageList2{}
 
-	list := &ImageListJson{}
-
-	err := json.Unmarshal(data, &list)
+	err := json.Unmarshal(data, &list2)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
-	}
-
-	list2, _ := NewImageList2()
-	for _, info := range list.Images {
-		for hash, ver := range info {
-			hash, err := HashDecode(hash)
-			if err != nil {
-				return nil, err
-			}
-			list2.Images[hash] = ver
-		}
 	}
 	return list2, nil
 }

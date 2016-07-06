@@ -42,6 +42,7 @@ type Target struct {
 
 	BspName      string
 	AppName      string
+	LoaderName   string
 	BuildProfile string
 
 	// target.yml configuration structure
@@ -83,6 +84,7 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	target.BspName = target.Vars["target.bsp"]
 	target.AppName = target.Vars["target.app"]
+	target.LoaderName = target.Vars["target.loader"]
 	target.BuildProfile = target.Vars["target.build_profile"]
 
 	if target.BuildProfile == "" {
@@ -126,6 +128,7 @@ func (target *Target) Validate(appRequired bool) error {
 			return util.FmtNewtError("Could not resolve app package: %s",
 				target.AppName)
 		}
+
 		if app.Type() != pkg.PACKAGE_TYPE_APP {
 			return util.FmtNewtError("target.app package (%s) is not of "+
 				"type app; type is: %s\n", app.Name(),
@@ -179,6 +182,10 @@ func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
 
 func (target *Target) App() *pkg.LocalPackage {
 	return target.resolvePackageName(target.AppName)
+}
+
+func (target *Target) Loader() *pkg.LocalPackage {
+	return target.resolvePackageName(target.LoaderName)
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {

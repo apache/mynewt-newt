@@ -55,6 +55,7 @@ func Commands() *cobra.Command {
 	nmCmd.AddCommand(connProfileCmd())
 	nmCmd.AddCommand(echoCmd())
 	nmCmd.AddCommand(imageCmd())
+	nmCmd.AddCommand(splitCmd())
 	nmCmd.AddCommand(statsCmd())
 	nmCmd.AddCommand(taskStatsCmd())
 	nmCmd.AddCommand(mempoolStatsCmd())

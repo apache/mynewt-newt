@@ -29,43 +29,44 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
 type Builder struct {
-	Packages map[*pkg.LocalPackage]*BuildPackage
-	features map[string]bool
-	apis     map[string]*BuildPackage
-
-	appPkg       *BuildPackage
-	Bsp          *pkg.BspPackage
-	compilerPkg  *pkg.LocalPackage
-	compilerInfo *toolchain.CompilerInfo
-
+	Packages         map[*pkg.LocalPackage]*BuildPackage
+	features         map[string]bool
+	apis             map[string]*BuildPackage
+	appPkg           *BuildPackage
+	BspPkg           *pkg.LocalPackage
+	compilerInfo     *toolchain.CompilerInfo
 	featureWhiteList []map[string]interface{}
 	featureBlackList []map[string]interface{}
-
-	target *target.Target
+	target           *TargetBuilder
+	linkerScript     string
+	buildName        string
+	LinkElf          string
 }
 
-func NewBuilder(target *target.Target) (*Builder, error) {
+func NewBuilder(t *TargetBuilder, buildName string) (*Builder, error) {
 	b := &Builder{}
 
-	if err := b.Init(target); err != nil {
-		return nil, err
-	}
+	b.buildName = buildName
+	/* TODO */
+	b.Init(t)
 
 	return b, nil
 }
 
-func (b *Builder) Init(target *target.Target) error {
-	b.target = target
+func (b *Builder) Init(t *TargetBuilder) error {
 
+	b.target = t
 	b.Packages = map[*pkg.LocalPackage]*BuildPackage{}
 	b.features = map[string]bool{}
 	b.apis = map[string]*BuildPackage{}
+	b.LinkElf = ""
 
 	return nil
 }
@@ -133,9 +134,10 @@ func (b *Builder) loadDeps() error {
 			}
 
 			if newFeatures {
-				// A new supported feature was discovered.  It is impossible to
-				// determine what new dependency and API requirements are
-				// generated as a result.  All packages need to be reprocessed.
+				// A new supported feature was discovered.  It is impossible
+				// to determine what new dependency and API requirements are
+				// generated as a result.  All packages need to be
+				// reprocessed.
 				for _, bpkg := range b.Packages {
 					bpkg.depsResolved = false
 					bpkg.apisSatisfied = false
@@ -215,11 +217,11 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 func (b *Builder) newCompiler(bpkg *BuildPackage,
 	dstDir string) (*toolchain.Compiler, error) {
 
-	c, err := toolchain.NewCompiler(b.compilerPkg.BasePath(), dstDir,
-		b.target.BuildProfile)
+	c, err := b.target.NewCompiler(dstDir)
 	if err != nil {
 		return nil, err
 	}
+
 	c.AddInfo(b.compilerInfo)
 
 	if bpkg != nil {
@@ -279,12 +281,12 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	//     * src/arch/<target-arch>
 	//     * src/test/arch/<target-arch>
 	for _, dir := range srcDirs {
-		if err = buildDir(dir, c, b.Bsp.Arch, []string{"test"}); err != nil {
+		if err = buildDir(dir, c, b.target.Bsp.Arch, []string{"test"}); err != nil {
 			return err
 		}
 		if b.features["TEST"] {
 			testSrcDir := dir + "/test"
-			if err = buildDir(testSrcDir, c, b.Bsp.Arch, nil); err != nil {
+			if err = buildDir(testSrcDir, c, b.target.Bsp.Arch, nil); err != nil {
 				return err
 			}
 		}
@@ -302,24 +304,52 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	return nil
 }
 
-func (b *Builder) link(elfName string) error {
+func (b *Builder) RemovePackages(cmn map[string]bool) error {
+
+	for pkgName, _ := range cmn {
+		for lp, bpkg := range b.Packages {
+			if bpkg.Name() == pkgName {
+				delete(b.Packages, lp)
+			}
+		}
+	}
+	return nil
+}
+
+func (b *Builder) ExtractSymbolInfo() (error, *symbol.SymbolMap) {
+	syms := symbol.NewSymbolMap()
+	for _, bpkg := range b.Packages {
+		err, sm := b.ParseObjectLibrary(bpkg)
+		if err == nil {
+			syms, err = (*syms).Merge(sm)
+			if err != nil {
+				return err, nil
+			}
+		}
+	}
+	return nil, syms
+}
+
+func (b *Builder) link(elfName string, linkerScript string,
+	keepSymbols []string) error {
 	c, err := b.newCompiler(b.appPkg, b.PkgBinDir(elfName))
 	if err != nil {
 		return err
 	}
 
+	/* always used the trimmed archive files */
 	pkgNames := []string{}
+
 	for _, bpkg := range b.Packages {
-		archivePath := b.ArchivePath(bpkg.Name())
-		if util.NodeExist(archivePath) {
-			pkgNames = append(pkgNames, archivePath)
+		if util.NodeExist(b.ArchivePath(bpkg.Name())) {
+			pkgNames = append(pkgNames, b.ArchivePath(bpkg.Name()))
 		}
 	}
 
-	if b.Bsp.LinkerScript != "" {
-		c.LinkerScript = b.Bsp.BasePath() + b.Bsp.LinkerScript
+	if linkerScript != "" {
+		c.LinkerScript = b.target.Bsp.BasePath() + linkerScript
 	}
-	err = c.CompileElf(elfName, pkgNames)
+	err = c.CompileElf(elfName, pkgNames, keepSymbols, b.LinkElf)
 	if err != nil {
 		return err
 	}
@@ -330,44 +360,15 @@ func (b *Builder) link(elfName string) error {
 // Populates the builder with all the packages that need to be built and
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
-func (b *Builder) PrepBuild() error {
-	if b.Bsp != nil {
-		// Already prepped
-		return nil
-	}
+func (b *Builder) PrepBuild(appPkg *pkg.LocalPackage,
+	bspPkg *pkg.LocalPackage, targetPkg *pkg.LocalPackage) error {
 
 	b.featureBlackList = []map[string]interface{}{}
 	b.featureWhiteList = []map[string]interface{}{}
 
-	// Collect the seed packages.
-	bspPkg := b.target.Bsp()
-	if bspPkg == nil {
-		if b.target.BspName == "" {
-			return util.NewNewtError("BSP package not specified by target")
-		} else {
-			return util.NewNewtError("BSP package not found: " +
-				b.target.BspName)
-		}
-	}
-
-	b.featureBlackList = append(b.featureBlackList, bspPkg.FeatureBlackList())
-	b.featureWhiteList = append(b.featureWhiteList, bspPkg.FeatureWhiteList())
-
-	b.Bsp = pkg.NewBspPackage(bspPkg)
-	compilerPkg := b.resolveCompiler()
-	if compilerPkg == nil {
-		if b.Bsp.CompilerName == "" {
-			return util.NewNewtError("Compiler package not specified by BSP")
-		} else {
-			return util.NewNewtError("Compiler package not found: " +
-				b.Bsp.CompilerName)
-		}
-	}
-
-	// An app package is not required (e.g., unit tests).
-	appPkg := b.target.App()
-
 	// Seed the builder with the app (if present), bsp, and target packages.
+
+	b.BspPkg = bspPkg
 
 	var appBpkg *BuildPackage
 	if appPkg != nil {
@@ -382,11 +383,15 @@ func (b *Builder) PrepBuild() error {
 	}
 
 	bspBpkg := b.Packages[bspPkg]
+
 	if bspBpkg == nil {
 		bspBpkg = b.AddPackage(bspPkg)
 	}
 
-	targetBpkg := b.AddPackage(b.target.Package())
+	b.featureBlackList = append(b.featureBlackList, bspPkg.FeatureBlackList())
+	b.featureWhiteList = append(b.featureWhiteList, bspPkg.FeatureWhiteList())
+
+	targetBpkg := b.AddPackage(targetPkg)
 
 	b.featureBlackList = append(b.featureBlackList, targetBpkg.FeatureBlackList())
 	b.featureWhiteList = append(b.featureWhiteList, targetBpkg.FeatureWhiteList())
@@ -423,7 +428,7 @@ func (b *Builder) PrepBuild() error {
 	baseCi := toolchain.NewCompilerInfo()
 
 	// Target flags.
-	log.Debugf("Generating build flags for target %s", b.target.FullName())
+	log.Debugf("Generating build flags for target %s", b.target.target.FullName())
 	targetCi, err := targetBpkg.CompilerInfo(b)
 	if err != nil {
 		return err
@@ -448,11 +453,11 @@ func (b *Builder) PrepBuild() error {
 		return err
 	}
 
-	// Define a cpp symbol indicating the BSP architecture, name of the BSP and
-	// app.
-	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.Bsp.Arch)
+	// Define a cpp symbol indicating the BSP architecture, name of the
+	// BSP and app.
+	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.target.Bsp.Arch)
 	bspCi.Cflags = append(bspCi.Cflags,
-		"-DBSP_NAME=\""+filepath.Base(b.Bsp.Name())+"\"")
+		"-DBSP_NAME=\""+filepath.Base(b.target.Bsp.Name())+"\"")
 	if appPkg != nil {
 		bspCi.Cflags = append(bspCi.Cflags,
 			"-DAPP_NAME=\""+filepath.Base(appPkg.Name())+"\"")
@@ -461,14 +466,6 @@ func (b *Builder) PrepBuild() error {
 
 	// Note: Compiler flags get added at the end, after the flags for library
 	// package being built are calculated.
-
-	// Read the BSP configuration.  These settings are necessary for the link
-	// step.
-	if err := b.Bsp.Reload(b.Features(b.Bsp)); err != nil {
-		return err
-	}
-
-	b.compilerPkg = compilerPkg
 	b.compilerInfo = baseCi
 
 	return nil
@@ -513,16 +510,11 @@ func (b *Builder) CheckValidFeature(pkg pkg.Package,
 	}
 }
 
-func (b *Builder) Build() error {
-	if err := b.target.Validate(true); err != nil {
-		return err
-	}
+func (b *Builder) AddCompilerInfo(info *toolchain.CompilerInfo) {
+	b.compilerInfo.AddCompilerInfo(info)
+}
 
-	// Populate the package and feature sets and calculate the base compiler
-	// flags.
-	if err := b.PrepBuild(); err != nil {
-		return err
-	}
+func (b *Builder) Build() error {
 
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
@@ -532,34 +524,41 @@ func (b *Builder) Build() error {
 		}
 	}
 
-	if err := b.link(b.AppElfPath()); err != nil {
+	return nil
+}
+
+func (b *Builder) Link(linkerScript string) error {
+	if err := b.link(b.AppElfPath(), linkerScript, nil); err != nil {
 		return err
 	}
+	return nil
+}
 
+func (b *Builder) KeepLink(linkerScript string, keepMap *symbol.SymbolMap) error {
+	keepSymbols := make([]string, 0)
+
+	if keepMap != nil {
+		for _, info := range *keepMap {
+			keepSymbols = append(keepSymbols, info.Name)
+		}
+	}
+	if err := b.link(b.AppElfPath(), linkerScript, keepSymbols); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *Builder) TestLink(linkerScript string) error {
+	if err := b.link(b.AppTempElfPath(), linkerScript, nil); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (b *Builder) Test(p *pkg.LocalPackage) error {
-	if err := b.target.Validate(false); err != nil {
-		return err
-	}
 
 	// Seed the builder with the package under test.
 	testBpkg := b.AddPackage(p)
-
-	// A few features are automatically supported when the test command is
-	// used:
-	//     * TEST:      ensures that the test code gets compiled.
-	//     * SELFTEST:  indicates that there is no app.
-	b.AddFeature("TEST")
-	b.AddFeature("SELFTEST")
-
-	// Populate the package and feature sets and calculate the base compiler
-	// flags.
-	err := b.PrepBuild()
-	if err != nil {
-		return err
-	}
 
 	// Define the PKG_TEST symbol while the package under test is being
 	// compiled.  This symbol enables the appropriate main function that
@@ -580,7 +579,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	}
 
 	testFilename := b.TestExePath(p.Name())
-	err = b.link(testFilename)
+	err = b.link(testFilename, "", nil)
 	if err != nil {
 		return err
 	}
@@ -604,7 +603,101 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 
 func (b *Builder) Clean() error {
 	path := b.BinDir()
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n", path)
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n",
+		path)
 	err := os.RemoveAll(path)
 	return err
+}
+
+func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
+	loader_sm := symbol.NewSymbolMap()
+
+	for _, value := range b.Packages {
+		err, sm := b.ParseObjectLibrary(value)
+		if err == nil {
+			util.StatusMessage(util.VERBOSITY_VERBOSE,
+				"Size of %s Loader Map %d\n", value.Name(), len(*sm))
+			loader_sm, err = loader_sm.Merge(sm)
+			if err != nil {
+				return err, nil
+			}
+		}
+	}
+
+	return nil, loader_sm
+}
+
+func (b *Builder) GetTarget() *target.Target {
+	return b.target.GetTarget()
+}
+
+func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
+
+	/* check dependencies on the ROM ELF.  This is really dependent on
+	 * all of the .a files, but since we already depend on the loader
+	 * .as to build the initial elf, we only need to check the app .a */
+	c, err := b.target.NewCompiler(b.AppElfPath())
+	d := toolchain.NewDepTracker(c)
+	if err != nil {
+		return err
+	}
+
+	archNames := []string{}
+
+	/* build the set of archive file names */
+	for _, bpkg := range b.Packages {
+		archivePath := b.ArchivePath(bpkg.Name())
+		if util.NodeExist(archivePath) {
+			archNames = append(archNames, archivePath)
+		}
+	}
+
+	bld, err := d.RomElfBuldRequired(b.AppLinkerElfPath(),
+		b.AppElfPath(), archNames)
+	if err != nil {
+		return err
+	}
+
+	if !bld {
+		return nil
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Generating ROM elf \n")
+
+	/* the linker needs these symbols kept for the split app
+	 * to initialize the loader data and bss */
+	common.Add(*symbol.NewElfSymbol("__HeapBase"))
+	common.Add(*symbol.NewElfSymbol("__bss_start__"))
+	common.Add(*symbol.NewElfSymbol("__bss_end__"))
+	common.Add(*symbol.NewElfSymbol("__etext"))
+	common.Add(*symbol.NewElfSymbol("__data_start__"))
+	common.Add(*symbol.NewElfSymbol("__data_end__"))
+
+	/* the split app may need this to access interrupts */
+	common.Add(*symbol.NewElfSymbol("__vector_tbl_reloc__"))
+	common.Add(*symbol.NewElfSymbol("__isr_vector"))
+
+	err = b.CopySymbols(common)
+	if err != nil {
+		return err
+	}
+
+	/* These symbols are needed by the split app so it can zero
+	 * bss and copy data from the loader app before it restarts,
+	 * but we have to rename them since it has its own copies of
+	 * these special linker symbols  */
+	tmp_sm := symbol.NewSymbolMap()
+	tmp_sm.Add(*symbol.NewElfSymbol("__HeapBase"))
+	tmp_sm.Add(*symbol.NewElfSymbol("__bss_start__"))
+	tmp_sm.Add(*symbol.NewElfSymbol("__bss_end__"))
+	tmp_sm.Add(*symbol.NewElfSymbol("__etext"))
+	tmp_sm.Add(*symbol.NewElfSymbol("__data_start__"))
+	tmp_sm.Add(*symbol.NewElfSymbol("__data_end__"))
+	err = c.RenameSymbols(tmp_sm, b.AppLinkerElfPath(), "_loader")
+
+	if err != nil {
+		return err
+	}
+	return nil
 }

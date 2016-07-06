@@ -42,7 +42,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
-	b, err := builder.NewBuilder(t)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -58,26 +58,37 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	 * will barf if it needs an image for this type of target, instead of
 	 * downloading an older version.
 	 */
+	var app_img *image.Image
+	var loader_img *image.Image
 	if len(args) > 1 {
-		image, err := image.NewImage(b)
-		if err != nil {
-			NewtUsage(cmd, err)
-		}
-		err = image.SetVersion(args[1])
-		if err != nil {
-			NewtUsage(cmd, err)
-		}
-		err = image.Generate()
-		if err != nil {
-			NewtUsage(cmd, err)
-		}
-		err = image.CreateManifest(t)
-		if err != nil {
-			NewtUsage(cmd, err)
+		if b.Loader == nil {
+			err, app_img = CreateImage(b.App, args[1], "", 0, nil)
+			if err != nil {
+				NewtUsage(cmd, err)
+			}
+		} else {
+			err, loader_img = CreateImage(b.Loader, args[1], "", 0, nil)
+			if err != nil {
+				NewtUsage(cmd, err)
+			}
+			err, app_img = CreateImage(b.App, args[1], "", 0, loader_img)
+			if err != nil {
+				NewtUsage(cmd, err)
+			}
+
 		}
 	} else {
-		os.Remove(b.AppImgPath())
+		os.Remove(b.App.AppImgPath())
+		os.Remove(b.Loader.AppImgPath())
 	}
+
+	build_id := image.CreateBuildId(app_img, loader_img)
+
+	err = image.CreateManifest(b, app_img, loader_img, build_id)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
 	err = b.Load()
 	if err != nil {
 		NewtUsage(cmd, err)

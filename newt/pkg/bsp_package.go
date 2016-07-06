@@ -26,11 +26,12 @@ import (
 
 type BspPackage struct {
 	*LocalPackage
-	CompilerName   string
-	Arch           string
-	LinkerScript   string
-	DownloadScript string
-	DebugScript    string
+	CompilerName      string
+	Arch              string
+	LinkerScript      string
+	Part2LinkerScript string /* script to link app to second partition */
+	DownloadScript    string
+	DebugScript       string
 }
 
 func (bsp *BspPackage) Reload(features map[string]bool) error {
@@ -40,6 +41,8 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 		features, "pkg.arch")
 	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
 		features, "pkg.linkerscript")
+	bsp.Part2LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+		features, "pkg.part2linkerscript")
 	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
 		features, "pkg.downloadscript")
 	bsp.DebugScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,

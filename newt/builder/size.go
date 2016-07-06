@@ -315,16 +315,37 @@ func PrintSizes(libs map[string]*PkgSize,
 	return ret, nil
 }
 
-func (b *Builder) Size() error {
-	if b.target.App() == nil {
-		return util.NewNewtError("app package not specified for this target")
-	}
+func (t *TargetBuilder) Size() error {
 
-	err := b.PrepBuild()
+	err := t.PrepBuild()
+
 	if err != nil {
 		return err
 	}
-	if b.Bsp.Arch == "sim" {
+
+	fmt.Printf("Size of Application Image: %s\n", t.App.buildName)
+	err = t.App.Size()
+
+	if err == nil {
+		if t.Loader != nil {
+			fmt.Printf("Size of Loader Image: %s\n", t.Loader.buildName)
+			err = t.Loader.Size()
+		}
+	}
+
+	return err
+}
+
+func (b *Builder) Size() error {
+	if b.appPkg == nil {
+		return util.NewNewtError("app package not specified for this target")
+	}
+
+	err := b.target.PrepBuild()
+	if err != nil {
+		return err
+	}
+	if b.target.Bsp.Arch == "sim" {
 		fmt.Println("'newt size' not supported for sim targets.")
 		return nil
 	}

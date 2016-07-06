@@ -29,7 +29,42 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+func CreateImage(b *builder.Builder, version string,
+	keystr string, keyId uint8, loader *image.Image) (error, *image.Image) {
+
+	/* do the app image */
+	app_image, err := image.NewImage(b)
+	if err != nil {
+		return err, nil
+	}
+
+	err = app_image.SetVersion(version)
+	if err != nil {
+		return err, nil
+	}
+
+	if keystr != "" {
+		err = app_image.SetSigningKey(keystr, keyId)
+		if err != nil {
+			return err, nil
+		}
+	}
+
+	err = app_image.Generate(loader)
+	if err != nil {
+		return err, nil
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"App image succesfully generated: %s\n", app_image.TargetImg())
+
+	return nil, app_image
+}
+
 func createImageRunCmd(cmd *cobra.Command, args []string) {
+	var keyId uint8
+	var keystr string
+
 	if err := project.Initialize(); err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -43,7 +78,21 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+targetName))
 	}
 
-	b, err := builder.NewBuilder(t)
+	version := args[1]
+
+	if len(args) > 2 {
+		if len(args) > 3 {
+			keyId64, err := strconv.ParseUint(args[3], 10, 8)
+			if err != nil {
+				NewtUsage(cmd,
+					util.NewNewtError("Key ID must be between 0-255"))
+			}
+			keyId = uint8(keyId64)
+		}
+		keystr = args[2]
+	}
+
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(cmd, err)
 		return
@@ -55,46 +104,32 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	image, err := image.NewImage(b)
-	if err != nil {
-		NewtUsage(cmd, err)
-		return
-	}
+	var app_img *image.Image
+	var loader_img *image.Image
 
-	err = image.SetVersion(args[1])
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	if len(args) > 2 {
-		var keyId uint8 = 0
-		if len(args) > 3 {
-			keyId64, err := strconv.ParseUint(args[3], 10, 8)
-			if err != nil {
-				NewtUsage(cmd,
-					util.NewNewtError("Key ID must be between 0-255"))
-			}
-			keyId = uint8(keyId64)
-		}
-		err = image.SetSigningKey(args[2], keyId)
+	if b.Loader == nil {
+		err, app_img = CreateImage(b.App, version, keystr, keyId, nil)
 		if err != nil {
 			NewtUsage(cmd, err)
+			return
 		}
+	} else {
+		err, loader_img = CreateImage(b.Loader, version, keystr, keyId, nil)
+		if err != nil {
+			NewtUsage(cmd, err)
+			return
+		}
+
+		err, app_img = CreateImage(b.App, version, keystr, keyId, loader_img)
+		if err != nil {
+			NewtUsage(cmd, err)
+			return
+		}
+
 	}
 
-	err = image.Generate()
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-
-	err = image.CreateManifest(t)
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"App image succesfully generated: %s\n", image.TargetImg())
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Build manifest: %s\n",
-		image.ManifestFile())
+	build_id := image.CreateBuildId(app_img, loader_img)
+	err = image.CreateManifest(b, app_img, loader_img, build_id)
 }
 
 func AddImageCommands(cmd *cobra.Command) {

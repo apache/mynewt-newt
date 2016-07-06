@@ -124,6 +124,19 @@ func ResetProject() {
 	globalProject = nil
 }
 
+func ResetDeps(newList interfaces.PackageList) interfaces.PackageList {
+	if globalProject == nil {
+		return nil
+	}
+	oldList := globalProject.packages
+	globalProject.packages = newList
+
+	if newList == nil {
+		globalProject.loadPackageList()
+	}
+	return oldList
+}
+
 func NewProject(dir string) (*Project, error) {
 	proj := &Project{}
 

@@ -68,7 +68,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Building target %s\n",
 			t.FullName())
 
-		b, err := builder.NewBuilder(t)
+		b, err := builder.NewTargetBuilder(t)
 		if err != nil {
 			NewtUsage(nil, err)
 		}
@@ -78,8 +78,10 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "App successfully built: "+
-			"%s\n", b.AppElfPath())
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Target successfully built: "+
+			"%s\n", targetName)
+
+		/* TODO */
 	}
 }
 
@@ -116,7 +118,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		for _, t := range targets {
-			b, err := builder.NewBuilder(t)
+			b, err := builder.NewTargetBuilder(t)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
@@ -189,7 +191,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 				TARGET_TEST_NAME))
 		}
 
-		b, err := builder.NewBuilder(t)
+		b, err := builder.NewTargetBuilder(t)
 		if err != nil {
 			NewtUsage(nil, err)
 		}
@@ -241,7 +243,7 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
-	b, err := builder.NewBuilder(t)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -265,7 +267,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
-	b, err := builder.NewBuilder(t)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -289,7 +291,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
-	b, err := builder.NewBuilder(t)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}

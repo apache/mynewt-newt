@@ -29,6 +29,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -45,7 +46,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -57,8 +57,6 @@ type ImageVersion struct {
 }
 
 type Image struct {
-	builder *builder.Builder
-
 	sourceBin    string
 	targetImg    string
 	manifestFile string
@@ -104,6 +102,7 @@ const (
 	IMAGE_F_SHA256                = 0x00000002 /* Image contains hash TLV */
 	IMAGE_F_PKCS15_RSA2048_SHA256 = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
 	IMAGE_F_ECDSA224_SHA256       = 0x00000008 /* ECDSA224 over SHA256 */
+	IMAGE_F_NON_BOOTABLE          = 0x00000010 /* non bootable image */
 )
 
 /*
@@ -119,12 +118,16 @@ const (
  * Data that's going to go to build manifest file
  */
 type ImageManifest struct {
-	Date    string              `json:"build_time"`
-	Version string              `json:"build_version"`
-	Hash    string              `json:"id"`
-	Image   string              `json:"image"`
-	Pkgs    []*ImageManifestPkg `json:"pkgs"`
-	TgtVars []string            `json:"target"`
+	Date       string              `json:"build_time"`
+	Version    string              `json:"build_version"`
+	BuildID    string              `json:"id"`
+	Image      string              `json:"image"`
+	ImageHash  string              `json:"image_hash"`
+	Loader     string              `json:"loader"`
+	LoaderHash string              `json:"loader_hash"`
+	Pkgs       []*ImageManifestPkg `json:"pkgs"`
+	LoaderPkgs []*ImageManifestPkg `json:"loader_pkgs"`
+	TgtVars    []string            `json:"target"`
 }
 
 type ImageManifestPkg struct {
@@ -137,9 +140,7 @@ type ECDSASig struct {
 }
 
 func NewImage(b *builder.Builder) (*Image, error) {
-	image := &Image{
-		builder: b,
-	}
+	image := &Image{}
 
 	image.sourceBin = b.AppElfPath() + ".bin"
 	image.targetImg = b.AppImgPath()
@@ -246,7 +247,7 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 	return nil
 }
 
-func (image *Image) Generate() error {
+func (image *Image) Generate(loader *Image) error {
 	binFile, err := os.Open(image.sourceBin)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
@@ -273,6 +274,14 @@ func (image *Image) Generate() error {
 	 */
 	hash := sha256.New()
 
+	if loader != nil {
+		err = binary.Write(hash, binary.LittleEndian, loader.hash)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to seed hash: %s",
+				err.Error()))
+		}
+	}
+
 	/*
 	 * First the header
 	 */
@@ -288,16 +297,24 @@ func (image *Image) Generate() error {
 		Vers:  image.version,
 		Pad3:  0,
 	}
+
 	if image.signingRSA != nil {
-		hdr.TlvSz = 4 + 256 + 4 + 32
-		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256 | IMAGE_F_SHA256
+		hdr.TlvSz = 4 + 256
+		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
 		hdr.KeyId = image.keyId
 	} else if image.signingEC != nil {
-		hdr.TlvSz = 4 + 68 + 4 + 32
-		hdr.Flags = IMAGE_F_ECDSA224_SHA256 | IMAGE_F_SHA256
+		hdr.TlvSz = 4 + 68
+		hdr.Flags = IMAGE_F_ECDSA224_SHA256
 	} else {
 		hdr.TlvSz = 4 + 32
 		hdr.Flags = IMAGE_F_SHA256
+	}
+
+	hdr.TlvSz += 4 + 32
+	hdr.Flags |= IMAGE_F_SHA256
+
+	if loader != nil {
+		hdr.Flags |= IMAGE_F_NON_BOOTABLE
 	}
 
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
@@ -426,31 +443,51 @@ func (image *Image) Generate() error {
 		}
 	}
 
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Computed Hash for image %s as %s \n", image.TargetImg(), hex.EncodeToString(image.hash[:]))
 	return nil
 }
 
-func (image *Image) CreateManifest(t *target.Target) error {
+func CreateBuildId(app *Image, loader *Image) []byte {
+	return app.hash
+}
+
+func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_id []byte) error {
 	versionStr := fmt.Sprintf("%d.%d.%d.%d",
-		image.version.Major, image.version.Minor,
-		image.version.Rev, image.version.BuildNum)
-	hashStr := fmt.Sprintf("%x", image.hash)
+		app.version.Major, app.version.Minor,
+		app.version.Rev, app.version.BuildNum)
+	hashStr := fmt.Sprintf("%x", app.hash)
 	timeStr := time.Now().Format(time.RFC3339)
 
 	manifest := &ImageManifest{
-		Version: versionStr,
-		Hash:    hashStr,
-		Image:   filepath.Base(image.targetImg),
-		Date:    timeStr,
+		Version:   versionStr,
+		ImageHash: hashStr,
+		Image:     filepath.Base(app.targetImg),
+		Date:      timeStr,
 	}
 
-	for _, builtPkg := range image.builder.Packages {
+	for _, builtPkg := range t.App.Packages {
 		imgPkg := &ImageManifestPkg{
 			Name: builtPkg.Name(),
 		}
 		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
 	}
 
-	vars := t.Vars
+	if loader != nil {
+		manifest.Loader = filepath.Base(loader.targetImg)
+		manifest.LoaderHash = fmt.Sprintf("%x", loader.hash)
+
+		for _, builtPkg := range t.Loader.Packages {
+			imgPkg := &ImageManifestPkg{
+				Name: builtPkg.Name(),
+			}
+			manifest.LoaderPkgs = append(manifest.LoaderPkgs, imgPkg)
+		}
+	}
+
+	manifest.BuildID = fmt.Sprintf("%x", build_id)
+
+	vars := t.GetTarget().Vars
 	var keys []string
 	for k := range vars {
 		keys = append(keys, k)
@@ -459,10 +496,10 @@ func (image *Image) CreateManifest(t *target.Target) error {
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
-	file, err := os.Create(image.manifestFile)
+	file, err := os.Create(app.manifestFile)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",
-			image.manifestFile, err.Error()))
+			app.manifestFile, err.Error()))
 	}
 	defer file.Close()
 
