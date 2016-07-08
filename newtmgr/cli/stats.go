@@ -32,6 +32,7 @@ func statsListRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	slr, err := protocol.NewStatsListReq()
 	if err != nil {
@@ -66,6 +67,7 @@ func statsRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	srr, err := protocol.NewStatsReadReq()
 	if err != nil {

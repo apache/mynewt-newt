@@ -177,3 +177,7 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 
 	return nil
 }
+
+func (cs *ConnSerial) Close() error {
+	return nil
+}

@@ -32,6 +32,7 @@ func echoRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	echo, err := protocol.NewEcho()
 	if err != nil {

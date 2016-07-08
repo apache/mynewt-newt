@@ -49,6 +49,7 @@ func crashRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer conn.Close()
 
 	runner, err := protocol.NewCmdRunner(conn)
 	if err != nil {

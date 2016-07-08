@@ -32,6 +32,7 @@ func dateTimeCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	dateTime, err := protocol.NewDateTime()
 	if err != nil {

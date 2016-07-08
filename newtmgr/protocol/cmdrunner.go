@@ -26,12 +26,12 @@ import (
 )
 
 type CmdRunner struct {
-	conn transport.Conn
+	Conn transport.Conn
 }
 
 func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 	for {
-		pkt, err := cr.conn.ReadPacket()
+		pkt, err := cr.Conn.ReadPacket()
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +68,7 @@ func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 
 	pkt.AddBytes(data)
 
-	if err := cr.conn.WritePacket(pkt); err != nil {
+	if err := cr.Conn.WritePacket(pkt); err != nil {
 		return err
 	}
 
@@ -77,7 +77,7 @@ func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 
 func NewCmdRunner(conn transport.Conn) (*CmdRunner, error) {
 	cmd := &CmdRunner{
-		conn: conn,
+		Conn: conn,
 	}
 
 	return cmd, nil

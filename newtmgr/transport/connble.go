@@ -1,5 +1,6 @@
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
+	iog.Debugf("Writing %+v to data channel", bytes)
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
@@ -20,17 +21,18 @@
 package transport
 
 import (
-	"fmt"
+	log "github.com/Sirupsen/logrus"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/paypal/gatt"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
 )
 
-var done = make(chan struct{})
+var rxBLEPkt = make(chan []byte)
+var CharDisc = make(chan bool)
+
 var newtmgrServiceId = gatt.MustParseUUID("59462f12-9543-9999-12c8-58b459a27120")
 var newtmgrServiceCharId = gatt.MustParseUUID("5c3a659e-897e-45e1-b016-007107c96d00")
 var deviceName string
@@ -42,13 +44,16 @@ type ConnBLE struct {
 	bleDevice gatt.Device
 }
 
-var pktData []byte
+var deviceChar *gatt.Characteristic
+var devicePerph gatt.Peripheral
+
+var bleTxData []byte
 
 func onStateChanged(d gatt.Device, s gatt.State) {
-	fmt.Println("State:", s)
+	log.Debugf("State:%+v", s)
 	switch s {
 	case gatt.StatePoweredOn:
-		fmt.Println("scanning...")
+		log.Debugf("scanning...")
 		d.Scan([]gatt.UUID{}, false)
 		return
 	default:
@@ -58,38 +63,43 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 	if a.LocalName == deviceName {
-		fmt.Printf("Peripheral Discovered: %s \n", p.Name())
+		log.Debugf("Peripheral Discovered: %s", p.Name())
 		p.Device().StopScanning()
 		p.Device().Connect(p)
 	}
 }
 
 func newtmgrNotifyCB(c *gatt.Characteristic, incomingDatabuf []byte, err error) {
-	fmt.Printf("Newtmgr response rxd:%+v", incomingDatabuf)
+	log.Debugf("BLE Newtmgr rx data:%+v", incomingDatabuf)
+        err = nil
+        rxBLEPkt <- incomingDatabuf
+        return
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
-	fmt.Printf("Peripheral connected\n")
+	log.Debugf("Peripheral Connected")
 
 	services, err := p.DiscoverServices(nil)
 	if err != nil {
-		fmt.Printf("Failed to discover services, err: %s\n", err)
+		log.Debugf("Failed to discover services, err: %s", err)
 		return
 	}
 
 	for _, service := range services {
 
 		if service.UUID().Equal(newtmgrServiceId) {
-			fmt.Printf("Newtmgr Service Found %s\n", service.Name())
+			log.Debugf("Newtmgr Service Found %s", service.Name())
 
 			cs, _ := p.DiscoverCharacteristics(nil, service)
 
 			for _, c := range cs {
 				if c.UUID().Equal(newtmgrServiceCharId) {
-					fmt.Printf("Newtmgr Characteristic Found %+v", c)
+					log.Debugf("Newtmgr Characteristic Found")
 					p.SetNotifyValue(c, newtmgrNotifyCB)
-					log.Debugf("Writing %+v to ble", pktData)
-					p.WriteCharacteristic(c, pktData, true)
+					deviceChar = c
+					devicePerph = p
+					p.SetMTU(240)
+					<-CharDisc
 				}
 			}
 		}
@@ -97,7 +107,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 }
 
 func onPeriphDisconnected(p gatt.Peripheral, err error) {
-	fmt.Println("Disconnected")
+	log.Debugf("Disconnected", err)
 }
 
 func (cb *ConnBLE) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration) error {
@@ -113,52 +123,52 @@ func (cb *ConnBLE) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
-	//defer cs.serialChannel.Close()
 
 	cb.bleDevice.Handle(
 		gatt.PeripheralDiscovered(onPeriphDiscovered),
 		gatt.PeripheralConnected(onPeriphConnected),
 		gatt.PeripheralDisconnected(onPeriphDisconnected),
 	)
+	cb.bleDevice.Init(onStateChanged)
+	CharDisc <- true
+
 	return nil
 }
 
 func (cb *ConnBLE) ReadPacket() (*Packet, error) {
 	var err error
-	/*
-			pktLen := binary.BigEndian.Uint16(data[0:2])
-			cb.currentPacket, err = NewPacket(pktLen)
-			if err != nil {
-					return nil, err
-		    }
-				data = data[2:]
 
-			if cs.currentPacket == nil {
-				continue
-			}
+	bleRxData := <-rxBLEPkt
 
-			full := cs.currentPacket.AddBytes(data)
-			if full {
-				if crc16.Crc16(cs.currentPacket.GetBytes()) != 0 {
-					return nil, util.NewNewtError("CRC error")
-				}
-
-				/*
-				 * Trim away the 2 bytes of CRC
-	*/
-	/*			cs.currentPacket.TrimEnd(2)
-			pkt := cs.currentPacket
-			cs.currentPacket = nil
-			return pkt, nil
-		}
+	cb.currentPacket, err = NewPacket(uint16(len(bleRxData)))
+	if err != nil {
+		return nil, err
 	}
-	*/
-	return nil, err
+
+	cb.currentPacket.AddBytes(bleRxData)
+	log.Debugf("Read BLE Packet:buf::%+v len::%+v", cb.currentPacket.buffer,
+                   cb.currentPacket.expectedLen)
+        bleRxData = bleRxData[:0]
+	pkt := cb.currentPacket
+	cb.currentPacket = nil
+	return pkt, err
+}
+
+func (cb *ConnBLE) writeData() error {
+	devicePerph.WriteCharacteristic(deviceChar, bleTxData, true)
+	return nil
 }
 
 func (cb *ConnBLE) WritePacket(pkt *Packet) error {
-	pktData = pkt.GetBytes()
-	cb.bleDevice.Init(onStateChanged)
-	<-done
+	log.Debugf("Write BLE Packet:buf::%+v len::%+v", pkt.buffer,
+                   pkt.expectedLen)
+	bleTxData = pkt.GetBytes()
+	cb.writeData()
+	return nil
+}
+
+func (cb *ConnBLE) Close () error {
+	log.Debugf("Closing Connection %+v", cb)
+        cb.bleDevice.CancelConnection(devicePerph)
 	return nil
 }

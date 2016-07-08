@@ -32,6 +32,7 @@ func mempoolStatsRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	srr, err := protocol.NewMempoolStatsReadReq()
 	if err != nil {

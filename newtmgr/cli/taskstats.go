@@ -32,7 +32,7 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-
+	defer runner.Conn.Close()
 	srr, err := protocol.NewTaskStatsReadReq()
 	if err != nil {
 		nmUsage(cmd, err)

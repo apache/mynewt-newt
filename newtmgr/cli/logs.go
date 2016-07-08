@@ -117,6 +117,7 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	req, err := protocol.NewLogsShowReq()
 	if err != nil {
@@ -179,6 +180,7 @@ func logsModuleListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	req, err := protocol.NewLogsModuleListReq()
 	if err != nil {
@@ -214,7 +216,7 @@ func logsListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-
+	defer runner.Conn.Close()
 	req, err := protocol.NewLogsListReq()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -248,7 +250,7 @@ func logsLevelListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-
+	defer runner.Conn.Close()
 	req, err := protocol.NewLogsLevelListReq()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -282,6 +284,7 @@ func logsClearCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	req, err := protocol.NewLogsClearReq()
 	if err != nil {

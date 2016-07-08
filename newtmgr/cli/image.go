@@ -36,6 +36,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const bleMTU = 240
+
 var (
 	coreElfify   bool
 	coreOffset   uint32
@@ -57,6 +59,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(nil, err)
 	}
+	defer conn.Close()
 
 	runner, err := protocol.NewCmdRunner(conn)
 	if err != nil {
@@ -90,6 +93,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	for i := 0; i < len(iRsp.Images); i++ {
 		fmt.Println("   ", i, ": "+iRsp.Images[i])
 	}
+
 }
 
 func imageListCmd2(cmd *cobra.Command, args []string) {
@@ -151,20 +155,23 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(nil, err)
 	}
+	defer conn.Close()
 
 	runner, err := protocol.NewCmdRunner(conn)
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-	err = echoCtrl(runner, "0")
-	if err != nil {
-		nmUsage(cmd, err)
+
+	if (profile.Type() == "serial") {
+		err = echoCtrl(runner, "0")
+		if err != nil {
+			nmUsage(cmd, err)
+		}
 	}
 	var currOff uint32 = 0
 	imageSz := uint32(len(imageFile))
 	rexmits := 0
 
-	fmt.Println(currOff)
 	for currOff < imageSz {
 		imageUpload, err := protocol.NewImageUpload()
 		if err != nil {
@@ -172,8 +179,9 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 
 		blockSz := imageSz - currOff
-		if blockSz > 36 {
-			blockSz = 36
+		mtu := uint32((bleMTU - 33) * 3/4)
+		if blockSz > mtu {
+			blockSz = mtu
 		}
 		if currOff == 0 {
 			blockSz = 33
@@ -226,11 +234,13 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 			nmUsage(cmd, err)
 		}
 		currOff = ersp.Offset
-		fmt.Println(currOff)
 	}
-	err = echoCtrl(runner, "1")
-	if err != nil {
-		nmUsage(cmd, err)
+
+	if (profile.Type() == "serial") {
+		err = echoCtrl(runner, "1")
+		if err != nil {
+			nmUsage(cmd, err)
+		}
 	}
 	if rexmits != 0 {
 		fmt.Printf(" %d retransmits\n", rexmits)

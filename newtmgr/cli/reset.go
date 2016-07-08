@@ -31,6 +31,7 @@ func resetRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	reset, err := protocol.NewReset()
 	if err != nil {

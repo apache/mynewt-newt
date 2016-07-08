@@ -31,6 +31,7 @@ type Conn interface {
 	Open(cp config.NewtmgrConnProfile, timeout time.Duration) error
 	ReadPacket() (*Packet, error)
 	WritePacket(pkt *Packet) error
+	Close() error
 }
 
 type Packet struct {
@@ -97,4 +98,9 @@ func newConn(cp config.NewtmgrConnProfile, readTimeout time.Duration) (Conn, err
 	}
 
 	return c, nil
+}
+
+func CloseConn(c Conn) error {
+	c.Close()
+	return nil
 }

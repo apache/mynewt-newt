@@ -37,6 +37,7 @@ func configRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	config, err := protocol.NewConfig()
 	if err != nil {
