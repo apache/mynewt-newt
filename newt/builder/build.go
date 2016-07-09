@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 
+	log "github.com/Sirupsen/logrus"
+
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
@@ -204,6 +206,7 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 	c.AddInfo(b.compilerInfo)
 
 	if bpkg != nil {
+		log.Debugf("Generating build flags for package %s", bpkg.FullName())
 		ci, err := bpkg.CompilerInfo(b)
 		if err != nil {
 			return nil, err
@@ -356,14 +359,32 @@ func (b *Builder) PrepBuild() error {
 
 	// Populate the base set of compiler flags.  Flags from the following
 	// packages get applied to every source file:
+	//     * target
 	//     * app (if present)
 	//     * bsp
 	//     * compiler (not added here)
+	//
+	// In the case of conflicting flags, the higher priority package's flag
+	// wins.  Package priorities are assigned as follows (highest priority
+	// first):
 	//     * target
+	//     * app (if present)
+	//     * bsp
+	//     * <library package>
+	//     * compiler
 
 	baseCi := toolchain.NewCompilerInfo()
 
+	// Target flags.
+	log.Debugf("Generating build flags for target %s", b.target.FullName())
+	targetCi, err := targetBpkg.CompilerInfo(b)
+	if err != nil {
+		return err
+	}
+	baseCi.AddCompilerInfo(targetCi)
+
 	// App flags.
+	log.Debugf("Generating build flags for app %s", appPkg.FullName())
 	if appBpkg != nil {
 		appCi, err := appBpkg.CompilerInfo(b)
 		if err != nil {
@@ -373,29 +394,25 @@ func (b *Builder) PrepBuild() error {
 	}
 
 	// Bsp flags.
+	log.Debugf("Generating build flags for bsp %s", bspPkg.FullName())
 	bspCi, err := bspBpkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
-	// Define a cpp symbol indicating the BSP architecture, name of the BSP and app.
+
+	// Define a cpp symbol indicating the BSP architecture, name of the BSP and
+	// app.
 	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.Bsp.Arch)
 	bspCi.Cflags = append(bspCi.Cflags,
-		"-DBSP_NAME=\""+filepath.Base(b.Bsp.Name())+"\"");
+		"-DBSP_NAME=\""+filepath.Base(b.Bsp.Name())+"\"")
 	if appPkg != nil {
 		bspCi.Cflags = append(bspCi.Cflags,
-			"-DAPP_NAME=\""+filepath.Base(appPkg.Name())+"\"");
+			"-DAPP_NAME=\""+filepath.Base(appPkg.Name())+"\"")
 	}
 	baseCi.AddCompilerInfo(bspCi)
 
-	// Target flags.
-	targetCi, err := targetBpkg.CompilerInfo(b)
-	if err != nil {
-		return err
-	}
-
-	baseCi.AddCompilerInfo(targetCi)
-
-	// Note: Compiler flags get added when compiler is created.
+	// Note: Compiler flags get added at the end, after the flags for library
+	// package being built are calculated.
 
 	// Read the BSP configuration.  These settings are necessary for the link
 	// step.

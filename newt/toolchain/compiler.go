@@ -65,7 +65,17 @@ type Compiler struct {
 	ldMapFile             bool
 	dstDir                string
 
+	// The info to be applied during compilation.
 	info CompilerInfo
+
+	// Info read from the compiler package itself.  This is kept separate from
+	// the rest of the info because it has the lowest priority; it can only be
+	// added immediately before compiling beings.
+	lclInfo CompilerInfo
+
+	// Indicates whether the local compiler info has been appended to the
+	// common info set.  Ensures the local info only gets added once.
+	lclInfoAdded bool
 
 	extraDeps []string
 }
@@ -80,11 +90,66 @@ func NewCompilerInfo() *CompilerInfo {
 	return ci
 }
 
+// Extracts the base of a flag string.  A flag base is used when detecting flag
+// conflicts.  If two flags have identicial bases, then they are in conflict.
+func flagsBase(cflags string) string {
+	eqIdx := strings.IndexByte(cflags, '=')
+	if eqIdx == -1 {
+		return cflags
+	} else {
+		return cflags[:eqIdx]
+	}
+}
+
+// Creates a map of flag bases to flag values, i.e.,
+//     [flag-base] => flag
+//
+// This is used to make flag conflict detection more efficient.
+func flagsMap(cflags []string) map[string]string {
+	hash := map[string]string{}
+	for _, cf := range cflags {
+		hash[flagsBase(cf)] = cf
+	}
+
+	return hash
+}
+
+// Appends a new set of flags to an original set.  If a new flag conflicts with
+// an original, the new flag is discarded.  The assumption is that flags from
+// higher priority packages get added first.
+//
+// This is not terribly efficient: it results in flag maps being generated
+// repeatedly when they could be cached.  Any inefficiencies here are probably
+// negligible compared to the time spent compiling and linking.  If this
+// assumption turns out to be incorrect, we should cache the flag maps.
+func addFlags(flagType string, orig []string, new []string) []string {
+	origMap := flagsMap(orig)
+
+	combined := orig
+	for _, c := range new {
+		newBase := flagsBase(c)
+		origVal := origMap[newBase]
+		if origVal == "" {
+			// New flag; add it.
+			combined = append(combined, c)
+		} else {
+			// Flag already present from a higher priority package; discard the
+			// new one.
+			if origVal != c {
+				log.Debugf("Discarding %s %s in favor of %s", flagType, c,
+					origVal)
+			}
+		}
+	}
+
+	return combined
+}
+
 func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Includes = append(ci.Includes, newCi.Includes...)
-	ci.Cflags = append(ci.Cflags, newCi.Cflags...)
-	ci.Lflags = append(ci.Lflags, newCi.Lflags...)
-	ci.Aflags = append(ci.Aflags, newCi.Aflags...)
+	ci.Cflags = addFlags("cflag", ci.Cflags, newCi.Cflags)
+	ci.Lflags = addFlags("lflag", ci.Lflags, newCi.Lflags)
+	ci.Aflags = addFlags("aflag", ci.Aflags, newCi.Aflags)
 }
 
 func NewCompiler(compilerDir string, dstDir string,
@@ -146,9 +211,9 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	c.osPath = newtutil.GetStringFeatures(v, features, "compiler.path.objsize")
 	c.ocPath = newtutil.GetStringFeatures(v, features, "compiler.path.objcopy")
 
-	c.info.Cflags = loadFlags(v, features, "compiler.flags")
-	c.info.Lflags = loadFlags(v, features, "compiler.ld.flags")
-	c.info.Aflags = loadFlags(v, features, "compiler.as.flags")
+	c.lclInfo.Cflags = loadFlags(v, features, "compiler.flags")
+	c.lclInfo.Lflags = loadFlags(v, features, "compiler.ld.flags")
+	c.lclInfo.Aflags = loadFlags(v, features, "compiler.as.flags")
 
 	c.ldResolveCircularDeps, err = newtutil.GetBoolFeatures(v, features,
 		"compiler.ld.resolve_circular_deps")
@@ -162,7 +227,7 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 		return err
 	}
 
-	if len(c.info.Cflags) == 0 {
+	if len(c.lclInfo.Cflags) == 0 {
 		// Assume no Cflags implies an unsupported build profile.
 		return util.FmtNewtError("Compiler doesn't support build profile "+
 			"specified by target on this OS (build_profile=\"%s\" OS=\"%s\")",
@@ -319,6 +384,17 @@ func writeCommandFile(dstFile string, cmd string) error {
 	return nil
 }
 
+// Adds the info from the compiler package to the common set if it hasn't
+// already been added.  The compiler package's info needs to be added last
+// because the compiler is the lowest priority package.
+func (c *Compiler) ensureLclInfoAdded() {
+	if !c.lclInfoAdded {
+		log.Debugf("Generating build flags for compiler")
+		c.AddInfo(&c.lclInfo)
+		c.lclInfoAdded = true
+	}
+}
+
 // Compile the specified C or assembly file.
 //
 // @param file                  The filename of the source file to compile.
@@ -447,6 +523,9 @@ func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 }
 
 func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
+	// Make sure the compiler package info is added to the global set.
+	c.ensureLclInfoAdded()
+
 	// Get a list of files in the current directory, and if they are a
 	// directory, and that directory is not in the ignDirs variable, then
 	// recurse into that directory and compile the files in there
@@ -482,7 +561,8 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 	case COMPILER_TYPE_ASM:
 		return c.CompileAs()
 	default:
-		return util.NewNewtError("Wrong compiler type specified to RecursiveCompile")
+		return util.NewNewtError("Wrong compiler type specified to " +
+			"RecursiveCompile")
 	}
 }
 
@@ -540,10 +620,15 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	objFiles []string) error {
 
+	// Make sure the compiler package info is added to the global set.
+	c.ensureLclInfoAdded()
+
 	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", path.Base(dstFile))
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n",
+		path.Base(dstFile))
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Linking %s with input files %s\n",
 		dstFile, objList)
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles)
@@ -681,6 +766,9 @@ func (c *Compiler) CompileArchiveCmd(archiveFile string,
 // @param objFiles              An array of the source .o filenames.
 func (c *Compiler) CompileArchive(archiveFile string) error {
 	objFiles := []string{}
+
+	// Make sure the compiler package info is added to the global set.
+	c.ensureLclInfoAdded()
 
 	arRequired, err := c.depTracker.ArchiveRequired(archiveFile, objFiles)
 	if err != nil {
