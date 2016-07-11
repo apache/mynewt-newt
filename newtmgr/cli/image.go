@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const bleMTU = 240
 
 var (
 	coreElfify   bool
@@ -169,8 +168,15 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 	var currOff uint32 = 0
+	var mtu uint32 = 0
 	imageSz := uint32(len(imageFile))
 	rexmits := 0
+
+	if (profile.Type() == "ble") {
+		mtu = uint32((transport.BleMTU - 33) * 3/4)
+	} else {
+		mtu = 120
+	}
 
 	for currOff < imageSz {
 		imageUpload, err := protocol.NewImageUpload()
@@ -179,7 +185,6 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		}
 
 		blockSz := imageSz - currOff
-		mtu := uint32((bleMTU - 33) * 3/4)
 		if blockSz > mtu {
 			blockSz = mtu
 		}

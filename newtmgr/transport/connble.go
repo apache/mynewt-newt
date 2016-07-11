@@ -24,11 +24,14 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"time"
 
-	"github.com/paypal/gatt"
+	"github.com/runtimeinc/gatt"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
 )
+
+/* This is used by different command handlers */
+var BleMTU uint16 = 180
 
 var rxBLEPkt = make(chan []byte)
 var CharDisc = make(chan bool)
@@ -98,7 +101,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 					p.SetNotifyValue(c, newtmgrNotifyCB)
 					deviceChar = c
 					devicePerph = p
-					p.SetMTU(240)
+					p.SetMTU(BleMTU)
 					<-CharDisc
 				}
 			}
