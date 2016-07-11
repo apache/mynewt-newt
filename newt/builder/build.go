@@ -384,8 +384,8 @@ func (b *Builder) PrepBuild() error {
 	baseCi.AddCompilerInfo(targetCi)
 
 	// App flags.
-	log.Debugf("Generating build flags for app %s", appPkg.FullName())
 	if appBpkg != nil {
+		log.Debugf("Generating build flags for app %s", appPkg.FullName())
 		appCi, err := appBpkg.CompilerInfo(b)
 		if err != nil {
 			return err
