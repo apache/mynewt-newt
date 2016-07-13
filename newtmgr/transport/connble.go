@@ -36,8 +36,8 @@ var BleMTU uint16 = 180
 var rxBLEPkt = make(chan []byte)
 var CharDisc = make(chan bool)
 
-var newtmgrServiceId = gatt.MustParseUUID("59462f12-9543-9999-12c8-58b459a27120")
-var newtmgrServiceCharId = gatt.MustParseUUID("5c3a659e-897e-45e1-b016-007107c96d00")
+var newtmgrServiceId = gatt.MustParseUUID("8D53DC1D-1DB7-4CD3-868B-8A527460AA84")
+var newtmgrServiceCharId = gatt.MustParseUUID("DA2E7828-FBCE-4E01-AE9E-261174997C48")
 var deviceName string
 
 type ConnBLE struct {
