@@ -274,16 +274,50 @@ func (r *Repo) repoFilePath() string {
 		".configs/" + r.name + "/"
 }
 
-func (r *Repo) Install(force bool) (*Version, error) {
+func (r *Repo) downloadRepo(branchName string) error {
+	dl := r.downloader
+
+	// Download the git repo, returns the git repo, checked out to that branch
+	tmpdir, err := dl.DownloadRepo(branchName)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Error download repository %s, : %s",
+			r.Name(), err.Error()))
+	}
+
+	// Copy the Git repo into the the desired local path of the repo
+	if err := util.CopyDir(tmpdir, r.Path()); err != nil {
+		// Cleanup any directory that might have been created if we error out
+		// here.
+		os.RemoveAll(r.Path())
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) checkForceInstall(force bool) (error, bool) {
 	// Copy the git repo into /repos/, error'ing out if the repo already exists
 	if util.NodeExist(r.Path()) {
 		if force {
 			if err := os.RemoveAll(r.Path()); err != nil {
-				return nil, util.NewNewtError(err.Error())
+				return util.NewNewtError(err.Error()), true
+			}
+		}
+		return nil, true
+	}
+	return nil, false
+}
+
+func (r *Repo) Install(force bool) (*Version, error) {
+	if err, exists := r.checkForceInstall(force); err != nil || exists {
+		if err == nil {
+			if !force {
+				return nil, util.NewNewtError(fmt.Sprintf(
+					"Repository %s already exists, provide the -f option "+
+						"to overwrite", r.Name()))
 			}
 		} else {
-			return nil, util.NewNewtError(fmt.Sprintf("Repository %s already "+
-				"exists in local tree, cannot install.  Provide -f to override.", r.Path()))
+			return nil, err
 		}
 	}
 
@@ -293,24 +327,40 @@ func (r *Repo) Install(force bool) (*Version, error) {
 			r.rdesc.String()))
 	}
 
-	dl := r.downloader
-
-	// Download the git repo, returns the git repo, checked out to that branch
-	tmpdir, err := dl.DownloadRepo(branchName)
-	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Error download repository %s, : %s",
-			r.Name(), err.Error()))
-	}
-
-	// Copy the Git repo into the the desired local path of the repo
-	if err := util.CopyDir(tmpdir, r.Path()); err != nil {
-		// Cleanup any directory that might have been created if we error out
-		// here.
-		os.RemoveAll(r.Path())
+	if err := r.downloadRepo(branchName); err != nil {
 		return nil, err
 	}
 
 	return vers, nil
+}
+
+func (r *Repo) Sync(vers *Version, force bool) (error, bool) {
+	var exists bool
+	var err error
+
+	if err, exists = r.checkForceInstall(force); err != nil {
+		return err, exists
+	}
+	if exists && !force {
+		return nil, exists
+	}
+
+	// Update the repo description
+	if _, updated, err := r.UpdateDesc(); updated != true || err != nil {
+		return util.NewNewtError("Cannot update repository description."), exists
+	}
+
+	branchName, vers, found := r.rdesc.MatchVersion(vers)
+	if found == false {
+		return util.NewNewtError(fmt.Sprintf("Branch description for %s not found",
+			r.Name())), exists
+	}
+
+	if err := r.downloadRepo(branchName); err != nil {
+		return err, exists
+	}
+
+	return nil, exists
 }
 
 func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {

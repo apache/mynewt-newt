@@ -33,6 +33,7 @@ import (
 )
 
 var projectForce bool = false
+var syncForce bool = false
 
 func newRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
@@ -158,6 +159,38 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func syncRunCmd(cmd *cobra.Command, args []string) {
+	proj := project.GetProject()
+	repos := proj.Repos()
+
+	ps, err := project.LoadProjectState()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	for rName, repo := range repos {
+		var exists bool
+		if rName == "local" {
+			continue
+		}
+		vers := ps.GetInstalledVersion(repo.Name())
+		if vers == nil {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"No installed version of %s found, skipping\n",
+				repo.Name())
+		}
+		if err, exists = repo.Sync(vers, syncForce); err != nil {
+			NewtUsage(nil, err)
+		}
+
+		if exists && !syncForce {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"Skipping resync of %s because directory exists.  To "+
+					"force resync, add the -f (force) option.\n", repo.Name())
+		}
+	}
+}
+
 func AddProjectCommands(cmd *cobra.Command) {
 	installHelpText := ""
 	installHelpEx := ""
@@ -187,6 +220,19 @@ func AddProjectCommands(cmd *cobra.Command) {
 		"Force upgrade of the repositories to latest state in project.yml")
 
 	cmd.AddCommand(upgradeCmd)
+
+	syncHelpText := ""
+	syncHelpEx := ""
+	syncCmd := &cobra.Command{
+		Use:     "sync",
+		Short:   "Synchronize project dependencies",
+		Long:    syncHelpText,
+		Example: syncHelpEx,
+		Run:     syncRunCmd,
+	}
+	syncCmd.PersistentFlags().BoolVarP(&syncForce, "force", "f", false,
+		"Force overwrite of existing remote repositories.")
+	cmd.AddCommand(syncCmd)
 
 	newHelpText := ""
 	newHelpEx := ""
