@@ -37,12 +37,16 @@ type NewtmgrConnProfile interface {
 	Name() string
 	Type() string
 	ConnString() string
+	DeviceAddress() [6]byte
+	DeviceAddressType() uint8
 }
 
 type ConnProfile struct {
 	MyName       string
 	MyType       string
 	MyConnString string
+	MyDeviceAddress [6]byte
+	MyDeviceAddressType uint8
 }
 
 func NewConnProfileMgr() (*ConnProfileMgr, error) {
@@ -178,6 +182,14 @@ func (cp *ConnProfile) Type() string {
 
 func (cp *ConnProfile) ConnString() string {
 	return cp.MyConnString
+}
+
+func (cp *ConnProfile) DeviceAddressType() uint8 {
+	return cp.MyDeviceAddressType
+}
+
+func (cp *ConnProfile) DeviceAddress() [6]byte {
+	return cp.MyDeviceAddress
 }
 
 func NewConnProfile(pName string) (*ConnProfile, error) {

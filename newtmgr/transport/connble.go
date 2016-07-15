@@ -39,6 +39,8 @@ var CharDisc = make(chan bool)
 var newtmgrServiceId = gatt.MustParseUUID("8D53DC1D-1DB7-4CD3-868B-8A527460AA84")
 var newtmgrServiceCharId = gatt.MustParseUUID("DA2E7828-FBCE-4E01-AE9E-261174997C48")
 var deviceName string
+var deviceAddress [6]byte
+var deviceAddressType uint8
 
 type ConnBLE struct {
 	connProfile   config.NewtmgrConnProfile
@@ -65,8 +67,22 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 }
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	if a.LocalName == deviceName {
-		log.Debugf("Peripheral Discovered: %s", p.Name())
+	var matched bool = false
+
+	if (len(deviceName) > 0) {
+		matched = a.LocalName == deviceName
+		if (matched == false) {
+			return
+		}
+	}
+
+	if (len(deviceAddress) > 0) {
+		matched = a.Address == deviceAddress && a.AddressType == deviceAddressType
+	}
+
+	if (matched == true) {
+		log.Debugf("Peripheral Discovered: %s, Address:%+v Address Type:%+v",
+		p.Name(), a.Address, a.AddressType)
 		p.Device().StopScanning()
 		p.Device().Connect(p)
 	}
@@ -122,6 +138,8 @@ func (cb *ConnBLE) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration)
 	}
 
 	deviceName = cp.ConnString()
+	deviceAddress = cp.DeviceAddress()
+	deviceAddressType = cp.DeviceAddressType()
 	cb.bleDevice, err = gatt.NewDevice(DefaultClientOptions...)
 	if err != nil {
 		return util.NewNewtError(err.Error())
