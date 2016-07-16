@@ -37,7 +37,7 @@ type NewtmgrConnProfile interface {
 	Name() string
 	Type() string
 	ConnString() string
-	DeviceAddress() [6]byte
+	DeviceAddress() []byte
 	DeviceAddressType() uint8
 }
 
@@ -45,7 +45,7 @@ type ConnProfile struct {
 	MyName       string
 	MyType       string
 	MyConnString string
-	MyDeviceAddress [6]byte
+	MyDeviceAddress []byte
 	MyDeviceAddressType uint8
 }
 
@@ -188,7 +188,7 @@ func (cp *ConnProfile) DeviceAddressType() uint8 {
 	return cp.MyDeviceAddressType
 }
 
-func (cp *ConnProfile) DeviceAddress() [6]byte {
+func (cp *ConnProfile) DeviceAddress() []byte {
 	return cp.MyDeviceAddress
 }
 

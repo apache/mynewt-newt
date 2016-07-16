@@ -39,7 +39,7 @@ var CharDisc = make(chan bool)
 var newtmgrServiceId = gatt.MustParseUUID("8D53DC1D-1DB7-4CD3-868B-8A527460AA84")
 var newtmgrServiceCharId = gatt.MustParseUUID("DA2E7828-FBCE-4E01-AE9E-261174997C48")
 var deviceName string
-var deviceAddress [6]byte
+var deviceAddress []byte
 var deviceAddressType uint8
 
 type ConnBLE struct {
@@ -53,6 +53,13 @@ var deviceChar *gatt.Characteristic
 var devicePerph gatt.Peripheral
 
 var bleTxData []byte
+
+func reverseBytes(arr []byte) []byte {
+	if len(arr) == 0 {
+		return arr
+	}
+	return append(reverseBytes(arr[1:]), arr[0])
+}
 
 func onStateChanged(d gatt.Device, s gatt.State) {
 	log.Debugf("State:%+v", s)
@@ -77,7 +84,9 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 	}
 
 	if (len(deviceAddress) > 0) {
-		matched = a.Address == deviceAddress && a.AddressType == deviceAddressType
+		var deviceAddrArr [6]byte
+		copy(deviceAddrArr[:], deviceAddress[0:6])
+		matched = a.Address == deviceAddrArr && a.AddressType == deviceAddressType
 	}
 
 	if (matched == true) {
@@ -89,7 +98,6 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 }
 
 func newtmgrNotifyCB(c *gatt.Characteristic, incomingDatabuf []byte, err error) {
-	log.Debugf("BLE Newtmgr rx data:%+v", incomingDatabuf)
         err = nil
         rxBLEPkt <- incomingDatabuf
         return
@@ -138,7 +146,8 @@ func (cb *ConnBLE) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration)
 	}
 
 	deviceName = cp.ConnString()
-	deviceAddress = cp.DeviceAddress()
+	deviceAddress = reverseBytes(cp.DeviceAddress())
+	log.Debugf("BLE Connection devaddr:%+v", deviceAddress)
 	deviceAddressType = cp.DeviceAddressType()
 	cb.bleDevice, err = gatt.NewDevice(DefaultClientOptions...)
 	if err != nil {

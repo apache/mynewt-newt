@@ -31,11 +31,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func isAddressValid(cp *config.ConnProfile, addrlen int) bool {
-	if cp.MyType == "ble" && addrlen != 6 {
-		return true
+func copyValidAddress(cp *config.ConnProfile, addrString string) bool {
+	switch(cp.MyType) {
+	case "ble" :
+		deviceAddr,err := hex.DecodeString(strings.Replace(addrString, ":", "", -1))
+		if err != nil {
+			return false
+		}
+		if (len(deviceAddr) > 6) {
+			return false
+		}
+		cp.MyDeviceAddress = deviceAddr
+	default:
+		return false
 	}
-	return false
+
+	return true
 }
 
 func isAddressTypeValid(cp *config.ConnProfile, addrtype uint64) bool {
@@ -67,11 +78,9 @@ func connProfileAddCmd(cmd *cobra.Command, args []string) {
 		case "connstring":
 			cp.MyConnString = s[1]
 		case "addr":
-			deviceAddr,err := hex.DecodeString(s[1])
-			if err != nil && isAddressValid(cp, len(deviceAddr)) != true {
+			if copyValidAddress(cp, s[1]) != true {
 				nmUsage(cmd, util.NewNewtError("Invalid address"+s[1]))
 			}
-			copy(cp.MyDeviceAddress[:], deviceAddr[0:6])
 		case "addrtype":
 			deviceAddrType64, err := strconv.ParseUint(s[1], 10, 8)
 			if err != nil && isAddressTypeValid(cp, deviceAddrType64) {
@@ -88,6 +97,15 @@ func connProfileAddCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Printf("Connection profile %s successfully added\n", name)
+}
+
+func print_addr_hex(addr []byte, sep string) string {
+	var str string = ""
+	for _, a:= range addr {
+		str += fmt.Sprintf("%02x", a)
+		str += fmt.Sprintf(sep)
+	}
+	return str[:len(addr)*3 - 1]
 }
 
 func connProfileShowCmd(cmd *cobra.Command, args []string) {
@@ -120,10 +138,10 @@ func connProfileShowCmd(cmd *cobra.Command, args []string) {
 		}
 		fmt.Printf("  %s: type=%s, connstring='%s'", cp.MyName, cp.MyType,
 			   cp.MyConnString)
-		//if (len(cp.MyDeviceAddress) > 0) {
-			fmt.Printf(" addr=%x, addrtype=%+v", cp.MyDeviceAddress,
-			cp.MyDeviceAddressType)
-//		}
+		if (len(cp.MyDeviceAddress) > 0) {
+			fmt.Printf("addr=%s", print_addr_hex(cp.MyDeviceAddress, ":"))
+			fmt.Printf(" addrtype=%+v", cp.MyDeviceAddressType)
+		}
 
 		fmt.Printf("\n")
 	}
