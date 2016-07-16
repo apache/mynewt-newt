@@ -139,8 +139,8 @@ func connProfileShowCmd(cmd *cobra.Command, args []string) {
 		fmt.Printf("  %s: type=%s, connstring='%s'", cp.MyName, cp.MyType,
 			   cp.MyConnString)
 		if (len(cp.MyDeviceAddress) > 0) {
-			fmt.Printf("addr=%s", print_addr_hex(cp.MyDeviceAddress, ":"))
-			fmt.Printf(" addrtype=%+v", cp.MyDeviceAddressType)
+			fmt.Printf(", addr=%s", print_addr_hex(cp.MyDeviceAddress, ":"))
+			fmt.Printf(", addrtype=%+v", cp.MyDeviceAddressType)
 		}
 
 		fmt.Printf("\n")
