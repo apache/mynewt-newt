@@ -239,6 +239,8 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 			nmUsage(cmd, err)
 		}
 		currOff = ersp.Offset
+
+		fmt.Println(currOff)
 	}
 
 	if (profile.Type() == "serial") {

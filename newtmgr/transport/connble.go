@@ -1,6 +1,9 @@
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
+<<<<<<< 1a13676c8d37c07184d7e0f0e56221203e2110ad
 	iog.Debugf("Writing %+v to data channel", bytes)
+=======
+>>>>>>> Initial commit - newtmgr BLE
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
@@ -16,7 +19,7 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- */
+*/
 
 package transport
 
@@ -76,31 +79,31 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 	var matched bool = false
 
-	if (len(deviceName) > 0) {
+	if len(deviceName) > 0 {
 		matched = a.LocalName == deviceName
-		if (matched == false) {
+		if matched == false {
 			return
 		}
 	}
 
-	if (len(deviceAddress) > 0) {
+	if len(deviceAddress) > 0 {
 		var deviceAddrArr [6]byte
 		copy(deviceAddrArr[:], deviceAddress[0:6])
 		matched = a.Address == deviceAddrArr && a.AddressType == deviceAddressType
 	}
 
-	if (matched == true) {
+	if matched == true {
 		log.Debugf("Peripheral Discovered: %s, Address:%+v Address Type:%+v",
-		p.Name(), a.Address, a.AddressType)
+			p.Name(), a.Address, a.AddressType)
 		p.Device().StopScanning()
 		p.Device().Connect(p)
 	}
 }
 
 func newtmgrNotifyCB(c *gatt.Characteristic, incomingDatabuf []byte, err error) {
-        err = nil
-        rxBLEPkt <- incomingDatabuf
-        return
+	err = nil
+	rxBLEPkt <- incomingDatabuf
+	return
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
@@ -177,8 +180,8 @@ func (cb *ConnBLE) ReadPacket() (*Packet, error) {
 
 	cb.currentPacket.AddBytes(bleRxData)
 	log.Debugf("Read BLE Packet:buf::%+v len::%+v", cb.currentPacket.buffer,
-                   cb.currentPacket.expectedLen)
-        bleRxData = bleRxData[:0]
+		cb.currentPacket.expectedLen)
+	bleRxData = bleRxData[:0]
 	pkt := cb.currentPacket
 	cb.currentPacket = nil
 	return pkt, err
@@ -191,14 +194,14 @@ func (cb *ConnBLE) writeData() error {
 
 func (cb *ConnBLE) WritePacket(pkt *Packet) error {
 	log.Debugf("Write BLE Packet:buf::%+v len::%+v", pkt.buffer,
-                   pkt.expectedLen)
+		pkt.expectedLen)
 	bleTxData = pkt.GetBytes()
 	cb.writeData()
 	return nil
 }
 
-func (cb *ConnBLE) Close () error {
+func (cb *ConnBLE) Close() error {
 	log.Debugf("Closing Connection %+v", cb)
-        cb.bleDevice.CancelConnection(devicePerph)
+	cb.bleDevice.CancelConnection(devicePerph)
 	return nil
 }
