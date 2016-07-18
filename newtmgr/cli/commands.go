@@ -42,7 +42,7 @@ func Commands() *cobra.Command {
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			cmd.HelpFunc()(cmd, args)
 		},
 	}
 

@@ -315,7 +315,7 @@ func logsCmd() *cobra.Command {
 		Use:   "logs",
 		Short: "Handles logs on remote instance",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			cmd.HelpFunc()(cmd, args)
 		},
 	}
 

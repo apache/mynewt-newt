@@ -618,7 +618,7 @@ func imageCmd() *cobra.Command {
 		Use:   "image",
 		Short: "Manage images on remote instance",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			cmd.HelpFunc()(cmd, args)
 		},
 	}
 

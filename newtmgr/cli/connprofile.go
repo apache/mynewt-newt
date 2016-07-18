@@ -123,7 +123,7 @@ func connProfileCmd() *cobra.Command {
 		Use:   "conn",
 		Short: "Manage newtmgr connection profiles",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			cmd.HelpFunc()(cmd, args)
 		},
 	}
 

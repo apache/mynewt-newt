@@ -32,7 +32,7 @@ func nmUsage(cmd *cobra.Command, err error) {
 	}
 
 	if cmd != nil {
-		cmd.Help()
+		cmd.HelpFunc()(cmd, nil)
 	}
 
 	os.Exit(1)
