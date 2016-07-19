@@ -84,19 +84,16 @@ func newConn(cp config.NewtmgrConnProfile, readTimeout time.Duration) (Conn, err
 	switch cp.Type() {
 	case "serial":
 		c = &ConnSerial{}
-		if err := c.Open(cp, readTimeout); err != nil {
-			return nil, err
-		}
 	case "ble":
 		c = &ConnBLE{}
-		if err := c.Open(cp, readTimeout); err != nil {
-			return nil, err
-		}
 	default:
 		return nil, util.NewNewtError("Invalid conn profile " + cp.Type() +
 			" not implemented")
 	}
 
+	if err := c.Open(cp, readTimeout); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
