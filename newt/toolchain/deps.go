@@ -287,6 +287,8 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 	// rebuild is required.
 	cmd := tracker.compiler.CompileBinaryCmd(dstFile, options, objFiles)
 	if commandHasChanged(dstFile, cmd) {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - link required; "+
+			"different command\n", dstFile)
 		return true, nil
 	}
 
@@ -299,6 +301,8 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 
 	// Check timestamp of each .o file in the project.
 	if tracker.MostRecent.After(dstModTime) {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - link required; "+
+			"source newer than elf\n", dstFile)
 		return true, nil
 	}
 
@@ -313,6 +317,8 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 		}
 
 		if objModTime.After(dstModTime) {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild "+
+				"required; obj older than dependency (%s)\n", dstFile, obj)
 			return true, nil
 		}
 	}

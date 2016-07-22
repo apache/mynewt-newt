@@ -724,6 +724,9 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
 	options := map[string]bool{"mapFile": c.ldMapFile,
 		"listFile": true, "binFile": true}
 
+	// Make sure the compiler package info is added to the global set.
+	c.ensureLclInfoAdded()
+
 	linkRequired, err := c.depTracker.LinkRequired(binFile, options, objFiles)
 	if err != nil {
 		return err
