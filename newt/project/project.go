@@ -43,6 +43,7 @@ const PROJECT_FILE_NAME = "project.yml"
 var PackageSearchDirs []string = []string{
 	"apps/",
 	"compiler/",
+	"drivers/",
 	"fs/",
 	"libs/",
 	"net/",
