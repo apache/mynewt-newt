@@ -36,6 +36,7 @@ const (
 const (
 	PACKAGE_TYPE_APP interfaces.PackageType = iota
 	PACKAGE_TYPE_BSP
+	PACKAGE_TYPE_SDK
 	PACKAGE_TYPE_COMPILER
 	PACKAGE_TYPE_LIB
 	PACKAGE_TYPE_TARGET
@@ -44,6 +45,7 @@ const (
 var PackageTypeNames = map[interfaces.PackageType]string{
 	PACKAGE_TYPE_APP:      "app",
 	PACKAGE_TYPE_BSP:      "bsp",
+	PACKAGE_TYPE_SDK:      "sdk",
 	PACKAGE_TYPE_COMPILER: "compiler",
 	PACKAGE_TYPE_LIB:      "lib",
 	PACKAGE_TYPE_TARGET:   "target",

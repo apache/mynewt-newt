@@ -21,7 +21,9 @@ package builder
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"regexp"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -44,6 +46,8 @@ type BuildPackage struct {
 	*pkg.LocalPackage
 
 	ci *toolchain.CompilerInfo
+
+	SourceDirectories []string
 
 	// Keeps track of API requirements and whether they are satisfied.
 	reqApiMap map[string]reqApiStatus
@@ -141,6 +145,33 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 		"pkg.lflags")
 	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
 		"pkg.aflags")
+
+	ci.IgnoreFiles = []*regexp.Regexp{}
+	ignPats := newtutil.GetStringSliceFeatures(bpkg.Viper,
+		b.Features(), "pkg.ign_files")
+	for _, str := range ignPats {
+		re, err := regexp.Compile(str)
+		if err != nil {
+			return nil, util.NewNewtError("Ignore files, unable to compile re: " +
+				err.Error())
+		}
+		ci.IgnoreFiles = append(ci.IgnoreFiles, re)
+	}
+
+	ci.IgnoreDirs = []*regexp.Regexp{}
+	ignPats = newtutil.GetStringSliceFeatures(bpkg.Viper,
+		b.Features(), "pkg.ign_dirs")
+	for _, str := range ignPats {
+		re, err := regexp.Compile(str)
+		if err != nil {
+			return nil, util.NewNewtError("Ignore dirs, unable to compile re: " +
+				err.Error())
+		}
+		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
+	}
+
+	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(bpkg.Viper,
+		b.Features(), "pkg.src_dirs")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {
@@ -284,13 +315,42 @@ func (bpkg *BuildPackage) satisfyApis(b *Builder) bool {
 	return newDeps
 }
 
+func (bpkg *BuildPackage) findSdkIncludes() []string {
+	sdkDir := bpkg.BasePath() + "/src/ext/"
+
+	sdkPathList := []string{}
+	err := filepath.Walk(sdkDir, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			return nil
+		}
+
+		sdkPathList = append(sdkPathList, path)
+		return nil
+	})
+	if err != nil {
+		return []string{}
+	}
+
+	return sdkPathList
+}
+
 func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 	pkgBase := filepath.Base(bpkg.Name())
+	bp := bpkg.BasePath()
 
-	return []string{
-		bpkg.BasePath() + "/include",
-		bpkg.BasePath() + "/include/" + pkgBase + "/arch/" + b.Bsp.Arch,
+	incls := []string{
+		bp + "/include",
+		bp + "/include/" + pkgBase + "/arch/" + b.Bsp.Arch,
 	}
+
+	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
+		incls = append(incls, b.Bsp.BasePath()+"/include/bsp/")
+
+		sdkIncls := bpkg.findSdkIncludes()
+		incls = append(incls, sdkIncls...)
+	}
+
+	return incls
 }
 
 func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
@@ -304,6 +364,15 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 		testSrcDir := srcDir + "/test"
 		incls = append(incls, testSrcDir)
 		incls = append(incls, testSrcDir+"/arch/"+b.Bsp.Arch)
+	}
+
+	// If pkgType == SDK, include all the items in "ext" directly into the
+	// include path
+	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
+		incls = append(incls, b.Bsp.BasePath()+"/include/bsp/")
+
+		sdkIncls := bpkg.findSdkIncludes()
+		incls = append(incls, sdkIncls...)
 	}
 
 	return incls

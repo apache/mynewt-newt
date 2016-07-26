@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -44,10 +45,12 @@ const (
 )
 
 type CompilerInfo struct {
-	Includes []string
-	Cflags   []string
-	Lflags   []string
-	Aflags   []string
+	Includes    []string
+	Cflags      []string
+	Lflags      []string
+	Aflags      []string
+	IgnoreFiles []*regexp.Regexp
+	IgnoreDirs  []*regexp.Regexp
 }
 
 type Compiler struct {
@@ -86,6 +89,8 @@ func NewCompilerInfo() *CompilerInfo {
 	ci.Cflags = []string{}
 	ci.Lflags = []string{}
 	ci.Aflags = []string{}
+	ci.IgnoreFiles = []*regexp.Regexp{}
+	ci.IgnoreDirs = []*regexp.Regexp{}
 
 	return ci
 }
@@ -150,6 +155,8 @@ func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Cflags = addFlags("cflag", ci.Cflags, newCi.Cflags)
 	ci.Lflags = addFlags("lflag", ci.Lflags, newCi.Lflags)
 	ci.Aflags = addFlags("aflag", ci.Aflags, newCi.Aflags)
+	ci.IgnoreFiles = append(ci.IgnoreFiles, newCi.IgnoreFiles...)
+	ci.IgnoreDirs = append(ci.IgnoreDirs, newCi.IgnoreDirs...)
 }
 
 func NewCompiler(compilerDir string, dstDir string,
@@ -439,6 +446,16 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	return nil
 }
 
+func (c *Compiler) shouldIgnoreFile(file string) bool {
+	for _, re := range c.info.IgnoreFiles {
+		if match := re.MatchString(file); match {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Compiles all C files matching the specified file glob.
 //
 // @param match                 The file glob specifying which C files to
@@ -453,8 +470,15 @@ func (c *Compiler) CompileC() error {
 
 	log.Infof("Compiling C if outdated (%s/*.c) %s", wd,
 		strings.Join(files, " "))
+
 	for _, file := range files {
 		file = filepath.ToSlash(file)
+
+		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
+			log.Infof("Ignoring %s because package dictates it.", file)
+			continue
+		}
+
 		compileRequired, err := c.depTracker.CompileRequired(file,
 			COMPILER_TYPE_C)
 		if err != nil {
@@ -490,6 +514,11 @@ func (c *Compiler) CompileAs() error {
 	log.Infof("Compiling assembly if outdated (%s/*.s) %s", wd,
 		strings.Join(files, " "))
 	for _, file := range files {
+		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
+			log.Infof("Ignoring %s because package dictates it.", file)
+			continue
+		}
+
 		compileRequired, err := c.depTracker.CompileRequired(file,
 			COMPILER_TYPE_ASM)
 		if err != nil {
@@ -510,9 +539,17 @@ func (c *Compiler) CompileAs() error {
 
 func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 	ignDirs []string) error {
+
 	// check to see if we ignore this element
 	for _, entry := range ignDirs {
 		if entry == node.Name() {
+			return nil
+		}
+	}
+
+	// Check in the user specified ignore directories
+	for _, entry := range c.info.IgnoreDirs {
+		if entry.MatchString(node.Name()) {
 			return nil
 		}
 	}

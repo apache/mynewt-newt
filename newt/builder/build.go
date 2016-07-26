@@ -225,15 +225,31 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 
 // Compiles and archives a package.
 func (b *Builder) buildPackage(bpkg *BuildPackage) error {
-	srcDir := bpkg.BasePath() + "/src"
-	if util.NodeNotExist(srcDir) {
-		// Nothing to compile.
-		return nil
-	}
-
 	c, err := b.newCompiler(bpkg, b.PkgBinDir(bpkg.Name()))
 	if err != nil {
 		return err
+	}
+
+	srcDirs := []string{}
+
+	if len(bpkg.SourceDirectories) > 0 {
+		for _, relDir := range bpkg.SourceDirectories {
+			dir := bpkg.BasePath() + "/" + relDir
+			if util.NodeNotExist(dir) {
+				return util.NewNewtError(fmt.Sprintf(
+					"Specified source directory %s, does not exist.",
+					dir))
+			}
+			srcDirs = append(srcDirs, dir)
+		}
+	} else {
+		srcDir := bpkg.BasePath() + "/src"
+		if util.NodeNotExist(srcDir) {
+			// Nothing to compile.
+			return nil
+		}
+
+		srcDirs = append(srcDirs, srcDir)
 	}
 
 	// Build the package source in two phases:
@@ -245,13 +261,15 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	// code, and not easy to generalize into a single operation:
 	//     * src/arch/<target-arch>
 	//     * src/test/arch/<target-arch>
-	if err = buildDir(srcDir, c, b.Bsp.Arch, []string{"test"}); err != nil {
-		return err
-	}
-	if b.features["TEST"] {
-		testSrcDir := srcDir + "/test"
-		if err = buildDir(testSrcDir, c, b.Bsp.Arch, nil); err != nil {
+	for _, dir := range srcDirs {
+		if err = buildDir(dir, c, b.Bsp.Arch, []string{"test"}); err != nil {
 			return err
+		}
+		if b.features["TEST"] {
+			testSrcDir := dir + "/test"
+			if err = buildDir(testSrcDir, c, b.Bsp.Arch, nil); err != nil {
+				return err
+			}
 		}
 	}
 
