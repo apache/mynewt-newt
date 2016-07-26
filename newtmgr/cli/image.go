@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 var (
 	coreElfify   bool
 	coreOffset   uint32
@@ -130,6 +129,11 @@ func imageListCmd2(cmd *cobra.Command, args []string) {
 	}
 }
 
+func echoOnNmUsage(runner *protocol.CmdRunner, cmderr error, cmd *cobra.Command) {
+	echoCtrl(runner, "1")
+	nmUsage(cmd, cmderr)
+}
+
 func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		nmUsage(cmd, util.NewNewtError("Need to specify image to upload"))
@@ -161,19 +165,21 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	if (profile.Type() == "serial") {
+	if profile.Type() == "serial" {
 		err = echoCtrl(runner, "0")
 		if err != nil {
 			nmUsage(cmd, err)
 		}
+		defer echoCtrl(runner, "1")
 	}
+
 	var currOff uint32 = 0
 	var mtu uint32 = 0
 	imageSz := uint32(len(imageFile))
 	rexmits := 0
 
-	if (profile.Type() == "ble") {
-		mtu = uint32((transport.BleMTU - 33) * 3/4)
+	if profile.Type() == "ble" {
+		mtu = uint32((transport.BleMTU - 33) * 3 / 4)
 	} else {
 		mtu = 120
 	}
@@ -181,7 +187,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	for currOff < imageSz {
 		imageUpload, err := protocol.NewImageUpload()
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		blockSz := imageSz - currOff
@@ -198,14 +204,14 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 
 		nmr, err := imageUpload.EncodeWriteRequest()
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		var rsp *protocol.NmgrReq
 		var i int
 		for i = 0; i < 5; i++ {
 			if err := runner.WriteReq(nmr); err != nil {
-				nmUsage(cmd, err)
+				echoOnNmUsage(runner, err, cmd)
 			}
 
 			rsp, err = runner.ReadResp()
@@ -218,12 +224,12 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 			 */
 			conn, err = transport.NewConnWithTimeout(profile, time.Second)
 			if err != nil {
-				nmUsage(nil, err)
+				echoOnNmUsage(runner, err, cmd)
 			}
 
 			runner, err = protocol.NewCmdRunner(conn)
 			if err != nil {
-				nmUsage(cmd, err)
+				echoOnNmUsage(runner, err, cmd)
 			}
 		}
 		rexmits += i
@@ -231,24 +237,18 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 			err = util.NewNewtError("Maximum number of TX retries reached")
 		}
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		ersp, err := protocol.DecodeImageUploadResponse(rsp.Data)
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 		currOff = ersp.Offset
 
 		fmt.Println(currOff)
 	}
 
-	if (profile.Type() == "serial") {
-		err = echoCtrl(runner, "1")
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-	}
 	if rexmits != 0 {
 		fmt.Printf(" %d retransmits\n", rexmits)
 	}
@@ -353,10 +353,12 @@ func fileUploadCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+
 	err = echoCtrl(runner, "0")
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer echoCtrl(runner, "1")
 	var currOff uint32 = 0
 	var cnt int = 0
 
@@ -365,7 +367,7 @@ func fileUploadCmd(cmd *cobra.Command, args []string) {
 	for currOff < fileSz {
 		fileUpload, err := protocol.NewFileUpload()
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		blockSz := fileSz - currOff
@@ -384,29 +386,25 @@ func fileUploadCmd(cmd *cobra.Command, args []string) {
 
 		nmr, err := fileUpload.EncodeWriteRequest()
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		if err := runner.WriteReq(nmr); err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		rsp, err := runner.ReadResp()
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 
 		ersp, err := protocol.DecodeFileUploadResponse(rsp.Data)
 		if err != nil {
-			nmUsage(cmd, err)
+			echoOnNmUsage(runner, err, cmd)
 		}
 		currOff = ersp.Offset
 		cnt++
 		fmt.Println(cnt, currOff)
-	}
-	err = echoCtrl(runner, "1")
-	if err != nil {
-		nmUsage(cmd, err)
 	}
 	fmt.Println("Done")
 }
