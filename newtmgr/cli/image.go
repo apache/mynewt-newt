@@ -181,7 +181,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if profile.Type() == "ble" {
 		mtu = uint32((transport.BleMTU - 33) * 3 / 4)
 	} else {
-		mtu = 120
+		mtu = 36
 	}
 
 	for currOff < imageSz {
