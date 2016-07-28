@@ -66,6 +66,7 @@ type Compiler struct {
 	ocPath                string
 	ldResolveCircularDeps bool
 	ldMapFile             bool
+	ldBinFile             bool
 	dstDir                string
 
 	// The info to be applied during compilation.
@@ -230,6 +231,12 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 
 	c.ldMapFile, err = newtutil.GetBoolFeatures(v, features,
 		"compiler.ld.mapfile")
+	if err != nil {
+		return err
+	}
+
+	c.ldBinFile, err = newtutil.GetBoolFeaturesDflt(v, features,
+		"compiler.ld.binfile", true)
 	if err != nil {
 		return err
 	}
@@ -759,7 +766,7 @@ func (c *Compiler) PrintSize(elfFilename string) (string, error) {
 // @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileElf(binFile string, objFiles []string) error {
 	options := map[string]bool{"mapFile": c.ldMapFile,
-		"listFile": true, "binFile": true}
+		"listFile": true, "binFile": c.ldBinFile}
 
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()

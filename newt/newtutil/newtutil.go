@@ -59,21 +59,27 @@ func GetStringFeatures(v *viper.Viper, features map[string]bool,
 	return strings.TrimSpace(val)
 }
 
-func GetBoolFeatures(v *viper.Viper, features map[string]bool,
-	key string) (bool, error) {
+func GetBoolFeaturesDflt(v *viper.Viper, features map[string]bool,
+	key string, dflt bool) (bool, error) {
 
 	s := GetStringFeatures(v, features, key)
 	if s == "" {
-		return false, nil
+		return dflt, nil
 	}
 
 	b, err := strconv.ParseBool(s)
 	if err != nil {
-		return false, util.FmtNewtError("invalid bool value for %s: %s",
+		return dflt, util.FmtNewtError("invalid bool value for %s: %s",
 			key, s)
 	}
 
 	return b, nil
+}
+
+func GetBoolFeatures(v *viper.Viper, features map[string]bool,
+	key string) (bool, error) {
+
+	return GetBoolFeaturesDflt(v, features, key, false)
 }
 
 func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
