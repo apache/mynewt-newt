@@ -20,10 +20,7 @@
 
 package pkg
 
-import (
-	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/newt/repo"
-)
+import "mynewt.apache.org/newt/newt/interfaces"
 
 const PACKAGE_FILE_NAME = "pkg.yml"
 
@@ -60,7 +57,7 @@ var PackageTypeNames = map[interfaces.PackageType]string{
 // case.
 type Package interface {
 	// The repository this package belongs to
-	Repo() *repo.Repo
+	Repo() interfaces.RepoInterface
 	// The name of this package
 	Name() string
 	// The full name of this package, including repo

@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -41,6 +43,9 @@ type Builder struct {
 	Bsp          *pkg.BspPackage
 	compilerPkg  *pkg.LocalPackage
 	compilerInfo *toolchain.CompilerInfo
+
+	featureWhiteList []map[string]interface{}
+	featureBlackList []map[string]interface{}
 
 	target *target.Target
 }
@@ -65,8 +70,20 @@ func (b *Builder) Init(target *target.Target) error {
 	return nil
 }
 
-func (b *Builder) Features() map[string]bool {
+func (b *Builder) AllFeatures() map[string]bool {
 	return b.features
+}
+
+func (b *Builder) Features(pkg pkg.Package) map[string]bool {
+	featureList := map[string]bool{}
+
+	for fname, _ := range b.features {
+		if b.CheckValidFeature(pkg, fname) {
+			featureList[fname] = true
+		}
+	}
+
+	return featureList
 }
 
 func (b *Builder) AddFeature(feature string) {
@@ -319,6 +336,9 @@ func (b *Builder) PrepBuild() error {
 		return nil
 	}
 
+	b.featureBlackList = []map[string]interface{}{}
+	b.featureWhiteList = []map[string]interface{}{}
+
 	// Collect the seed packages.
 	bspPkg := b.target.Bsp()
 	if bspPkg == nil {
@@ -329,6 +349,9 @@ func (b *Builder) PrepBuild() error {
 				b.target.BspName)
 		}
 	}
+
+	b.featureBlackList = append(b.featureBlackList, bspPkg.FeatureBlackList())
+	b.featureWhiteList = append(b.featureWhiteList, bspPkg.FeatureWhiteList())
 
 	b.Bsp = pkg.NewBspPackage(bspPkg)
 	compilerPkg := b.resolveCompiler()
@@ -355,12 +378,18 @@ func (b *Builder) PrepBuild() error {
 		b.appPkg = appBpkg
 	}
 
+	b.featureBlackList = append(b.featureBlackList, appBpkg.FeatureBlackList())
+	b.featureWhiteList = append(b.featureWhiteList, appBpkg.FeatureWhiteList())
+
 	bspBpkg := b.Packages[bspPkg]
 	if bspBpkg == nil {
 		bspBpkg = b.AddPackage(bspPkg)
 	}
 
 	targetBpkg := b.AddPackage(b.target.Package())
+
+	b.featureBlackList = append(b.featureBlackList, targetBpkg.FeatureBlackList())
+	b.featureWhiteList = append(b.featureWhiteList, targetBpkg.FeatureWhiteList())
 
 	// Populate the full set of packages to be built and resolve the feature
 	// set.
@@ -400,11 +429,6 @@ func (b *Builder) PrepBuild() error {
 		return err
 	}
 
-	// For every feature defined, generate a define and append it to cflags
-	for fname, _ := range b.Features() {
-		targetCi.Cflags = append(targetCi.Cflags,
-			fmt.Sprintf("-DFEATURE_%s", fname))
-	}
 	baseCi.AddCompilerInfo(targetCi)
 
 	// App flags.
@@ -440,7 +464,7 @@ func (b *Builder) PrepBuild() error {
 
 	// Read the BSP configuration.  These settings are necessary for the link
 	// step.
-	if err := b.Bsp.Reload(b.Features()); err != nil {
+	if err := b.Bsp.Reload(b.Features(b.Bsp)); err != nil {
 		return err
 	}
 
@@ -448,6 +472,45 @@ func (b *Builder) PrepBuild() error {
 	b.compilerInfo = baseCi
 
 	return nil
+}
+
+func (b *Builder) matchFeature(flist []map[string]interface{},
+	pkg pkg.Package, featureName string) bool {
+
+	fullName := ""
+	if pkg != nil {
+		fullName = pkg.FullName()
+	}
+
+	for _, matchList := range flist {
+		for pkgDesc, featureDesc := range matchList {
+			re, _ := regexp.Compile(pkgDesc)
+			if re.MatchString(fullName) {
+				if strings.Compare(featureDesc.(string), featureName) == 0 {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (b *Builder) CheckValidFeature(pkg pkg.Package,
+	feature string) bool {
+
+	// If the feature is not in the blacklist, automatically valid
+	if match := b.matchFeature(b.featureBlackList, pkg, feature); !match {
+		return true
+	}
+
+	// If it is in the blacklist, check if its in the whitelist
+	// if not, override the feature definition.
+	if match := b.matchFeature(b.featureWhiteList, pkg, feature); match {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (b *Builder) Build() error {

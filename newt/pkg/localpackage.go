@@ -65,6 +65,11 @@ type LocalPackage struct {
 	// APIs that this package requires
 	reqApis []string
 
+	// This is only used for top-level packages, but make no distinction
+	// and always read it in.
+	featureBlackList map[string]interface{}
+	featureWhiteList map[string]interface{}
+
 	// Pointer to pkg.yml configuration structure
 	Viper *viper.Viper
 
@@ -309,6 +314,9 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
+	pkg.featureBlackList = v.GetStringMap("pkg.feature_blacklist")
+	pkg.featureWhiteList = v.GetStringMap("pkg.feature_whitelist")
+
 	// Read the package description from the file
 	pkg.desc, err = pkg.readDesc(v)
 	if err != nil {
@@ -318,6 +326,14 @@ func (pkg *LocalPackage) Load() error {
 	pkg.AddCfgFilename(pkg.basePath + PACKAGE_FILE_NAME)
 
 	return nil
+}
+
+func (pkg *LocalPackage) FeatureBlackList() map[string]interface{} {
+	return pkg.featureBlackList
+}
+
+func (pkg *LocalPackage) FeatureWhiteList() map[string]interface{} {
+	return pkg.featureWhiteList
 }
 
 func (pkg *LocalPackage) Clone(newRepo *repo.Repo,

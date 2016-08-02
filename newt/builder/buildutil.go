@@ -75,8 +75,8 @@ func (b *Builder) TestExePath(pkgName string) string {
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
-	features := make([]string, 0, len(b.Features()))
-	for f, _ := range b.Features() {
+	features := make([]string, 0, len(b.Features(nil)))
+	for f, _ := range b.Features(nil) {
 		features = append(features, f)
 	}
 	sort.Strings(features)

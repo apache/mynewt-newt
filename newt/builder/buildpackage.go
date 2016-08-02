@@ -139,16 +139,20 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
 		"pkg.cflags")
-	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
 		"pkg.lflags")
-	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
 		"pkg.aflags")
+
+	for fname, _ := range b.Features(bpkg) {
+		ci.Cflags = append(ci.Cflags, fmt.Sprintf("-DFEATURE_%s", fname))
+	}
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
 	ignPats := newtutil.GetStringSliceFeatures(bpkg.Viper,
-		b.Features(), "pkg.ign_files")
+		b.Features(bpkg), "pkg.ign_files")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -160,7 +164,7 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
 	ignPats = newtutil.GetStringSliceFeatures(bpkg.Viper,
-		b.Features(), "pkg.ign_dirs")
+		b.Features(bpkg), "pkg.ign_dirs")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -171,7 +175,7 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(bpkg.Viper,
-		b.Features(), "pkg.src_dirs")
+		b.Features(bpkg), "pkg.src_dirs")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {
@@ -184,7 +188,7 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 }
 
 func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
-	features := b.Features()
+	features := b.AllFeatures()
 
 	foundNewFeature := false
 
@@ -200,7 +204,7 @@ func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
 		}
 	}
 
-	return b.Features(), foundNewFeature
+	return b.Features(bpkg), foundNewFeature
 }
 
 // Searches for a package which can satisfy bpkg's API requirement.  If such a
@@ -266,7 +270,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 
 	// Determine if this package supports any APIs that we haven't seen
 	// yet.  If so, another full iteration is required.
-	apis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	apis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
 		"pkg.apis")
 	for _, api := range apis {
 		newApi := b.AddApi(api, bpkg)
@@ -289,7 +293,7 @@ func (bpkg *BuildPackage) satisfyApis(b *Builder) bool {
 
 	// Determine if any of the package's API requirements can now be satisfied.
 	// If so, another full iteration is required.
-	reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(),
+	reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
 		"pkg.req_apis")
 	for _, reqApi := range reqApis {
 		reqStatus, ok := bpkg.reqApiMap[reqApi]
@@ -360,7 +364,7 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+b.Bsp.Arch)
 
-	if b.Features()["TEST"] {
+	if b.Features(bpkg)["TEST"] {
 		testSrcDir := srcDir + "/test"
 		incls = append(incls, testSrcDir)
 		incls = append(incls, testSrcDir+"/arch/"+b.Bsp.Arch)
