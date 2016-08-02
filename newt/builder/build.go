@@ -399,6 +399,12 @@ func (b *Builder) PrepBuild() error {
 	if err != nil {
 		return err
 	}
+
+	// For every feature defined, generate a define and append it to cflags
+	for fname, _ := range b.Features() {
+		targetCi.Cflags = append(targetCi.Cflags,
+			fmt.Sprintf("-DFEATURE_%s", fname))
+	}
 	baseCi.AddCompilerInfo(targetCi)
 
 	// App flags.
