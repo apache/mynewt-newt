@@ -376,10 +376,10 @@ func (b *Builder) PrepBuild() error {
 			appBpkg = b.AddPackage(appPkg)
 		}
 		b.appPkg = appBpkg
-	}
 
-	b.featureBlackList = append(b.featureBlackList, appBpkg.FeatureBlackList())
-	b.featureWhiteList = append(b.featureWhiteList, appBpkg.FeatureWhiteList())
+		b.featureBlackList = append(b.featureBlackList, appBpkg.FeatureBlackList())
+		b.featureWhiteList = append(b.featureWhiteList, appBpkg.FeatureWhiteList())
+	}
 
 	bspBpkg := b.Packages[bspPkg]
 	if bspBpkg == nil {
