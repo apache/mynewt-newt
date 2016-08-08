@@ -25,6 +25,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 
 	"mynewt.apache.org/newt/newtmgr/config"
@@ -628,6 +629,55 @@ func coreEraseCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func splitCmd(cmd *cobra.Command, args []string) {
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	defer runner.Conn.Close()
+
+	split, err := protocol.NewSplit()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	var nmr *protocol.NmgrReq
+	if len(args) == 0 {
+		nmr, err = split.EncoderReadRequest()
+	} else if len(args) == 1 {
+		b, err := strconv.ParseBool(args[0])
+
+		if err != nil {
+			nmUsage(cmd, util.NewNewtError("Invalid Boolean Argument"))
+		}
+		split.Split = b
+		nmr, err = split.EncoderWriteRequest()
+	} else {
+		nmUsage(cmd, nil)
+		return
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	srsp, err := protocol.DecodeSplitReadResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if len(args) == 0 {
+		fmt.Printf("Split value is %v\n", srsp.Split)
+	}
+	if srsp.ReturnCode != 0 {
+		fmt.Printf("Error executing split command: rc=%d\n", srsp.ReturnCode)
+	}
+}
+
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
@@ -737,6 +787,18 @@ func imageCmd() *cobra.Command {
 		Run:     coreEraseCmd,
 	}
 	imageCmd.AddCommand(coreEraseCmd)
+
+	splitEx := "  newtmgr -c olimex image split 1\n"
+	splitEx += "  newtmgr -c olimex image split 0\n"
+	splitEx += "  newtmgr -c olimex image split\n"
+
+	splitCmd := &cobra.Command{
+		Use:     "split",
+		Short:   "Erase core on target",
+		Example: splitEx,
+		Run:     splitCmd,
+	}
+	imageCmd.AddCommand(splitCmd)
 
 	return imageCmd
 }
