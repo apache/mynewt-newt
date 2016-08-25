@@ -76,6 +76,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 				break
 			}
 		}
+		log.Debugf("Reading %+v from data channel", line)
 		if len(line) < 2 || ((line[0] != 4 || line[1] != 20) &&
 			(line[0] != 6 || line[1] != 9)) {
 			continue
@@ -160,7 +161,6 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 
 	for written < totlen {
 		if written == 0 {
-			cs.writeData([]byte{'\n'})
 			cs.writeData([]byte{6, 9})
 		} else {
 			cs.writeData([]byte{4, 20})
