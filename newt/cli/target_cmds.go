@@ -140,24 +140,6 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func showValidSettings(varName string) error {
-	var err error = nil
-	var values []string
-
-	fmt.Printf("Valid values for target variable \"%s\":\n", varName)
-
-	values, err = target.VarValues(varName)
-	if err != nil {
-		return err
-	}
-
-	for _, value := range values {
-		fmt.Printf("    %s\n", value)
-	}
-
-	return nil
-}
-
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if err := project.Initialize(); err != nil {
 		NewtUsage(cmd, err)
@@ -184,13 +166,8 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		}
 
 		if len(kv) == 1 {
-			// User entered a variable name without a value.  Display valid
-			// values for the specified variable.
-			err := showValidSettings(kv[0])
-			if err != nil {
-				NewtUsage(cmd, err)
-			}
-			return
+			// User entered a variable name without a value.
+			NewtUsage(cmd, nil)
 		}
 
 		// Trim trailing slash from value.  This is necessary when tab
@@ -356,30 +333,6 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func targetVarsCmd(cmd *cobra.Command, args []string) {
-	varNames := []string{
-		"target.app",
-		"target.bsp",
-		"target.build_profile",
-		"target.features",
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "The following target "+
-		"variables are recognized:\n")
-	for _, varName := range varNames {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "    * %s\n",
-			strings.TrimPrefix(varName, "target."))
-
-		varValues, err := target.VarValues(varName)
-		if err == nil {
-			for _, varValue := range varValues {
-				util.StatusMessage(util.VERBOSITY_VERBOSE, "        * %s\n",
-					varValue)
-			}
-		}
-	}
-}
-
 func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpText := ""
 	targetHelpEx := ""
@@ -470,17 +423,4 @@ func AddTargetCommands(cmd *cobra.Command) {
 	}
 
 	targetCmd.AddCommand(copyCmd)
-
-	varsHelpText := "Displays a list of valid target variable names"
-	varsHelpEx := "  newt target vars\n"
-
-	varsCmd := &cobra.Command{
-		Use:     "vars",
-		Short:   "Show variable names",
-		Long:    varsHelpText,
-		Example: varsHelpEx,
-		Run:     targetVarsCmd,
-	}
-
-	targetCmd.AddCommand(varsCmd)
 }

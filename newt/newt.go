@@ -119,6 +119,7 @@ func main() {
 	cli.AddBuildCommands(cmd)
 	cli.AddImageCommands(cmd)
 	cli.AddRunCommands(cmd)
+	cli.AddValsCommands(cmd)
 
 	cmd.Execute()
 }

@@ -539,7 +539,7 @@ func (proj *Project) PackagesOfType(pkgType interfaces.PackageType) []interfaces
 	packs := proj.PackageList()
 	for _, packHash := range packs {
 		for _, pack := range *packHash {
-			if pack.Type() == pkgType {
+			if pkgType == -1 || pack.Type() == pkgType {
 				matches = append(matches, pack)
 			}
 		}
