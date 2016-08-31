@@ -78,8 +78,16 @@ func (b *Builder) Load(image_slot int) error {
 	downloadCmd := fmt.Sprintf("%s %s %s %d %s",
 		downloadScript, bspPath, binBaseName, image_slot, featureString)
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Loading %s image int slot %d\n", b.buildName, image_slot)
+	features := b.Features(nil)
+
+	if _, ok := features["bootloader"]; ok {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Loading bootloader\n")
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Loading %s image into slot %d\n", b.buildName, image_slot+1)
+	}
+
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		downloadCmd)
 	rsp, err := util.ShellCommand(downloadCmd)
