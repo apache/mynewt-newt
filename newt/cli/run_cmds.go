@@ -79,14 +79,18 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		os.Remove(b.App.AppImgPath())
-		os.Remove(b.Loader.AppImgPath())
+
+		if b.Loader != nil {
+			os.Remove(b.Loader.AppImgPath())
+		}
 	}
+	if app_img != nil {
+		build_id := image.CreateBuildId(app_img, loader_img)
 
-	build_id := image.CreateBuildId(app_img, loader_img)
-
-	err = image.CreateManifest(b, app_img, loader_img, build_id)
-	if err != nil {
-		NewtUsage(cmd, err)
+		err = image.CreateManifest(b, app_img, loader_img, build_id)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
 	}
 
 	err = b.Load()
