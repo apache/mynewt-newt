@@ -45,58 +45,6 @@ var (
 )
 
 func imageListCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	conn, err := transport.NewConnWithTimeout(profile, time.Second*3)
-	if err != nil {
-		nmUsage(nil, err)
-	}
-	defer conn.Close()
-
-	runner, err := protocol.NewCmdRunner(conn)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	imageList, err := protocol.NewImageList()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	nmr, err := imageList.EncodeWriteRequest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if err := runner.WriteReq(nmr); err != nil {
-		nmUsage(cmd, err)
-	}
-
-	rsp, err := runner.ReadResp()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	iRsp, err := protocol.DecodeImageListResponse(rsp.Data)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	fmt.Println("Images:")
-	for i := 0; i < len(iRsp.Images); i++ {
-		fmt.Println("   ", i, ": "+iRsp.Images[i])
-	}
-
-}
-
-func imageListCmd2(cmd *cobra.Command, args []string) {
 	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -271,45 +219,6 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 }
 
 func imageBootCmd(cmd *cobra.Command, args []string) {
-	runner, err := getTargetCmdRunner()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	imageBoot, err := protocol.NewImageBoot()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if len(args) >= 1 {
-		imageBoot.BootTarget = args[0]
-	}
-	nmr, err := imageBoot.EncodeWriteRequest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if err := runner.WriteReq(nmr); err != nil {
-		nmUsage(cmd, err)
-	}
-
-	rsp, err := runner.ReadResp()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	iRsp, err := protocol.DecodeImageBootResponse(rsp.Data)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	if len(args) == 0 {
-		fmt.Println("    Test image:", iRsp.Test)
-		fmt.Println("    Main image:", iRsp.Main)
-		fmt.Println("    Active img:", iRsp.Active)
-	}
-}
-
-func imageBoot2Cmd(cmd *cobra.Command, args []string) {
 	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -653,18 +562,11 @@ func imageCmd() *cobra.Command {
 	}
 
 	listCmd := &cobra.Command{
-		Use:   "list2",
-		Short: "Show target images",
-		Run:   imageListCmd2,
-	}
-	imageCmd.AddCommand(listCmd)
-
-	listOldCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Show target images",
 		Run:   imageListCmd,
 	}
-	imageCmd.AddCommand(listOldCmd)
+	imageCmd.AddCommand(listCmd)
 
 	uploadEx := "  newtmgr -c olimex image upload <image_file\n"
 	uploadEx += "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
@@ -677,9 +579,8 @@ func imageCmd() *cobra.Command {
 	}
 	imageCmd.AddCommand(uploadCmd)
 
-	bootEx := "  newtmgr -c olimex image boot [<version>]\n"
+	bootEx := "  newtmgr -c olimex image boot [<image hash>]\n"
 	bootEx += "  newtmgr -c olimex image boot\n"
-	bootEx += "  newtmgr -c olimex image boot 1.2.3\n"
 
 	bootCmd := &cobra.Command{
 		Use:     "boot",
@@ -688,13 +589,6 @@ func imageCmd() *cobra.Command {
 		Run:     imageBootCmd,
 	}
 	imageCmd.AddCommand(bootCmd)
-
-	boot2Cmd := &cobra.Command{
-		Use:   "boot2",
-		Short: "Which image to boot",
-		Run:   imageBoot2Cmd,
-	}
-	imageCmd.AddCommand(boot2Cmd)
 
 	fileUploadEx := "  newtmgr -c olimex image fileupload <filename> <tgt_file>\n"
 	fileUploadEx += "  newtmgr -c olimex image fileupload sample.lua /sample.lua\n"

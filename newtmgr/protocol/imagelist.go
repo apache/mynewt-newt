@@ -22,15 +22,10 @@ package protocol
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
 	"mynewt.apache.org/newt/util"
 )
-
-type ImageList struct {
-	Images []string
-}
 
 const (
 	IMGMGR_NMGR_OP_LIST     = 0
@@ -59,36 +54,4 @@ func HashEncode(src string) (string, error) {
 			err.Error()))
 	}
 	return base64.StdEncoding.EncodeToString(imgHex), nil
-}
-
-func NewImageList() (*ImageList, error) {
-	s := &ImageList{}
-	s.Images = []string{}
-	return s, nil
-}
-
-func (i *ImageList) EncodeWriteRequest() (*NmgrReq, error) {
-	nmr, err := NewNmgrReq()
-	if err != nil {
-		return nil, err
-	}
-
-	nmr.Op = NMGR_OP_READ
-	nmr.Flags = 0
-	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_LIST
-	nmr.Len = 0
-
-	return nmr, nil
-}
-
-func DecodeImageListResponse(data []byte) (*ImageList, error) {
-	list := &ImageList{}
-
-	err := json.Unmarshal(data, &list)
-	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
-			err.Error()))
-	}
-	return list, nil
 }
