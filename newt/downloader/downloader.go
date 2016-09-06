@@ -73,6 +73,11 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
+	if rsp.StatusCode != http.StatusOK {
+		return util.NewNewtError(fmt.Sprintf(
+			"Failed to download '%s' from https://github.com/%s/%s: %s\n",
+			name, gd.User, gd.Repo, rsp.Status))
+	}
 	defer rsp.Body.Close()
 
 	handle, err := os.Create(dest)
