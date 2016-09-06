@@ -237,7 +237,7 @@ func NewRepoDesc(name string, versBranchMap map[string]string) (*RepoDesc, error
 func (r *Repo) GetRepoDesc() (*RepoDesc, error) {
 	if r.rdesc == nil {
 		return nil, util.NewNewtError(fmt.Sprintf(
-			"Repository description for %s not yet initailized.  Must "+
+			"Repository description for %s not yet initialized.  Must "+
 				"download it first. ", r.Name()))
 	} else {
 		return r.rdesc, nil
