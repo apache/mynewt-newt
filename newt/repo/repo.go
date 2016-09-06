@@ -46,6 +46,7 @@ type Repo struct {
 	versreq    []interfaces.VersionReqInterface
 	rdesc      *RepoDesc
 	deps       []*RepoDependency
+	ignDirs    []string
 	updated    bool
 }
 
@@ -70,6 +71,19 @@ func (r *Repo) AddDependency(rd *RepoDependency) {
 
 func (rd *RepoDependency) Name() string {
 	return rd.name
+}
+
+func (r *Repo) AddIgnoreDir(ignDir string) {
+	r.ignDirs = append(r.ignDirs, ignDir)
+}
+
+func (r *Repo) IgnoreDir(dir string) bool {
+	for _, idir := range r.ignDirs {
+		if idir == dir {
+			return true
+		}
+	}
+	return false
 }
 
 func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {

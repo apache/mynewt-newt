@@ -22,6 +22,7 @@ package project
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -30,6 +31,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -40,17 +42,9 @@ var globalProject *Project = nil
 
 const PROJECT_FILE_NAME = "project.yml"
 
-var PackageSearchDirs []string = []string{
-	"apps/",
-	"compiler/",
-	"drivers/",
-	"fs/",
-	"libs/",
-	"net/",
-	"hw/",
-	"project/",
-	"targets/",
-	"sys/",
+var ignoreSearchDirs []string = []string{
+	"bin",
+	"repos",
 }
 
 type Project struct {
@@ -68,9 +62,6 @@ type Project struct {
 	repos map[string]*repo.Repo
 
 	localRepo *repo.Repo
-
-	// Package search directories for this project
-	packageSearchDirs []string
 
 	v *viper.Viper
 }
@@ -162,10 +153,6 @@ func (proj *Project) FindRepo(rname string) *repo.Repo {
 
 func (proj *Project) LocalRepo() *repo.Repo {
 	return proj.localRepo
-}
-
-func (proj *Project) PackageSearchDirs() []string {
-	return proj.packageSearchDirs
 }
 
 func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
@@ -438,8 +425,12 @@ func (proj *Project) loadConfig() error {
 	if err != nil {
 		return err
 	}
+
 	proj.repos[r.Name()] = r
 	proj.localRepo = r
+	for _, ignDir := range ignoreSearchDirs {
+		r.AddIgnoreDir(ignDir)
+	}
 
 	rstrs := v.GetStringSlice("project.repositories")
 	for _, repoName := range rstrs {
@@ -448,9 +439,22 @@ func (proj *Project) loadConfig() error {
 		}
 	}
 
-	pkgDirs := v.GetStringSlice("project.pkg_dirs")
-	if len(pkgDirs) > 0 {
-		proj.packageSearchDirs = append(proj.packageSearchDirs, pkgDirs...)
+	ignoreDirs := v.GetStringSlice("project.ignore_top_dirs")
+	for _, ignDir := range ignoreDirs {
+		repoName, dirName, err := newtutil.ParsePackageString(ignDir)
+		if err != nil {
+			return err
+		}
+		if repoName == "" {
+			r = proj.LocalRepo()
+		} else {
+			r = proj.FindRepo(repoName)
+		}
+		if r == nil {
+			return util.NewNewtError(
+				fmt.Sprintf("ignore_dirs: unknown repo %s", repoName))
+		}
+		r.AddIgnoreDir(dirName)
 	}
 
 	return nil
@@ -463,7 +467,6 @@ func (proj *Project) Init(dir string) error {
 	interfaces.SetProject(proj)
 
 	proj.repos = map[string]*repo.Repo{}
-	proj.packageSearchDirs = PackageSearchDirs
 
 	// Load Project configuration
 	if err := proj.loadConfig(); err != nil {
@@ -505,6 +508,29 @@ func findProjectDir(dir string) (string, error) {
 	return dir, nil
 }
 
+func (proj *Project) repoDirList(repo *repo.Repo) ([]string, error) {
+	list := []string{}
+
+	dirList, err := ioutil.ReadDir(repo.Path())
+	if err != nil {
+		return list, util.NewNewtError(err.Error())
+	}
+	for _, dirEnt := range dirList {
+		if !dirEnt.IsDir() {
+			continue
+		}
+		name := dirEnt.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if repo.IgnoreDir(name) {
+			continue
+		}
+		list = append(list, name)
+	}
+	return list, nil
+}
+
 func (proj *Project) loadPackageList() error {
 	proj.packages = interfaces.PackageList{}
 
@@ -512,9 +538,12 @@ func (proj *Project) loadPackageList() error {
 	// packages / store them in the project package list.
 	repos := proj.Repos()
 	for name, repo := range repos {
+		searchDirs, err := proj.repoDirList(repo)
+		if err != nil {
+			continue
+		}
 		log.Debugf("Loading packages in repository %s", repo.Path())
-		list, err := pkg.ReadLocalPackages(repo, repo.Path(),
-			proj.PackageSearchDirs())
+		list, err := pkg.ReadLocalPackages(repo, repo.Path(), searchDirs)
 		if err != nil {
 			return err
 		}
