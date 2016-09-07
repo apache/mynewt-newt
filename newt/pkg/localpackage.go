@@ -371,32 +371,27 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 	pkgList map[string]interfaces.PackageInterface, basePath string,
 	pkgName string) error {
 
-	dirList, err := ioutil.ReadDir(basePath + "/" + pkgName)
+	dirList, err := repo.FilteredSearchList(pkgName)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
-	for _, dirEnt := range dirList {
-		if !dirEnt.IsDir() {
-			continue
-		}
-
-		name := dirEnt.Name()
+	for _, name := range dirList {
 		if LocalPackageSpecialName(name) || strings.HasPrefix(name, ".") {
 			continue
 		}
 
 		if err := ReadLocalPackageRecursive(repo, pkgList, basePath,
-			pkgName+"/"+name); err != nil {
+			filepath.Join(pkgName, name)); err != nil {
 			return err
 		}
 	}
 
-	if util.NodeNotExist(basePath + "/" + pkgName + "/" + PACKAGE_FILE_NAME) {
+	if util.NodeNotExist(filepath.Join(basePath, pkgName, PACKAGE_FILE_NAME)) {
 		return nil
 	}
 
-	pkg, err := LoadLocalPackage(repo, basePath+"/"+pkgName)
+	pkg, err := LoadLocalPackage(repo, filepath.Join(basePath, pkgName))
 	if err != nil {
 		return err
 	}
@@ -413,10 +408,15 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 	return nil
 }
 
-func ReadLocalPackages(repo *repo.Repo, basePath string,
-	searchPaths []string) (*map[string]interfaces.PackageInterface, error) {
+func ReadLocalPackages(repo *repo.Repo,
+	basePath string) (*map[string]interfaces.PackageInterface, error) {
 
 	pkgList := map[string]interfaces.PackageInterface{}
+
+	searchPaths, err := repo.FilteredSearchList("")
+	if err != nil {
+		return nil, err
+	}
 
 	for _, path := range searchPaths {
 		pkgDir := basePath + "/" + path
@@ -425,23 +425,14 @@ func ReadLocalPackages(repo *repo.Repo, basePath string,
 			continue
 		}
 
-		dirList, err := ioutil.ReadDir(pkgDir)
+		dirList, err := repo.FilteredSearchList(path)
 		if err != nil {
 			return nil, util.NewNewtError(err.Error())
 		}
 
 		for _, subDir := range dirList {
-			name := subDir.Name()
-			if filepath.HasPrefix(name, ".") || filepath.HasPrefix(name, "..") {
-				continue
-			}
-
-			if !subDir.IsDir() {
-				continue
-			}
-
-			if err := ReadLocalPackageRecursive(repo, pkgList, pkgDir,
-				name); err != nil {
+			if err := ReadLocalPackageRecursive(repo, pkgList, basePath,
+				filepath.Join(path, subDir)); err != nil {
 				return nil, util.NewNewtError(err.Error())
 			}
 		}

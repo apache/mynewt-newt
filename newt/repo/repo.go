@@ -21,6 +21,7 @@ package repo
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,13 +78,36 @@ func (r *Repo) AddIgnoreDir(ignDir string) {
 	r.ignDirs = append(r.ignDirs, ignDir)
 }
 
-func (r *Repo) IgnoreDir(dir string) bool {
+func (r *Repo) ignoreDir(dir string) bool {
 	for _, idir := range r.ignDirs {
 		if idir == dir {
 			return true
 		}
 	}
 	return false
+}
+
+func (repo *Repo) FilteredSearchList(curPath string) ([]string, error) {
+	list := []string{}
+
+	dirList, err := ioutil.ReadDir(filepath.Join(repo.Path(), curPath))
+	if err != nil {
+		return list, util.NewNewtError(err.Error())
+	}
+	for _, dirEnt := range dirList {
+		if !dirEnt.IsDir() {
+			continue
+		}
+		name := dirEnt.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if repo.ignoreDir(filepath.Join(curPath, name)) {
+			continue
+		}
+		list = append(list, name)
+	}
+	return list, nil
 }
 
 func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
