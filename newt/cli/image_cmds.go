@@ -148,5 +148,7 @@ func AddImageCommands(cmd *cobra.Command) {
 		Example: createImageHelpEx,
 		Run:     createImageRunCmd,
 	}
+
+	createImageCmd.ValidArgs = targetList()
 	cmd.AddCommand(createImageCmd)
 }

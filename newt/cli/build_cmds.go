@@ -309,6 +309,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   buildRunCmd,
 	}
 
+	buildCmd.ValidArgs = targetList()
 	cmd.AddCommand(buildCmd)
 
 	cleanCmd := &cobra.Command{
@@ -317,6 +318,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   cleanRunCmd,
 	}
 
+	cleanCmd.ValidArgs = append(targetList(), "all")
 	cmd.AddCommand(cleanCmd)
 
 	testCmd := &cobra.Command{
@@ -324,7 +326,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Short: "Executes unit tests for one or more packages",
 		Run:   testRunCmd,
 	}
-
+	testCmd.ValidArgs = append(packageList(), "all")
 	cmd.AddCommand(testCmd)
 
 	loadHelpText := "Load app image to target for <target-name>."
@@ -335,6 +337,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Long:  loadHelpText,
 		Run:   loadRunCmd,
 	}
+
+	loadCmd.ValidArgs = targetList()
 	cmd.AddCommand(loadCmd)
 
 	debugHelpText := "Open debugger session for <target-name>."
@@ -345,6 +349,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Long:  debugHelpText,
 		Run:   debugRunCmd,
 	}
+
+	debugCmd.ValidArgs = targetList()
 	cmd.AddCommand(debugCmd)
 
 	sizeHelpText := "Calculate the size of target components specified by " +
@@ -356,5 +362,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Long:  sizeHelpText,
 		Run:   sizeRunCmd,
 	}
+
+	sizeCmd.ValidArgs = targetList()
 	cmd.AddCommand(sizeCmd)
+
 }

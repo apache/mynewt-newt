@@ -119,5 +119,6 @@ func AddRunCommands(cmd *cobra.Command) {
 		Example: runHelpEx,
 		Run:     runRunCmd,
 	}
+	runCmd.ValidArgs = targetList()
 	cmd.AddCommand(runCmd)
 }

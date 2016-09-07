@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -113,7 +114,14 @@ func newtCmd() *cobra.Command {
 }
 
 func main() {
+
 	cmd := newtCmd()
+
+	/* some of the setup code logs which messes with autocomplete */
+	hold_lvl := log.GetLevel()
+	log.SetLevel(log.FatalLevel)
+
+	cli.AddCompleteCommands(cmd)
 	cli.AddProjectCommands(cmd)
 	cli.AddTargetCommands(cmd)
 	cli.AddBuildCommands(cmd)
@@ -121,5 +129,23 @@ func main() {
 	cli.AddRunCommands(cmd)
 	cli.AddValsCommands(cmd)
 
+	/* only pass the first two args to check for complete command */
+	if len(os.Args) > 2 {
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		bc, _, err := cmd.Find(os.Args[1:2])
+		tmpArgs := os.Args
+		os.Args = tmpArgs[0:2]
+
+		if err == nil && bc.Name() == "complete" {
+			bc.Execute()
+			return
+		}
+		os.Args = tmpArgs
+		cmd.SilenceErrors = false
+		cmd.SilenceUsage = false
+	}
+
+	log.SetLevel(hold_lvl)
 	cmd.Execute()
 }
