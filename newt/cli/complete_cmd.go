@@ -149,7 +149,7 @@ func completeRunCmd(cmd *cobra.Command, args []string) {
 		!strings.HasPrefix(extra_str, "--")
 
 	showLong := strings.HasPrefix(extra_str, "--") ||
-		strings.HasPrefix(extra_str, "-")
+		extra_str == "-"
 
 	if showLong {
 		r := regexp.MustCompile("^--[^\\W]+")
