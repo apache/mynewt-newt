@@ -360,7 +360,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: showHelpEx,
 		Run:     targetShowCmd,
 	}
-
+	showCmd.ValidArgs = targetList()
 	targetCmd.AddCommand(showCmd)
 
 	setHelpText := "Set a target variable (<var-name>) on target " +
