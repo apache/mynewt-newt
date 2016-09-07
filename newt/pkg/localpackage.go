@@ -402,9 +402,10 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 	}
 
 	if oldPkg, ok := pkgList[pkg.Name()]; ok {
-		errStr := fmt.Sprintf("Multiple packages with same pkg.name=%s in repo %s\n",
-			oldPkg.FullName(), repo.Name())
-		return util.NewNewtError(errStr)
+		oldlPkg := oldPkg.(*LocalPackage)
+		return util.FmtNewtError("Multiple packages with same pkg.name=%s "+
+			"in repo %s; path1=%s path2=%s", oldlPkg.Name(), repo.Name(),
+			oldlPkg.BasePath(), pkg.BasePath())
 	}
 
 	pkgList[pkg.Name()] = pkg
