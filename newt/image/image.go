@@ -131,7 +131,9 @@ type ImageManifest struct {
 }
 
 type ImageManifestPkg struct {
-	Name string `json:"name"`
+	Name   string `json:"name"`
+	Repo   string `json:"repo"`
+	Commit string `json:"commit"`
 }
 
 type ECDSASig struct {
@@ -464,10 +466,7 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 	}
 
 	for _, builtPkg := range t.App.Packages {
-		imgPkg := &ImageManifestPkg{
-			Name: builtPkg.Name(),
-		}
-		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
+		manifest.Pkgs = append(manifest.Pkgs, newImageManifestPkg(builtPkg))
 	}
 
 	if loader != nil {
@@ -475,10 +474,7 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 		manifest.LoaderHash = fmt.Sprintf("%x", loader.hash)
 
 		for _, builtPkg := range t.Loader.Packages {
-			imgPkg := &ImageManifestPkg{
-				Name: builtPkg.Name(),
-			}
-			manifest.LoaderPkgs = append(manifest.LoaderPkgs, imgPkg)
+			manifest.LoaderPkgs = append(manifest.LoaderPkgs, newImageManifestPkg(builtPkg))
 		}
 	}
 
@@ -512,4 +508,35 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 	}
 
 	return nil
+}
+
+var commitCache = make(map[string]string)
+
+func newImageManifestPkg(bp *builder.BuildPackage) *ImageManifestPkg {
+	ip := &ImageManifestPkg{
+		Name: bp.Name(),
+	}
+
+	var path string
+	if bp.Repo().IsLocal() {
+		ip.Repo = bp.LocalPackage.Repo().Name()
+		path = bp.LocalPackage.BasePath()
+	} else {
+		ip.Repo = bp.Repo().Name()
+		path = bp.BasePath()
+	}
+
+	if commit, ok := commitCache[ip.Repo]; ok {
+		ip.Commit = commit
+	} else {
+		res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse head", path))
+		if err != nil {
+			log.Debugf("Unable to determine commit hash for %s: %v", path, err)
+		} else {
+			ip.Commit = strings.TrimSpace(string(res))
+			commitCache[ip.Repo] = ip.Commit
+		}
+	}
+
+	return ip
 }
