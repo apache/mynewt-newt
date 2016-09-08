@@ -128,10 +128,23 @@ type ImageManifest struct {
 	Pkgs       []*ImageManifestPkg `json:"pkgs"`
 	LoaderPkgs []*ImageManifestPkg `json:"loader_pkgs"`
 	TgtVars    []string            `json:"target"`
+	Repos      []ImageManifestRepo `json:"repos"`
 }
 
 type ImageManifestPkg struct {
 	Name string `json:"name"`
+	Repo string `json:"repo"`
+}
+
+type ImageManifestRepo struct {
+	Name   string `json:"name"`
+	Commit string `json:"commit"`
+	Dirty  bool   `json:"dirty,omitempty"`
+	URL    string `json:"url,omitempty"`
+}
+
+type repoManager struct {
+	repos map[string]ImageManifestRepo
 }
 
 type ECDSASig struct {
@@ -464,11 +477,9 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 		Date:      timeStr,
 	}
 
+	rm := newRepoManager()
 	for _, builtPkg := range t.AppBuilder.PkgMap {
-		imgPkg := &ImageManifestPkg{
-			Name: builtPkg.Name(),
-		}
-		manifest.Pkgs = append(manifest.Pkgs, imgPkg)
+		manifest.Pkgs = append(manifest.Pkgs, rm.getImageManifestPkg(builtPkg))
 	}
 
 	if loader != nil {
@@ -476,12 +487,10 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 		manifest.LoaderHash = fmt.Sprintf("%x", loader.hash)
 
 		for _, builtPkg := range t.LoaderBuilder.PkgMap {
-			imgPkg := &ImageManifestPkg{
-				Name: builtPkg.Name(),
-			}
-			manifest.LoaderPkgs = append(manifest.LoaderPkgs, imgPkg)
+			manifest.LoaderPkgs = append(manifest.LoaderPkgs, rm.getImageManifestPkg(builtPkg))
 		}
 	}
+	manifest.Repos = rm.allRepos()
 
 	manifest.BuildID = fmt.Sprintf("%x", build_id)
 
@@ -513,4 +522,74 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 	}
 
 	return nil
+}
+
+func newRepoManager() *repoManager {
+	return &repoManager{
+		repos: make(map[string]ImageManifestRepo),
+	}
+}
+
+func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManifestPkg {
+	ip := &ImageManifestPkg{
+		Name: bp.Name(),
+	}
+
+	var path string
+	if bp.Repo().IsLocal() {
+		ip.Repo = bp.LocalPackage.Repo().Name()
+		path = bp.LocalPackage.BasePath()
+	} else {
+		ip.Repo = bp.Repo().Name()
+		path = bp.BasePath()
+	}
+
+	if _, present := r.repos[ip.Repo]; present {
+		return ip
+	}
+
+	repo := ImageManifestRepo{
+		Name: ip.Repo,
+	}
+
+	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse head", path))
+	if err != nil {
+		log.Debugf("Unable to determine commit hash for %s: %v", path, err)
+		repo.Commit = "UNKNOWN"
+	} else {
+		repo.Commit = strings.TrimSpace(string(res))
+		res, err := util.ShellCommand(fmt.Sprintf("cd %s && git diff-index HEAD", path))
+		if err != nil {
+			log.Debugf("Unable to determine dirty state for %s: %v", path, err)
+		} else {
+			if len(res) > 0 {
+				repo.Dirty = true
+			}
+		}
+		res, err = util.ShellCommand(fmt.Sprintf("cd %s && git config --get remote.origin.url", path))
+		if err != nil {
+			log.Debugf("Unable to determine URL for %s: %v", path, err)
+		} else {
+			repo.URL = strings.TrimSpace(string(res))
+		}
+	}
+	r.repos[ip.Repo] = repo
+
+	return ip
+}
+
+func (r *repoManager) allRepos() []ImageManifestRepo {
+	keys := make([]string, 0, len(r.repos))
+	for k := range r.repos {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	repos := make([]ImageManifestRepo, 0, len(keys))
+	for _, key := range keys {
+		repos = append(repos, r.repos[key])
+	}
+
+	return repos
 }
