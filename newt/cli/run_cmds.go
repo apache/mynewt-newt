@@ -93,7 +93,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	err = b.Load()
+	err = b.Load(extraJtagCmd)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -121,4 +121,7 @@ func AddRunCommands(cmd *cobra.Command) {
 	}
 	runCmd.ValidArgs = targetList()
 	cmd.AddCommand(runCmd)
+
+	runCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
+		"extra commands to send to JTAG software")
 }

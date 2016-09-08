@@ -28,7 +28,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func (t *TargetBuilder) Load() error {
+func (t *TargetBuilder) Load(extraJtagCmd string) error {
 
 	err := t.PrepBuild()
 
@@ -37,18 +37,18 @@ func (t *TargetBuilder) Load() error {
 	}
 
 	if t.Loader != nil {
-		err = t.App.Load(1)
+		err = t.App.Load(1, extraJtagCmd)
 		if err == nil {
-			err = t.Loader.Load(0)
+			err = t.Loader.Load(0, extraJtagCmd)
 		}
 	} else {
-		err = t.App.Load(0)
+		err = t.App.Load(0, extraJtagCmd)
 	}
 
 	return err
 }
 
-func (b *Builder) Load(image_slot int) error {
+func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified")
 	}
@@ -75,8 +75,14 @@ func (b *Builder) Load(image_slot int) error {
 	binBaseName := b.AppBinBasePath()
 	featureString := b.FeatureString()
 
-	downloadCmd := fmt.Sprintf("%s %s %s %d %s",
-		downloadScript, bspPath, binBaseName, image_slot, featureString)
+	envSettings := fmt.Sprintf("BSP_PATH=%s ", bspPath)
+	envSettings += fmt.Sprintf("BIN_BASENAME=%s ", binBaseName)
+	envSettings += fmt.Sprintf("IMAGE_SLOT=%d ", image_slot)
+	envSettings += fmt.Sprintf("FEATURES=\"%s\" ", featureString)
+	if extraJtagCmd != "" {
+		envSettings += fmt.Sprintf("EXTRA_JTAG_CMD=\"%s\" ", extraJtagCmd)
+	}
+	downloadCmd := fmt.Sprintf("%s %s", envSettings, downloadScript)
 
 	features := b.Features(nil)
 

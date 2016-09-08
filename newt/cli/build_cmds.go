@@ -33,6 +33,8 @@ import (
 
 const TARGET_TEST_NAME = "unittest"
 
+var extraJtagCmd string
+
 func pkgIsTestable(pack *pkg.LocalPackage) bool {
 	return util.NodeExist(pack.BasePath() + "/src/test")
 }
@@ -248,7 +250,7 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	err = b.Load()
+	err = b.Load(extraJtagCmd)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -340,6 +342,9 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	loadCmd.ValidArgs = targetList()
 	cmd.AddCommand(loadCmd)
+
+	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
+		"extra commands to send to JTAG software")
 
 	debugHelpText := "Open debugger session for <target-name>."
 
