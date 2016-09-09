@@ -293,7 +293,7 @@ func ShellCommand(cmdStr string) ([]byte, error) {
 }
 
 // Run interactive shell command
-func ShellInteractiveCommand(cmdStr []string) error {
+func ShellInteractiveCommand(cmdStr []string, env []string) error {
 	log.Print("[VERBOSE] " + cmdStr[0])
 
 	//
@@ -307,9 +307,12 @@ func ShellInteractiveCommand(cmdStr []string) error {
 		<-c
 	}()
 
+	env = append(env, os.Environ()...)
 	// Transfer stdin, stdout, and stderr to the new process
 	// and also set target directory for the shell to start in.
+	// and set the additional environment variables
 	pa := os.ProcAttr{
+		Env:   env,
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	}
 
