@@ -82,7 +82,10 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 	if extraJtagCmd != "" {
 		envSettings += fmt.Sprintf("EXTRA_JTAG_CMD=\"%s\" ", extraJtagCmd)
 	}
-	downloadCmd := fmt.Sprintf("%s %s", envSettings, downloadScript)
+
+	// bspPath, binBaseName are passed in command line for backwards compatibility
+	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript, bspPath,
+		binBaseName)
 
 	features := b.Features(nil)
 
@@ -160,7 +163,8 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 
 	os.Chdir(project.GetProject().Path())
 
-	cmdLine := []string{debugScript}
+	// bspPath, binBaseName are passed in command line for backwards compatibility
+	cmdLine := []string{debugScript, bspPath, binBaseName}
 
 	fmt.Printf("%s\n", cmdLine)
 	return util.ShellInteractiveCommand(cmdLine, envSettings)
