@@ -96,18 +96,18 @@
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "mynewt_0_9_0_tag-61-gc2dda8b",
-			"Rev": "c2dda8b2dfda07dc2658df13bd27f12aff214880"
+			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
+			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "mynewt_0_9_0_tag-61-gc2dda8b",
-			"Rev": "c2dda8b2dfda07dc2658df13bd27f12aff214880"
+			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
+			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "mynewt_0_9_0_tag-61-gc2dda8b",
-			"Rev": "c2dda8b2dfda07dc2658df13bd27f12aff214880"
+			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
+			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
 		}
 	]
 }

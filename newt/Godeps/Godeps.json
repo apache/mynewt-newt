@@ -1,7 +1,7 @@
 {
 	"ImportPath": "mynewt.apache.org/newt/newt",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v58",
+	"GodepVersion": "v74",
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -52,18 +52,18 @@
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "mynewt_0_9_0_tag-63-gec4ac73",
-			"Rev": "ec4ac73d832130b2eddc8a5c6ff9046edb75cb0b"
+			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
+			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "mynewt_0_9_0_tag-63-gec4ac73",
-			"Rev": "ec4ac73d832130b2eddc8a5c6ff9046edb75cb0b"
+			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
+			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "mynewt_0_9_0_tag-63-gec4ac73",
-			"Rev": "ec4ac73d832130b2eddc8a5c6ff9046edb75cb0b"
+			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
+			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
 		}
 	]
 }
