@@ -131,7 +131,7 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
-		if err := util.ShellInteractiveCommand(cmds); err != nil {
+		if err := util.ShellInteractiveCommand(cmds, nil); err != nil {
 			os.RemoveAll(tmpdir)
 			return "", err
 		}

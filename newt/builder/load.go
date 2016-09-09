@@ -106,7 +106,7 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 	return nil
 }
 
-func (t *TargetBuilder) Debug() error {
+func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool) error {
 	//var additional_libs []string
 	err := t.PrepBuild()
 
@@ -122,12 +122,12 @@ func (t *TargetBuilder) Debug() error {
 
 	//	return t.App.Debug(additional_libs)
 	if t.Loader == nil {
-		return t.App.Debug(nil)
+		return t.App.Debug(extraJtagCmd, reset)
 	}
-	return t.Loader.Debug(nil)
+	return t.Loader.Debug(extraJtagCmd, reset)
 }
 
-func (b *Builder) Debug(addlibs []string) error {
+func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified")
 	}
@@ -141,14 +141,27 @@ func (b *Builder) Debug(addlibs []string) error {
 	}
 
 	bspPath := b.target.Bsp.BasePath()
-	debugScript := filepath.Join(bspPath, b.target.Bsp.DebugScript)
 	binBaseName := b.AppBinBasePath()
+	featureString := b.FeatureString()
+
+	envSettings := []string{
+		fmt.Sprintf("BSP_PATH=%s", bspPath),
+	        fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
+		fmt.Sprintf("FEATURES=\"%s\"", featureString),
+		}
+	if extraJtagCmd != "" {
+		envSettings = append(envSettings,
+			fmt.Sprintf("EXTRA_JTAG_CMD=%s", extraJtagCmd))
+	}
+	if reset == true {
+		envSettings = append(envSettings, fmt.Sprintf("RESET=true"))
+	}
+	debugScript := filepath.Join(bspPath, b.target.Bsp.DebugScript)
 
 	os.Chdir(project.GetProject().Path())
 
-	cmdLine := []string{debugScript, bspPath, binBaseName}
-	cmdLine = append(cmdLine, addlibs...)
+	cmdLine := []string{debugScript}
 
 	fmt.Printf("%s\n", cmdLine)
-	return util.ShellInteractiveCommand(cmdLine)
+	return util.ShellInteractiveCommand(cmdLine, envSettings)
 }

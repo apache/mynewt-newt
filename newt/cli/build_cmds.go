@@ -274,7 +274,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	err = b.Debug()
+	err = b.Debug(extraJtagCmd, false)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -342,7 +342,6 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	loadCmd.ValidArgs = targetList()
 	cmd.AddCommand(loadCmd)
-
 	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
 		"extra commands to send to JTAG software")
 
@@ -357,6 +356,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	debugCmd.ValidArgs = targetList()
 	cmd.AddCommand(debugCmd)
+	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
+		"extra commands to send to JTAG software")
 
 	sizeHelpText := "Calculate the size of target components specified by " +
 		"<target-name>."

@@ -97,7 +97,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
-	err = b.Debug()
+	err = b.Debug(extraJtagCmd, true)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
