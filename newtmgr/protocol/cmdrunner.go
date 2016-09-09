@@ -20,6 +20,8 @@
 package protocol
 
 import (
+	"encoding/hex"
+
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newtmgr/transport"
@@ -37,11 +39,9 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 		}
 
 		bytes := pkt.GetBytes()
-		bytes = bytes[8:]
+		log.Debugf("Rx packet dump:\n%s", hex.Dump(bytes))
 
-		log.Debugf("before deserializing:%s", string(bytes))
-
-		nmr, err := DeserializeNmgrReq(pkt.GetBytes())
+		nmr, err := DeserializeNmgrReq(bytes)
 		if err != nil {
 			return nil, err
 		}
@@ -60,6 +60,8 @@ func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 	if err != nil {
 		return err
 	}
+
+	log.Debugf("Tx packet dump:\n%s", hex.Dump(data))
 
 	pkt, err := transport.NewPacket(uint16(len(data)))
 	if err != nil {
