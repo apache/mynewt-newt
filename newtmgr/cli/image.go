@@ -406,6 +406,21 @@ func fileDownloadCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Done")
 }
 
+func coreConvertCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
+		nmUsage(cmd, nil)
+		return
+	}
+
+	coreConvert, err := core.ConvertFilenames(args[0], args[1])
+	if err != nil {
+		nmUsage(cmd, err)
+		return
+	}
+
+	fmt.Printf("Corefile created for\n   %x\n", coreConvert.ImageHash)
+}
+
 func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		nmUsage(cmd, errors.New("Need to specify target filename to download"))
@@ -448,34 +463,19 @@ func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	/*
 	 * Download finished. Now convert to ELF corefile format.
 	 */
-	coreConvert := core.NewCoreConvert()
-
-	file, err = os.OpenFile(tmpName, os.O_RDONLY, 0)
+	coreConvert, err := core.ConvertFilenames(tmpName, args[0])
 	if err != nil {
-		nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
-			"Cannot open file %s - %s", tmpName, err.Error())))
+		nmUsage(cmd, err)
+		return
 	}
-
-	coreConvert.Source = file
-
-	file, err = os.OpenFile(args[0], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
-	if err != nil {
-		nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
-			"Cannot open file %s - %s", args[0], err.Error())))
-	}
-	coreConvert.Target = file
-
-	err = coreConvert.Convert()
-
-	coreConvert.Source.Close()
-	coreConvert.Target.Close()
-	os.Remove(tmpName)
 
 	if err != nil {
 		fmt.Println(err)
-	} else {
-		fmt.Printf("Corefile created for\n   %x\n", coreConvert.ImageHash)
+		return
 	}
+
+	os.Remove(tmpName)
+	fmt.Printf("Corefile created for\n   %x\n", coreConvert.ImageHash)
 }
 
 func coreListCmd(cmd *cobra.Command, args []string) {
@@ -636,6 +636,13 @@ func imageCmd() *cobra.Command {
 	coreDownloadCmd.Flags().Uint32Var(&coreOffset, "offset", 0, "Start offset")
 	coreDownloadCmd.Flags().Uint32VarP(&coreNumBytes, "bytes", "n", 0, "Number of bytes of the core to download")
 	imageCmd.AddCommand(coreDownloadCmd)
+
+	coreConvertCmd := &cobra.Command{
+		Use:   "coreconvert <core-filename> <elf-filename>",
+		Short: "Convert core to elf",
+		Run:   coreConvertCmd,
+	}
+	imageCmd.AddCommand(coreConvertCmd)
 
 	coreEraseEx := "  newtmgr -c olimex image coreerase\n"
 

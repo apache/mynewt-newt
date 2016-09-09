@@ -302,3 +302,32 @@ func (cc *CoreConvert) Convert() error {
 	}
 	return nil
 }
+
+func ConvertFilenames(srcFilename string,
+	dstFilename string) (*CoreConvert, error) {
+
+	coreConvert := NewCoreConvert()
+
+	var err error
+
+	coreConvert.Source, err = os.OpenFile(srcFilename, os.O_RDONLY, 0)
+	if err != nil {
+		return coreConvert, util.FmtNewtError("Cannot open file %s - %s",
+			srcFilename, err.Error())
+	}
+	defer coreConvert.Source.Close()
+
+	coreConvert.Target, err = os.OpenFile(dstFilename,
+		os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	if err != nil {
+		return coreConvert, util.FmtNewtError("Cannot open file %s - %s",
+			dstFilename, err.Error())
+	}
+	defer coreConvert.Target.Close()
+
+	if err := coreConvert.Convert(); err != nil {
+		return coreConvert, err
+	}
+
+	return coreConvert, nil
+}
