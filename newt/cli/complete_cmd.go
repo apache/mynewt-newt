@@ -34,8 +34,14 @@ import (
 )
 
 func targetList() []string {
-	_ = project.Initialize()
+	err := project.Initialize()
+
 	targetNames := []string{}
+
+	if err != nil {
+		return targetNames
+	}
+
 	for name, _ := range target.GetTargets() {
 		// Don't display the special unittest target; this is used
 		// internally by newt, so the user doesn't need to know about it.
@@ -50,7 +56,14 @@ func targetList() []string {
 
 /* return a list of all packages */
 func packageList() []string {
+
+	err := project.Initialize()
+
 	var list []string
+
+	if err != nil {
+		return list
+	}
 	for _, repoHash := range project.GetProject().PackageList() {
 		for _, pack := range *repoHash {
 			lclPack := pack.(*pkg.LocalPackage)
