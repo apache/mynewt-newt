@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -87,7 +88,7 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript, bspPath,
 		binBaseName)
 
-	features := b.Features(nil)
+	features := syscfg.Features(b.Cfg)
 
 	if _, ok := features["bootloader"]; ok {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,

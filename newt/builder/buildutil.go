@@ -23,10 +23,13 @@ import (
 	"bytes"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -77,25 +80,27 @@ func (b *Builder) AppBinBasePath() string {
 	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName)
 }
 
+func TestTargetName(testPkgName string) string {
+	return strings.Replace(testPkgName, "/", "_", -1)
+}
+
 func (b *Builder) TestExePath(pkgName string) string {
-	return b.PkgBinDir(pkgName) + "/test_" + filepath.Base(pkgName)
+	return b.PkgBinDir(pkgName) + "/" + TestTargetName(pkgName)
 }
 
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
-	features := make([]string, 0, len(b.Features(nil)))
-	for f, _ := range b.Features(nil) {
-		features = append(features, f)
+	featureMap := syscfg.Features(b.Cfg)
+	featureSlice := make([]string, 0, len(featureMap))
+	for k, _ := range featureMap {
+		featureSlice = append(featureSlice, k)
 	}
-	sort.Strings(features)
+	sort.Strings(featureSlice)
 
-	first := true
-	for _, feature := range features {
-		if !first {
+	for i, feature := range featureSlice {
+		if i != 0 {
 			buffer.WriteString(" ")
-		} else {
-			first = false
 		}
 
 		buffer.WriteString(feature)
@@ -166,6 +171,17 @@ func (b *Builder) sortedBuildPackages() []*BuildPackage {
 
 	sort.Sort(sorter)
 	return sorter.bpkgs
+}
+
+func (b *Builder) sortedLocalPackages() []*pkg.LocalPackage {
+	bpkgs := b.sortedBuildPackages()
+
+	lpkgs := make([]*pkg.LocalPackage, len(bpkgs), len(bpkgs))
+	for i, bpkg := range bpkgs {
+		lpkgs[i] = bpkg.LocalPackage
+	}
+
+	return lpkgs
 }
 
 func (b *Builder) logDepInfo() {

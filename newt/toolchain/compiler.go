@@ -153,6 +153,10 @@ func addFlags(flagType string, orig []string, new []string) []string {
 	return combined
 }
 
+func (ci *CompilerInfo) AddCflags(cflags []string) {
+	ci.Cflags = addFlags("cflag", ci.Cflags, cflags)
+}
+
 func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Includes = append(ci.Includes, newCi.Includes...)
 	ci.Cflags = addFlags("cflag", ci.Cflags, newCi.Cflags)
@@ -168,7 +172,7 @@ func NewCompiler(compilerDir string, dstDir string,
 	c := &Compiler{
 		ObjPathList: map[string]bool{},
 		dstDir:      filepath.Clean(dstDir),
-		extraDeps:   []string{compilerDir + COMPILER_FILENAME},
+		extraDeps:   []string{},
 	}
 
 	c.depTracker = NewDepTracker(c)

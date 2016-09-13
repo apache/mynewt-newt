@@ -30,6 +30,7 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
@@ -139,20 +140,21 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
+	features := syscfg.FeaturesForLpkg(b.Cfg, bpkg.LocalPackage)
+	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
 		"pkg.cflags")
-	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
+	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
 		"pkg.lflags")
-	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
+	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
 		"pkg.aflags")
 
-	for fname, _ := range b.Features(bpkg) {
-		ci.Cflags = append(ci.Cflags, fmt.Sprintf("-DFEATURE_%s", fname))
+	for k, _ := range bpkg.InjectedSettings() {
+		ci.Cflags = append(ci.Cflags, syscfg.FeatureToCflag(k))
 	}
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
 	ignPats := newtutil.GetStringSliceFeatures(bpkg.Viper,
-		b.Features(bpkg), "pkg.ign_files")
+		features, "pkg.ign_files")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -164,7 +166,7 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
 	ignPats = newtutil.GetStringSliceFeatures(bpkg.Viper,
-		b.Features(bpkg), "pkg.ign_dirs")
+		features, "pkg.ign_dirs")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -175,36 +177,17 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(bpkg.Viper,
-		b.Features(bpkg), "pkg.src_dirs")
+		features, "pkg.src_dirs")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {
 		return nil, err
 	}
+
 	ci.Includes = append(bpkg.privateIncludeDirs(b), includePaths...)
 	bpkg.ci = ci
 
 	return bpkg.ci, nil
-}
-
-func (bpkg *BuildPackage) loadFeatures(b *Builder) (map[string]bool, bool) {
-	features := b.AllFeatures()
-
-	foundNewFeature := false
-
-	newFeatures := newtutil.GetStringSliceFeatures(bpkg.Viper, features,
-		"pkg.features")
-	for _, nfeature := range newFeatures {
-		_, ok := features[nfeature]
-		if !ok {
-			b.AddFeature(nfeature)
-			foundNewFeature = true
-			log.Debugf("Detected new feature: %s (%s)", nfeature,
-				bpkg.Name())
-		}
-	}
-
-	return b.Features(bpkg), foundNewFeature
 }
 
 // Searches for a package which can satisfy bpkg's API requirement.  If such a
@@ -270,8 +253,7 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 
 	// Determine if this package supports any APIs that we haven't seen
 	// yet.  If so, another full iteration is required.
-	apis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
-		"pkg.apis")
+	apis := newtutil.GetStringSliceFeatures(bpkg.Viper, features, "pkg.apis")
 	for _, api := range apis {
 		newApi := b.AddApi(api, bpkg)
 		if newApi {
@@ -285,7 +267,9 @@ func (bpkg *BuildPackage) loadDeps(b *Builder,
 // @return bool                 true if a new dependency was detected as a
 //                                  result of satisfying an API for this
 //                                  package.
-func (bpkg *BuildPackage) satisfyApis(b *Builder) bool {
+func (bpkg *BuildPackage) satisfyApis(b *Builder,
+	features map[string]bool) bool {
+
 	// Assume all this package's APIs are satisfied and that no new
 	// dependencies will be detected.
 	bpkg.apisSatisfied = true
@@ -293,7 +277,7 @@ func (bpkg *BuildPackage) satisfyApis(b *Builder) bool {
 
 	// Determine if any of the package's API requirements can now be satisfied.
 	// If so, another full iteration is required.
-	reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, b.Features(bpkg),
+	reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, features,
 		"pkg.req_apis")
 	for _, reqApi := range reqApis {
 		reqStatus, ok := bpkg.reqApiMap[reqApi]
@@ -364,19 +348,25 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+b.target.Bsp.Arch)
 
-	if b.Features(bpkg)["TEST"] {
-		testSrcDir := srcDir + "/test"
-		incls = append(incls, testSrcDir)
-		incls = append(incls, testSrcDir+"/arch/"+b.target.Bsp.Arch)
-	}
-
-	// If pkgType == SDK, include all the items in "ext" directly into the
-	// include path
-	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
+	switch bpkg.Type() {
+	case pkg.PACKAGE_TYPE_SDK:
+		// If pkgType == SDK, include all the items in "ext" directly into the
+		// include path
 		incls = append(incls, b.target.Bsp.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
+
+	case pkg.PACKAGE_TYPE_UNITTEST:
+		// A unittest package gets access to its parent package's private
+		// includes.
+		parentPkg := b.testOwner(bpkg)
+		if parentPkg != nil {
+			parentIncls := parentPkg.privateIncludeDirs(b)
+			incls = append(incls, parentIncls...)
+		}
+
+	default:
 	}
 
 	return incls
@@ -396,42 +386,38 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 //
 // @return bool                 true if >=1 dependencies were resolved
 //         bool                 true if >=1 new features were detected
-func (bpkg *BuildPackage) Resolve(b *Builder) (bool, bool, error) {
+func (bpkg *BuildPackage) Resolve(b *Builder,
+	cfg syscfg.Cfg) (bool, error) {
+
 	var err error
 	newDeps := false
-	newFeatures := false
+
+	features := syscfg.FeaturesForLpkg(cfg, bpkg.LocalPackage)
 
 	if !bpkg.depsResolved {
-		var features map[string]bool
-
-		features, newFeatures = bpkg.loadFeatures(b)
 		newDeps, err = bpkg.loadDeps(b, features)
 		if err != nil {
-			return false, false, err
+			return false, err
 		}
 
-		bpkg.depsResolved = !newFeatures && !newDeps
-
+		bpkg.depsResolved = !newDeps
 	}
 
 	if !bpkg.apisSatisfied {
-		newApiDep := bpkg.satisfyApis(b)
+		newApiDep := bpkg.satisfyApis(b, features)
 		if newApiDep {
 			newDeps = true
 		}
 	}
 
-	return newDeps, newFeatures, nil
-}
-
-func (bp *BuildPackage) Init(pkg *pkg.LocalPackage) {
-	bp.LocalPackage = pkg
-	bp.reqApiMap = map[string]reqApiStatus{}
+	return newDeps, nil
 }
 
 func NewBuildPackage(pkg *pkg.LocalPackage) *BuildPackage {
-	bpkg := &BuildPackage{}
-	bpkg.Init(pkg)
+	bpkg := &BuildPackage{
+		LocalPackage: pkg,
+		reqApiMap:    map[string]reqApiStatus{},
+	}
 
 	return bpkg
 }

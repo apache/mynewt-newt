@@ -60,15 +60,15 @@ type LocalPackage struct {
 	desc *PackageDesc
 	// Dependencies for this package
 	deps []*Dependency
-	// APIs that this package exports
-	apis []string
-	// APIs that this package requires
-	reqApis []string
 
-	// This is only used for top-level packages, but make no distinction
-	// and always read it in.
-	featureBlackList map[string]interface{}
-	featureWhiteList map[string]interface{}
+	// Package init function name and stage.  These are used to generate the
+	// sysinit C file.
+	initFnName string
+	initStage  int
+
+	// Extra package-specific settings that don't come from syscfg.  For
+	// example, SELFTEST gets set when the newt test command is used.
+	injectedSettings map[string]string
 
 	// Pointer to pkg.yml configuration structure
 	Viper *viper.Viper
@@ -82,8 +82,10 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		desc: &PackageDesc{},
 		// XXX: Initialize viper object; clients should not need to check for
 		// nil pointer.
+		repo:             r,
+		basePath:         filepath.Clean(pkgDir) + "/", // XXX: Remove slash.
+		injectedSettings: map[string]string{},
 	}
-	pkg.Init(r, pkgDir)
 	return pkg
 }
 
@@ -101,7 +103,7 @@ func (pkg *LocalPackage) FullName() string {
 }
 
 func (pkg *LocalPackage) BasePath() string {
-	return pkg.basePath
+	return filepath.Clean(pkg.basePath)
 }
 
 func (pkg *LocalPackage) Type() interfaces.PackageType {
@@ -201,22 +203,6 @@ func (pkg *LocalPackage) Deps() []*Dependency {
 	return pkg.deps
 }
 
-func (pkg *LocalPackage) AddApi(api string) {
-	pkg.apis = append(pkg.apis, api)
-}
-
-func (pkg *LocalPackage) Apis() []string {
-	return pkg.apis
-}
-
-func (pkg *LocalPackage) AddReqApi(api string) {
-	pkg.reqApis = append(pkg.reqApis, api)
-}
-
-func (pkg *LocalPackage) ReqApis() []string {
-	return pkg.reqApis
-}
-
 func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 	pdesc := &PackageDesc{}
 
@@ -226,11 +212,6 @@ func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 	pdesc.Keywords = v.GetStringSlice("pkg.keywords")
 
 	return pdesc, nil
-}
-
-func (pkg *LocalPackage) Init(repo *repo.Repo, pkgDir string) {
-	pkg.repo = repo
-	pkg.basePath = filepath.Clean(pkgDir) + "/"
 }
 
 func (pkg *LocalPackage) sequenceString(key string) string {
@@ -314,8 +295,8 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
-	pkg.featureBlackList = v.GetStringMap("pkg.feature_blacklist")
-	pkg.featureWhiteList = v.GetStringMap("pkg.feature_whitelist")
+	pkg.initFnName = v.GetString("pkg.init_function")
+	pkg.initStage = v.GetInt("pkg.init_stage")
 
 	// Read the package description from the file
 	pkg.desc, err = pkg.readDesc(v)
@@ -328,12 +309,16 @@ func (pkg *LocalPackage) Load() error {
 	return nil
 }
 
-func (pkg *LocalPackage) FeatureBlackList() map[string]interface{} {
-	return pkg.featureBlackList
+func (pkg *LocalPackage) InitStage() int {
+	return pkg.initStage
 }
 
-func (pkg *LocalPackage) FeatureWhiteList() map[string]interface{} {
-	return pkg.featureWhiteList
+func (pkg *LocalPackage) InitFnName() string {
+	return pkg.initFnName
+}
+
+func (pkg *LocalPackage) InjectedSettings() map[string]string {
+	return pkg.injectedSettings
 }
 
 func (pkg *LocalPackage) Clone(newRepo *repo.Repo,
@@ -356,8 +341,7 @@ func (pkg *LocalPackage) Clone(newRepo *repo.Repo,
 }
 
 func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {
-	pkg := &LocalPackage{}
-	pkg.Init(repo, pkgDir)
+	pkg := NewLocalPackage(repo, pkgDir)
 	err := pkg.Load()
 	return pkg, err
 }

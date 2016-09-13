@@ -165,6 +165,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	if err != nil {
 		return false, err
 	}
+
 	if commandHasChanged(objFile, cmd) {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; "+
 			"different command\n", srcFile)
@@ -173,6 +174,13 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 			return false, err
 		}
 		return true, nil
+	}
+
+	if util.NodeNotExist(depFile) {
+		err := tracker.compiler.GenDepsForFile(srcFile)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	srcModTime, err := util.FileModificationTime(srcFile)

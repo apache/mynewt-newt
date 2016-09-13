@@ -54,35 +54,17 @@ func targetList() []string {
 	return targetNames
 }
 
-/* return a list of all packages */
+/* @return                      A slice of all testable package names. */
 func packageList() []string {
-
-	err := project.Initialize()
-
-	var list []string
-
-	if err != nil {
-		return list
-	}
-	for _, repoHash := range project.GetProject().PackageList() {
-		for _, pack := range *repoHash {
-			lclPack := pack.(*pkg.LocalPackage)
-
-			if pkgIsTestable(lclPack) {
-				list = append(list, lclPack.FullName())
-			}
+	packs := testablePkgs()
+	names := make([]string, 0, len(packs))
+	for pack, _ := range packs {
+		if pack.Type() != pkg.PACKAGE_TYPE_UNITTEST {
+			names = append(names, pack.FullName())
 		}
 	}
-	return list
-}
 
-func isValueInList(value string, list []string) int {
-	for i, v := range list {
-		if v == value {
-			return i
-		}
-	}
-	return -1
+	return names
 }
 
 func completeRunCmd(cmd *cobra.Command, args []string) {

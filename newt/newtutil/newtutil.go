@@ -27,12 +27,59 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cast"
+
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
 )
 
 var NewtVersionStr string = "Apache Newt (incubating) version: 0.9.0"
 var NewtBlinkyTag string = "mynewt_0_9_0_tag"
+
+func GetSliceFeatures(v *viper.Viper, features map[string]bool,
+	key string) []interface{} {
+
+	val := v.Get(key)
+	vals := []interface{}{val}
+
+	// Process the features in alphabetical order to ensure consistent
+	// results across repeated runs.
+	var featureKeys []string
+	for feature, _ := range features {
+		featureKeys = append(featureKeys, feature)
+	}
+	sort.Strings(featureKeys)
+
+	for _, feature := range featureKeys {
+		overwriteVal := v.Get(key + "." + feature + ".OVERWRITE")
+		if overwriteVal != nil {
+			return []interface{}{overwriteVal}
+		}
+
+		appendVal := v.Get(key + "." + feature)
+		if appendVal != nil {
+			vals = append(vals, appendVal)
+		}
+	}
+
+	return vals
+}
+
+func GetStringMapFeatures(v *viper.Viper, features map[string]bool,
+	key string) map[string]interface{} {
+
+	result := map[string]interface{}{}
+
+	slice := GetSliceFeatures(v, features, key)
+	for _, itf := range slice {
+		sub := cast.ToStringMap(itf)
+		for k, v := range sub {
+			result[k] = v
+		}
+	}
+
+	return result
+}
 
 func GetStringFeatures(v *viper.Viper, features map[string]bool,
 	key string) string {
@@ -87,28 +134,15 @@ func GetBoolFeatures(v *viper.Viper, features map[string]bool,
 func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
 	key string) []string {
 
-	val := v.GetStringSlice(key)
+	vals := GetSliceFeatures(v, features, key)
 
-	// string empty items
-	result := []string{}
-	for _, item := range val {
-		if item == "" || item == " " {
-			continue
-		}
-		result = append(result, item)
+	strVals := []string{}
+	for _, v := range vals {
+		subVals := cast.ToStringSlice(v)
+		strVals = append(strVals, subVals...)
 	}
 
-	for item, _ := range features {
-		overwriteVal := v.GetStringSlice(key + "." + item + ".OVERWRITE")
-		if overwriteVal != nil {
-			result = overwriteVal
-			break
-		}
-
-		result = append(result, v.GetStringSlice(key+"."+item)...)
-	}
-
-	return result
+	return strVals
 }
 
 // Parses a string of the following form:

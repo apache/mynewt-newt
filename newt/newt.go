@@ -28,6 +28,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -114,12 +115,13 @@ func newtCmd() *cobra.Command {
 }
 
 func main() {
-
 	cmd := newtCmd()
 
 	/* some of the setup code logs which messes with autocomplete */
 	hold_lvl := log.GetLevel()
 	log.SetLevel(log.FatalLevel)
+
+	initErr := project.Initialize()
 
 	cli.AddCompleteCommands(cmd)
 	cli.AddProjectCommands(cmd)
@@ -144,6 +146,10 @@ func main() {
 		os.Args = tmpArgs
 		cmd.SilenceErrors = false
 		cmd.SilenceUsage = false
+	}
+
+	if initErr != nil {
+		cli.NewtUsage(nil, initErr)
 	}
 
 	log.SetLevel(hold_lvl)
