@@ -305,6 +305,7 @@ func (image *Image) Generate(loader *Image) error {
 	} else if image.signingEC != nil {
 		hdr.TlvSz = 4 + 68
 		hdr.Flags = IMAGE_F_ECDSA224_SHA256
+		hdr.KeyId = image.keyId
 	}
 
 	hdr.TlvSz += 4 + 32
