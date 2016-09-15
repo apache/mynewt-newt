@@ -218,6 +218,9 @@ func readOnce(cfg Cfg, lpkg *pkg.LocalPackage) error {
 				appendValue(&entry, lpkg, v)
 				cfg[k] = entry
 			} else {
+				// XXX: We should not warn until the final iteration.  These
+				// settings may get defined later after dependencies are
+				// unlocked by additional settings.
 				log.Warnf("ignoring override of undefined setting; "+
 					"%s sets %s=%+v", lpkg.Name(), k, v)
 			}
