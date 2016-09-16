@@ -495,7 +495,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: setHelpEx,
 		Run:     targetSetCmd,
 	}
-
+	setCmd.ValidArgs = targetList()
 	targetCmd.AddCommand(setCmd)
 
 	createHelpText := "Create a target specified by <target-name>."
