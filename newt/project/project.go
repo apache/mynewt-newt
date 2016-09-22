@@ -497,7 +497,6 @@ func findProjectDir(dir string) (string, error) {
 
 		log.Debugf("Searching for project file %s", projFile)
 		if util.NodeExist(projFile) {
-			log.Infof("Project file found at %s", projFile)
 			break
 		}
 
@@ -518,7 +517,6 @@ func (proj *Project) loadPackageList() error {
 	// packages / store them in the project package list.
 	repos := proj.Repos()
 	for name, repo := range repos {
-		log.Debugf("Loading packages in repository %s", repo.Path())
 		list, err := pkg.ReadLocalPackages(repo, repo.Path())
 		if err != nil {
 			return err

@@ -29,8 +29,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
@@ -333,6 +335,90 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func printSetting(entry syscfg.CfgEntry) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"  * Setting: %s\n", entry.Name)
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"    * Description: %s\n", entry.Description)
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"    * Value: %s", entry.Value)
+
+	unfixed := syscfg.UnfixedValue(entry)
+	if unfixed != entry.Value {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, " [%s]", unfixed)
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+
+	if len(entry.History) > 1 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"    * Overridden: ")
+		for i := 1; i < len(entry.History); i++ {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s, ",
+				entry.History[i].Source.Name())
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"default=%s\n", entry.History[0].Value)
+	}
+}
+
+func printPkgCfg(pkgName string, cfg syscfg.Cfg, entries []syscfg.CfgEntry) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "* PACKAGE: %s\n", pkgName)
+
+	settingNames := make([]string, len(entries))
+	for i, entry := range entries {
+		settingNames[i] = entry.Name
+	}
+	sort.Strings(settingNames)
+
+	for _, name := range settingNames {
+		printSetting(cfg[name])
+	}
+}
+
+func printCfg(cfg syscfg.Cfg) {
+	pkgNameEntryMap := syscfg.EntriesByPkg(cfg)
+
+	pkgNames := make([]string, 0, len(pkgNameEntryMap))
+	for pkgName, _ := range pkgNameEntryMap {
+		pkgNames = append(pkgNames, pkgName)
+	}
+	sort.Strings(pkgNames)
+
+	for i, pkgName := range pkgNames {
+		if i > 0 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+		printPkgCfg(pkgName, cfg, pkgNameEntryMap[pkgName])
+	}
+}
+
+func targetConfigCmd(cmd *cobra.Command, args []string) {
+	if err := project.Initialize(); err != nil {
+		NewtUsage(cmd, err)
+	}
+	if len(args) != 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
+	}
+
+	t, err := resolveExistingTargetArg(args[0])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	b, err := builder.NewTargetBuilder(t)
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	if err := b.PrepBuild(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	printCfg(b.App.Cfg)
+}
+
 func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpText := ""
 	targetHelpEx := ""
@@ -415,12 +501,25 @@ func AddTargetCommands(cmd *cobra.Command) {
 	copyHelpEx += "  newt target copy blinky_sim my_target"
 
 	copyCmd := &cobra.Command{
-		Use:     "copy",
-		Short:   "Copy target",
-		Long:    copyHelpText,
-		Example: copyHelpEx,
-		Run:     targetCopyCmd,
+		Use:       "copy",
+		Short:     "Copy target",
+		Long:      copyHelpText,
+		Example:   copyHelpEx,
+		Run:       targetCopyCmd,
+		ValidArgs: targetList(),
 	}
 
 	targetCmd.AddCommand(copyCmd)
+
+	configHelpText := "View a target's system configuration."
+
+	configCmd := &cobra.Command{
+		Use:       "config <target-name>",
+		Short:     "View target system configuration",
+		Long:      configHelpText,
+		Run:       targetConfigCmd,
+		ValidArgs: targetList(),
+	}
+
+	targetCmd.AddCommand(configCmd)
 }

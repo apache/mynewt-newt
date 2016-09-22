@@ -1,5 +1,4 @@
 /**
-   PACKAGE_TYPE_LIB: "lib",
 * Licensed to the Apache Software Foundation (ASF) under one
 * or more contributor license agreements.  See the NOTICE file
 * distributed with this work for additional information
@@ -16,7 +15,7 @@
 * KIND, either express or implied.  See the License for the
 * specific language governing permissions and limitations
 * under the License.
-*/
+ */
 
 package pkg
 
@@ -37,6 +36,7 @@ const (
 	PACKAGE_TYPE_COMPILER
 	PACKAGE_TYPE_LIB
 	PACKAGE_TYPE_TARGET
+	PACKAGE_TYPE_UNITTEST
 )
 
 var PackageTypeNames = map[interfaces.PackageType]string{
@@ -46,6 +46,7 @@ var PackageTypeNames = map[interfaces.PackageType]string{
 	PACKAGE_TYPE_COMPILER: "compiler",
 	PACKAGE_TYPE_LIB:      "lib",
 	PACKAGE_TYPE_TARGET:   "target",
+	PACKAGE_TYPE_UNITTEST: "unittest",
 }
 
 // An interface, representing information about a Package

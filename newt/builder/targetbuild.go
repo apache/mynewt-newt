@@ -27,6 +27,7 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/symbol"
+	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -156,7 +157,7 @@ func (t *TargetBuilder) Build() error {
 	/* Build the Apps */
 	project.ResetDeps(t.AppList)
 
-	if err := t.Bsp.Reload(t.App.Features(t.App.BspPkg)); err != nil {
+	if err := t.Bsp.Reload(syscfg.Features(t.App.Cfg)); err != nil {
 		return err
 	}
 
@@ -181,7 +182,7 @@ func (t *TargetBuilder) Build() error {
 	/* rebuild the loader */
 	project.ResetDeps(t.LoaderList)
 
-	if err = t.Bsp.Reload(t.Loader.Features(t.Loader.BspPkg)); err != nil {
+	if err = t.Bsp.Reload(syscfg.Features(t.Loader.Cfg)); err != nil {
 		return err
 	}
 
@@ -403,10 +404,11 @@ func (t *TargetBuilder) Test(p *pkg.LocalPackage) error {
 	// used:
 	//     * TEST:      ensures that the test code gets compiled.
 	//     * SELFTEST:  indicates that there is no app.
-	t.App.AddFeature("TEST")
-	t.App.AddFeature("SELFTEST")
+	t.App.injectedSettings["TEST"] = "1"
+	p.InjectedSettings()["SELFTEST"] = "1"
 
-	err = t.App.PrepBuild(p, bspPkg, targetPkg)
+	t.App.AddPackage(p)
+	err = t.App.PrepBuild(nil, bspPkg, targetPkg)
 
 	if err != nil {
 		return err
