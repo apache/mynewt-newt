@@ -100,7 +100,7 @@ func GetProject() *Project {
 		}
 		err = InitProject(wd)
 		if err != nil {
-			panic(err.Error())
+			return nil
 		}
 	}
 	return globalProject

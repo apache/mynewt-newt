@@ -121,7 +121,7 @@ func main() {
 	hold_lvl := log.GetLevel()
 	log.SetLevel(log.FatalLevel)
 
-	initErr := project.Initialize()
+	project.Initialize()
 
 	cli.AddCompleteCommands(cmd)
 	cli.AddProjectCommands(cmd)
@@ -146,10 +146,6 @@ func main() {
 		os.Args = tmpArgs
 		cmd.SilenceErrors = false
 		cmd.SilenceUsage = false
-	}
-
-	if initErr != nil {
-		cli.NewtUsage(nil, initErr)
 	}
 
 	log.SetLevel(hold_lvl)

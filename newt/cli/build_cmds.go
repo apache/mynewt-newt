@@ -45,6 +45,10 @@ func testablePkgs() map[*pkg.LocalPackage]struct{} {
 
 	// Create a map of path => lclPkg.
 	proj := project.GetProject()
+	if proj == nil {
+		return nil
+	}
+
 	allPkgs := proj.PackagesOfType(-1)
 	pathLpkgMap := make(map[string]*pkg.LocalPackage, len(allPkgs))
 	for _, p := range allPkgs {
