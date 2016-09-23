@@ -373,7 +373,7 @@ func printPkgCfg(pkgName string, cfg syscfg.Cfg, entries []syscfg.CfgEntry) {
 	sort.Strings(settingNames)
 
 	for _, name := range settingNames {
-		printSetting(cfg[name])
+		printSetting(cfg.Settings[name])
 	}
 }
 

@@ -61,7 +61,7 @@ func NewBuilder(t *TargetBuilder, buildName string) (*Builder, error) {
 		LinkElf:          "",
 		target:           t,
 		injectedSettings: map[string]string{},
-		Cfg:              syscfg.Cfg{},
+		Cfg:              syscfg.NewCfg(),
 	}
 
 	return b, nil
@@ -125,8 +125,8 @@ func (b *Builder) reloadCfg() (bool, error) {
 	}
 
 	changed := false
-	for k, v := range cfg {
-		oldval, ok := b.Cfg[k]
+	for k, v := range cfg.Settings {
+		oldval, ok := b.Cfg.Settings[k]
 		if !ok || len(oldval.History) != len(v.History) {
 			b.Cfg = cfg
 			changed = true

@@ -81,12 +81,32 @@ type CfgEntry struct {
 	SettingType CfgSettingType
 }
 
-type Cfg map[string]CfgEntry
-
-type cfgRoster struct {
+type CfgRoster struct {
 	settings    map[string]string
 	pkgsPresent map[string]bool
 	apisPresent map[string]bool
+}
+
+type Cfg struct {
+	Settings map[string]CfgEntry
+	Roster   CfgRoster
+	Orphans  map[string][]CfgPoint
+}
+
+func newRoster() CfgRoster {
+	return CfgRoster{
+		settings:    map[string]string{},
+		pkgsPresent: map[string]bool{},
+		apisPresent: map[string]bool{},
+	}
+}
+
+func NewCfg() Cfg {
+	return Cfg{
+		Settings: map[string]CfgEntry{},
+		Roster:   newRoster(),
+		Orphans:  map[string][]CfgPoint{},
+	}
 }
 
 func WritePreamble(w io.Writer) {
@@ -109,7 +129,7 @@ func ValueIsTrue(val string) bool {
 
 func Features(cfg Cfg) map[string]bool {
 	features := map[string]bool{}
-	for k, v := range cfg {
+	for k, v := range cfg.Settings {
 		if v.IsTrue() {
 			features[k] = true
 		}
@@ -149,7 +169,7 @@ func (entry *CfgEntry) IsTrue() bool {
 }
 
 func appendValue(entry *CfgEntry, lpkg *pkg.LocalPackage, value interface{}) {
-	strval := fmt.Sprintf("%+v", value)
+	strval := stringValue(value)
 	point := CfgPoint{Value: strval, Source: lpkg}
 	entry.History = append(entry.History, point)
 	entry.Value = strval
@@ -202,27 +222,27 @@ func readOnce(cfg Cfg, lpkg *pkg.LocalPackage) error {
 					lpkg.Name(), err.Error())
 			}
 
-			if _, exists := cfg[k]; exists {
+			if _, exists := cfg.Settings[k]; exists {
 				// XXX: Better error message.
 				return util.FmtNewtError("setting %s redefined", k)
 			}
-			cfg[k] = entry
+			cfg.Settings[k] = entry
 		}
 	}
 
 	values := newtutil.GetStringMapFeatures(v, features, "pkg.syscfg_vals")
 	if values != nil {
 		for k, v := range values {
-			entry, ok := cfg[k]
+			entry, ok := cfg.Settings[k]
 			if ok {
 				appendValue(&entry, lpkg, v)
-				cfg[k] = entry
+				cfg.Settings[k] = entry
 			} else {
-				// XXX: We should not warn until the final iteration.  These
-				// settings may get defined later after dependencies are
-				// unlocked by additional settings.
-				log.Warnf("ignoring override of undefined setting; "+
-					"%s sets %s=%+v", lpkg.Name(), k, v)
+				orphan := CfgPoint{
+					Value:  stringValue(v),
+					Source: lpkg,
+				}
+				cfg.Orphans[k] = append(cfg.Orphans[k], orphan)
 			}
 
 		}
@@ -232,17 +252,17 @@ func readOnce(cfg Cfg, lpkg *pkg.LocalPackage) error {
 }
 
 func Log(cfg Cfg) {
-	keys := make([]string, len(cfg))
+	keys := make([]string, len(cfg.Settings))
 	i := 0
-	for k, _ := range cfg {
+	for k, _ := range cfg.Settings {
 		keys[i] = k
 		i++
 	}
 	sort.Strings(keys)
 
-	log.Debugf("syscfg settings (%d entries):", len(cfg))
+	log.Debugf("syscfg settings (%d entries):", len(cfg.Settings))
 	for _, k := range keys {
-		entry := cfg[k]
+		entry := cfg.Settings[k]
 
 		str := fmt.Sprintf("    %s=%s [", k, entry.Value)
 
@@ -255,6 +275,27 @@ func Log(cfg Cfg) {
 		str += "]"
 
 		log.Debug(str)
+	}
+
+	keys = make([]string, len(cfg.Orphans))
+	i = 0
+	for k, _ := range cfg.Orphans {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		str := fmt.Sprintf("ignoring override of undefined setting %s [", k)
+		for i, p := range cfg.Orphans[k] {
+			if i != 0 {
+				str += ", "
+			}
+			str += fmt.Sprintf("%s:%s", p.Name(), p.Value)
+		}
+		str += "]"
+
+		log.Warnf(str)
 	}
 }
 
@@ -293,9 +334,9 @@ func apiPresentName(apiName string) string {
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	injectedSettings map[string]string) (Cfg, error) {
 
-	cfg := Cfg{}
+	cfg := NewCfg()
 	for k, v := range injectedSettings {
-		cfg[k] = CfgEntry{
+		cfg.Settings[k] = CfgEntry{
 			Name:        k,
 			Description: "Injected setting",
 			Value:       v,
@@ -385,7 +426,7 @@ func calcPriorities(cfg Cfg, settingType CfgSettingType, max int,
 	// priority-value => entry
 	valEntries := map[int]CfgEntry{}
 
-	for name, entry := range cfg {
+	for name, entry := range cfg.Settings {
 		if entry.SettingType == settingType {
 			if entry.Value == SYSCFG_PRIO_ANY {
 				anyEntries[name] = entry
@@ -446,7 +487,7 @@ func calcPriorities(cfg Cfg, settingType CfgSettingType, max int,
 		}
 
 		entry.Value = strconv.Itoa(greatest)
-		cfg[name] = entry
+		cfg.Settings[name] = entry
 	}
 
 	return nil
@@ -482,7 +523,7 @@ func writeDefine(key string, value string, w io.Writer) {
 }
 
 func specialValues(cfg Cfg) (apis, pkgs, settings []string) {
-	for _, entry := range cfg {
+	for _, entry := range cfg.Settings {
 		if isApiVal(entry.Value) {
 			apis = append(apis, entry.Value)
 		} else if isPkgVal(entry.Value) {
@@ -496,15 +537,15 @@ func specialValues(cfg Cfg) (apis, pkgs, settings []string) {
 }
 
 func buildCfgRoster(cfg Cfg, lpkgs []*pkg.LocalPackage,
-	apis []string) cfgRoster {
+	apis []string) CfgRoster {
 
-	roster := cfgRoster{
-		settings:    make(map[string]string, len(cfg)),
+	roster := CfgRoster{
+		settings:    make(map[string]string, len(cfg.Settings)),
 		pkgsPresent: make(map[string]bool, len(lpkgs)),
 		apisPresent: make(map[string]bool, len(apis)),
 	}
 
-	for k, v := range cfg {
+	for k, v := range cfg.Settings {
 		roster.settings[settingName(k)] = v.Value
 	}
 
@@ -536,7 +577,7 @@ func buildCfgRoster(cfg Cfg, lpkgs []*pkg.LocalPackage,
 }
 
 func settingValueToConstant(value string,
-	roster cfgRoster) (string, bool, error) {
+	roster CfgRoster) (string, bool, error) {
 
 	seen := map[string]struct{}{}
 	curVal := value
@@ -578,8 +619,8 @@ func settingValueToConstant(value string,
 	return value, false, nil
 }
 
-func fixupSettings(cfg Cfg, roster cfgRoster) error {
-	for k, entry := range cfg {
+func fixupSettings(cfg Cfg, roster CfgRoster) error {
+	for k, entry := range cfg.Settings {
 		value, changed, err := settingValueToConstant(entry.Value, roster)
 		if err != nil {
 			return err
@@ -587,7 +628,7 @@ func fixupSettings(cfg Cfg, roster cfgRoster) error {
 
 		if changed {
 			entry.Value = value
-			cfg[k] = entry
+			cfg.Settings[k] = entry
 		}
 	}
 
@@ -601,7 +642,7 @@ func UnfixedValue(entry CfgEntry) string {
 
 func EntriesByPkg(cfg Cfg) map[string][]CfgEntry {
 	pkgEntries := map[string][]CfgEntry{}
-	for _, v := range cfg {
+	for _, v := range cfg.Settings {
 		name := v.History[0].Name()
 		pkgEntries[name] = append(pkgEntries[name], v)
 	}
@@ -621,7 +662,7 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 
 	first := true
 	for _, n := range names {
-		entry := cfg[n]
+		entry := cfg.Settings[n]
 		if entry.Value != "" {
 			if first {
 				first = false
@@ -639,7 +680,7 @@ func writeSettings(cfg Cfg, w io.Writer) {
 	// Group settings by package name so that the generated header file is
 	// easier to readOnce.
 	pkgEntries := EntriesByPkg(cfg)
-	for _, v := range cfg {
+	for _, v := range cfg.Settings {
 		name := v.History[0].Name()
 		pkgEntries[name] = append(pkgEntries[name], v)
 	}
@@ -659,7 +700,7 @@ func writeSettings(cfg Cfg, w io.Writer) {
 	}
 }
 
-func writePkgsPresent(roster cfgRoster, w io.Writer) {
+func writePkgsPresent(roster CfgRoster, w io.Writer) {
 	present := make([]string, 0, len(roster.pkgsPresent))
 	notPresent := make([]string, 0, len(roster.pkgsPresent))
 	for k, v := range roster.pkgsPresent {
@@ -687,7 +728,7 @@ func writePkgsPresent(roster cfgRoster, w io.Writer) {
 	}
 }
 
-func writeApisPresent(roster cfgRoster, w io.Writer) {
+func writeApisPresent(roster CfgRoster, w io.Writer) {
 	present := make([]string, 0, len(roster.apisPresent))
 	notPresent := make([]string, 0, len(roster.apisPresent))
 	for k, v := range roster.apisPresent {
@@ -715,7 +756,7 @@ func writeApisPresent(roster cfgRoster, w io.Writer) {
 	}
 }
 
-func write(cfg Cfg, roster cfgRoster, w io.Writer) {
+func write(cfg Cfg, w io.Writer) {
 	WritePreamble(w)
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_SYSCFG_\n")
@@ -727,10 +768,10 @@ func write(cfg Cfg, roster cfgRoster, w io.Writer) {
 	writeSettings(cfg, w)
 	fmt.Fprintf(w, "\n")
 
-	writePkgsPresent(roster, w)
+	writePkgsPresent(cfg.Roster, w)
 	fmt.Fprintf(w, "\n")
 
-	writeApisPresent(roster, w)
+	writeApisPresent(cfg.Roster, w)
 	fmt.Fprintf(w, "\n")
 
 	fmt.Fprintf(w, "#endif\n")
@@ -771,13 +812,13 @@ func EnsureWritten(cfg Cfg, lpkgs []*pkg.LocalPackage,
 		return err
 	}
 
-	roster := buildCfgRoster(cfg, lpkgs, apis)
-	if err := fixupSettings(cfg, roster); err != nil {
+	cfg.Roster = buildCfgRoster(cfg, lpkgs, apis)
+	if err := fixupSettings(cfg, cfg.Roster); err != nil {
 		return err
 	}
 
 	buf := bytes.Buffer{}
-	write(cfg, roster, &buf)
+	write(cfg, &buf)
 
 	path := headerPath(targetPath)
 
