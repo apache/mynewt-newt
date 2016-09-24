@@ -119,7 +119,12 @@ func (b *Builder) reloadCfg() (bool, error) {
 		i++
 	}
 
-	cfg, err := syscfg.Read(b.sortedLocalPackages(), apis, b.injectedSettings)
+	// Determine which features have been detected so far.  The feature map is
+	// required for reloading syscfg, as features may unlock additional
+	// settings.
+	features := syscfg.Features(b.Cfg)
+	cfg, err := syscfg.Read(b.sortedLocalPackages(), apis, b.injectedSettings,
+		features)
 	if err != nil {
 		return false, err
 	}

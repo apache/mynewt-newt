@@ -208,11 +208,15 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	return entry, nil
 }
 
-func readOnce(cfg Cfg, lpkg *pkg.LocalPackage) error {
+func readOnce(cfg Cfg, lpkg *pkg.LocalPackage, features map[string]bool) error {
 	v := lpkg.Viper
 
-	features := FeaturesForLpkg(cfg, lpkg)
-	settings := newtutil.GetStringMapFeatures(v, features, "pkg.syscfg_defs")
+	lfeatures := FeaturesForLpkg(cfg, lpkg)
+	for k, _ := range features {
+		lfeatures[k] = true
+	}
+
+	settings := newtutil.GetStringMapFeatures(v, lfeatures, "pkg.syscfg_defs")
 	if settings != nil {
 		for k, v := range settings {
 			vals := v.(map[interface{}]interface{})
@@ -230,7 +234,7 @@ func readOnce(cfg Cfg, lpkg *pkg.LocalPackage) error {
 		}
 	}
 
-	values := newtutil.GetStringMapFeatures(v, features, "pkg.syscfg_vals")
+	values := newtutil.GetStringMapFeatures(v, lfeatures, "pkg.syscfg_vals")
 	if values != nil {
 		for k, v := range values {
 			entry, ok := cfg.Settings[k]
@@ -332,7 +336,7 @@ func apiPresentName(apiName string) string {
 }
 
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
-	injectedSettings map[string]string) (Cfg, error) {
+	injectedSettings map[string]string, features map[string]bool) (Cfg, error) {
 
 	cfg := NewCfg()
 	for k, v := range injectedSettings {
@@ -344,6 +348,10 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 				Value:  v,
 				Source: nil,
 			}},
+		}
+
+		if ValueIsTrue(v) {
+			features[k] = true
 		}
 	}
 
@@ -363,7 +371,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	for _, lpkg := range lpkgs {
 		switch lpkg.Type() {
 		case pkg.PACKAGE_TYPE_LIB:
-			if err := readOnce(cfg, lpkg); err != nil {
+			if err := readOnce(cfg, lpkg, features); err != nil {
 				return cfg, err
 			}
 
@@ -382,21 +390,21 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	}
 
 	if bsp != nil {
-		if err := readOnce(cfg, bsp); err != nil {
+		if err := readOnce(cfg, bsp, features); err != nil {
 			return cfg, err
 		}
 	}
 	if app != nil {
-		if err := readOnce(cfg, app); err != nil {
+		if err := readOnce(cfg, app, features); err != nil {
 			return cfg, err
 		}
 	} else if unittest != nil {
-		if err := readOnce(cfg, unittest); err != nil {
+		if err := readOnce(cfg, unittest, features); err != nil {
 			return cfg, err
 		}
 	}
 	if target != nil {
-		if err := readOnce(cfg, target); err != nil {
+		if err := readOnce(cfg, target, features); err != nil {
 			return cfg, err
 		}
 	}
