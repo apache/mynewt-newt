@@ -29,7 +29,6 @@ import (
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
-	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -91,7 +90,7 @@ func (b *Builder) TestExePath(pkgName string) string {
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
-	featureMap := syscfg.Features(b.Cfg)
+	featureMap := b.Cfg.Features()
 	featureSlice := make([]string, 0, len(featureMap))
 	for k, _ := range featureMap {
 		featureSlice = append(featureSlice, k)

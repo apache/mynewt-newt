@@ -27,7 +27,6 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/symbol"
-	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -157,7 +156,7 @@ func (t *TargetBuilder) Build() error {
 	/* Build the Apps */
 	project.ResetDeps(t.AppList)
 
-	if err := t.Bsp.Reload(syscfg.Features(t.App.Cfg)); err != nil {
+	if err := t.Bsp.Reload(t.App.Cfg.Features()); err != nil {
 		return err
 	}
 
@@ -182,7 +181,7 @@ func (t *TargetBuilder) Build() error {
 	/* rebuild the loader */
 	project.ResetDeps(t.LoaderList)
 
-	if err = t.Bsp.Reload(syscfg.Features(t.Loader.Cfg)); err != nil {
+	if err = t.Bsp.Reload(t.Loader.Cfg.Features()); err != nil {
 		return err
 	}
 

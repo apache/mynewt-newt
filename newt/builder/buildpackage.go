@@ -140,7 +140,7 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	features := syscfg.FeaturesForLpkg(b.Cfg, bpkg.LocalPackage)
+	features := b.Cfg.FeaturesForLpkg(bpkg.LocalPackage)
 	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
 		"pkg.cflags")
 	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
@@ -392,7 +392,7 @@ func (bpkg *BuildPackage) Resolve(b *Builder,
 	var err error
 	newDeps := false
 
-	features := syscfg.FeaturesForLpkg(cfg, bpkg.LocalPackage)
+	features := cfg.FeaturesForLpkg(bpkg.LocalPackage)
 
 	if !bpkg.depsResolved {
 		newDeps, err = bpkg.loadDeps(b, features)

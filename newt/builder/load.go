@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 
 	"mynewt.apache.org/newt/newt/project"
-	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -84,11 +83,12 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 		envSettings += fmt.Sprintf("EXTRA_JTAG_CMD=\"%s\" ", extraJtagCmd)
 	}
 
-	// bspPath, binBaseName are passed in command line for backwards compatibility
-	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript, bspPath,
-		binBaseName)
+	// bspPath, binBaseName are passed in command line for backwards
+	// compatibility
+	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript,
+		bspPath, binBaseName)
 
-	features := syscfg.Features(b.Cfg)
+	features := b.Cfg.Features()
 
 	if _, ok := features["bootloader"]; ok {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -150,9 +150,9 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 
 	envSettings := []string{
 		fmt.Sprintf("BSP_PATH=%s", bspPath),
-	        fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
+		fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
 		fmt.Sprintf("FEATURES=\"%s\"", featureString),
-		}
+	}
 	if extraJtagCmd != "" {
 		envSettings = append(envSettings,
 			fmt.Sprintf("EXTRA_JTAG_CMD=%s", extraJtagCmd))

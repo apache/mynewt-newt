@@ -122,7 +122,7 @@ func (b *Builder) reloadCfg() (bool, error) {
 	// Determine which features have been detected so far.  The feature map is
 	// required for reloading syscfg, as features may unlock additional
 	// settings.
-	features := syscfg.Features(b.Cfg)
+	features := b.Cfg.Features()
 	cfg, err := syscfg.Read(b.sortedLocalPackages(), apis, b.injectedSettings,
 		features)
 	if err != nil {
@@ -200,7 +200,12 @@ func (b *Builder) loadDeps() error {
 	}
 
 	// Log the final syscfg.
-	syscfg.Log(b.Cfg)
+	b.Cfg.Log()
+
+	// Report syscfg errors.
+	if err := b.Cfg.DetectErrors(); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -33,6 +33,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"
@@ -88,9 +89,10 @@ type CfgRoster struct {
 }
 
 type Cfg struct {
-	Settings map[string]CfgEntry
-	Roster   CfgRoster
-	Orphans  map[string][]CfgPoint
+	Settings    map[string]CfgEntry
+	Roster      CfgRoster
+	Orphans     map[string][]CfgPoint
+	Ambiguities []CfgEntry
 }
 
 func newRoster() CfgRoster {
@@ -127,7 +129,7 @@ func ValueIsTrue(val string) bool {
 	return true
 }
 
-func Features(cfg Cfg) map[string]bool {
+func (cfg *Cfg) Features() map[string]bool {
 	features := map[string]bool{}
 	for k, v := range cfg.Settings {
 		if v.IsTrue() {
@@ -138,8 +140,8 @@ func Features(cfg Cfg) map[string]bool {
 	return features
 }
 
-func FeaturesForLpkg(cfg Cfg, lpkg *pkg.LocalPackage) map[string]bool {
-	features := Features(cfg)
+func (cfg *Cfg) FeaturesForLpkg(lpkg *pkg.LocalPackage) map[string]bool {
+	features := cfg.Features()
 
 	for k, v := range lpkg.InjectedSettings() {
 		_, ok := features[k]
@@ -168,11 +170,70 @@ func (entry *CfgEntry) IsTrue() bool {
 	return ValueIsTrue(entry.Value)
 }
 
-func appendValue(entry *CfgEntry, lpkg *pkg.LocalPackage, value interface{}) {
+func (entry *CfgEntry) appendValue(lpkg *pkg.LocalPackage, value interface{}) {
 	strval := stringValue(value)
 	point := CfgPoint{Value: strval, Source: lpkg}
 	entry.History = append(entry.History, point)
 	entry.Value = strval
+}
+
+func (entry *CfgEntry) ambiguousCount() int {
+	diffVals := false
+	count := 0
+	for i := 1; i < len(entry.History)-1; i++ {
+		cur := entry.History[len(entry.History)-i-1]
+		next := entry.History[len(entry.History)-i]
+
+		// If either setting is injected, there is no ambiguity
+		if cur.Source == nil || next.Source == nil {
+			break
+		}
+
+		// If the two package have different priorities, there is no ambiguity.
+		if normalizePkgType(cur.Source.Type()) !=
+			normalizePkgType(next.Source.Type()) {
+
+			break
+		}
+
+		if cur.Value != next.Value {
+			diffVals = true
+		}
+
+		count++
+	}
+
+	// Account for final package that was skipped in loop.
+	if count > 0 {
+		count++
+	}
+
+	// If all values are identical, there is no ambiguity
+	if !diffVals {
+		count = 0
+	}
+
+	return count
+}
+
+func (entry *CfgEntry) ambiguousText() string {
+	count := entry.ambiguousCount()
+	if count == 0 {
+		return ""
+	}
+
+	str := fmt.Sprintf("%s [", entry.Name)
+
+	for i := 0; i < count; i++ {
+		cur := entry.History[len(entry.History)-i-1]
+		if i != 0 {
+			str += ", "
+		}
+		str += fmt.Sprintf("%s:%s", cur.Name(), cur.Value)
+	}
+	str += "]"
+
+	return str
 }
 
 func FeatureToCflag(featureName string) string {
@@ -203,15 +264,16 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 		}
 	}
 
-	appendValue(&entry, lpkg, entry.Value)
+	entry.appendValue(lpkg, entry.Value)
 
 	return entry, nil
 }
 
-func readOnce(cfg Cfg, lpkg *pkg.LocalPackage, features map[string]bool) error {
+func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
+	features map[string]bool) error {
 	v := lpkg.Viper
 
-	lfeatures := FeaturesForLpkg(cfg, lpkg)
+	lfeatures := cfg.FeaturesForLpkg(lpkg)
 	for k, _ := range features {
 		lfeatures[k] = true
 	}
@@ -234,12 +296,23 @@ func readOnce(cfg Cfg, lpkg *pkg.LocalPackage, features map[string]bool) error {
 		}
 	}
 
+	return nil
+}
+
+func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
+	features map[string]bool) error {
+	v := lpkg.Viper
+
+	lfeatures := cfg.FeaturesForLpkg(lpkg)
+	for k, _ := range features {
+		lfeatures[k] = true
+	}
 	values := newtutil.GetStringMapFeatures(v, lfeatures, "pkg.syscfg_vals")
 	if values != nil {
 		for k, v := range values {
 			entry, ok := cfg.Settings[k]
 			if ok {
-				appendValue(&entry, lpkg, v)
+				entry.appendValue(lpkg, v)
 				cfg.Settings[k] = entry
 			} else {
 				orphan := CfgPoint{
@@ -255,7 +328,7 @@ func readOnce(cfg Cfg, lpkg *pkg.LocalPackage, features map[string]bool) error {
 	return nil
 }
 
-func Log(cfg Cfg) {
+func (cfg *Cfg) Log() {
 	keys := make([]string, len(cfg.Settings))
 	i := 0
 	for k, _ := range cfg.Settings {
@@ -303,6 +376,18 @@ func Log(cfg Cfg) {
 	}
 }
 
+func (cfg *Cfg) DetectErrors() error {
+	if len(cfg.Ambiguities) == 0 {
+		return nil
+	}
+
+	str := "Syscfg ambiguities detected:"
+	for _, entry := range cfg.Ambiguities {
+		str += "\n    " + entry.ambiguousText()
+	}
+	return util.NewNewtError(str)
+}
+
 func escapeStr(s string) string {
 	s = strings.Replace(s, "/", "_", -1)
 	s = strings.Replace(s, "-", "_", -1)
@@ -335,6 +420,69 @@ func apiPresentName(apiName string) string {
 	return SYSCFG_PREFIX_API + strings.ToUpper(apiName)
 }
 
+func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
+	switch typ {
+	case pkg.PACKAGE_TYPE_TARGET:
+		return pkg.PACKAGE_TYPE_TARGET
+	case pkg.PACKAGE_TYPE_APP:
+		return pkg.PACKAGE_TYPE_APP
+	case pkg.PACKAGE_TYPE_UNITTEST:
+		return pkg.PACKAGE_TYPE_UNITTEST
+	case pkg.PACKAGE_TYPE_BSP:
+		return pkg.PACKAGE_TYPE_BSP
+	default:
+		return pkg.PACKAGE_TYPE_LIB
+	}
+}
+
+func categorizePkgs(lpkgs []*pkg.LocalPackage) map[interfaces.PackageType][]*pkg.LocalPackage {
+	pmap := map[interfaces.PackageType][]*pkg.LocalPackage{
+		pkg.PACKAGE_TYPE_TARGET:   []*pkg.LocalPackage{},
+		pkg.PACKAGE_TYPE_APP:      []*pkg.LocalPackage{},
+		pkg.PACKAGE_TYPE_UNITTEST: []*pkg.LocalPackage{},
+		pkg.PACKAGE_TYPE_BSP:      []*pkg.LocalPackage{},
+		pkg.PACKAGE_TYPE_LIB:      []*pkg.LocalPackage{},
+	}
+
+	for _, lpkg := range lpkgs {
+		typ := normalizePkgType(lpkg.Type())
+		pmap[typ] = append(pmap[typ], lpkg)
+	}
+
+	for k, v := range pmap {
+		pmap[k] = pkg.SortLclPkgs(v)
+	}
+
+	return pmap
+}
+
+func (cfg *Cfg) readForPkgType(lpkgs []*pkg.LocalPackage,
+	features map[string]bool) error {
+
+	for _, lpkg := range lpkgs {
+		if err := cfg.readDefsOnce(lpkg, features); err != nil {
+			return err
+		}
+	}
+	for _, lpkg := range lpkgs {
+		if err := cfg.readValsOnce(lpkg, features); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func detectAmbiguities(cfg Cfg) Cfg {
+	for _, entry := range cfg.Settings {
+		if entry.ambiguousCount() > 0 {
+			cfg.Ambiguities = append(cfg.Ambiguities, entry)
+		}
+	}
+
+	return cfg
+}
+
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	injectedSettings map[string]string, features map[string]bool) (Cfg, error) {
 
@@ -362,57 +510,28 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	//     * app (if present)
 	//     * unittest (if no app)
 	//     * bsp
+	//     * everything else (lib, sdk, compiler)
 
-	var app *pkg.LocalPackage
-	var bsp *pkg.LocalPackage
-	var target *pkg.LocalPackage
-	var unittest *pkg.LocalPackage
+	lpkgMap := categorizePkgs(lpkgs)
 
-	for _, lpkg := range lpkgs {
-		switch lpkg.Type() {
-		case pkg.PACKAGE_TYPE_LIB:
-			if err := readOnce(cfg, lpkg, features); err != nil {
-				return cfg, err
-			}
-
-		case pkg.PACKAGE_TYPE_APP:
-			app = lpkg
-
-		case pkg.PACKAGE_TYPE_BSP:
-			bsp = lpkg
-
-		case pkg.PACKAGE_TYPE_TARGET:
-			target = lpkg
-
-		case pkg.PACKAGE_TYPE_UNITTEST:
-			unittest = lpkg
-		}
-	}
-
-	if bsp != nil {
-		if err := readOnce(cfg, bsp, features); err != nil {
-			return cfg, err
-		}
-	}
-	if app != nil {
-		if err := readOnce(cfg, app, features); err != nil {
-			return cfg, err
-		}
-	} else if unittest != nil {
-		if err := readOnce(cfg, unittest, features); err != nil {
-			return cfg, err
-		}
-	}
-	if target != nil {
-		if err := readOnce(cfg, target, features); err != nil {
+	for _, ptype := range []interfaces.PackageType{
+		pkg.PACKAGE_TYPE_LIB,
+		pkg.PACKAGE_TYPE_BSP,
+		pkg.PACKAGE_TYPE_UNITTEST,
+		pkg.PACKAGE_TYPE_APP,
+		pkg.PACKAGE_TYPE_TARGET,
+	} {
+		if err := cfg.readForPkgType(lpkgMap[ptype], features); err != nil {
 			return cfg, err
 		}
 	}
 
-	roster := buildCfgRoster(cfg, lpkgs, apis)
-	if err := fixupSettings(cfg, roster); err != nil {
+	buildCfgRoster(cfg, lpkgs, apis)
+	if err := fixupSettings(cfg); err != nil {
 		return cfg, err
 	}
+
+	cfg = detectAmbiguities(cfg)
 
 	return cfg, nil
 }
@@ -545,7 +664,7 @@ func specialValues(cfg Cfg) (apis, pkgs, settings []string) {
 }
 
 func buildCfgRoster(cfg Cfg, lpkgs []*pkg.LocalPackage,
-	apis []string) CfgRoster {
+	apis []string) {
 
 	roster := CfgRoster{
 		settings:    make(map[string]string, len(cfg.Settings)),
@@ -581,7 +700,7 @@ func buildCfgRoster(cfg Cfg, lpkgs []*pkg.LocalPackage,
 		}
 	}
 
-	return roster
+	cfg.Roster = roster
 }
 
 func settingValueToConstant(value string,
@@ -627,9 +746,9 @@ func settingValueToConstant(value string,
 	return value, false, nil
 }
 
-func fixupSettings(cfg Cfg, roster CfgRoster) error {
+func fixupSettings(cfg Cfg) error {
 	for k, entry := range cfg.Settings {
-		value, changed, err := settingValueToConstant(entry.Value, roster)
+		value, changed, err := settingValueToConstant(entry.Value, cfg.Roster)
 		if err != nil {
 			return err
 		}
@@ -686,7 +805,7 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 
 func writeSettings(cfg Cfg, w io.Writer) {
 	// Group settings by package name so that the generated header file is
-	// easier to readOnce.
+	// easier to read.
 	pkgEntries := EntriesByPkg(cfg)
 	for _, v := range cfg.Settings {
 		name := v.History[0].Name()
@@ -820,8 +939,8 @@ func EnsureWritten(cfg Cfg, lpkgs []*pkg.LocalPackage,
 		return err
 	}
 
-	cfg.Roster = buildCfgRoster(cfg, lpkgs, apis)
-	if err := fixupSettings(cfg, cfg.Roster); err != nil {
+	buildCfgRoster(cfg, lpkgs, apis)
+	if err := fixupSettings(cfg); err != nil {
 		return err
 	}
 
