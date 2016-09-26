@@ -805,10 +805,6 @@ func writeSettings(cfg Cfg, w io.Writer) {
 	// Group settings by package name so that the generated header file is
 	// easier to read.
 	pkgEntries := EntriesByPkg(cfg)
-	for _, v := range cfg.Settings {
-		name := v.History[0].Name()
-		pkgEntries[name] = append(pkgEntries[name], v)
-	}
 
 	pkgNames := make([]string, 0, len(pkgEntries))
 	for name, _ := range pkgEntries {
