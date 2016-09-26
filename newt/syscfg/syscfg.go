@@ -526,7 +526,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		}
 	}
 
-	buildCfgRoster(cfg, lpkgs, apis)
+	cfg.buildCfgRoster(lpkgs, apis)
 	if err := fixupSettings(cfg); err != nil {
 		return cfg, err
 	}
@@ -649,7 +649,7 @@ func writeDefine(key string, value string, w io.Writer) {
 	fmt.Fprintf(w, "#endif\n")
 }
 
-func specialValues(cfg Cfg) (apis, pkgs, settings []string) {
+func (cfg *Cfg) specialValues() (apis, pkgs, settings []string) {
 	for _, entry := range cfg.Settings {
 		if isApiVal(entry.Value) {
 			apis = append(apis, entry.Value)
@@ -663,9 +663,7 @@ func specialValues(cfg Cfg) (apis, pkgs, settings []string) {
 	return
 }
 
-func buildCfgRoster(cfg Cfg, lpkgs []*pkg.LocalPackage,
-	apis []string) {
-
+func (cfg *Cfg) buildCfgRoster(lpkgs []*pkg.LocalPackage, apis []string) {
 	roster := CfgRoster{
 		settings:    make(map[string]string, len(cfg.Settings)),
 		pkgsPresent: make(map[string]bool, len(lpkgs)),
@@ -684,7 +682,7 @@ func buildCfgRoster(cfg Cfg, lpkgs []*pkg.LocalPackage,
 		roster.apisPresent[apiPresentName(v)] = true
 	}
 
-	apisNotPresent, pkgsNotPresent, _ := specialValues(cfg)
+	apisNotPresent, pkgsNotPresent, _ := cfg.specialValues()
 
 	for _, v := range apisNotPresent {
 		_, ok := roster.apisPresent[v]
@@ -939,7 +937,7 @@ func EnsureWritten(cfg Cfg, lpkgs []*pkg.LocalPackage,
 		return err
 	}
 
-	buildCfgRoster(cfg, lpkgs, apis)
+	cfg.buildCfgRoster(lpkgs, apis)
 	if err := fixupSettings(cfg); err != nil {
 		return err
 	}
