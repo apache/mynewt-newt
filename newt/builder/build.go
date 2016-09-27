@@ -592,7 +592,6 @@ func (b *Builder) testOwner(p *BuildPackage) *BuildPackage {
 
 		parentPkg := b.pkgWithPath(parentPath)
 		if parentPkg != nil && parentPkg.Type() != pkg.PACKAGE_TYPE_UNITTEST {
-			log.Debugf("OWNER=%s", parentPkg.Name())
 			return parentPkg
 		}
 
