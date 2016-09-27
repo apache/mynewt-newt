@@ -340,8 +340,8 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 func (r *Repo) DownloadDesc() error {
 	dl := r.downloader
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, fmt.Sprintf("Downloading "+
-		"repository description for %s...", r.Name()))
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
+		"repository description for %s...\n", r.Name())
 
 	// Configuration path
 	cpath := r.repoFilePath()

@@ -48,6 +48,13 @@ type GithubDownloader struct {
 	GenericDownloader
 	User string
 	Repo string
+
+	// Github access token for private repositories.
+	Token string
+
+	// Basic authentication login and password for private repositories.
+	Login    string
+	Password string
 }
 
 func (gd *GenericDownloader) Branch() string {
@@ -64,16 +71,42 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 }
 
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
-	fmtStr := "https://raw.githubusercontent.com/%s/%s/%s/%s"
-	url := fmt.Sprintf(fmtStr, gd.User, gd.Repo, gd.Branch(), name)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
+		gd.User, gd.Repo, name, gd.Branch())
+
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Add("Accept", "application/vnd.github.v3.raw")
+
+	if gd.Token != "" {
+		// XXX: Add command line option to include token in log.
+		log.Debugf("Using authorization token")
+		req.Header.Add("Authorization", "token "+gd.Token)
+	} else if gd.Login != "" && gd.Password != "" {
+		// XXX: Add command line option to include password in log.
+		log.Debugf("Using basic auth; login=%s", gd.Login)
+		req.SetBasicAuth(gd.Login, gd.Password)
+	}
 
 	log.Debugf("Fetching file %s (url: %s) to %s", name, url, dest)
-
-	rsp, err := http.Get(url)
+	client := &http.Client{}
+	rsp, err := client.Do(req)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
 	defer rsp.Body.Close()
+
+	if rsp.StatusCode != http.StatusOK {
+		errMsg := fmt.Sprintf("Failed to download '%s'; status=%s",
+			url, rsp.Status)
+		switch rsp.StatusCode {
+		case http.StatusNotFound:
+			errMsg += "; URL incorrect or repository private?"
+		case http.StatusUnauthorized:
+			errMsg += "; credentials incorrect?"
+		}
+
+		return util.NewNewtError(errMsg)
+	}
 
 	handle, err := os.Create(dest)
 	if err != nil {
@@ -104,9 +137,9 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	branch := "master"
 
 	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
-	util.StatusMessage(util.VERBOSITY_VERBOSE, fmt.Sprintf("Downloading "+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
-		commit, url))
+		commit, url)
 
 	gitPath, err := exec.LookPath("git")
 	if err != nil {

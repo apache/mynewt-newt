@@ -21,9 +21,13 @@ package newtutil
 
 import (
 	"fmt"
+	"os/user"
 	"sort"
 	"strconv"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
@@ -31,6 +35,83 @@ import (
 
 var NewtVersionStr string = "Apache Newt (incubating) version: 0.9.0"
 var NewtBlinkyTag string = "mynewt_0_9_0_tag"
+
+const NEWTRC_DIR string = ".newt"
+const REPOS_FILENAME string = "repos.yml"
+
+// Contains general newt settings read from $HOME/.newt
+var newtrc *viper.Viper
+
+func readNewtrc() *viper.Viper {
+	usr, err := user.Current()
+	if err != nil {
+		log.Warn("Failed to obtain user name")
+		return viper.New()
+	}
+
+	dir := usr.HomeDir + "/" + NEWTRC_DIR
+	v, err := util.ReadConfig(dir, strings.TrimSuffix(REPOS_FILENAME, ".yml"))
+	if err != nil {
+		log.Debugf("Failed to read %s/%s file", dir, REPOS_FILENAME)
+		return viper.New()
+	}
+
+	return v
+}
+
+func Newtrc() *viper.Viper {
+	if newtrc != nil {
+		return newtrc
+	}
+
+	newtrc = readNewtrc()
+	return newtrc
+}
+
+func GetSliceFeatures(v *viper.Viper, features map[string]bool,
+	key string) []interface{} {
+
+	val := v.Get(key)
+	vals := []interface{}{val}
+
+	// Process the features in alphabetical order to ensure consistent
+	// results across repeated runs.
+	var featureKeys []string
+	for feature, _ := range features {
+		featureKeys = append(featureKeys, feature)
+	}
+	sort.Strings(featureKeys)
+
+	for _, feature := range featureKeys {
+		overwriteVal := v.Get(key + "." + feature + ".OVERWRITE")
+		if overwriteVal != nil {
+			return []interface{}{overwriteVal}
+		}
+
+		appendVal := v.Get(key + "." + feature)
+		if appendVal != nil {
+			vals = append(vals, appendVal)
+		}
+	}
+
+	return vals
+}
+
+func GetStringMapFeatures(v *viper.Viper, features map[string]bool,
+	key string) map[string]interface{} {
+
+	result := map[string]interface{}{}
+
+	slice := GetSliceFeatures(v, features, key)
+	for _, itf := range slice {
+		sub := cast.ToStringMap(itf)
+		for k, v := range sub {
+			result[k] = v
+		}
+	}
+
+	return result
+}
 
 func GetStringFeatures(v *viper.Viper, features map[string]bool,
 	key string) string {
