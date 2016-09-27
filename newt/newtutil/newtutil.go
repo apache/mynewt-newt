@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
 	"sort"
 	"strconv"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/util"
@@ -35,6 +37,38 @@ import (
 
 var NewtVersionStr string = "Apache Newt (incubating) version: 0.9.0"
 var NewtBlinkyTag string = "mynewt_0_9_0_tag"
+
+const NEWTRC_DIR string = ".newt"
+const REPOS_FILENAME string = "repos.yml"
+
+// Contains general newt settings read from $HOME/.newt
+var newtrc *viper.Viper
+
+func readNewtrc() *viper.Viper {
+	usr, err := user.Current()
+	if err != nil {
+		log.Warn("Failed to obtain user name")
+		return viper.New()
+	}
+
+	dir := usr.HomeDir + "/" + NEWTRC_DIR
+	v, err := util.ReadConfig(dir, strings.TrimSuffix(REPOS_FILENAME, ".yml"))
+	if err != nil {
+		log.Debugf("Failed to read %s/%s file", dir, REPOS_FILENAME)
+		return viper.New()
+	}
+
+	return v
+}
+
+func Newtrc() *viper.Viper {
+	if newtrc != nil {
+		return newtrc
+	}
+
+	newtrc = readNewtrc()
+	return newtrc
+}
 
 func GetSliceFeatures(v *viper.Viper, features map[string]bool,
 	key string) []interface{} {

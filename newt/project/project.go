@@ -381,6 +381,29 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 	dl.User = repoVars["user"]
 	dl.Repo = repoVars["repo"]
 
+	// The project.yml file can contain github access tokens and authentication
+	// credentials, but this file is probably world-readable and therefore not
+	// a great place for this.
+	dl.Token = repoVars["token"]
+	dl.Login = repoVars["login"]
+	dl.Password = repoVars["password"]
+
+	// Alternatively, the user can put security material in
+	// $HOME/.newt/repos.yml.
+	newtrc := newtutil.Newtrc()
+	privRepo := newtrc.GetStringMapString("repository." + rname)
+	if privRepo != nil {
+		if dl.Token == "" {
+			dl.Token = privRepo["token"]
+		}
+		if dl.Login == "" {
+			dl.Login = privRepo["login"]
+		}
+		if dl.Password == "" {
+			dl.Password = privRepo["password"]
+		}
+	}
+
 	r, err := repo.NewRepo(rname, rversreq, dl)
 	if err != nil {
 		return err
