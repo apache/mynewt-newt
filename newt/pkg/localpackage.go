@@ -417,7 +417,7 @@ func ReadLocalPackages(repo *repo.Repo,
 		for _, subDir := range dirList {
 			if err := ReadLocalPackageRecursive(repo, pkgList, basePath,
 				filepath.Join(path, subDir)); err != nil {
-				return nil, util.NewNewtError(err.Error())
+				return nil, err
 			}
 		}
 	}
