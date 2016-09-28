@@ -82,6 +82,13 @@ func FmtNewtError(format string, args ...interface{}) *NewtError {
 	return NewNewtError(fmt.Sprintf(format, args...))
 }
 
+func PreNewtError(err error, format string, args ...interface{}) *NewtError {
+	baseErr := err.(*NewtError)
+	baseErr.Text = fmt.Sprintf(format, args...) + "; " + baseErr.Text
+
+	return baseErr
+}
+
 // Print Silent, Quiet and Verbose aware status messages to stdout.
 func StatusMessage(level int, message string, args ...interface{}) {
 	if Verbosity >= level {

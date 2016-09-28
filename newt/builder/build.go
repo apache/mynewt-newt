@@ -23,191 +23,123 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/syscfg"
-	"mynewt.apache.org/newt/newt/sysinit"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
 type Builder struct {
-	Packages         map[*pkg.LocalPackage]*BuildPackage
-	apis             map[string]*BuildPackage
+	PkgMap map[*pkg.LocalPackage]*BuildPackage
+
+	apiMap           map[string]*BuildPackage
 	appPkg           *BuildPackage
-	BspPkg           *pkg.LocalPackage
+	bspPkg           *BuildPackage
+	compilerPkg      *BuildPackage
+	targetPkg        *BuildPackage
 	compilerInfo     *toolchain.CompilerInfo
-	target           *TargetBuilder
+	targetBuilder    *TargetBuilder
+	cfg              syscfg.Cfg
 	linkerScript     string
 	buildName        string
-	LinkElf          string
+	linkElf          string
 	injectedSettings map[string]string
-
-	Cfg syscfg.Cfg
 }
 
-func NewBuilder(t *TargetBuilder, buildName string) (*Builder, error) {
+func NewBuilder(t *TargetBuilder, buildName string, lpkgs []*pkg.LocalPackage,
+	apiMap map[string]*pkg.LocalPackage, cfg syscfg.Cfg) (*Builder, error) {
+
 	b := &Builder{
-		Packages:         map[*pkg.LocalPackage]*BuildPackage{},
+		PkgMap: make(map[*pkg.LocalPackage]*BuildPackage, len(lpkgs)),
+		cfg:    cfg,
+
 		buildName:        buildName,
-		apis:             map[string]*BuildPackage{},
-		LinkElf:          "",
-		target:           t,
+		apiMap:           make(map[string]*BuildPackage, len(apiMap)),
+		linkElf:          "",
+		targetBuilder:    t,
 		injectedSettings: map[string]string{},
-		Cfg:              syscfg.NewCfg(),
+	}
+
+	for _, lpkg := range lpkgs {
+		if _, err := b.addPackage(lpkg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Create a pseudo build package for the generated sysinit code.
+	if _, err := b.addSysinitBpkg(); err != nil {
+		return nil, err
+	}
+
+	for api, lpkg := range apiMap {
+		bpkg := b.PkgMap[lpkg]
+		if bpkg == nil {
+			for _, lpkg := range b.sortedLocalPackages() {
+				log.Debugf("    * %s", lpkg.Name())
+			}
+			return nil, util.FmtNewtError(
+				"Unexpected unsatisfied API: %s; required by: %s", api,
+				lpkg.Name())
+		}
+
+		b.apiMap[api] = bpkg
 	}
 
 	return b, nil
 }
 
-func (b *Builder) AddPackage(npkg *pkg.LocalPackage) *BuildPackage {
+func (b *Builder) addPackage(npkg *pkg.LocalPackage) (*BuildPackage, error) {
 	// Don't allow nil entries to the map
 	if npkg == nil {
 		panic("Cannot add nil package builder map")
 	}
 
-	bpkg := b.Packages[npkg]
+	bpkg := b.PkgMap[npkg]
 	if bpkg == nil {
 		bpkg = NewBuildPackage(npkg)
-		b.Packages[npkg] = bpkg
-	}
 
-	return bpkg
-}
-
-// @return bool                 true if this is a new API.
-func (b *Builder) AddApi(apiString string, bpkg *BuildPackage) bool {
-	curBpkg := b.apis[apiString]
-	if curBpkg == nil {
-		b.apis[apiString] = bpkg
-		return true
-	} else {
-		if curBpkg != bpkg {
-			util.StatusMessage(util.VERBOSITY_QUIET,
-				"Warning: API conflict: %s (%s <-> %s)\n", apiString,
-				curBpkg.Name(), bpkg.Name())
-		}
-		return false
-	}
-}
-
-func (b *Builder) ApiNames() []string {
-	apiNames := make([]string, len(b.apis), len(b.apis))
-
-	i := 0
-	for api, _ := range b.apis {
-		apiNames[i] = api
-		i += 1
-	}
-
-	return apiNames
-}
-
-// @return                      changed,err
-func (b *Builder) reloadCfg() (bool, error) {
-	apis := make([]string, len(b.apis))
-	i := 0
-	for api, _ := range b.apis {
-		apis[i] = api
-		i++
-	}
-
-	// Determine which features have been detected so far.  The feature map is
-	// required for reloading syscfg, as features may unlock additional
-	// settings.
-	features := b.Cfg.Features()
-	cfg, err := syscfg.Read(b.sortedLocalPackages(), apis, b.injectedSettings,
-		features)
-	if err != nil {
-		return false, err
-	}
-
-	changed := false
-	for k, v := range cfg.Settings {
-		oldval, ok := b.Cfg.Settings[k]
-		if !ok || len(oldval.History) != len(v.History) {
-			b.Cfg = cfg
-			changed = true
-		}
-	}
-
-	return changed, nil
-}
-
-func (b *Builder) loadDepsOnce() (bool, error) {
-	// Circularly resolve dependencies, APIs, and required APIs until no new
-	// ones exist.
-	newDeps := false
-	for {
-		reprocess := false
-		for _, bpkg := range b.Packages {
-			newDeps, err := bpkg.Resolve(b, b.Cfg)
-			if err != nil {
-				return false, err
+		switch bpkg.Type() {
+		case pkg.PACKAGE_TYPE_APP:
+			if b.appPkg != nil {
+				return nil, pkgTypeConflictErr(b.appPkg, bpkg)
 			}
+			b.appPkg = bpkg
 
-			if newDeps {
-				// The new dependencies need to be processed.  Iterate again
-				// after this iteration completes.
-				reprocess = true
+		case pkg.PACKAGE_TYPE_BSP:
+			if b.bspPkg != nil {
+				return nil, pkgTypeConflictErr(b.bspPkg, bpkg)
 			}
+			b.bspPkg = bpkg
+
+		case pkg.PACKAGE_TYPE_COMPILER:
+			if b.compilerPkg != nil {
+				return nil, pkgTypeConflictErr(b.compilerPkg, bpkg)
+			}
+			b.compilerPkg = bpkg
+
+		case pkg.PACKAGE_TYPE_TARGET:
+			if b.targetPkg != nil {
+				return nil, pkgTypeConflictErr(b.targetPkg, bpkg)
+			}
+			b.targetPkg = bpkg
 		}
 
-		if !reprocess {
-			break
-		}
+		b.PkgMap[npkg] = bpkg
 	}
 
-	return newDeps, nil
+	return bpkg, nil
 }
 
-func (b *Builder) loadDeps() error {
-	if _, err := b.loadDepsOnce(); err != nil {
-		return err
-	}
-
-	for {
-		cfgChanged, err := b.reloadCfg()
-		if err != nil {
-			return err
-		}
-		if cfgChanged {
-			// A new supported feature was discovered.  It is impossible
-			// to determine what new dependency and API requirements are
-			// generated as a result.  All packages need to be
-			// reprocessed.
-			for _, bpkg := range b.Packages {
-				bpkg.depsResolved = false
-				bpkg.apisSatisfied = false
-			}
-		}
-
-		newDeps, err := b.loadDepsOnce()
-		if err != nil {
-			return err
-		}
-
-		if !newDeps && !cfgChanged {
-			break
-		}
-	}
-
-	// Log the final syscfg.
-	b.Cfg.Log()
-
-	// Report syscfg errors.
-	if err := b.Cfg.DetectErrors(); err != nil {
-		return err
-	}
-
-	return nil
+func pkgTypeConflictErr(p1 *BuildPackage, p2 *BuildPackage) error {
+	return util.FmtNewtError("Two %s packages in build: %s, %s",
+		pkg.PackageTypeNames[p1.Type()], p1.Name(), p2.Name())
 }
 
 // Recursively compiles all the .c and .s files in the specified directory.
@@ -267,7 +199,7 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 func (b *Builder) newCompiler(bpkg *BuildPackage,
 	dstDir string) (*toolchain.Compiler, error) {
 
-	c, err := b.target.NewCompiler(dstDir)
+	c, err := b.targetBuilder.NewCompiler(dstDir)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +220,7 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 
 // Compiles and archives a package.
 func (b *Builder) buildPackage(bpkg *BuildPackage) error {
-	c, err := b.newCompiler(bpkg, b.PkgBinDir(bpkg.Name()))
+	c, err := b.newCompiler(bpkg, b.PkgBinDir(bpkg))
 	if err != nil {
 		return err
 	}
@@ -316,7 +248,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	}
 
 	for _, dir := range srcDirs {
-		if err = buildDir(dir, c, b.target.Bsp.Arch, nil); err != nil {
+		if err = buildDir(dir, c, b.targetBuilder.bspPkg.Arch, nil); err != nil {
 			return err
 		}
 	}
@@ -325,7 +257,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	if err := os.Chdir(bpkg.BasePath() + "/"); err != nil {
 		return util.NewNewtError(err.Error())
 	}
-	archiveFile := b.ArchivePath(bpkg.Name())
+	archiveFile := b.ArchivePath(bpkg)
 	if err = c.CompileArchive(archiveFile); err != nil {
 		return err
 	}
@@ -334,11 +266,10 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 }
 
 func (b *Builder) RemovePackages(cmn map[string]bool) error {
-
 	for pkgName, _ := range cmn {
-		for lp, bpkg := range b.Packages {
+		for lp, bpkg := range b.PkgMap {
 			if bpkg.Name() == pkgName {
-				delete(b.Packages, lp)
+				delete(b.PkgMap, lp)
 			}
 		}
 	}
@@ -347,7 +278,7 @@ func (b *Builder) RemovePackages(cmn map[string]bool) error {
 
 func (b *Builder) ExtractSymbolInfo() (error, *symbol.SymbolMap) {
 	syms := symbol.NewSymbolMap()
-	for _, bpkg := range b.Packages {
+	for _, bpkg := range b.PkgMap {
 		err, sm := b.ParseObjectLibrary(bpkg)
 		if err == nil {
 			syms, err = (*syms).Merge(sm)
@@ -361,24 +292,28 @@ func (b *Builder) ExtractSymbolInfo() (error, *symbol.SymbolMap) {
 
 func (b *Builder) link(elfName string, linkerScript string,
 	keepSymbols []string) error {
-	c, err := b.newCompiler(b.appPkg, b.PkgBinDir(elfName))
+
+	c, err := b.newCompiler(b.appPkg, b.FileBinDir(elfName))
 	if err != nil {
 		return err
 	}
 
-	/* always used the trimmed archive files */
+	/* Always used the trimmed archive files. */
 	pkgNames := []string{}
 
-	for _, bpkg := range b.Packages {
-		if util.NodeExist(b.ArchivePath(bpkg.Name())) {
-			pkgNames = append(pkgNames, b.ArchivePath(bpkg.Name()))
+	for _, bpkg := range b.PkgMap {
+		if util.NodeExist(b.ArchivePath(bpkg)) {
+			pkgNames = append(pkgNames, b.ArchivePath(bpkg))
 		}
 	}
 
+	// Include sysinit archive in elf file. */
+	//pkgNames = append(pkgNames, SysinitArchivePath(b.targetPkg.Name()))
+
 	if linkerScript != "" {
-		c.LinkerScript = b.target.Bsp.BasePath() + "/" + linkerScript
+		c.LinkerScript = b.bspPkg.BasePath() + "/" + linkerScript
 	}
-	err = c.CompileElf(elfName, pkgNames, keepSymbols, b.LinkElf)
+	err = c.CompileElf(elfName, pkgNames, keepSymbols, b.linkElf)
 	if err != nil {
 		return err
 	}
@@ -389,42 +324,15 @@ func (b *Builder) link(elfName string, linkerScript string,
 // Populates the builder with all the packages that need to be built and
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
-func (b *Builder) PrepBuild(appPkg *pkg.LocalPackage,
-	bspPkg *pkg.LocalPackage, targetPkg *pkg.LocalPackage) error {
-
-	// Seed the builder with the app (if present), bsp, and target packages.
-
-	b.BspPkg = bspPkg
-
-	var appBpkg *BuildPackage
-	if appPkg != nil {
-		appBpkg = b.Packages[appPkg]
-		if appBpkg == nil {
-			appBpkg = b.AddPackage(appPkg)
+func (b *Builder) PrepBuild() error {
+	// Populate the full set of packages to be built.
+	for _, bpkg := range b.PkgMap {
+		if err := bpkg.resolveDeps(b.cfg, b.apiMap); err != nil {
+			return err
 		}
-		b.appPkg = appBpkg
-	}
-
-	bspBpkg := b.Packages[bspPkg]
-
-	if bspBpkg == nil {
-		bspBpkg = b.AddPackage(bspPkg)
-	}
-
-	targetBpkg := b.AddPackage(targetPkg)
-
-	// Populate the full set of packages to be built and resolve the feature
-	// set.
-	if err := b.loadDeps(); err != nil {
-		return err
 	}
 
 	b.logDepInfo()
-
-	// Terminate if any package has an unmet API requirement.
-	if err := b.verifyApisSatisfied(); err != nil {
-		return err
-	}
 
 	// Populate the base set of compiler flags.  Flags from the following
 	// packages get applied to every source file:
@@ -446,17 +354,17 @@ func (b *Builder) PrepBuild(appPkg *pkg.LocalPackage,
 
 	// Target flags.
 	log.Debugf("Generating build flags for target %s",
-		b.target.target.FullName())
-	targetCi, err := targetBpkg.CompilerInfo(b)
+		b.targetPkg.FullName())
+	targetCi, err := b.targetPkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
 	baseCi.AddCompilerInfo(targetCi)
 
 	// App flags.
-	if appBpkg != nil {
-		log.Debugf("Generating build flags for app %s", appPkg.FullName())
-		appCi, err := appBpkg.CompilerInfo(b)
+	if b.appPkg != nil {
+		log.Debugf("Generating build flags for app %s", b.appPkg.FullName())
+		appCi, err := b.appPkg.CompilerInfo(b)
 		if err != nil {
 			return err
 		}
@@ -465,71 +373,51 @@ func (b *Builder) PrepBuild(appPkg *pkg.LocalPackage,
 	}
 
 	// Bsp flags.
-	log.Debugf("Generating build flags for bsp %s", bspPkg.FullName())
-	bspCi, err := bspBpkg.CompilerInfo(b)
+	log.Debugf("Generating build flags for bsp %s", b.bspPkg.FullName())
+	bspCi, err := b.bspPkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
 
 	// Define a cpp symbol indicating the BSP architecture, name of the
 	// BSP and app.
-	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.target.Bsp.Arch)
+	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.targetBuilder.bspPkg.Arch)
 	bspCi.Cflags = append(bspCi.Cflags,
-		"-DBSP_NAME=\""+filepath.Base(b.target.Bsp.Name())+"\"")
-	if appPkg != nil {
+		"-DBSP_NAME=\""+filepath.Base(b.bspPkg.Name())+"\"")
+	if b.appPkg != nil {
 		bspCi.Cflags = append(bspCi.Cflags,
-			"-DAPP_NAME=\""+filepath.Base(appPkg.Name())+"\"")
+			"-DAPP_NAME=\""+filepath.Base(b.appPkg.Name())+"\"")
 	}
 	baseCi.AddCompilerInfo(bspCi)
+
+	// All packages have access to the generated syscfg header directory.
+	baseCi.Cflags = append(baseCi.Cflags,
+		"-I"+GeneratedIncludeDir(b.targetPkg.Name()))
 
 	// Note: Compiler flags get added at the end, after the flags for library
 	// package being built are calculated.
 	b.compilerInfo = baseCi
 
-	lpkgs := b.sortedLocalPackages()
-	if err := syscfg.EnsureWritten(b.Cfg, lpkgs, b.ApiNames(),
-		targetPkg.BasePath()); err != nil {
-		return err
-	}
-
-	if err := sysinit.EnsureWritten(lpkgs, targetPkg.BasePath()); err != nil {
-		return err
-	}
-
-	b.compilerInfo = baseCi
-
 	return nil
-}
-
-func (b *Builder) matchFeature(flist []map[string]interface{},
-	pkg pkg.Package, featureName string) bool {
-
-	fullName := ""
-	if pkg != nil {
-		fullName = pkg.FullName()
-	}
-
-	for _, matchList := range flist {
-		for pkgDesc, featureDesc := range matchList {
-			re, _ := regexp.Compile(pkgDesc)
-			if re.MatchString(fullName) {
-				if strings.Compare(featureDesc.(string), featureName) == 0 {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
 }
 
 func (b *Builder) AddCompilerInfo(info *toolchain.CompilerInfo) {
 	b.compilerInfo.AddCompilerInfo(info)
 }
 
+func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
+	lpkg := pkg.NewLocalPackage(b.targetPkg.Repo().(*repo.Repo),
+		GeneratedBaseDir(b.targetPkg.Name()))
+	lpkg.SetName(pkg.ShortName(b.targetPkg) + "-sysinit-" + b.buildName)
+	lpkg.SetType(pkg.PACKAGE_TYPE_GENERATED)
+
+	return b.addPackage(lpkg)
+}
+
 func (b *Builder) Build() error {
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
+
 	for _, bpkg := range bpkgs {
 		if err := b.buildPackage(bpkg); err != nil {
 			return err
@@ -568,7 +456,7 @@ func (b *Builder) TestLink(linkerScript string) error {
 }
 
 func (b *Builder) pkgWithPath(path string) *BuildPackage {
-	for _, p := range b.Packages {
+	for _, p := range b.PkgMap {
 		if p.BasePath() == path {
 			return p
 		}
@@ -608,7 +496,8 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 		}
 	}
 
-	testFilename := b.TestExePath(p.Name())
+	testBpkg := b.PkgMap[p]
+	testFilename := b.TestExePath(testBpkg)
 	if err := b.link(testFilename, "", nil); err != nil {
 		return err
 	}
@@ -633,7 +522,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
 	loader_sm := symbol.NewSymbolMap()
 
-	for _, value := range b.Packages {
+	for _, value := range b.PkgMap {
 		err, sm := b.ParseObjectLibrary(value)
 		if err == nil {
 			util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -649,7 +538,7 @@ func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
 }
 
 func (b *Builder) GetTarget() *target.Target {
-	return b.target.GetTarget()
+	return b.targetBuilder.GetTarget()
 }
 
 func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
@@ -657,7 +546,7 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 	/* check dependencies on the ROM ELF.  This is really dependent on
 	 * all of the .a files, but since we already depend on the loader
 	 * .as to build the initial elf, we only need to check the app .a */
-	c, err := b.target.NewCompiler(b.AppElfPath())
+	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
 	d := toolchain.NewDepTracker(c)
 	if err != nil {
 		return err
@@ -666,8 +555,8 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 	archNames := []string{}
 
 	/* build the set of archive file names */
-	for _, bpkg := range b.Packages {
-		archivePath := b.ArchivePath(bpkg.Name())
+	for _, bpkg := range b.PkgMap {
+		archivePath := b.ArchivePath(bpkg)
 		if util.NodeExist(archivePath) {
 			archNames = append(archNames, archivePath)
 		}

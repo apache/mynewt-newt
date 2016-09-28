@@ -55,7 +55,7 @@ func settingValues(settingName string) ([]string, error) {
 	packs := project.GetProject().PackagesOfType(-1)
 	for _, pack := range packs {
 		settings :=
-			pack.(*pkg.LocalPackage).Viper.GetStringSlice(settingName)
+			pack.(*pkg.LocalPackage).PkgV.GetStringSlice(settingName)
 
 		for _, setting := range settings {
 			settingMap[setting] = struct{}{}
@@ -141,6 +141,11 @@ var varsMap = map[string]func() ([]string, error){
 // Returns a slice of valid values for the target variable with the specified
 // name.  If an invalid target variable is specified, an error is returned.
 func VarValues(varName string) ([]string, error) {
+	_, err := project.TryGetProject()
+	if err != nil {
+		return nil, err
+	}
+
 	fn := varsMap[varName]
 	if fn == nil {
 		err := util.NewNewtError(fmt.Sprintf("Unknown setting name: \"%s\"",

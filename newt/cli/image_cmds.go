@@ -65,11 +65,12 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	var keyId uint8
 	var keystr string
 
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) < 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
+	}
+
+	if _, err := project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
 	}
 
 	targetName := args[0]
@@ -92,35 +93,35 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		keystr = args[2]
 	}
 
-	b, err := builder.NewTargetBuilder(t)
+	b, err := builder.NewTargetBuilder(t, nil)
 	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	if err := b.PrepBuild(); err != nil {
 		NewtUsage(cmd, err)
 		return
 	}
 
-	err = b.PrepBuild()
-	if err != nil {
-		NewtUsage(cmd, err)
-		return
-	}
+	var appImg *image.Image
+	var loaderImg *image.Image
 
-	var app_img *image.Image
-	var loader_img *image.Image
-
-	if b.Loader == nil {
-		err, app_img = CreateImage(b.App, version, keystr, keyId, nil)
+	if b.LoaderBuilder == nil {
+		err, appImg = CreateImage(b.AppBuilder, version, keystr, keyId, nil)
 		if err != nil {
 			NewtUsage(cmd, err)
 			return
 		}
 	} else {
-		err, loader_img = CreateImage(b.Loader, version, keystr, keyId, nil)
+		err, loaderImg = CreateImage(b.LoaderBuilder, version, keystr,
+			keyId, nil)
 		if err != nil {
 			NewtUsage(cmd, err)
 			return
 		}
 
-		err, app_img = CreateImage(b.App, version, keystr, keyId, loader_img)
+		err, appImg = CreateImage(b.AppBuilder, version, keystr, keyId,
+			loaderImg)
 		if err != nil {
 			NewtUsage(cmd, err)
 			return
@@ -128,8 +129,12 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 
 	}
 
-	build_id := image.CreateBuildId(app_img, loader_img)
-	err = image.CreateManifest(b, app_img, loader_img, build_id)
+	buildId := image.CreateBuildId(appImg, loaderImg)
+	if err := image.CreateManifest(b, appImg, loaderImg,
+		buildId); err != nil {
+
+		NewtUsage(nil, err)
+	}
 }
 
 func AddImageCommands(cmd *cobra.Command) {

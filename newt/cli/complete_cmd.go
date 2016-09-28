@@ -36,8 +36,7 @@ import (
 func targetList() []string {
 	targetNames := []string{}
 
-	err := project.Initialize()
-	if err != nil {
+	if _, err := project.TryGetProject(); err != nil {
 		return targetNames
 	}
 

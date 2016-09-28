@@ -464,7 +464,7 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 		Date:      timeStr,
 	}
 
-	for _, builtPkg := range t.App.Packages {
+	for _, builtPkg := range t.AppBuilder.PkgMap {
 		imgPkg := &ImageManifestPkg{
 			Name: builtPkg.Name(),
 		}
@@ -475,7 +475,7 @@ func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_i
 		manifest.Loader = filepath.Base(loader.targetImg)
 		manifest.LoaderHash = fmt.Sprintf("%x", loader.hash)
 
-		for _, builtPkg := range t.Loader.Packages {
+		for _, builtPkg := range t.LoaderBuilder.PkgMap {
 			imgPkg := &ImageManifestPkg{
 				Name: builtPkg.Name(),
 			}

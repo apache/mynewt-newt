@@ -71,7 +71,7 @@ func targetContainsUserFiles(t *target.Target) (bool, error) {
 }
 
 func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
-	features := pack.Viper.GetStringSlice(key)
+	features := pack.PkgV.GetStringSlice(key)
 	sort.Strings(features)
 
 	var buffer bytes.Buffer
@@ -83,8 +83,8 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
+	if _, err := project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
 	}
 	targetNames := []string{}
 	if len(args) == 0 {
@@ -143,13 +143,14 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) < 2 {
 		NewtUsage(cmd,
 			util.NewNewtError("Must specify at least two arguments "+
 				"(target-name & k=v) to set"))
+	}
+
+	if _, err := project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
 	}
 
 	// Parse target name.
@@ -191,9 +192,9 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 			kv[0] = "pkg." + strings.TrimPrefix(kv[0], "target.")
 			if kv[1] == "" {
 				// User specified empty value; delete variable.
-				t.Package().Viper.Set(kv[0], nil)
+				t.Package().PkgV.Set(kv[0], nil)
 			} else {
-				t.Package().Viper.Set(kv[0], strings.Fields(kv[1]))
+				t.Package().PkgV.Set(kv[0], strings.Fields(kv[1]))
 			}
 		} else {
 			if kv[1] == "" {
@@ -223,11 +224,13 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetCreateCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) != 1 {
 		NewtUsage(cmd, util.NewNewtError("Missing target name"))
+	}
+
+	proj, err := project.TryGetProject()
+	if err != nil {
+		NewtUsage(nil, err)
 	}
 
 	pkgName, err := ResolveNewTargetName(args[0])
@@ -235,7 +238,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	repo := project.GetProject().LocalRepo()
+	repo := proj.LocalRepo()
 	pack := pkg.NewLocalPackage(repo, repo.Path()+"/"+pkgName)
 	pack.SetName(pkgName)
 	pack.SetType(pkg.PACKAGE_TYPE_TARGET)
@@ -281,12 +284,13 @@ func targetDelOne(t *target.Target) error {
 }
 
 func targetDelCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify at least one "+
 			"target to delete"))
+	}
+
+	if _, err := project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
 	}
 
 	targets, err := ResolveTargets(args...)
@@ -302,12 +306,14 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetCopyCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) != 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify exactly one "+
 			"source target and one destination target"))
+	}
+
+	proj, err := project.TryGetProject()
+	if err != nil {
+		NewtUsage(nil, err)
 	}
 
 	srcTarget, err := resolveExistingTargetArg(args[0])
@@ -322,7 +328,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 
 	// Copy the source target's base package and adjust the fields which need
 	// to change.
-	dstTarget := srcTarget.Clone(project.GetProject().LocalRepo(), dstName)
+	dstTarget := srcTarget.Clone(proj.LocalRepo(), dstName)
 
 	// Save the new target.
 	err = dstTarget.Save()
@@ -345,10 +351,6 @@ func printSetting(entry syscfg.CfgEntry) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"    * Value: %s", entry.Value)
 
-	unfixed := syscfg.UnfixedValue(entry)
-	if unfixed != entry.Value {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, " [%s]", unfixed)
-	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
 	if len(entry.History) > 1 {
@@ -377,7 +379,12 @@ func printPkgCfg(pkgName string, cfg syscfg.Cfg, entries []syscfg.CfgEntry) {
 	}
 }
 
-func printCfg(cfg syscfg.Cfg) {
+func printCfg(targetName string, cfg syscfg.Cfg) {
+	if errText := cfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Syscfg for %s:\n", targetName)
 	pkgNameEntryMap := syscfg.EntriesByPkg(cfg)
 
 	pkgNames := make([]string, 0, len(pkgNameEntryMap))
@@ -395,11 +402,12 @@ func printCfg(cfg syscfg.Cfg) {
 }
 
 func targetConfigCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) != 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
+	}
+
+	if _, err := project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
 	}
 
 	t, err := resolveExistingTargetArg(args[0])
@@ -407,16 +415,17 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	b, err := builder.NewTargetBuilder(t)
+	b, err := builder.NewTargetBuilder(t, nil)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	if err := b.PrepBuild(); err != nil {
+	cfgResolution, err := b.ExportCfg()
+	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	printCfg(b.App.Cfg)
+	printCfg(t.Name(), cfgResolution.Cfg)
 }
 
 func AddTargetCommands(cmd *cobra.Command) {
@@ -514,7 +523,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	configHelpText := "View a target's system configuration."
 
 	configCmd := &cobra.Command{
-		Use:       "config <target-name>",
+		Use:       "config",
 		Short:     "View target system configuration",
 		Long:      configHelpText,
 		Run:       targetConfigCmd,

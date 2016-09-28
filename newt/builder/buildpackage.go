@@ -20,7 +20,6 @@
 package builder
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,26 +34,11 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-// Indicates whether a package's API dependency has been another package.
-type reqApiStatus int
-
-const (
-	REQ_API_STATUS_UNSATISFIED reqApiStatus = iota
-	REQ_API_STATUS_SATISFIED
-)
-
 type BuildPackage struct {
 	*pkg.LocalPackage
 
-	ci *toolchain.CompilerInfo
-
+	ci                *toolchain.CompilerInfo
 	SourceDirectories []string
-
-	// Keeps track of API requirements and whether they are satisfied.
-	reqApiMap map[string]reqApiStatus
-
-	depsResolved  bool
-	apisSatisfied bool
 }
 
 // Recursively iterates through an pkg's dependencies, adding each pkg
@@ -74,15 +58,16 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 		}
 
 		// Get pkg structure
-		dpkg := project.GetProject().ResolveDependency(dep).(*pkg.LocalPackage)
-		if dpkg == nil {
-			return util.NewNewtError("Cannot resolve dependency " + dep.String())
+		p := project.GetProject().ResolveDependency(dep)
+		if p == nil {
+			return util.FmtNewtError("Cannot resolve dependency %+v", dep)
 		}
+		dpkg := p.(*pkg.LocalPackage)
 
-		dbpkg := b.Packages[dpkg]
+		dbpkg := b.PkgMap[dpkg]
 		if dbpkg == nil {
-			return util.NewNewtError(fmt.Sprintf("Package not found (%s)",
-				dpkg.Name()))
+			return util.FmtNewtError("Package not found %s; required by %s",
+				dpkg.Name(), bpkg.Name())
 		}
 
 		if err := dbpkg.collectDepsAux(b, set); err != nil {
@@ -113,7 +98,9 @@ func (bpkg *BuildPackage) collectDeps(b *Builder) ([]*BuildPackage, error) {
 
 // Calculates the include paths exported by the specified pkg and all of
 // its recursive dependencies.
-func (bpkg *BuildPackage) recursiveIncludePaths(b *Builder) ([]string, error) {
+func (bpkg *BuildPackage) recursiveIncludePaths(
+	b *Builder) ([]string, error) {
+
 	deps, err := bpkg.collectDeps(b)
 	if err != nil {
 		return nil, err
@@ -121,17 +108,14 @@ func (bpkg *BuildPackage) recursiveIncludePaths(b *Builder) ([]string, error) {
 
 	incls := []string{}
 	for _, p := range deps {
-		incls = append(incls, p.publicIncludeDirs(b)...)
+		incls = append(incls, p.publicIncludeDirs(b.targetBuilder.bspPkg)...)
 	}
 
 	return incls, nil
 }
 
-func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, error) {
-	if !bpkg.depsResolved || !bpkg.apisSatisfied {
-		return nil, util.NewNewtError("Package must be resolved before " +
-			"compiler info is fetched; package=" + bpkg.Name())
-	}
+func (bpkg *BuildPackage) CompilerInfo(
+	b *Builder) (*toolchain.CompilerInfo, error) {
 
 	// If this package's compiler info has already been generated, returned the
 	// cached copy.
@@ -140,43 +124,45 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	features := b.Cfg.FeaturesForLpkg(bpkg.LocalPackage)
-	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
+	features := b.cfg.FeaturesForLpkg(bpkg.LocalPackage)
+	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
 		"pkg.cflags")
-	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
+	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
 		"pkg.lflags")
-	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.Viper, features,
+	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
 		"pkg.aflags")
 
+	// Package-specific injected settings get specified as C flags on the
+	// command line.
 	for k, _ := range bpkg.InjectedSettings() {
 		ci.Cflags = append(ci.Cflags, syscfg.FeatureToCflag(k))
 	}
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
-	ignPats := newtutil.GetStringSliceFeatures(bpkg.Viper,
+	ignPats := newtutil.GetStringSliceFeatures(bpkg.PkgV,
 		features, "pkg.ign_files")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
-			return nil, util.NewNewtError("Ignore files, unable to compile re: " +
-				err.Error())
+			return nil, util.NewNewtError(
+				"Ignore files, unable to compile re: " + err.Error())
 		}
 		ci.IgnoreFiles = append(ci.IgnoreFiles, re)
 	}
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
-	ignPats = newtutil.GetStringSliceFeatures(bpkg.Viper,
+	ignPats = newtutil.GetStringSliceFeatures(bpkg.PkgV,
 		features, "pkg.ign_dirs")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
-			return nil, util.NewNewtError("Ignore dirs, unable to compile re: " +
-				err.Error())
+			return nil, util.NewNewtError(
+				"Ignore dirs, unable to compile re: " + err.Error())
 		}
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
-	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(bpkg.Viper,
+	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(bpkg.PkgV,
 		features, "pkg.src_dirs")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
@@ -193,128 +179,34 @@ func (bpkg *BuildPackage) CompilerInfo(b *Builder) (*toolchain.CompilerInfo, err
 // Searches for a package which can satisfy bpkg's API requirement.  If such a
 // package is found, bpkg's API requirement is marked as satisfied, and the
 // package is added to bpkg's dependency list.
-func (bpkg *BuildPackage) satisfyReqApi(b *Builder, reqApi string) bool {
-	depBpkg := b.apis[reqApi]
-	if depBpkg == nil {
-		return false
-	}
+func (bpkg *BuildPackage) satisfyReqApi(
+	reqApi string, apiPkg *BuildPackage) error {
 
 	dep := &pkg.Dependency{
-		Name: depBpkg.Name(),
-		Repo: depBpkg.Repo().Name(),
+		Name: apiPkg.Name(),
+		Repo: apiPkg.Repo().Name(),
 	}
 	bpkg.AddDep(dep)
-	bpkg.reqApiMap[reqApi] = REQ_API_STATUS_SATISFIED
-
-	// This package now has a new unresolved dependency.
-	bpkg.depsResolved = false
 
 	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s)",
 		bpkg.Name(), reqApi, dep.String())
 
-	return true
-}
-
-// @return bool                 True if this this function changed the builder
-//                                  state; another full iteration is required
-//                                  in this case.
-//         error                non-nil on failure.
-func (bpkg *BuildPackage) loadDeps(b *Builder,
-	features map[string]bool) (bool, error) {
-
-	proj := project.GetProject()
-
-	changed := false
-
-	newDeps := newtutil.GetStringSliceFeatures(bpkg.Viper, features, "pkg.deps")
-	for _, newDepStr := range newDeps {
-		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
-		if err != nil {
-			return false, err
-		}
-
-		pkg, ok := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
-		if !ok {
-			return false,
-				util.NewNewtError("Could not resolve package dependency " +
-					newDep.String())
-		}
-
-		if b.Packages[pkg] == nil {
-			changed = true
-			b.AddPackage(pkg)
-		}
-
-		if !bpkg.HasDep(newDep) {
-			changed = true
-			bpkg.AddDep(newDep)
-		}
-	}
-
-	// Determine if this package supports any APIs that we haven't seen
-	// yet.  If so, another full iteration is required.
-	apis := newtutil.GetStringSliceFeatures(bpkg.Viper, features, "pkg.apis")
-	for _, api := range apis {
-		newApi := b.AddApi(api, bpkg)
-		if newApi {
-			changed = true
-		}
-	}
-
-	return changed, nil
-}
-
-// @return bool                 true if a new dependency was detected as a
-//                                  result of satisfying an API for this
-//                                  package.
-func (bpkg *BuildPackage) satisfyApis(b *Builder,
-	features map[string]bool) bool {
-
-	// Assume all this package's APIs are satisfied and that no new
-	// dependencies will be detected.
-	bpkg.apisSatisfied = true
-	newDeps := false
-
-	// Determine if any of the package's API requirements can now be satisfied.
-	// If so, another full iteration is required.
-	reqApis := newtutil.GetStringSliceFeatures(bpkg.Viper, features,
-		"pkg.req_apis")
-	for _, reqApi := range reqApis {
-		reqStatus, ok := bpkg.reqApiMap[reqApi]
-		if !ok {
-			reqStatus = REQ_API_STATUS_UNSATISFIED
-			bpkg.reqApiMap[reqApi] = reqStatus
-		}
-
-		if reqStatus == REQ_API_STATUS_UNSATISFIED {
-			apiSatisfied := bpkg.satisfyReqApi(b, reqApi)
-			if apiSatisfied {
-				// An API was satisfied; the package now has a new dependency
-				// that needs to be resolved.
-				newDeps = true
-				reqStatus = REQ_API_STATUS_SATISFIED
-			}
-		}
-		if reqStatus == REQ_API_STATUS_UNSATISFIED {
-			bpkg.apisSatisfied = false
-		}
-	}
-
-	return newDeps
+	return nil
 }
 
 func (bpkg *BuildPackage) findSdkIncludes() []string {
 	sdkDir := bpkg.BasePath() + "/src/ext/"
 
 	sdkPathList := []string{}
-	err := filepath.Walk(sdkDir, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			return nil
-		}
+	err := filepath.Walk(sdkDir,
+		func(path string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				return nil
+			}
 
-		sdkPathList = append(sdkPathList, path)
-		return nil
-	})
+			sdkPathList = append(sdkPathList, path)
+			return nil
+		})
 	if err != nil {
 		return []string{}
 	}
@@ -322,17 +214,17 @@ func (bpkg *BuildPackage) findSdkIncludes() []string {
 	return sdkPathList
 }
 
-func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
+func (bpkg *BuildPackage) publicIncludeDirs(bspPkg *pkg.BspPackage) []string {
 	pkgBase := filepath.Base(bpkg.Name())
 	bp := bpkg.BasePath()
 
 	incls := []string{
 		bp + "/include",
-		bp + "/include/" + pkgBase + "/arch/" + b.target.Bsp.Arch,
+		bp + "/include/" + pkgBase + "/arch/" + bspPkg.Arch,
 	}
 
 	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
-		incls = append(incls, b.target.Bsp.BasePath()+"/include/bsp/")
+		incls = append(incls, bspPkg.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
@@ -346,13 +238,13 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 
 	incls := []string{}
 	incls = append(incls, srcDir)
-	incls = append(incls, srcDir+"/arch/"+b.target.Bsp.Arch)
+	incls = append(incls, srcDir+"/arch/"+b.targetBuilder.bspPkg.Arch)
 
 	switch bpkg.Type() {
 	case pkg.PACKAGE_TYPE_SDK:
 		// If pkgType == SDK, include all the items in "ext" directly into the
 		// include path
-		incls = append(incls, b.target.Bsp.BasePath()+"/include/bsp/")
+		incls = append(incls, b.bspPkg.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
@@ -372,51 +264,47 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	return incls
 }
 
-// Attempts to resolve all of a build package's dependencies, identities, APIs,
-// and required APIs.  This function should be called repeatedly until the
-// package is fully resolved.
-//
-// If a dependency is resolved by this function, the new dependency needs to be
-// processed.  The caller should attempt to resolve all packages again.
-//
-// If a new supported feature is detected by this function, all pacakges need
-// to be reprocessed from scratch.  The caller should set all packages'
-// depsResolved and apisSatisfied variables to false and attempt to resolve
-// everything again.
-//
-// @return bool                 true if >=1 dependencies were resolved
-//         bool                 true if >=1 new features were detected
-func (bpkg *BuildPackage) Resolve(b *Builder,
-	cfg syscfg.Cfg) (bool, error) {
-
-	var err error
-	newDeps := false
+// Resolves all of a build package's dependencies and API requirements.
+func (bpkg *BuildPackage) resolveDeps(
+	cfg syscfg.Cfg, apiMap map[string]*BuildPackage) error {
 
 	features := cfg.FeaturesForLpkg(bpkg.LocalPackage)
 
-	if !bpkg.depsResolved {
-		newDeps, err = bpkg.loadDeps(b, features)
+	// Match each required API with the package which implements it.
+	reqApis := newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
+		"pkg.req_apis")
+	for _, reqApi := range reqApis {
+		if err := bpkg.satisfyReqApi(reqApi, apiMap[reqApi]); err != nil {
+			return err
+		}
+	}
+
+	proj := project.GetProject()
+	newDeps := newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
+		"pkg.deps")
+	for _, newDepStr := range newDeps {
+		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
 		if err != nil {
-			return false, err
+			return err
 		}
 
-		bpkg.depsResolved = !newDeps
-	}
+		_, ok := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
+		if !ok {
+			return util.NewNewtError("Could not resolve package dependency " +
+				newDep.String())
+		}
 
-	if !bpkg.apisSatisfied {
-		newApiDep := bpkg.satisfyApis(b, features)
-		if newApiDep {
-			newDeps = true
+		if !bpkg.HasDep(newDep) {
+			bpkg.AddDep(newDep)
 		}
 	}
 
-	return newDeps, nil
+	return nil
 }
 
 func NewBuildPackage(pkg *pkg.LocalPackage) *BuildPackage {
 	bpkg := &BuildPackage{
 		LocalPackage: pkg,
-		reqApiMap:    map[string]reqApiStatus{},
 	}
 
 	return bpkg

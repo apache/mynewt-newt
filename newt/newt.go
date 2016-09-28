@@ -28,7 +28,6 @@ import (
 
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/newtutil"
-	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -121,8 +120,6 @@ func main() {
 	hold_lvl := log.GetLevel()
 	log.SetLevel(log.FatalLevel)
 
-	project.Initialize()
-
 	cli.AddCompleteCommands(cmd)
 	cli.AddProjectCommands(cmd)
 	cli.AddTargetCommands(cmd)
@@ -149,5 +146,7 @@ func main() {
 	}
 
 	log.SetLevel(hold_lvl)
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		cli.NewtUsage(nil, err)
+	}
 }

@@ -35,12 +35,6 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const FILENAME = "sysinit.c"
-const SYSINIT_FN_SIG = `void
-sysinit(void)
-{
-`
-
 func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*pkg.LocalPackage {
 	sm := map[int][]*pkg.LocalPackage{}
 
@@ -54,6 +48,7 @@ func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*pkg.LocalPackage {
 
 func writePrototypes(pkgs []*pkg.LocalPackage, w io.Writer) {
 	sorted := pkg.SortLclPkgs(pkgs)
+	fmt.Fprintf(w, "void os_init(void);\n")
 	for _, p := range sorted {
 		fmt.Fprintf(w, "void %s(void);\n", p.InitFnName())
 	}
@@ -80,7 +75,9 @@ func onlyPkgsWithInit(pkgs []*pkg.LocalPackage) []*pkg.LocalPackage {
 	return good
 }
 
-func write(pkgs []*pkg.LocalPackage, w io.Writer) {
+func write(pkgs []*pkg.LocalPackage, isLoader bool,
+	w io.Writer) {
+
 	goodPkgs := onlyPkgsWithInit(pkgs)
 	stageMap := buildStageMap(goodPkgs)
 
@@ -94,19 +91,32 @@ func write(pkgs []*pkg.LocalPackage, w io.Writer) {
 
 	syscfg.WritePreamble(w)
 
+	if isLoader {
+		fmt.Fprintf(w, "#if SPLIT_LOADER\n\n")
+	} else {
+		fmt.Fprintf(w, "#if !SPLIT_LOADER\n\n")
+	}
+
 	writePrototypes(goodPkgs, w)
+
+	var fnName string
+	if isLoader {
+		fnName = "sysinit_loader"
+	} else {
+		fnName = "sysinit_app"
+	}
+
 	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "void\n%s(void)\n{\n", fnName)
+	fmt.Fprintf(w, "    os_init();\n")
 
-	fmt.Fprintf(w, "%s", SYSINIT_FN_SIG)
-	for i, s := range stages {
-		if i != 0 {
-			fmt.Fprintf(w, "\n")
-		}
-
+	for _, s := range stages {
+		fmt.Fprintf(w, "\n")
 		writeStage(s, stageMap[s], w)
 	}
 
-	fmt.Fprintf(w, "}\n")
+	fmt.Fprintf(w, "}\n\n")
+	fmt.Fprintf(w, "#endif\n")
 }
 
 func writeRequired(contents []byte, path string) (bool, error) {
@@ -124,11 +134,18 @@ func writeRequired(contents []byte, path string) (bool, error) {
 	return rc != 0, nil
 }
 
-func EnsureWritten(pkgs []*pkg.LocalPackage, targetPath string) error {
-	buf := bytes.Buffer{}
-	write(pkgs, &buf)
+func EnsureWritten(pkgs []*pkg.LocalPackage, srcDir string, targetName string,
+	isLoader bool) error {
 
-	path := fmt.Sprintf("%s/src/%s", targetPath, FILENAME)
+	buf := bytes.Buffer{}
+	write(pkgs, isLoader, &buf)
+
+	var path string
+	if isLoader {
+		path = fmt.Sprintf("%s/%s-sysinit-loader.c", srcDir, targetName)
+	} else {
+		path = fmt.Sprintf("%s/%s-sysinit-app.c", srcDir, targetName)
+	}
 
 	writeReqd, err := writeRequired(buf.Bytes(), path)
 	if err != nil {

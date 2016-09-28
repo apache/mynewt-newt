@@ -92,7 +92,8 @@ func (repo *Repo) FilteredSearchList(curPath string) ([]string, error) {
 
 	dirList, err := ioutil.ReadDir(filepath.Join(repo.Path(), curPath))
 	if err != nil {
-		return list, util.NewNewtError(err.Error())
+		return list, util.FmtNewtError("failed to read repo \"%s\": %s",
+			repo.Name(), err.Error())
 	}
 	for _, dirEnt := range dirList {
 		if !dirEnt.IsDir() {

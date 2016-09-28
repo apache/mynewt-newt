@@ -36,13 +36,13 @@ func (t *TargetBuilder) Load(extraJtagCmd string) error {
 		return err
 	}
 
-	if t.Loader != nil {
-		err = t.App.Load(1, extraJtagCmd)
+	if t.LoaderBuilder != nil {
+		err = t.AppBuilder.Load(1, extraJtagCmd)
 		if err == nil {
-			err = t.Loader.Load(0, extraJtagCmd)
+			err = t.LoaderBuilder.Load(0, extraJtagCmd)
 		}
 	} else {
-		err = t.App.Load(0, extraJtagCmd)
+		err = t.AppBuilder.Load(0, extraJtagCmd)
 	}
 
 	return err
@@ -56,22 +56,23 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 	/*
 	 * Populate the package list and feature sets.
 	 */
-	err := b.target.PrepBuild()
+	err := b.targetBuilder.PrepBuild()
 	if err != nil {
 		return err
 	}
 
-	if b.target.Bsp.DownloadScript == "" {
+	if b.targetBuilder.bspPkg.DownloadScript == "" {
 		/*
 		 *
 		 */
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"No download script for BSP %s\n", b.target.Bsp.Name())
+			"No download script for BSP %s\n", b.bspPkg.Name())
 		return nil
 	}
 
-	bspPath := b.target.Bsp.BasePath()
-	downloadScript := filepath.Join(bspPath, b.target.Bsp.DownloadScript)
+	bspPath := b.bspPkg.BasePath()
+	downloadScript := filepath.Join(bspPath,
+		b.targetBuilder.bspPkg.DownloadScript)
 	binBaseName := b.AppBinBasePath()
 	featureString := b.FeatureString()
 
@@ -88,7 +89,7 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript,
 		bspPath, binBaseName)
 
-	features := b.Cfg.Features()
+	features := b.cfg.Features()
 
 	if _, ok := features["bootloader"]; ok {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -118,17 +119,10 @@ func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool) error {
 		return err
 	}
 
-	//	if t.Loader != nil {
-	//		basename := t.Loader.AppElfPath()
-	//		name := strings.TrimSuffix(basename, filepath.Ext(basename))
-	//		additional_libs = append(additional_libs, name)
-	//	}
-
-	//	return t.App.Debug(additional_libs)
-	if t.Loader == nil {
-		return t.App.Debug(extraJtagCmd, reset)
+	if t.LoaderBuilder == nil {
+		return t.AppBuilder.Debug(extraJtagCmd, reset)
 	}
-	return t.Loader.Debug(extraJtagCmd, reset)
+	return t.LoaderBuilder.Debug(extraJtagCmd, reset)
 }
 
 func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
@@ -139,12 +133,12 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 	/*
 	 * Populate the package list and feature sets.
 	 */
-	err := b.target.PrepBuild()
+	err := b.targetBuilder.PrepBuild()
 	if err != nil {
 		return err
 	}
 
-	bspPath := b.target.Bsp.BasePath()
+	bspPath := b.bspPkg.BasePath()
 	binBaseName := b.AppBinBasePath()
 	featureString := b.FeatureString()
 
@@ -160,11 +154,12 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 	if reset == true {
 		envSettings = append(envSettings, fmt.Sprintf("RESET=true"))
 	}
-	debugScript := filepath.Join(bspPath, b.target.Bsp.DebugScript)
+	debugScript := filepath.Join(bspPath, b.targetBuilder.bspPkg.DebugScript)
 
 	os.Chdir(project.GetProject().Path())
 
-	// bspPath, binBaseName are passed in command line for backwards compatibility
+	// bspPath, binBaseName are passed in command line for backwards
+	// compatibility
 	cmdLine := []string{debugScript, bspPath, binBaseName}
 
 	fmt.Printf("%s\n", cmdLine)

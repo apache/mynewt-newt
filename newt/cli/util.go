@@ -149,27 +149,6 @@ func ResolveNewTargetName(name string) (string, error) {
 	return pkgName, nil
 }
 
-func ResolvePackage(name string) (*pkg.LocalPackage, error) {
-	// Trim trailing slash from name.  This is necessary when tab
-	// completion is used to specify the name.
-	name = strings.TrimSuffix(name, "/")
-
-	dep, err := pkg.NewDependency(nil, name)
-	if err != nil {
-		return nil, util.FmtNewtError("invalid package name: %s (%s)", name,
-			err.Error())
-	}
-	if dep == nil {
-		return nil, util.NewNewtError("invalid package name: " + name)
-	}
-	pack := project.GetProject().ResolveDependency(dep)
-	if pack == nil {
-		return nil, util.NewNewtError("unknown package: " + name)
-	}
-
-	return pack.(*pkg.LocalPackage), nil
-}
-
 func PackageNameList(pkgs []*pkg.LocalPackage) string {
 	var buffer bytes.Buffer
 	for i, pack := range pkgs {

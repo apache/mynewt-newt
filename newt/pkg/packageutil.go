@@ -1,7 +1,10 @@
 package pkg
 
 import (
+	"path/filepath"
 	"sort"
+
+	"mynewt.apache.org/newt/newt/interfaces"
 )
 
 type lpkgSorter struct {
@@ -29,4 +32,8 @@ func SortLclPkgs(pkgs []*LocalPackage) []*LocalPackage {
 
 	sort.Sort(sorter)
 	return sorter.pkgs
+}
+
+func ShortName(p interfaces.PackageInterface) string {
+	return filepath.Base(p.Name())
 }

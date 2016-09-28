@@ -22,6 +22,7 @@ package pkg
 import "mynewt.apache.org/newt/newt/interfaces"
 
 const PACKAGE_FILE_NAME = "pkg.yml"
+const SYSCFG_YAML_FILENAME = "syscfg.yml"
 
 const (
 	PACKAGE_STABILITY_STABLE = "stable"
@@ -37,6 +38,7 @@ const (
 	PACKAGE_TYPE_LIB
 	PACKAGE_TYPE_TARGET
 	PACKAGE_TYPE_UNITTEST
+	PACKAGE_TYPE_GENERATED
 )
 
 var PackageTypeNames = map[interfaces.PackageType]string{

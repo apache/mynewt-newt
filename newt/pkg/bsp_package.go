@@ -35,17 +35,17 @@ type BspPackage struct {
 }
 
 func (bsp *BspPackage) Reload(features map[string]bool) error {
-	bsp.CompilerName = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+	bsp.CompilerName = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
 		features, "pkg.compiler")
-	bsp.Arch = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+	bsp.Arch = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
 		features, "pkg.arch")
-	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
 		features, "pkg.linkerscript")
-	bsp.Part2LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+	bsp.Part2LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
 		features, "pkg.part2linkerscript")
-	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
 		features, "pkg.downloadscript")
-	bsp.DebugScript = newtutil.GetStringFeatures(bsp.LocalPackage.Viper,
+	bsp.DebugScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
 		features, "pkg.debugscript")
 
 	if bsp.CompilerName == "" {

@@ -254,9 +254,6 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 			buildProfile, runtime.GOOS)
 	}
 
-	log.Infof("ccPath = %s, arPath = %s, flags = %s", c.ccPath,
-		c.arPath, c.info.Cflags)
-
 	return nil
 }
 

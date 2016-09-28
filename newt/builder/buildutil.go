@@ -30,7 +30,6 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
-	"mynewt.apache.org/newt/util"
 )
 
 func BinRoot() string {
@@ -41,61 +40,88 @@ func TargetBinDir(target *target.Target) string {
 	return BinRoot() + "/" + target.Name()
 }
 
-func (b *Builder) BinDir() string {
-	return BinRoot() + "/" + b.target.target.Name() + "/" + b.buildName
+func GeneratedBaseDir(targetName string) string {
+	return BinRoot() + "/" + targetName + "/generated"
 }
 
-func (b *Builder) PkgBinDir(pkgName string) string {
+func GeneratedSrcDir(targetName string) string {
+	return GeneratedBaseDir(targetName) + "/src"
+}
+
+func GeneratedIncludeDir(targetName string) string {
+	return GeneratedBaseDir(targetName) + "/include"
+}
+
+func GeneratedBinDir(targetName string) string {
+	return GeneratedBaseDir(targetName) + "/bin"
+}
+
+func SysinitArchivePath(targetName string) string {
+	return GeneratedBinDir(targetName) + "/sysinit.a"
+}
+
+func (b *Builder) BinDir() string {
+	return BinRoot() + "/" + b.targetPkg.Name() + "/" + b.buildName
+}
+
+func (b *Builder) FileBinDir(pkgName string) string {
 	return b.BinDir() + "/" + pkgName
 }
 
+func (b *Builder) PkgBinDir(bpkg *BuildPackage) string {
+	switch bpkg.Type() {
+	case pkg.PACKAGE_TYPE_GENERATED:
+		return GeneratedBinDir(b.targetPkg.Name())
+	default:
+		return b.FileBinDir(bpkg.Name())
+	}
+}
+
 // Generates the path+filename of the specified package's .a file.
-func (b *Builder) ArchivePath(pkgName string) string {
-	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".a"
+func (b *Builder) ArchivePath(bpkg *BuildPackage) string {
+	return b.PkgBinDir(bpkg) + "/" + filepath.Base(bpkg.Name()) + ".a"
 }
 
 func (b *Builder) AppTempElfPath() string {
-	pkgName := b.appPkg.Name()
-	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + "_tmp.elf"
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+		"_tmp.elf"
 }
 
 func (b *Builder) AppElfPath() string {
-	pkgName := b.appPkg.Name()
-	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".elf"
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+		".elf"
 }
 
 func (b *Builder) AppLinkerElfPath() string {
-	pkgName := b.appPkg.Name()
-	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + "linker.elf"
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+		"linker.elf"
 }
 
 func (b *Builder) AppImgPath() string {
-	pkgName := b.appPkg.Name()
-	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName) + ".img"
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+		".img"
 }
 
 func (b *Builder) AppPath() string {
-	pkgName := b.appPkg.Name()
-	return b.PkgBinDir(pkgName) + "/"
+	return b.PkgBinDir(b.appPkg) + "/"
 }
 
 func (b *Builder) AppBinBasePath() string {
-	pkgName := b.appPkg.Name()
-	return b.PkgBinDir(pkgName) + "/" + filepath.Base(pkgName)
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name())
 }
 
 func TestTargetName(testPkgName string) string {
 	return strings.Replace(testPkgName, "/", "_", -1)
 }
 
-func (b *Builder) TestExePath(pkgName string) string {
-	return b.PkgBinDir(pkgName) + "/" + TestTargetName(pkgName)
+func (b *Builder) TestExePath(bpkg *BuildPackage) string {
+	return b.PkgBinDir(bpkg) + "/" + TestTargetName(bpkg.Name())
 }
 
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
-	featureMap := b.Cfg.Features()
+	featureMap := b.cfg.Features()
 	featureSlice := make([]string, 0, len(featureMap))
 	for k, _ := range featureMap {
 		featureSlice = append(featureSlice, k)
@@ -110,44 +136,6 @@ func (b *Builder) FeatureString() string {
 		buffer.WriteString(feature)
 	}
 	return buffer.String()
-}
-
-// Makes sure all packages with required APIs have been augmented with a
-// dependency that satisfies that requirement.  If there are any unsatisfied
-// requirements, an error is returned.
-func (b *Builder) verifyApisSatisfied() error {
-	unsatisfied := map[*BuildPackage][]string{}
-
-	for _, bpkg := range b.Packages {
-		for api, status := range bpkg.reqApiMap {
-			if status == REQ_API_STATUS_UNSATISFIED {
-				slice := unsatisfied[bpkg]
-				if slice == nil {
-					unsatisfied[bpkg] = []string{api}
-				} else {
-					slice = append(slice, api)
-				}
-			}
-		}
-	}
-
-	if len(unsatisfied) != 0 {
-		var buffer bytes.Buffer
-		for bpkg, apis := range unsatisfied {
-			buffer.WriteString("Package " + bpkg.Name() +
-				" has unsatisfied required APIs: ")
-			for i, api := range apis {
-				if i != 0 {
-					buffer.WriteString(", ")
-				}
-				buffer.WriteString(api)
-			}
-			buffer.WriteString("\n")
-		}
-		return util.NewNewtError(buffer.String())
-	}
-
-	return nil
 }
 
 type bpkgSorter struct {
@@ -166,10 +154,10 @@ func (b bpkgSorter) Less(i, j int) bool {
 
 func (b *Builder) sortedBuildPackages() []*BuildPackage {
 	sorter := bpkgSorter{
-		bpkgs: make([]*BuildPackage, 0, len(b.Packages)),
+		bpkgs: make([]*BuildPackage, 0, len(b.PkgMap)),
 	}
 
-	for _, bpkg := range b.Packages {
+	for _, bpkg := range b.PkgMap {
 		sorter.bpkgs = append(sorter.bpkgs, bpkg)
 	}
 
@@ -193,23 +181,23 @@ func (b *Builder) logDepInfo() {
 	log.Debugf("Feature set: [" + b.FeatureString() + "]")
 
 	// Log API set.
-	apis := make([]string, 0, len(b.apis))
-	for api, _ := range b.apis {
+	apis := make([]string, 0, len(b.apiMap))
+	for api, _ := range b.apiMap {
 		apis = append(apis, api)
 	}
 	sort.Strings(apis)
 
 	log.Debugf("API set:")
 	for _, api := range apis {
-		bpkg := b.apis[api]
-		log.Debugf("    * " + api + " (" + bpkg.Name() + ")")
+		bpkg := b.apiMap[api]
+		log.Debugf("    * " + api + " (" + bpkg.FullName() + ")")
 	}
 
 	// Log dependency graph.
 	bpkgSorter := bpkgSorter{
-		bpkgs: make([]*BuildPackage, 0, len(b.Packages)),
+		bpkgs: make([]*BuildPackage, 0, len(b.PkgMap)),
 	}
-	for _, bpkg := range b.Packages {
+	for _, bpkg := range b.PkgMap {
 		bpkgSorter.bpkgs = append(bpkgSorter.bpkgs, bpkg)
 	}
 	sort.Sort(bpkgSorter)

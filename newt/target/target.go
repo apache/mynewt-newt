@@ -122,7 +122,6 @@ func (target *Target) Validate(appRequired bool) error {
 			return util.NewNewtError("Target does not specify an app " +
 				"package (target.app)")
 		}
-
 		app := target.resolvePackageName(target.AppName)
 		if app == nil {
 			return util.FmtNewtError("Could not resolve app package: %s",
@@ -133,6 +132,21 @@ func (target *Target) Validate(appRequired bool) error {
 			return util.FmtNewtError("target.app package (%s) is not of "+
 				"type app; type is: %s\n", app.Name(),
 				pkg.PackageTypeNames[app.Type()])
+		}
+
+		if target.LoaderName != "" {
+			loader := target.resolvePackageName(target.LoaderName)
+			if loader == nil {
+				return util.FmtNewtError(
+					"Could not resolve loader package: %s", target.LoaderName)
+			}
+
+			if loader.Type() != pkg.PACKAGE_TYPE_APP {
+				return util.FmtNewtError(
+					"target.loader package (%s) is not of type app; type "+
+						"is: %s\n", loader.Name(),
+					pkg.PackageTypeNames[loader.Type()])
+			}
 		}
 	}
 

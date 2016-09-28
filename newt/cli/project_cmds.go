@@ -75,10 +75,10 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func installRunCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
+	proj, err := project.TryGetProject()
+	if err != nil {
+		NewtUsage(nil, err)
 	}
-	proj := project.GetProject()
 	interfaces.SetProject(proj)
 
 	if err := proj.Install(false, projectForce); err != nil {
@@ -87,10 +87,10 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
+	proj, err := project.TryGetProject()
+	if err != nil {
+		NewtUsage(nil, err)
 	}
-	proj := project.GetProject()
 	interfaces.SetProject(proj)
 
 	if err := proj.Upgrade(projectForce); err != nil {
@@ -104,10 +104,10 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 		reqRepoName = strings.TrimPrefix(args[0], "@")
 	}
 
-	if err := project.Initialize(); err != nil {
+	proj, err := project.TryGetProject()
+	if err != nil {
 		NewtUsage(nil, err)
 	}
-	proj := project.GetProject()
 
 	repoNames := []string{}
 	for repoName, _ := range proj.PackageList() {
@@ -160,7 +160,10 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func syncRunCmd(cmd *cobra.Command, args []string) {
-	proj := project.GetProject()
+	proj, err := project.TryGetProject()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
 	repos := proj.Repos()
 
 	ps, err := project.LoadProjectState()

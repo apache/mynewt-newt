@@ -67,7 +67,6 @@ type Project struct {
 
 func InitProject(dir string) error {
 	var err error
-
 	globalProject, err = LoadProject(dir)
 	if err != nil {
 		return err
@@ -79,30 +78,32 @@ func InitProject(dir string) error {
 	return nil
 }
 
-func Initialize() error {
+func initialize() error {
 	if globalProject == nil {
 		wd, err := os.Getwd()
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		if err = InitProject(wd); err != nil {
+		if err := InitProject(wd); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func GetProject() *Project {
+func TryGetProject() (*Project, error) {
 	if globalProject == nil {
-		wd, err := os.Getwd()
-		if err != nil {
-			panic(err.Error())
-		}
-		err = InitProject(wd)
-		if err != nil {
-			return nil
+		if err := initialize(); err != nil {
+			return nil, err
 		}
 	}
+	return globalProject, nil
+}
+func GetProject() *Project {
+	if _, err := TryGetProject(); err != nil {
+		panic(err.Error())
+	}
+
 	return globalProject
 }
 
@@ -111,6 +112,7 @@ func ResetProject() {
 }
 
 func ResetDeps(newList interfaces.PackageList) interfaces.PackageList {
+	return nil
 	if globalProject == nil {
 		return nil
 	}
@@ -512,6 +514,42 @@ func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) inter
 	}
 
 	return nil
+}
+
+func (proj *Project) ResolvePackage(
+	dfltRepo interfaces.RepoInterface, name string) (*pkg.LocalPackage, error) {
+
+	// Trim trailing slash from name.  This is necessary when tab
+	// completion is used to specify the name.
+	name = strings.TrimSuffix(name, "/")
+
+	repoName, pkgName, err := newtutil.ParsePackageString(name)
+	if err != nil {
+		return nil, util.FmtNewtError("invalid package name: %s (%s)", name,
+			err.Error())
+	}
+
+	var repo interfaces.RepoInterface
+	if repoName == "" {
+		repo = dfltRepo
+	} else {
+		repo = proj.repos[repoName]
+	}
+
+	dep, err := pkg.NewDependency(repo, pkgName)
+	if err != nil {
+		return nil, util.FmtNewtError("invalid package name: %s (%s)", name,
+			err.Error())
+	}
+	if dep == nil {
+		return nil, util.NewNewtError("invalid package name: " + name)
+	}
+	pack := proj.ResolveDependency(dep)
+	if pack == nil {
+		return nil, util.NewNewtError("unknown package: " + name)
+	}
+
+	return pack.(*pkg.LocalPackage), nil
 }
 
 func findProjectDir(dir string) (string, error) {

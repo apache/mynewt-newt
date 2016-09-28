@@ -30,11 +30,12 @@ import (
 )
 
 func runRunCmd(cmd *cobra.Command, args []string) {
-	if err := project.Initialize(); err != nil {
-		NewtUsage(cmd, err)
-	}
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
+	}
+
+	if _, err := project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
 	}
 
 	t := ResolveTarget(args[0])
@@ -42,13 +43,12 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
-	b, err := builder.NewTargetBuilder(t)
+	b, err := builder.NewTargetBuilder(t, nil)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	err = b.Build()
-	if err != nil {
+	if err := b.Build(); err != nil {
 		NewtUsage(nil, err)
 	}
 
@@ -58,48 +58,48 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	 * will barf if it needs an image for this type of target, instead of
 	 * downloading an older version.
 	 */
-	var app_img *image.Image
-	var loader_img *image.Image
+	var appImg *image.Image
+	var loaderImg *image.Image
+
 	if len(args) > 1 {
-		if b.Loader == nil {
-			err, app_img = CreateImage(b.App, args[1], "", 0, nil)
+		if b.LoaderBuilder == nil {
+			err, appImg = CreateImage(b.AppBuilder, args[1], "", 0, nil)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
 		} else {
-			err, loader_img = CreateImage(b.Loader, args[1], "", 0, nil)
+			err, loaderImg = CreateImage(b.LoaderBuilder, args[1], "", 0, nil)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
-			err, app_img = CreateImage(b.App, args[1], "", 0, loader_img)
+			err, appImg = CreateImage(b.AppBuilder, args[1], "", 0, loaderImg)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
 
 		}
 	} else {
-		os.Remove(b.App.AppImgPath())
+		os.Remove(b.AppBuilder.AppImgPath())
 
-		if b.Loader != nil {
-			os.Remove(b.Loader.AppImgPath())
+		if b.LoaderBuilder != nil {
+			os.Remove(b.LoaderBuilder.AppImgPath())
 		}
 	}
-	if app_img != nil {
-		build_id := image.CreateBuildId(app_img, loader_img)
+	if appImg != nil {
+		buildId := image.CreateBuildId(appImg, loaderImg)
 
-		err = image.CreateManifest(b, app_img, loader_img, build_id)
-		if err != nil {
-			NewtUsage(cmd, err)
+		if err := image.CreateManifest(b, appImg, loaderImg,
+			buildId); err != nil {
+
+			NewtUsage(nil, err)
 		}
 	}
 
-	err = b.Load(extraJtagCmd)
-	if err != nil {
-		NewtUsage(cmd, err)
+	if err := b.Load(extraJtagCmd); err != nil {
+		NewtUsage(nil, err)
 	}
-	err = b.Debug(extraJtagCmd, true)
-	if err != nil {
-		NewtUsage(cmd, err)
+	if err := b.Debug(extraJtagCmd, true); err != nil {
+		NewtUsage(nil, err)
 	}
 }
 

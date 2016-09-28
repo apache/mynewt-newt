@@ -323,13 +323,13 @@ func (t *TargetBuilder) Size() error {
 		return err
 	}
 
-	fmt.Printf("Size of Application Image: %s\n", t.App.buildName)
-	err = t.App.Size()
+	fmt.Printf("Size of Application Image: %s\n", t.AppBuilder.buildName)
+	err = t.AppBuilder.Size()
 
 	if err == nil {
-		if t.Loader != nil {
-			fmt.Printf("Size of Loader Image: %s\n", t.Loader.buildName)
-			err = t.Loader.Size()
+		if t.LoaderBuilder != nil {
+			fmt.Printf("Size of Loader Image: %s\n", t.LoaderBuilder.buildName)
+			err = t.LoaderBuilder.Size()
 		}
 	}
 
@@ -341,11 +341,11 @@ func (b *Builder) Size() error {
 		return util.NewNewtError("app package not specified for this target")
 	}
 
-	err := b.target.PrepBuild()
+	err := b.targetBuilder.PrepBuild()
 	if err != nil {
 		return err
 	}
-	if b.target.Bsp.Arch == "sim" {
+	if b.targetBuilder.bspPkg.Arch == "sim" {
 		fmt.Println("'newt size' not supported for sim targets.")
 		return nil
 	}
@@ -361,7 +361,7 @@ func (b *Builder) Size() error {
 	}
 	fmt.Printf("%s", output)
 
-	c, err := b.newCompiler(b.appPkg, b.PkgBinDir(b.AppElfPath()))
+	c, err := b.newCompiler(b.appPkg, b.FileBinDir(b.AppElfPath()))
 	if err != nil {
 		return err
 	}

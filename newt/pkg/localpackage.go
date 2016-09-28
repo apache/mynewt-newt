@@ -70,8 +70,11 @@ type LocalPackage struct {
 	// example, SELFTEST gets set when the newt test command is used.
 	injectedSettings map[string]string
 
-	// Pointer to pkg.yml configuration structure
-	Viper *viper.Viper
+	// Settings read from pkg.yml.
+	PkgV *viper.Viper
+
+	// Settings read from syscfg.yml.
+	SyscfgV *viper.Viper
 
 	// Names of all source yml files; used to determine if rebuild required.
 	cfgFilenames []string
@@ -79,9 +82,9 @@ type LocalPackage struct {
 
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 	pkg := &LocalPackage{
-		desc: &PackageDesc{},
-		// XXX: Initialize viper object; clients should not need to check for
-		// nil pointer.
+		desc:             &PackageDesc{},
+		PkgV:             viper.New(),
+		SyscfgV:          viper.New(),
 		repo:             r,
 		basePath:         filepath.Clean(pkgDir) + "/", // XXX: Remove slash.
 		injectedSettings: map[string]string{},
@@ -194,8 +197,6 @@ func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
 }
 
 func (pkg *LocalPackage) AddDep(dep *Dependency) {
-	// Remember the name of the configuration file so that it can be specified
-	// as a dependency to the compiler.
 	pkg.deps = append(pkg.deps, dep)
 }
 
@@ -217,8 +218,8 @@ func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 func (pkg *LocalPackage) sequenceString(key string) string {
 	var buffer bytes.Buffer
 
-	if pkg.Viper != nil {
-		for _, f := range pkg.Viper.GetStringSlice(key) {
+	if pkg.PkgV != nil {
+		for _, f := range pkg.PkgV.GetStringSlice(key) {
 			buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
 		}
 	}
@@ -276,17 +277,19 @@ func (pkg *LocalPackage) Load() error {
 	// Load configuration
 	log.Debugf("Loading configuration for package %s", pkg.basePath)
 
-	v, err := util.ReadConfig(pkg.basePath,
+	var err error
+
+	pkg.PkgV, err = util.ReadConfig(pkg.basePath,
 		strings.TrimSuffix(PACKAGE_FILE_NAME, ".yml"))
 	if err != nil {
 		return err
 	}
-	pkg.Viper = v
+	pkg.AddCfgFilename(pkg.basePath + PACKAGE_FILE_NAME)
 
 	// Set package name from the package
-	pkg.name = v.GetString("pkg.name")
+	pkg.name = pkg.PkgV.GetString("pkg.name")
 
-	typeString := v.GetString("pkg.type")
+	typeString := pkg.PkgV.GetString("pkg.type")
 	pkg.packageType = PACKAGE_TYPE_LIB
 	for t, n := range PackageTypeNames {
 		if typeString == n {
@@ -295,16 +298,24 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
-	pkg.initFnName = v.GetString("pkg.init_function")
-	pkg.initStage = v.GetInt("pkg.init_stage")
+	pkg.initFnName = pkg.PkgV.GetString("pkg.init_function")
+	pkg.initStage = pkg.PkgV.GetInt("pkg.init_stage")
 
 	// Read the package description from the file
-	pkg.desc, err = pkg.readDesc(v)
+	pkg.desc, err = pkg.readDesc(pkg.PkgV)
 	if err != nil {
 		return err
 	}
 
-	pkg.AddCfgFilename(pkg.basePath + PACKAGE_FILE_NAME)
+	// Load syscfg settings.
+	if util.NodeExist(pkg.basePath + "/" + SYSCFG_YAML_FILENAME) {
+		pkg.SyscfgV, err = util.ReadConfig(pkg.basePath,
+			strings.TrimSuffix(SYSCFG_YAML_FILENAME, ".yml"))
+		if err != nil {
+			return err
+		}
+		pkg.AddCfgFilename(pkg.basePath + SYSCFG_YAML_FILENAME)
+	}
 
 	return nil
 }

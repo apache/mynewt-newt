@@ -39,11 +39,9 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const SYSCFG_INCLUDE_SUBDIR = "include/syscfg"
+const SYSCFG_INCLUDE_SUBDIR = "syscfg"
 const SYSCFG_HEADER_FILENAME = "syscfg.h"
 
-const SYSCFG_PREFIX_API = "MYNEWT_API_"
-const SYSCFG_PREFIX_PKG = "MYNEWT_PKG_"
 const SYSCFG_PREFIX_SETTING = "MYNEWT_VAL_"
 
 type CfgSettingType int
@@ -74,40 +72,53 @@ type CfgPoint struct {
 	Source *pkg.LocalPackage
 }
 
-type CfgEntry struct {
-	Name        string
-	Value       string
-	History     []CfgPoint
-	Description string
-	SettingType CfgSettingType
+type CfgRestriction struct {
+	ReqSetting  string
+	ReqVal      bool
+	BaseSetting string
+	BaseVal     bool
 }
 
-type CfgRoster struct {
-	settings    map[string]string
-	pkgsPresent map[string]bool
-	apisPresent map[string]bool
+type CfgEntry struct {
+	Name         string
+	Value        string
+	Description  string
+	SettingType  CfgSettingType
+	Restrictions []CfgRestriction
+
+	History []CfgPoint
+}
+
+type CfgLateral struct {
+	PkgName     string
+	SettingName string
 }
 
 type Cfg struct {
-	Settings    map[string]CfgEntry
-	Roster      CfgRoster
-	Orphans     map[string][]CfgPoint
-	Ambiguities []CfgEntry
-}
+	Settings map[string]CfgEntry
 
-func newRoster() CfgRoster {
-	return CfgRoster{
-		settings:    map[string]string{},
-		pkgsPresent: map[string]bool{},
-		apisPresent: map[string]bool{},
-	}
+	//// Errors
+	// Overrides of undefined settings.
+	Orphans map[string][]CfgPoint
+
+	// Two packages of equal priority override a setting with different
+	// values; not overridden by higher priority package.
+	Ambiguities map[string][]CfgPoint
+
+	// Setting restrictions not met.
+	Violations map[string][]CfgRestriction
+
+	// Attempted override by bottom-priority packages (libraries).
+	Laterals []CfgLateral
 }
 
 func NewCfg() Cfg {
 	return Cfg{
-		Settings: map[string]CfgEntry{},
-		Roster:   newRoster(),
-		Orphans:  map[string][]CfgPoint{},
+		Settings:    map[string]CfgEntry{},
+		Orphans:     map[string][]CfgPoint{},
+		Ambiguities: map[string][]CfgPoint{},
+		Violations:  map[string][]CfgRestriction{},
+		Laterals:    []CfgLateral{},
 	}
 }
 
@@ -177,9 +188,24 @@ func (entry *CfgEntry) appendValue(lpkg *pkg.LocalPackage, value interface{}) {
 	entry.Value = strval
 }
 
-func (entry *CfgEntry) ambiguousCount() int {
+func historyToString(history []CfgPoint) string {
+	str := "["
+	for i, _ := range history {
+		if i != 0 {
+			str += ", "
+		}
+		p := history[len(history)-i-1]
+		str += fmt.Sprintf("%s:%s", p.Name(), p.Value)
+	}
+	str += "]"
+
+	return str
+}
+
+func (entry *CfgEntry) ambiguities() []CfgPoint {
 	diffVals := false
-	count := 0
+	var points []CfgPoint
+
 	for i := 1; i < len(entry.History)-1; i++ {
 		cur := entry.History[len(entry.History)-i-1]
 		next := entry.History[len(entry.History)-i]
@@ -200,38 +226,57 @@ func (entry *CfgEntry) ambiguousCount() int {
 			diffVals = true
 		}
 
-		count++
-	}
-
-	// Account for final package that was skipped in loop.
-	if count > 0 {
-		count++
+		if len(points) == 0 {
+			points = append(points, cur)
+		}
+		points = append(points, next)
 	}
 
 	// If all values are identical, there is no ambiguity
 	if !diffVals {
-		count = 0
+		points = nil
 	}
 
-	return count
+	return points
 }
 
-func (entry *CfgEntry) ambiguousText() string {
-	count := entry.ambiguousCount()
-	if count == 0 {
+func (entry *CfgEntry) ambiguityText() string {
+	points := entry.ambiguities()
+	if len(points) == 0 {
 		return ""
 	}
 
-	str := fmt.Sprintf("%s [", entry.Name)
-
-	for i := 0; i < count; i++ {
-		cur := entry.History[len(entry.History)-i-1]
-		if i != 0 {
+	str := fmt.Sprintf("Setting: %s, Packages: [", entry.Name)
+	for i, p := range points {
+		if i > 0 {
 			str += ", "
 		}
-		str += fmt.Sprintf("%s:%s", cur.Name(), cur.Value)
+
+		str += p.Source.Name()
 	}
 	str += "]"
+
+	return str
+}
+
+func (cfg *Cfg) violationText(entry CfgEntry, r CfgRestriction) string {
+	str := fmt.Sprintf("%s=%s ", entry.Name, entry.Value)
+
+	reqVal := ""
+	if r.ReqVal {
+		reqVal = "1"
+	} else {
+		reqVal = "0"
+	}
+
+	str += fmt.Sprintf("requires %s=%s, but %s", r.ReqSetting, reqVal,
+		r.ReqSetting)
+	reqEntry, ok := cfg.Settings[r.ReqSetting]
+	if !ok {
+		str += "undefined"
+	} else {
+		str += fmt.Sprintf("=%s", reqEntry.Value)
+	}
 
 	return str
 }
@@ -242,6 +287,68 @@ func FeatureToCflag(featureName string) string {
 
 func stringValue(val interface{}) string {
 	return strings.TrimSpace(cast.ToString(val))
+}
+
+func parseRestrictionConsequent(field string) (string, bool) {
+	var val bool
+	var name string
+
+	if strings.HasPrefix(field, "!") {
+		val = false
+		name = strings.TrimPrefix(field, "!")
+	} else {
+		val = true
+		name = field
+	}
+
+	return name, val
+}
+
+// Parses a restriction expression.
+//
+// It would be better to have a real expression parser.  For now, only very
+// simple expressions are supported.  A restriction expression must be of the
+// following form:
+//     [!]<req-setting> [if <base-val>]
+//
+// All setting values are interpreted as booleans.  If a setting is "0", "",
+// or undefined, it is false; otherwise it is true.
+//
+// Examples:
+//     # Can't enable this setting unless LOG_FCB is enabled.
+//	   pkg.restrictions:
+//         LOG_FCB
+//
+//     # Can't enable this setting unless LOG_FCB is disabled.
+//	   pkg.restrictions:
+//         !LOG_FCB
+//
+//     # Can't disable this setting unless LOG_FCB is enabled.
+//	   pkg.restrictions:
+//         LOG_FCB if 0
+func readRestriction(baseSetting string, text string) (CfgRestriction, error) {
+	r := CfgRestriction{
+		BaseSetting: baseSetting,
+	}
+
+	fields := strings.Fields(text)
+	switch len(fields) {
+	case 1:
+		r.ReqSetting, r.ReqVal = parseRestrictionConsequent(fields[0])
+		r.BaseVal = true
+
+	case 3:
+		if fields[1] != "if" {
+			return r, util.FmtNewtError("invalid restriction: %s", text)
+		}
+		r.ReqSetting, r.ReqVal = parseRestrictionConsequent(fields[0])
+		r.BaseVal = ValueIsTrue(fields[2])
+
+	default:
+		return r, util.FmtNewtError("invalid restriction: %s", text)
+	}
+
+	return r, nil
 }
 
 func readSetting(name string, lpkg *pkg.LocalPackage,
@@ -263,22 +370,32 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 				"setting %s specifies invalid type: %s", name, typename)
 		}
 	}
-
 	entry.appendValue(lpkg, entry.Value)
+
+	entry.Restrictions = []CfgRestriction{}
+	restrictionStrings := cast.ToStringSlice(vals["restrictions"])
+	for _, rstring := range restrictionStrings {
+		r, err := readRestriction(name, rstring)
+		if err != nil {
+			return entry,
+				util.PreNewtError(err, "error parsing setting %s", name)
+		}
+		entry.Restrictions = append(entry.Restrictions, r)
+	}
 
 	return entry, nil
 }
 
 func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 	features map[string]bool) error {
-	v := lpkg.Viper
+	v := lpkg.SyscfgV
 
 	lfeatures := cfg.FeaturesForLpkg(lpkg)
 	for k, _ := range features {
 		lfeatures[k] = true
 	}
 
-	settings := newtutil.GetStringMapFeatures(v, lfeatures, "pkg.syscfg_defs")
+	settings := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.defs")
 	if settings != nil {
 		for k, v := range settings {
 			vals := v.(map[interface{}]interface{})
@@ -301,15 +418,24 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 
 func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 	features map[string]bool) error {
-	v := lpkg.Viper
+	v := lpkg.SyscfgV
 
 	lfeatures := cfg.FeaturesForLpkg(lpkg)
 	for k, _ := range features {
 		lfeatures[k] = true
 	}
-	values := newtutil.GetStringMapFeatures(v, lfeatures, "pkg.syscfg_vals")
-	if values != nil {
-		for k, v := range values {
+
+	values := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.vals")
+	for k, v := range values {
+		if normalizePkgType(lpkg.Type()) == pkg.PACKAGE_TYPE_LIB {
+			// A library package is overriding a setting; this is disallowed.
+			// Overrides must come from a higher priority package.
+			lateral := CfgLateral{
+				PkgName:     lpkg.Name(),
+				SettingName: k,
+			}
+			cfg.Laterals = append(cfg.Laterals, lateral)
+		} else {
 			entry, ok := cfg.Settings[k]
 			if ok {
 				entry.appendValue(lpkg, v)
@@ -321,7 +447,6 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 				}
 				cfg.Orphans[k] = append(cfg.Orphans[k], orphan)
 			}
-
 		}
 	}
 
@@ -341,17 +466,8 @@ func (cfg *Cfg) Log() {
 	for _, k := range keys {
 		entry := cfg.Settings[k]
 
-		str := fmt.Sprintf("    %s=%s [", k, entry.Value)
-
-		for i, p := range entry.History {
-			if i != 0 {
-				str += ", "
-			}
-			str += fmt.Sprintf("%s:%s", p.Name(), p.Value)
-		}
-		str += "]"
-
-		log.Debug(str)
+		log.Debugf("    %s=%s %s", k, entry.Value,
+			historyToString(entry.History))
 	}
 
 	keys = make([]string, len(cfg.Orphans))
@@ -376,16 +492,93 @@ func (cfg *Cfg) Log() {
 	}
 }
 
-func (cfg *Cfg) DetectErrors() error {
-	if len(cfg.Ambiguities) == 0 {
-		return nil
+func (cfg *Cfg) restrictionMet(r CfgRestriction) bool {
+	baseEntry := cfg.Settings[r.BaseSetting]
+	baseVal := baseEntry.IsTrue()
+
+	if baseVal != r.BaseVal {
+		// Restriction does not apply.
+		return true
 	}
 
-	str := "Syscfg ambiguities detected:"
-	for _, entry := range cfg.Ambiguities {
-		str += "\n    " + entry.ambiguousText()
+	reqEntry, ok := cfg.Settings[r.ReqSetting]
+	reqVal := ok && reqEntry.IsTrue()
+
+	return reqVal == r.ReqVal
+}
+
+func (cfg *Cfg) detectViolations() {
+	for _, entry := range cfg.Settings {
+		var ev []CfgRestriction
+		for _, r := range entry.Restrictions {
+			if !cfg.restrictionMet(r) {
+				ev = append(ev, r)
+			}
+		}
+
+		if ev != nil {
+			cfg.Violations[entry.Name] = ev
+		}
 	}
-	return util.NewNewtError(str)
+}
+
+func (cfg *Cfg) ErrorText() string {
+	str := ""
+
+	interestingNames := map[string]struct{}{}
+
+	if len(cfg.Violations) > 0 {
+		str += "Syscfg restriction violations detected:\n"
+		for settingName, rslice := range cfg.Violations {
+			interestingNames[settingName] = struct{}{}
+
+			entry := cfg.Settings[settingName]
+			for _, r := range rslice {
+				interestingNames[r.ReqSetting] = struct{}{}
+				str += "    " + cfg.violationText(entry, r) + "\n"
+			}
+		}
+	}
+
+	if len(cfg.Ambiguities) > 0 {
+		str += "Syscfg ambiguities detected:\n"
+
+		settingNames := make([]string, 0, len(cfg.Ambiguities))
+		for k, _ := range cfg.Ambiguities {
+			settingNames = append(settingNames, k)
+		}
+		sort.Strings(settingNames)
+
+		for _, name := range settingNames {
+			entry := cfg.Settings[name]
+			interestingNames[entry.Name] = struct{}{}
+			str += "    " + entry.ambiguityText()
+		}
+	}
+
+	if len(cfg.Laterals) > 0 {
+		str += "Lateral overrides detected (bottom-priority packages " +
+			"cannot override settings):\n"
+		for _, lateral := range cfg.Laterals {
+			interestingNames[lateral.SettingName] = struct{}{}
+
+			str += fmt.Sprintf("    Package: %s, Setting: %s\n",
+				lateral.PkgName, lateral.SettingName)
+		}
+	}
+
+	if str == "" {
+		return ""
+	}
+
+	str += "\nSetting history:\n"
+	for name, _ := range interestingNames {
+		entry := cfg.Settings[name]
+		str += fmt.Sprintf("    %s: %s\n", name,
+			historyToString(entry.History))
+	}
+
+	return strings.TrimSpace(str)
 }
 
 func escapeStr(s string) string {
@@ -396,28 +589,8 @@ func escapeStr(s string) string {
 	return s
 }
 
-func isSettingVal(s string) bool {
-	return strings.HasPrefix(s, SYSCFG_PREFIX_SETTING)
-}
-
-func isPkgVal(s string) bool {
-	return strings.HasPrefix(s, SYSCFG_PREFIX_PKG)
-}
-
-func isApiVal(s string) bool {
-	return strings.HasPrefix(s, SYSCFG_PREFIX_API)
-}
-
 func settingName(setting string) string {
 	return SYSCFG_PREFIX_SETTING + escapeStr(setting)
-}
-
-func pkgPresentName(pkgName string) string {
-	return SYSCFG_PREFIX_PKG + escapeStr(pkgName)
-}
-
-func apiPresentName(apiName string) string {
-	return SYSCFG_PREFIX_API + strings.ToUpper(apiName)
 }
 
 func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
@@ -435,7 +608,9 @@ func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
 	}
 }
 
-func categorizePkgs(lpkgs []*pkg.LocalPackage) map[interfaces.PackageType][]*pkg.LocalPackage {
+func categorizePkgs(
+	lpkgs []*pkg.LocalPackage) map[interfaces.PackageType][]*pkg.LocalPackage {
+
 	pmap := map[interfaces.PackageType][]*pkg.LocalPackage{
 		pkg.PACKAGE_TYPE_TARGET:   []*pkg.LocalPackage{},
 		pkg.PACKAGE_TYPE_APP:      []*pkg.LocalPackage{},
@@ -473,14 +648,12 @@ func (cfg *Cfg) readForPkgType(lpkgs []*pkg.LocalPackage,
 	return nil
 }
 
-func detectAmbiguities(cfg Cfg) Cfg {
+func (cfg *Cfg) detectAmbiguities() {
 	for _, entry := range cfg.Settings {
-		if entry.ambiguousCount() > 0 {
-			cfg.Ambiguities = append(cfg.Ambiguities, entry)
+		if points := entry.ambiguities(); len(points) > 0 {
+			cfg.Ambiguities[entry.Name] = points
 		}
 	}
-
-	return cfg
 }
 
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
@@ -526,12 +699,8 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		}
 	}
 
-	cfg.buildCfgRoster(lpkgs, apis)
-	if err := fixupSettings(cfg); err != nil {
-		return cfg, err
-	}
-
-	cfg = detectAmbiguities(cfg)
+	cfg.detectAmbiguities()
+	cfg.detectViolations()
 
 	return cfg, nil
 }
@@ -622,15 +791,13 @@ func calcPriorities(cfg Cfg, settingType CfgSettingType, max int,
 
 func writeCheckMacros(w io.Writer) {
 	s := `/**
- * These macros exists to ensure code includes this header when needed.  If
- * code checks the existence of a setting directly via ifdef without including
- * this header, the setting macro will silently evaluate to 0.  In contrast, an
+ * This macro exists to ensure code includes this header when needed.  If code
+ * checks the existence of a setting directly via ifdef without including this
+ * header, the setting macro will silently evaluate to 0.  In contrast, an
  * attempt to use these macros without including this header will result in a
  * compiler error.
  */
 #define MYNEWT_VAL(x)                           MYNEWT_VAL_ ## x
-#define MYNEWT_PKG(x)                           MYNEWT_PKG_ ## x
-#define MYNEWT_API(x)                           MYNEWT_API_ ## x
 `
 	fmt.Fprintf(w, "%s\n", s)
 }
@@ -644,125 +811,13 @@ func writeComment(entry CfgEntry, w io.Writer) {
 }
 
 func writeDefine(key string, value string, w io.Writer) {
-	fmt.Fprintf(w, "#ifndef %s\n", key)
-	fmt.Fprintf(w, "#define %s (%s)\n", key, value)
-	fmt.Fprintf(w, "#endif\n")
-}
-
-func (cfg *Cfg) specialValues() (apis, pkgs, settings []string) {
-	for _, entry := range cfg.Settings {
-		if isApiVal(entry.Value) {
-			apis = append(apis, entry.Value)
-		} else if isPkgVal(entry.Value) {
-			pkgs = append(pkgs, entry.Value)
-		} else if isSettingVal(entry.Value) {
-			settings = append(settings, entry.Value)
-		}
+	if value == "" {
+		fmt.Fprintf(w, "#undef %s\n", key)
+	} else {
+		fmt.Fprintf(w, "#ifndef %s\n", key)
+		fmt.Fprintf(w, "#define %s (%s)\n", key, value)
+		fmt.Fprintf(w, "#endif\n")
 	}
-
-	return
-}
-
-func (cfg *Cfg) buildCfgRoster(lpkgs []*pkg.LocalPackage, apis []string) {
-	roster := CfgRoster{
-		settings:    make(map[string]string, len(cfg.Settings)),
-		pkgsPresent: make(map[string]bool, len(lpkgs)),
-		apisPresent: make(map[string]bool, len(apis)),
-	}
-
-	for k, v := range cfg.Settings {
-		roster.settings[settingName(k)] = v.Value
-	}
-
-	for _, v := range lpkgs {
-		roster.pkgsPresent[pkgPresentName(v.Name())] = true
-	}
-
-	for _, v := range apis {
-		roster.apisPresent[apiPresentName(v)] = true
-	}
-
-	apisNotPresent, pkgsNotPresent, _ := cfg.specialValues()
-
-	for _, v := range apisNotPresent {
-		_, ok := roster.apisPresent[v]
-		if !ok {
-			roster.apisPresent[v] = false
-		}
-	}
-
-	for _, v := range pkgsNotPresent {
-		_, ok := roster.pkgsPresent[v]
-		if !ok {
-			roster.pkgsPresent[v] = false
-		}
-	}
-
-	cfg.Roster = roster
-}
-
-func settingValueToConstant(value string,
-	roster CfgRoster) (string, bool, error) {
-
-	seen := map[string]struct{}{}
-	curVal := value
-	for {
-		v, ok := roster.settings[curVal]
-		if ok {
-			if _, ok := seen[v]; ok {
-				return "", false, util.FmtNewtError("Syscfg cycle detected: "+
-					"%s <==> %s", value, v)
-			}
-			seen[v] = struct{}{}
-			curVal = v
-		} else {
-			break
-		}
-	}
-	if curVal != value {
-		return curVal, true, nil
-	}
-
-	v, ok := roster.apisPresent[value]
-	if ok {
-		if v {
-			return "1", true, nil
-		} else {
-			return "0", true, nil
-		}
-	}
-
-	v, ok = roster.pkgsPresent[value]
-	if ok {
-		if v {
-			return "1", true, nil
-		} else {
-			return "0", true, nil
-		}
-	}
-
-	return value, false, nil
-}
-
-func fixupSettings(cfg Cfg) error {
-	for k, entry := range cfg.Settings {
-		value, changed, err := settingValueToConstant(entry.Value, cfg.Roster)
-		if err != nil {
-			return err
-		}
-
-		if changed {
-			entry.Value = value
-			cfg.Settings[k] = entry
-		}
-	}
-
-	return nil
-}
-
-func UnfixedValue(entry CfgEntry) string {
-	point := mostRecentPoint(entry)
-	return point.Value
 }
 
 func EntriesByPkg(cfg Cfg) map[string][]CfgEntry {
@@ -777,27 +832,29 @@ func EntriesByPkg(cfg Cfg) map[string][]CfgEntry {
 func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 	w io.Writer) {
 
-	fmt.Fprintf(w, "/*** %s */\n", pkgName)
-
 	names := make([]string, len(pkgEntries), len(pkgEntries))
 	for i, entry := range pkgEntries {
 		names[i] = entry.Name
 	}
+
+	if len(names) == 0 {
+		return
+	}
 	sort.Strings(names)
+
+	fmt.Fprintf(w, "/*** %s */\n", pkgName)
 
 	first := true
 	for _, n := range names {
 		entry := cfg.Settings[n]
-		if entry.Value != "" {
-			if first {
-				first = false
-			} else {
-				fmt.Fprintf(w, "\n")
-			}
-
-			writeComment(entry, w)
-			writeDefine(settingName(n), entry.Value, w)
+		if first {
+			first = false
+		} else {
+			fmt.Fprintf(w, "\n")
 		}
+
+		writeComment(entry, w)
+		writeDefine(settingName(n), entry.Value, w)
 	}
 }
 
@@ -812,68 +869,10 @@ func writeSettings(cfg Cfg, w io.Writer) {
 	}
 	sort.Strings(pkgNames)
 
-	fmt.Fprintf(w, "/***** Settings */\n")
-
 	for _, name := range pkgNames {
 		fmt.Fprintf(w, "\n")
 		entries := pkgEntries[name]
 		writeSettingsOnePkg(cfg, name, entries, w)
-	}
-}
-
-func writePkgsPresent(roster CfgRoster, w io.Writer) {
-	present := make([]string, 0, len(roster.pkgsPresent))
-	notPresent := make([]string, 0, len(roster.pkgsPresent))
-	for k, v := range roster.pkgsPresent {
-		if v {
-			present = append(present, k)
-		} else {
-			notPresent = append(notPresent, k)
-		}
-	}
-
-	sort.Strings(present)
-	sort.Strings(notPresent)
-
-	fmt.Fprintf(w, "/*** Packages (present) */\n")
-	for _, symbol := range present {
-		fmt.Fprintf(w, "\n")
-		writeDefine(symbol, "1", w)
-	}
-
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "/*** Packages (not present)*/\n")
-	for _, symbol := range notPresent {
-		fmt.Fprintf(w, "\n")
-		writeDefine(symbol, "0", w)
-	}
-}
-
-func writeApisPresent(roster CfgRoster, w io.Writer) {
-	present := make([]string, 0, len(roster.apisPresent))
-	notPresent := make([]string, 0, len(roster.apisPresent))
-	for k, v := range roster.apisPresent {
-		if v {
-			present = append(present, k)
-		} else {
-			notPresent = append(notPresent, k)
-		}
-	}
-
-	sort.Strings(present)
-	sort.Strings(notPresent)
-
-	fmt.Fprintf(w, "/*** APIs (present) */\n")
-	for _, symbol := range present {
-		fmt.Fprintf(w, "\n")
-		writeDefine(symbol, "1", w)
-	}
-
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "/*** APIs (not present) */\n")
-	for _, symbol := range notPresent {
-		writeDefine(symbol, "0", w)
-		fmt.Fprintf(w, "\n")
 	}
 }
 
@@ -887,12 +886,6 @@ func write(cfg Cfg, w io.Writer) {
 	fmt.Fprintf(w, "\n")
 
 	writeSettings(cfg, w)
-	fmt.Fprintf(w, "\n")
-
-	writePkgsPresent(cfg.Roster, w)
-	fmt.Fprintf(w, "\n")
-
-	writeApisPresent(cfg.Roster, w)
 	fmt.Fprintf(w, "\n")
 
 	fmt.Fprintf(w, "#endif\n")
@@ -913,14 +906,12 @@ func writeRequired(contents []byte, path string) (bool, error) {
 	return rc != 0, nil
 }
 
-func headerPath(targetPath string) string {
-	return fmt.Sprintf("%s/%s/%s", targetPath, SYSCFG_INCLUDE_SUBDIR,
+func headerPath(includeDir string) string {
+	return fmt.Sprintf("%s/%s/%s", includeDir, SYSCFG_INCLUDE_SUBDIR,
 		SYSCFG_HEADER_FILENAME)
 }
 
-func EnsureWritten(cfg Cfg, lpkgs []*pkg.LocalPackage,
-	apis []string, targetPath string) error {
-
+func EnsureWritten(cfg Cfg, includeDir string) error {
 	if err := calcPriorities(cfg, CFG_SETTING_TYPE_TASK_PRIO,
 		SYSCFG_TASK_PRIO_MAX, false); err != nil {
 
@@ -933,15 +924,10 @@ func EnsureWritten(cfg Cfg, lpkgs []*pkg.LocalPackage,
 		return err
 	}
 
-	cfg.buildCfgRoster(lpkgs, apis)
-	if err := fixupSettings(cfg); err != nil {
-		return err
-	}
-
 	buf := bytes.Buffer{}
 	write(cfg, &buf)
 
-	path := headerPath(targetPath)
+	path := headerPath(includeDir)
 
 	writeReqd, err := writeRequired(buf.Bytes(), path)
 	if err != nil {
