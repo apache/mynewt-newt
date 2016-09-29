@@ -32,6 +32,7 @@ type CmdRunner struct {
 }
 
 func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
+        var nmr NmgrReq
 	for {
 		pkt, err := cr.Conn.ReadPacket()
 		if err != nil {
@@ -41,13 +42,17 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 		bytes := pkt.GetBytes()
 		log.Debugf("Rx packet dump:\n%s", hex.Dump(bytes))
 
-		nmr, err := DeserializeNmgrReq(bytes)
+		nmrfrag, err := DeserializeNmgrReq(bytes)
 		if err != nil {
 			return nil, err
 		}
-		if nmr.Op == NMGR_OP_READ_RSP || nmr.Op == NMGR_OP_WRITE_RSP {
-			return nmr, nil
-		}
+		if nmrfrag.Op == NMGR_OP_READ_RSP || nmrfrag.Op == NMGR_OP_WRITE_RSP {
+                        nmr.Data = append(nmr.Data, nmrfrag.Data...)
+                        nmr.Len += nmrfrag.Len
+                	if nmrfrag.Flags & NMGR_F_JSON_RSP_COMPLETE == NMGR_F_JSON_RSP_COMPLETE {
+				return &nmr, nil
+		        }
+            	}
 	}
 }
 
