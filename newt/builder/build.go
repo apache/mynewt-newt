@@ -630,14 +630,6 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 	return nil
 }
 
-func (b *Builder) Clean() error {
-	path := b.BinDir()
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n",
-		path)
-	err := os.RemoveAll(path)
-	return err
-}
-
 func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
 	loader_sm := symbol.NewSymbolMap()
 

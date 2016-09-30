@@ -29,11 +29,16 @@ import (
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
 
 func BinRoot() string {
 	return project.GetProject().Path() + "/bin"
+}
+
+func TargetBinDir(target *target.Target) string {
+	return BinRoot() + "/" + target.Name()
 }
 
 func (b *Builder) BinDir() string {

@@ -21,6 +21,7 @@ package builder
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/interfaces"
@@ -428,17 +429,15 @@ func (t *TargetBuilder) resolveCompiler() *pkg.LocalPackage {
 }
 
 func (t *TargetBuilder) Clean() error {
-	var err error
-
-	err = t.PrepBuild()
-
-	if err == nil && t.App != nil {
-		err = t.App.Clean()
+	path := TargetBinDir(t.target)
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n",
+		path)
+	err := os.RemoveAll(path)
+	if err != nil {
+		return util.NewNewtError(err.Error())
 	}
-	if err == nil && t.Loader != nil {
-		err = t.Loader.Clean()
-	}
-	return err
+
+	return nil
 }
 
 func (t *TargetBuilder) GetTarget() *target.Target {
