@@ -54,6 +54,10 @@ const (
 	NMGR_ERR_ENOENT   = 5
 )
 
+const (
+        NMGR_F_JSON_RSP_COMPLETE = 0x0001
+)
+
 func NewNmgrReq() (*NmgrReq, error) {
 	nmr := &NmgrReq{}
 	nmr.Data = []byte{}

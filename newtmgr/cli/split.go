@@ -32,6 +32,7 @@ func splitStatusCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	split, err := protocol.NewSplit()
 	if err != nil {

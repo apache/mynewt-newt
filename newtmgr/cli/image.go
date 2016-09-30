@@ -49,6 +49,7 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	imageList, err := protocol.NewImageList2()
 	if err != nil {
@@ -223,6 +224,7 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	imageBoot, err := protocol.NewImageBoot2()
 	if err != nil {
@@ -277,6 +279,7 @@ func fileUploadCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	err = echoCtrl(runner, "0")
 	if err != nil {
@@ -348,6 +351,7 @@ func fileDownloadCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	var currOff uint32 = 0
 	var cnt int = 0
@@ -431,6 +435,7 @@ func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	tmpName := args[0] + ".tmp"
 	file, err := os.OpenFile(tmpName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
@@ -483,6 +488,7 @@ func coreListCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	coreList, err := protocol.NewCoreList()
 	if err != nil {
@@ -521,6 +527,7 @@ func coreEraseCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
+	defer runner.Conn.Close()
 
 	coreErase, err := protocol.NewCoreErase()
 	if err != nil {
