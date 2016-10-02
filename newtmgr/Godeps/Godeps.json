@@ -5,8 +5,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.10.0-28-ga283a10",
-			"Rev": "a283a10442df8dc09befd873fab202bf8a253d6a"
+			"Comment": "v0.10.0-38-g3ec0642",
+			"Rev": "3ec0642a7fb6488f65b06f9040adc67e3990296a"
 		},
 		{
 			"ImportPath": "github.com/inconshreveable/mousetrap",
@@ -18,8 +18,8 @@
 		},
 		{
 			"ImportPath": "github.com/kr/pretty",
-			"Comment": "go.weekly.2011-12-22-35-g737b74a",
-			"Rev": "737b74a46c4bf788349f72cb256fed10aea4d0ac"
+			"Comment": "go.weekly.2011-12-22-36-gcfb55aa",
+			"Rev": "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
 		},
 		{
 			"ImportPath": "github.com/kr/text",
@@ -31,7 +31,7 @@
 		},
 		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
-			"Rev": "21a35fb16463dfb7c8eee579c65d995d95e64d1e"
+			"Rev": "ca63d7c062ee3c9f34db231e352b60012b4fd0c1"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt",
@@ -67,11 +67,11 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/cast",
-			"Rev": "27b586b42e29bec072fe7379259cc719e1289da6"
+			"Rev": "2580bc98dc0e62908119e4737030cc2fdfc45e4c"
 		},
 		{
 			"ImportPath": "github.com/spf13/cobra",
-			"Rev": "f62e98d28ab7ad31d707ba837a966378465c7b57"
+			"Rev": "9c28e4bbd74e5c3ed7aacbc552b2cab7cfdfe744"
 		},
 		{
 			"ImportPath": "github.com/spf13/jwalterweatherman",
@@ -79,7 +79,7 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "1560c1005499d61b80f865c04d39ca7505bf7f0b"
+			"Rev": "c7e63cf4530bcd3ba943729cee0efeff2ebea63f"
 		},
 		{
 			"ImportPath": "github.com/tarm/serial",
@@ -87,27 +87,27 @@
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "a646d33e2ee3172a661fc09bca23bb4889a41bc8"
+			"Rev": "8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9"
 		},
 		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
-			"Comment": "v1.3.1",
-			"Rev": "a8a77c9133d2d6fd8334f3260d06f60e8d80a5fb"
+			"Comment": "v1.4.0",
+			"Rev": "26b17cd591df34e7b1cf0087f48fc19ca67eb476"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
-			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
+			"Comment": "pre_sterly_refactor-21-g5389f4c",
+			"Rev": "5389f4c4ef7d7587658b3374d1d0f68f7ecd14c3"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
-			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
+			"Comment": "pre_sterly_refactor-21-g5389f4c",
+			"Rev": "5389f4c4ef7d7587658b3374d1d0f68f7ecd14c3"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "mynewt_0_9_0_rc3_tag-91-g904f79b",
-			"Rev": "904f79b15feeefe76a9e4ecc139c56fd54aa4412"
+			"Comment": "pre_sterly_refactor-21-g5389f4c",
+			"Rev": "5389f4c4ef7d7587658b3374d1d0f68f7ecd14c3"
 		}
 	]
 }

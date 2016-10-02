@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -79,6 +80,13 @@ func NewNewtError(msg string) *NewtError {
 
 func FmtNewtError(format string, args ...interface{}) *NewtError {
 	return NewNewtError(fmt.Sprintf(format, args...))
+}
+
+func PreNewtError(err error, format string, args ...interface{}) *NewtError {
+	baseErr := err.(*NewtError)
+	baseErr.Text = fmt.Sprintf(format, args...) + "; " + baseErr.Text
+
+	return baseErr
 }
 
 // Print Silent, Quiet and Verbose aware status messages to stdout.
@@ -421,4 +429,24 @@ func SortFields(wsSepStrings ...string) []string {
 	slice = UniqueStrings(slice)
 	sort.Strings(slice)
 	return slice
+}
+
+func AtoiNoOct(s string) (int, error) {
+	var runLen int
+	for runLen = 0; runLen < len(s)-1; runLen++ {
+		if s[runLen] != '0' || s[runLen+1] == 'x' {
+			break
+		}
+	}
+
+	if runLen > 0 {
+		s = s[runLen:]
+	}
+
+	i, err := strconv.ParseInt(s, 0, 0)
+	if err != nil {
+		return 0, NewNewtError(err.Error())
+	}
+
+	return int(i), nil
 }
