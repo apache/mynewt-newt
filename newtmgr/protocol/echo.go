@@ -20,15 +20,16 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type Echo struct {
-	Message string
+	Message  string	`codec:"d"`
+	Response string	`codec:"r,omitempty"`
 }
 
 func NewEcho() (*Echo, error) {
@@ -37,11 +38,12 @@ func NewEcho() (*Echo, error) {
 }
 
 func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
-	msg := "{\"d\": \""
-	msg += e.Message
-	msg += "\"}"
-
-	data := []byte(msg)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	if err := enc.Encode(e); err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Failed to encode message %s",
+			err.Error()))
+	}
 
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -60,7 +62,7 @@ func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 
 func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 	type SerialEchoCtl struct {
-		Echo int `json:"echo"`
+		Echo int `codec:"echo"`
 	}
 
 	integer, err := strconv.Atoi(e.Message)
@@ -82,7 +84,12 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 	nmr.Group = NMGR_GROUP_ID_DEFAULT
 	nmr.Id = NMGR_ID_CONS_ECHO_CTRL
 
-	data, _ := json.Marshal(echoCtl)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	if err := enc.Encode(echoCtl); err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Failed to encode message %s",
+			err.Error()))
+	}
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
 
@@ -91,7 +98,12 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 
 func DecodeEchoResponse(data []byte) (*Echo, error) {
 	e := &Echo{}
-	e.Message = string(data[:])
 
+	cborCodec := new(codec.JsonHandle)
+	dec := codec.NewDecoderBytes(data, cborCodec)
+
+	if err := dec.Decode(e); err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid response\n"))
+	}
 	return e, nil
 }

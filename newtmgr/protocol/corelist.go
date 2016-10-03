@@ -20,14 +20,14 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type CoreList struct {
-	ErrCode uint32 `json:"rc"`
+	ErrCode uint32 `codec:"rc"`
 }
 
 func NewCoreList() (*CoreList, error) {
@@ -54,7 +54,8 @@ func (ce *CoreList) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeCoreListResponse(data []byte) (*CoreList, error) {
 	cl := &CoreList{}
 
-	err := json.Unmarshal(data, &cl)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&cl)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

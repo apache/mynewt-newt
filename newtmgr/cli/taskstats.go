@@ -63,14 +63,14 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 			fmt.Printf("  %s ", k)
 			fmt.Printf("(prio=%d tid=%d runtime=%d cswcnt=%d stksize=%d "+
 				"stkusage=%d last_checkin=%d next_checkin=%d)",
-				int(info["prio"].(float64)),
-				int(info["tid"].(float64)),
-				int(info["runtime"].(float64)),
-				int(info["cswcnt"].(float64)),
-				int(info["stksiz"].(float64)),
-				int(info["stkuse"].(float64)),
-				int(info["last_checkin"].(float64)),
-				int(info["next_checkin"].(float64)))
+				int(info["prio"].(uint64)),
+				int(info["tid"].(uint64)),
+				int(info["runtime"].(uint64)),
+				int(info["cswcnt"].(uint64)),
+				int(info["stksiz"].(uint64)),
+				int(info["stkuse"].(uint64)),
+				int(info["last_checkin"].(uint64)),
+				int(info["next_checkin"].(uint64)))
 			fmt.Printf("\n")
 		}
 	}

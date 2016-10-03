@@ -63,6 +63,11 @@ func statsListRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func statsRunCmd(cmd *cobra.Command, args []string) {
+
+	if len(args) == 0 {
+		statsListRunCmd(cmd, args)
+		return
+	}
 	runner, err := getTargetCmdRunner()
 	if err != nil {
 		nmUsage(cmd, err)
@@ -99,7 +104,7 @@ func statsRunCmd(cmd *cobra.Command, args []string) {
 	if srrsp.ReturnCode == 0 {
 		fmt.Printf("Stats Name: %s\n", srrsp.Name)
 		for k, v := range srrsp.Fields {
-			fmt.Printf("  %s: %d\n", k, int(v.(float64)))
+			fmt.Printf("  %s: %d\n", k, v)
 		}
 	}
 }

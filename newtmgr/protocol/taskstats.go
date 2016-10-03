@@ -20,9 +20,9 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -30,8 +30,8 @@ type TaskStatsReadReq struct {
 }
 
 type TaskStatsReadRsp struct {
-	ReturnCode int                               `json:"rc"`
-	Tasks      map[string]map[string]interface{} `json:"tasks"`
+	ReturnCode int                               `codec:"rc"`
+	Tasks      map[string]map[string]interface{} `codec:"tasks"`
 }
 
 func NewTaskStatsReadReq() (*TaskStatsReadReq, error) {
@@ -51,15 +51,16 @@ func (tsr *TaskStatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Group = NMGR_GROUP_ID_DEFAULT
 	nmr.Id = NMGR_ID_TASKSTATS
 
-	nmr.Data = []byte{}
-	nmr.Len = uint16(0)
+	nmr.Len = 0
 
 	return nmr, nil
 }
 
 func DecodeTaskStatsReadResponse(data []byte) (*TaskStatsReadRsp, error) {
 	var tsr TaskStatsReadRsp
-	err := json.Unmarshal(data, &tsr)
+
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&tsr)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

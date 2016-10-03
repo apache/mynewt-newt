@@ -21,11 +21,11 @@ package protocol
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -36,13 +36,13 @@ type CoreDownload struct {
 }
 
 type coreLoadReq struct {
-	Off uint32 `json:"off"`
+	Off uint32 `codec:"off"`
 }
 
 type coreLoadResp struct {
-	ErrCode uint32 `json:"rc"`
-	Off     uint32 `json:"off"`
-	Data    string
+	ErrCode uint32 `codec:"rc"`
+	Off     uint32 `codec:"off"`
+	Data    string `codec:"data"`
 }
 
 func NewCoreDownload() (*CoreDownload, error) {
@@ -70,7 +70,10 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 
 	for imageDone != 1 {
 		req.Off = off
-		data, _ := json.Marshal(req)
+
+		data := make([]byte, 0)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(req)
 
 		nmr.Op = NMGR_OP_READ
 		nmr.Flags = 0
@@ -88,8 +91,10 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 			return err
 		}
 
+		fmt.Printf("Got response: %d bytes\n", len(nmRsp.Data))
 		clRsp := coreLoadResp{}
-		if err = json.Unmarshal(nmRsp.Data, &clRsp); err != nil {
+		dec := codec.NewDecoderBytes(nmRsp.Data, new(codec.JsonHandle))
+		if err = dec.Decode(&clRsp); err != nil {
 			return util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 				err.Error()))
 		}
@@ -101,6 +106,8 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 				clRsp.ErrCode))
 		}
 
+		fmt.Printf("rc:%d off: %d dlen:%d\n", clRsp.ErrCode, clRsp.Off,
+			len(clRsp.Data))
 		if off != clRsp.Off {
 			return util.NewNewtError(
 				fmt.Sprintf("Invalid data offset %d, expected %d",

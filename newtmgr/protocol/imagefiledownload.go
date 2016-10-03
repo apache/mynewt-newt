@@ -21,8 +21,9 @@ package protocol
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -42,8 +43,8 @@ func NewFileDownload() (*FileDownload, error) {
 
 func (f *FileDownload) EncodeWriteRequest() (*NmgrReq, error) {
 	type DownloadReq struct {
-		Off  uint32 `json:"off"`
-		Name string `json:"name"`
+		Off  uint32 `codec:"off"`
+		Name string `codec:"name"`
 	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -55,13 +56,14 @@ func (f *FileDownload) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Group = NMGR_GROUP_ID_IMAGE
 	nmr.Id = IMGMGR_NMGR_OP_FILE
 
-	data := []byte{}
-
 	downloadReq := &DownloadReq{
 		Off:  f.Offset,
 		Name: f.Name,
 	}
-	data, _ = json.Marshal(downloadReq)
+
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(downloadReq)
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
 
@@ -77,7 +79,8 @@ func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
 	}
 	resp := &DownloadResp{}
 
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

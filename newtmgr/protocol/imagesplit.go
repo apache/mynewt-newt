@@ -20,10 +20,10 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -108,9 +108,9 @@ func ParseSplitStatus(str string) (SplitStatus, error) {
 }
 
 type Split struct {
-	Split      SplitMode   `json:"splitMode"`
-	Status     SplitStatus `json:"splitStatus"`
-	ReturnCode int         `json:"rc"`
+	Split      SplitMode   `codec:"splitMode"`
+	Status     SplitStatus `codec:"splitStatus"`
+	ReturnCode int         `codec:"rc"`
 }
 
 func NewSplit() (*Split, error) {
@@ -119,9 +119,6 @@ func NewSplit() (*Split, error) {
 }
 
 func (s *Split) EncoderReadRequest() (*NmgrReq, error) {
-	msg := "{}"
-
-	data := []byte(msg)
 
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -132,16 +129,16 @@ func (s *Split) EncoderReadRequest() (*NmgrReq, error) {
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_SPLIT
 	nmr.Id = SPLIT_NMGR_OP_SPLIT
-	nmr.Len = uint16(len(data))
-	nmr.Data = data
+	nmr.Len = 0
 
 	return nmr, nil
 }
 
 func (s *Split) EncoderWriteRequest() (*NmgrReq, error) {
 
-	data, err := json.Marshal(s)
-
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	err := enc.Encode(s);
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +165,8 @@ func DecodeSplitReadResponse(data []byte) (*Split, error) {
 		return i, nil
 	}
 
-	err := json.Unmarshal(data, &i)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&i)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

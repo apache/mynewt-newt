@@ -21,17 +21,18 @@ package protocol
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type FileUpload struct {
-	Offset     uint32 `json:"off"`
+	Offset     uint32 `codec:"off"`
 	Name       string
 	Size       uint32
 	Data       []byte
-	ReturnCode int `json:"rc"`
+	ReturnCode int `codec:"rc"`
 }
 
 func NewFileUpload() (*FileUpload, error) {
@@ -43,14 +44,14 @@ func NewFileUpload() (*FileUpload, error) {
 
 func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	type UploadReq struct {
-		Off  uint32 `json:"off"`
-		Data string `json:"data"`
+		Off  uint32 `codec:"off"`
+		Data string `codec:"data"`
 	}
 	type UploadFirstReq struct {
-		Off  uint32 `json:"off"`
-		Size uint32 `json:"len"`
-		Name string `json:"name"`
-		Data string `json:"data"`
+		Off  uint32 `codec:"off"`
+		Size uint32 `codec:"len"`
+		Name string `codec:"name"`
+		Data string `codec:"data"`
 	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -71,13 +72,15 @@ func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 			Name: f.Name,
 			Data: base64.StdEncoding.EncodeToString(f.Data),
 		}
-		data, _ = json.Marshal(uploadReq)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(uploadReq)
 	} else {
 		uploadReq := &UploadReq{
 			Off:  f.Offset,
 			Data: base64.StdEncoding.EncodeToString(f.Data),
 		}
-		data, _ = json.Marshal(uploadReq)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(uploadReq)
 	}
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
@@ -88,7 +91,8 @@ func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeFileUploadResponse(data []byte) (*FileUpload, error) {
 	f := &FileUpload{}
 
-	err := json.Unmarshal(data, &f)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&f)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

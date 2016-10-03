@@ -16,9 +16,9 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -32,9 +32,9 @@ const (
 )
 
 type LogsShowReq struct {
-	Name      string `json:"log_name"`
-	Timestamp int64  `json:"ts"`
-	Index     uint64 `json:"index"`
+	Name      string `codec:"log_name"`
+	Timestamp int64  `codec:"ts"`
+	Index     uint64 `codec:"index"`
 }
 
 type LogsModuleListReq struct {
@@ -47,37 +47,37 @@ type LogsListReq struct {
 }
 
 type LogEntry struct {
-	Timestamp int64  `json:"ts"`
-	Msg       string `json:"msg"`
-	Level     uint64 `json:"level"`
-	Index     uint64 `json:"index"`
-	Module    uint64 `json:"module"`
+	Timestamp int64  `codec:"ts"`
+	Msg       string `codec:"msg"`
+	Level     uint64 `codec:"level"`
+	Index     uint64 `codec:"index"`
+	Module    uint64 `codec:"module"`
 }
 
 type LogsShowLog struct {
-	Name    string     `json:"name"`
-	Type    uint64     `json:"type"`
-	Entries []LogEntry `json:"entries"`
+	Name    string     `codec:"name"`
+	Type    uint64     `codec:"type"`
+	Entries []LogEntry `codec:"entries"`
 }
 
 type LogsShowRsp struct {
-	ReturnCode int           `json:"rc"`
-	Logs       []LogsShowLog `json:"logs"`
+	ReturnCode int           `codec:"rc"`
+	Logs       []LogsShowLog `codec:"logs"`
 }
 
 type LogsModuleListRsp struct {
-	ReturnCode int            `json:"rc"`
-	Map        map[string]int `json:"module_map"`
+	ReturnCode int            `codec:"rc"`
+	Map        map[string]int `codec:"module_map"`
 }
 
 type LogsLevelListRsp struct {
-	ReturnCode int            `json:"rc"`
-	Map        map[string]int `json:"level_map"`
+	ReturnCode int            `codec:"rc"`
+	Map        map[string]int `codec:"level_map"`
 }
 
 type LogsListRsp struct {
-	ReturnCode int      `json:"rc"`
-	List       []string `json:"log_list"`
+	ReturnCode int      `codec:"rc"`
+	List       []string `codec:"log_list"`
 }
 
 func NewLogsShowReq() (*LogsShowReq, error) {
@@ -117,7 +117,10 @@ func (sr *LogsModuleListReq) Encode() (*NmgrReq, error) {
 
 	req := &LogsModuleListReq{}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
+
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -126,7 +129,8 @@ func (sr *LogsModuleListReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsListResponse(data []byte) (*LogsListRsp, error) {
 	var resp LogsListRsp
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
@@ -148,7 +152,10 @@ func (sr *LogsListReq) Encode() (*NmgrReq, error) {
 
 	req := &LogsListReq{}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
+
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -157,7 +164,8 @@ func (sr *LogsListReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsLevelListResponse(data []byte) (*LogsLevelListRsp, error) {
 	var resp LogsLevelListRsp
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
@@ -179,7 +187,9 @@ func (sr *LogsLevelListReq) Encode() (*NmgrReq, error) {
 
 	req := &LogsLevelListReq{}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -188,7 +198,8 @@ func (sr *LogsLevelListReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsModuleListResponse(data []byte) (*LogsModuleListRsp, error) {
 	var resp LogsModuleListRsp
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
@@ -213,7 +224,9 @@ func (sr *LogsShowReq) Encode() (*NmgrReq, error) {
 		Index:     sr.Index,
 	}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -222,7 +235,8 @@ func (sr *LogsShowReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsShowResponse(data []byte) (*LogsShowRsp, error) {
 	var resp LogsShowRsp
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
@@ -257,7 +271,9 @@ func (sr *LogsClearReq) Encode() (*NmgrReq, error) {
 
 	req := &LogsClearReq{}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -266,7 +282,8 @@ func (sr *LogsClearReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsClearResponse(data []byte) (*LogsClearRsp, error) {
 	var resp LogsClearRsp
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
@@ -276,12 +293,12 @@ func DecodeLogsClearResponse(data []byte) (*LogsClearRsp, error) {
 }
 
 type LogsAppendReq struct {
-	Msg   string `json:"msg"`
-	Level uint   `json:"level"`
+	Msg   string `codec:"msg"`
+	Level uint   `codec:"level"`
 }
 
 type LogsAppendRsp struct {
-	ReturnCode int `json:"rc"`
+	ReturnCode int `codec:"rc"`
 }
 
 func NewLogsAppendReq() (*LogsAppendReq, error) {
@@ -303,7 +320,9 @@ func (sr *LogsAppendReq) Encode() (*NmgrReq, error) {
 
 	req := &LogsAppendReq{}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -312,7 +331,8 @@ func (sr *LogsAppendReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsAppendResponse(data []byte) (*LogsAppendRsp, error) {
 	var resp LogsAppendRsp
-	err := json.Unmarshal(data, &resp)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

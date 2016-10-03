@@ -20,15 +20,15 @@
 package protocol
 
 import (
-	"encoding/json"
-
 	"fmt"
+
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type Config struct {
-	Name  string `json:"name"`
-	Value string `json:"val"`
+	Name  string `codec:"name"`
+	Value string `codec:"val"`
 }
 
 func NewConfig() (*Config, error) {
@@ -48,19 +48,24 @@ func (c *Config) EncodeRequest() (*NmgrReq, error) {
 	nmr.Id = 0
 	nmr.Len = 0
 
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+
 	if c.Value == "" {
 		type ConfigReadReq struct {
-			Name string `json:"name"`
+			Name string `codec:"name"`
 		}
 
 		readReq := &ConfigReadReq{
 			Name: c.Name,
 		}
-		data, _ := json.Marshal(readReq)
+
+		enc.Encode(readReq)
+
 		nmr.Data = data
 		nmr.Op = NMGR_OP_READ
 	} else {
-		data, _ := json.Marshal(c)
+		enc.Encode(c)
 		nmr.Data = data
 	}
 	nmr.Len = uint16(len(nmr.Data))
@@ -74,7 +79,8 @@ func DecodeConfigResponse(data []byte) (*Config, error) {
 		return c, nil
 	}
 
-	err := json.Unmarshal(data, &c)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&c)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

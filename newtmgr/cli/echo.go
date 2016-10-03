@@ -62,7 +62,7 @@ func echoRunCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		nmUsage(cmd, err)
 	}
-	fmt.Println(ersp.Message)
+	fmt.Println(ersp.Response)
 }
 
 func echoCmd() *cobra.Command {

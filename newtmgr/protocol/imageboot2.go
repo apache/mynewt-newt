@@ -20,18 +20,18 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type ImageBoot2 struct {
 	BootTarget string
-	Test       string
-	Main       string
-	Active     string
-	ReturnCode int `json:"rc"`
+	Test       string `codec:"test"`
+	Main       string `codec:"main"`
+	Active     string `codec:"active"`
+	ReturnCode int `codec:"rc"`
 }
 
 func NewImageBoot2() (*ImageBoot2, error) {
@@ -57,7 +57,7 @@ func (i *ImageBoot2) EncodeWriteRequest() (*NmgrReq, error) {
 
 	if i.BootTarget != "" {
 		type BootReq struct {
-			Test string `json:"test"`
+			Test string `codec:"test"`
 		}
 
 		hash, err := HashEncode(i.BootTarget)
@@ -67,7 +67,9 @@ func (i *ImageBoot2) EncodeWriteRequest() (*NmgrReq, error) {
 		bReq := &BootReq{
 			Test: hash,
 		}
-		data, _ := json.Marshal(bReq)
+		data := make([]byte, 0)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(bReq)
 		nmr.Data = data
 		nmr.Len = uint16(len(data))
 		nmr.Op = NMGR_OP_WRITE
@@ -81,7 +83,8 @@ func DecodeImageBoot2Response(data []byte) (*ImageBoot2, error) {
 	if len(data) == 0 {
 		return i, nil
 	}
-	err := json.Unmarshal(data, &i)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&i)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

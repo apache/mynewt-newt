@@ -20,15 +20,15 @@
 package protocol
 
 import (
-	"encoding/json"
-
 	"fmt"
+
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type DateTime struct {
-	DateTime string `json:"datetime"`
-	Return   uint64 `json:"rc"`
+	DateTime string `codec:"datetime"`
+	Return   uint64 `codec:"rc"`
 }
 
 func NewDateTime() (*DateTime, error) {
@@ -49,22 +49,14 @@ func (i *DateTime) EncodeRequest() (*NmgrReq, error) {
 	nmr.Id = NMGR_ID_DATETIME_STR
 
 	if i.DateTime != "" {
-		data, _ := json.Marshal(i)
+		data := make([]byte, 0)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(i);
 		nmr.Data = data
 		nmr.Len = uint16(len(data))
 	} else {
-		type DateTimeReq struct {
-			DtStr string `json:"datetime"`
-		}
-
-		dtReq := &DateTimeReq{
-			DtStr: i.DateTime,
-		}
-
 		nmr.Op = NMGR_OP_READ
-		data, _ := json.Marshal(dtReq)
-		nmr.Data = data
-		nmr.Len = uint16(len(data))
+		nmr.Len = 0
 	}
 	return nmr, nil
 }
@@ -75,7 +67,8 @@ func DecodeDateTimeResponse(data []byte) (*DateTime, error) {
 	if len(data) == 0 {
 		return i, nil
 	}
-	err := json.Unmarshal(data, &i)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&i)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

@@ -20,14 +20,14 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type CoreErase struct {
-	ErrCode uint32 `json:"rc"`
+	ErrCode uint32 `codec:"rc"`
 }
 
 func NewCoreErase() (*CoreErase, error) {
@@ -54,7 +54,8 @@ func (ce *CoreErase) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeCoreEraseResponse(data []byte) (*CoreErase, error) {
 	ce := &CoreErase{}
 
-	err := json.Unmarshal(data, &ce)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&ce)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

@@ -20,31 +20,30 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type Crash struct {
-	crashType string
-	Err       int `json:"rc"`
+	CrashType string `codec:"t"`
+	Err       int    `codec:"rc,omitempty"`
 }
 
 func NewCrash(crashType string) (*Crash, error) {
 	c := &Crash{
-		crashType: crashType,
+		CrashType: crashType,
 	}
 	return c, nil
 }
 
 func (c *Crash) EncodeWriteRequest() (*NmgrReq, error) {
-	msg := "{\"t\":\""
-	msg += c.crashType
-	msg += "\"}"
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(c)
 
-	data := []byte(msg)
-
+	fmt.Printf("crashtype:%s\n", c.CrashType)
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -63,7 +62,8 @@ func (c *Crash) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeCrashResponse(data []byte) (*Crash, error) {
 	c := &Crash{}
 
-	if err := json.Unmarshal(data, &c); err != nil {
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	if err := dec.Decode(&c); err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid response: %s",
 			err.Error()))
 	}

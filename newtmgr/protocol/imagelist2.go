@@ -20,21 +20,21 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type Image2 struct {
-	Slot     int    `json:"slot"`
-	Version  string `json:"version"`
-	Hash     string `json:"hash"`
-	Bootable bool   `json:"bootable"`
+	Slot     int    `codec:"slot"`
+	Version  string `codec:"version"`
+	Hash     string `codec:"hash"`
+	Bootable bool   `codec:"bootable"`
 }
 
 type ImageList2 struct {
-	Images []Image2 `json:"images"`
+	Images []Image2 `codec:"images"`
 }
 
 func NewImageList2() (*ImageList2, error) {
@@ -61,7 +61,8 @@ func DecodeImageListResponse2(data []byte) (*ImageList2, error) {
 
 	list2 := &ImageList2{}
 
-	err := json.Unmarshal(data, &list2)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&list2)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

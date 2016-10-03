@@ -21,16 +21,17 @@ package protocol
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
 type ImageUpload struct {
-	Offset     uint32 `json:"off"`
+	Offset     uint32 `codec:"off"`
 	Size       uint32
 	Data       []byte
-	ReturnCode int `json:"rc"`
+	ReturnCode int `codec:"rc"`
 }
 
 func NewImageUpload() (*ImageUpload, error) {
@@ -42,13 +43,13 @@ func NewImageUpload() (*ImageUpload, error) {
 
 func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	type UploadReq struct {
-		Off  uint32 `json:"off"`
-		Data string `json:"data"`
+		Off  uint32 `codec:"off"`
+		Data string `codec:"data"`
 	}
 	type UploadFirstReq struct {
-		Off  uint32 `json:"off"`
-		Size uint32 `json:"len"`
-		Data string `json:"data"`
+		Off  uint32 `codec:"off"`
+		Size uint32 `codec:"len"`
+		Data string `codec:"data"`
 	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -68,13 +69,15 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 			Size: i.Size,
 			Data: base64.StdEncoding.EncodeToString(i.Data),
 		}
-		data, _ = json.Marshal(uploadReq)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(uploadReq)
 	} else {
 		uploadReq := &UploadReq{
 			Off:  i.Offset,
 			Data: base64.StdEncoding.EncodeToString(i.Data),
 		}
-		data, _ = json.Marshal(uploadReq)
+		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc.Encode(uploadReq)
 	}
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
@@ -85,7 +88,8 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeImageUploadResponse(data []byte) (*ImageUpload, error) {
 	i := &ImageUpload{}
 
-	err := json.Unmarshal(data, &i)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&i)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

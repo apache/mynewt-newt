@@ -20,9 +20,9 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -30,8 +30,8 @@ type MempoolStatsReadReq struct {
 }
 
 type MempoolStatsReadRsp struct {
-	ReturnCode int                               `json:"rc"`
-	MPools     map[string]map[string]interface{} `json:"mpools"`
+	ReturnCode int                               `codec:"rc"`
+	MPools     map[string]map[string]interface{} `codec:"mpools"`
 }
 
 func NewMempoolStatsReadReq() (*MempoolStatsReadReq, error) {
@@ -51,15 +51,15 @@ func (tsr *MempoolStatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Group = NMGR_GROUP_ID_DEFAULT
 	nmr.Id = NMGR_ID_MPSTATS
 
-	nmr.Data = []byte{}
-	nmr.Len = uint16(0)
+	nmr.Len = 0
 
 	return nmr, nil
 }
 
 func DecodeMempoolStatsReadResponse(data []byte) (*MempoolStatsReadRsp, error) {
 	var tsr MempoolStatsReadRsp
-	err := json.Unmarshal(data, &tsr)
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&tsr)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))

@@ -20,9 +20,9 @@
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/ugorji/go/codec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -32,22 +32,22 @@ const (
 )
 
 type StatsReadReq struct {
-	Name string `json:"name"`
+	Name string `codec:"name"`
 }
 
 type StatsListReq struct {
 }
 
 type StatsListRsp struct {
-	ReturnCode int      `json:"rc"`
-	List       []string `json:"stat_list"`
+	ReturnCode int      `codec:"rc"`
+	List       []string `codec:"stat_list"`
 }
 
 type StatsReadRsp struct {
-	ReturnCode int                    `json:"rc"`
-	Name       string                 `json:"name"`
-	Group      string                 `json:"group"`
-	Fields     map[string]interface{} `json:"fields"`
+	ReturnCode int                    `codec:"rc"`
+	Name       string                 `codec:"name"`
+	Group      string                 `codec:"group"`
+	Fields     map[string]interface{} `codec:"fields"`
 }
 
 func NewStatsListReq() (*StatsListReq, error) {
@@ -65,7 +65,9 @@ func NewStatsReadReq() (*StatsReadReq, error) {
 
 func DecodeStatsListResponse(data []byte) (*StatsListRsp, error) {
 	var resp StatsListRsp
-	err := json.Unmarshal(data, &resp)
+
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
@@ -87,7 +89,10 @@ func (sr *StatsListReq) Encode() (*NmgrReq, error) {
 
 	req := &StatsListReq{}
 
-	data, _ := json.Marshal(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(req)
+
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -109,7 +114,10 @@ func (sr *StatsReadReq) Encode() (*NmgrReq, error) {
 		Name: sr.Name,
 	}
 
-	data, _ := json.Marshal(srr)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(srr)
+
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
@@ -118,7 +126,9 @@ func (sr *StatsReadReq) Encode() (*NmgrReq, error) {
 
 func DecodeStatsReadResponse(data []byte) (*StatsReadRsp, error) {
 	var sr StatsReadRsp
-	err := json.Unmarshal(data, &sr)
+
+	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	err := dec.Decode(&sr)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
