@@ -51,6 +51,8 @@ type TargetBuilder struct {
 
 	LoaderBuilder *Builder
 	LoaderList    interfaces.PackageList
+
+	injectedSettings map[string]string
 }
 
 func NewTargetBuilder(target *target.Target,
@@ -68,12 +70,13 @@ func NewTargetBuilder(target *target.Target,
 	}
 
 	t := &TargetBuilder{
-		target:      target,
-		bspPkg:      bspPkg,
-		compilerPkg: compilerPkg,
-		appPkg:      target.App(),
-		loaderPkg:   target.Loader(),
-		testPkg:     testPkg,
+		target:           target,
+		bspPkg:           bspPkg,
+		compilerPkg:      compilerPkg,
+		appPkg:           target.App(),
+		loaderPkg:        target.Loader(),
+		testPkg:          testPkg,
+		injectedSettings: map[string]string{},
 	}
 
 	return t, nil
@@ -86,9 +89,7 @@ func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) 
 	return c, err
 }
 
-func (t *TargetBuilder) resolveCfg(injectedSettings map[string]string) (
-	resolve.CfgResolution, error) {
-
+func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
 	seeds := []*pkg.LocalPackage{
 		t.bspPkg.LocalPackage,
 		t.compilerPkg,
@@ -96,6 +97,21 @@ func (t *TargetBuilder) resolveCfg(injectedSettings map[string]string) (
 	}
 
 	if t.loaderPkg != nil {
+		// For split images, inject the SPLIT_[...] settings into the
+		// corresponding app packages.  This ensures that:
+		//     * The app packages know they are part of a split image during
+		//       dependency resolution.
+		//     * The app source files receive "-DSPLIT_[...]=1" command line
+		//       arguments during compilation.
+		t.loaderPkg.InjectedSettings()["SPLIT_LOADER"] = "1"
+		if t.appPkg != nil {
+			t.appPkg.InjectedSettings()["SPLIT_APPLICATION"] = "1"
+		}
+
+		// Inject the SPLIT_IMAGE setting into the entire target.  All packages
+		// now know that they are part of a split image build.
+		t.injectedSettings["SPLIT_IMAGE"] = "1"
+
 		seeds = append(seeds, t.loaderPkg)
 	}
 
@@ -104,25 +120,19 @@ func (t *TargetBuilder) resolveCfg(injectedSettings map[string]string) (
 	}
 
 	if t.testPkg != nil {
+		// Inject the TEST setting into the entire build.  This setting
+		// exposes unit test code in each package.
+		t.injectedSettings["TEST"] = "1"
+
 		seeds = append(seeds, t.testPkg)
 	}
 
-	cfgResolution, err := resolve.ResolveCfg(seeds, injectedSettings)
+	cfgResolution, err := resolve.ResolveCfg(seeds, t.injectedSettings)
 	if err != nil {
 		return cfgResolution, err
 	}
 
 	return cfgResolution, nil
-}
-
-func (t *TargetBuilder) resolveCfgBuild() (resolve.CfgResolution, error) {
-	return t.resolveCfg(nil)
-}
-
-func (t *TargetBuilder) resolveCfgTest() (resolve.CfgResolution, error) {
-	// Inject the TEST setting into the entire build.  This setting
-	// exposes unit test code in each package.
-	return t.resolveCfg(map[string]string{"TEST": "1"})
 }
 
 func (t *TargetBuilder) validateAndWriteCfg(
@@ -180,12 +190,8 @@ func (t *TargetBuilder) buildSysinit(
 	return nil
 }
 
-func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
-	return t.resolveCfgBuild()
-}
-
 func (t *TargetBuilder) PrepBuild() error {
-	cfgResolution, err := t.resolveCfgBuild()
+	cfgResolution, err := t.ExportCfg()
 	if err != nil {
 		return err
 	}
@@ -470,7 +476,7 @@ func (t *TargetBuilder) Test() error {
 	// indicates that the package needs to provide its own main().
 	t.testPkg.InjectedSettings()["SELFTEST"] = "1"
 
-	cfgResolution, err := t.resolveCfgTest()
+	cfgResolution, err := t.ExportCfg()
 	if err != nil {
 		return err
 	}
