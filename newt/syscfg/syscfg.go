@@ -572,7 +572,13 @@ func (cfg *Cfg) ErrorText() string {
 	}
 
 	str += "\nSetting history:\n"
+	interestingSlice := make([]string, 0, len(interestingNames))
 	for name, _ := range interestingNames {
+		interestingSlice = append(interestingSlice, name)
+	}
+	sort.Strings(interestingSlice)
+
+	for _, name := range interestingSlice {
 		entry := cfg.Settings[name]
 		str += fmt.Sprintf("    %s: %s\n", name,
 			historyToString(entry.History))
