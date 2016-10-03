@@ -20,9 +20,14 @@
 package pkg
 
 import (
+	"strings"
+
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
+
+const BSP_YAML_FILENAME = "bsp.yml"
 
 type BspPackage struct {
 	*LocalPackage
@@ -32,43 +37,54 @@ type BspPackage struct {
 	Part2LinkerScript string /* script to link app to second partition */
 	DownloadScript    string
 	DebugScript       string
+	BspV              *viper.Viper
 }
 
 func (bsp *BspPackage) Reload(features map[string]bool) error {
-	bsp.CompilerName = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
-		features, "pkg.compiler")
-	bsp.Arch = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
-		features, "pkg.arch")
-	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
-		features, "pkg.linkerscript")
-	bsp.Part2LinkerScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
-		features, "pkg.part2linkerscript")
-	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
-		features, "pkg.downloadscript")
-	bsp.DebugScript = newtutil.GetStringFeatures(bsp.LocalPackage.PkgV,
-		features, "pkg.debugscript")
+	var err error
+	bsp.BspV, err = util.ReadConfig(bsp.BasePath(),
+		strings.TrimSuffix(BSP_YAML_FILENAME, ".yml"))
+	if err != nil {
+		return err
+	}
+	bsp.AddCfgFilename(bsp.BasePath() + BSP_YAML_FILENAME)
+
+	bsp.CompilerName = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.compiler")
+	bsp.Arch = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.arch")
+	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.linkerscript")
+	bsp.Part2LinkerScript = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.part2linkerscript")
+	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.downloadscript")
+	bsp.DebugScript = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.debugscript")
 
 	if bsp.CompilerName == "" {
 		return util.NewNewtError("BSP does not specify a compiler " +
-			"(pkg.compiler)")
+			"(bsp.compiler)")
 	}
 	if bsp.Arch == "" {
 		return util.NewNewtError("BSP does not specify an architecture " +
-			"(pkg.arch)")
+			"(bsp.arch)")
 	}
 
 	return nil
 }
 
-func NewBspPackage(lpkg *LocalPackage) *BspPackage {
+func NewBspPackage(lpkg *LocalPackage) (*BspPackage, error) {
 	bsp := &BspPackage{
 		CompilerName:   "",
 		LinkerScript:   "",
 		DownloadScript: "",
 		DebugScript:    "",
+		BspV:           viper.New(),
 	}
 	lpkg.Load()
 	bsp.LocalPackage = lpkg
-	bsp.Reload(nil)
-	return bsp
+	err := bsp.Reload(nil)
+
+	return bsp, err
 }

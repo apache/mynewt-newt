@@ -61,7 +61,11 @@ func NewTargetBuilder(target *target.Target,
 		return nil, err
 	}
 
-	bspPkg := pkg.NewBspPackage(target.Bsp())
+	bspPkg, err := pkg.NewBspPackage(target.Bsp())
+	if err != nil {
+		return nil, err
+	}
+
 	compilerPkg, err := project.GetProject().ResolvePackage(
 		bspPkg.Repo(), bspPkg.CompilerName)
 	if err != nil {
