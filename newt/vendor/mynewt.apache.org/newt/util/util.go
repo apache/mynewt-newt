@@ -522,3 +522,18 @@ func IsNotExist(err error) bool {
 
 	return os.IsNotExist(err)
 }
+
+func FileContentsChanged(path string, newContents []byte) (bool, error) {
+	oldContents, err := ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist; write required.
+			return true, nil
+		}
+
+		return true, NewNewtError(err.Error())
+	}
+
+	rc := bytes.Compare(oldContents, newContents)
+	return rc != 0, nil
+}

@@ -130,7 +130,8 @@ func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
 		seeds = append(seeds, t.testPkg)
 	}
 
-	cfgResolution, err := resolve.ResolveCfg(seeds, t.injectedSettings)
+	cfgResolution, err := resolve.ResolveCfg(seeds, t.injectedSettings,
+		t.bspPkg.FlashMap)
 	if err != nil {
 		return cfgResolution, err
 	}
@@ -143,6 +144,11 @@ func (t *TargetBuilder) validateAndWriteCfg(
 
 	if errText := cfgResolution.ErrorText(); errText != "" {
 		return util.NewNewtError(errText)
+	}
+
+	warningText := strings.TrimSpace(cfgResolution.WarningText())
+	for _, line := range strings.Split(warningText, "\n") {
+		log.Warn(line)
 	}
 
 	if err := syscfg.EnsureWritten(cfgResolution.Cfg,
@@ -172,7 +178,7 @@ func (t *TargetBuilder) resolvePkgs(cfgResolution resolve.CfgResolution) (
 		t.target.Package())
 }
 
-func (t *TargetBuilder) buildSysinit(
+func (t *TargetBuilder) generateSysinit(
 	cfgResolution resolve.CfgResolution) error {
 
 	loaderPkgs, appPkgs, err := t.resolvePkgs(cfgResolution)
@@ -193,10 +199,36 @@ func (t *TargetBuilder) buildSysinit(
 	return nil
 }
 
+func (t *TargetBuilder) generateFlashMap() error {
+	return t.bspPkg.FlashMap.EnsureWritten(
+		GeneratedSrcDir(t.target.Name()),
+		GeneratedIncludeDir(t.target.Name()),
+		pkg.ShortName(t.target.Package()))
+}
+
+func (t *TargetBuilder) generateCode(
+	cfgResolution resolve.CfgResolution) error {
+
+	if err := t.generateSysinit(cfgResolution); err != nil {
+		return err
+	}
+
+	if err := t.generateFlashMap(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (t *TargetBuilder) PrepBuild() error {
 	cfgResolution, err := t.ExportCfg()
 	if err != nil {
 		return err
+	}
+
+	flashErrText := t.bspPkg.FlashMap.ErrorText()
+	if flashErrText != "" {
+		return util.NewNewtError(flashErrText)
 	}
 
 	if err := t.validateAndWriteCfg(cfgResolution); err != nil {
@@ -242,7 +274,7 @@ func (t *TargetBuilder) PrepBuild() error {
 
 	t.AppList = project.ResetDeps(nil)
 
-	if err := t.buildSysinit(cfgResolution); err != nil {
+	if err := t.generateCode(cfgResolution); err != nil {
 		return err
 	}
 
@@ -502,7 +534,7 @@ func (t *TargetBuilder) Test() error {
 		return err
 	}
 
-	if err := t.buildSysinit(cfgResolution); err != nil {
+	if err := t.generateCode(cfgResolution); err != nil {
 		return err
 	}
 

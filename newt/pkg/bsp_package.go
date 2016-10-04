@@ -22,6 +22,7 @@ package pkg
 import (
 	"strings"
 
+	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
@@ -37,6 +38,7 @@ type BspPackage struct {
 	Part2LinkerScript string /* script to link app to second partition */
 	DownloadScript    string
 	DebugScript       string
+	FlashMap          flash.FlashMap
 	BspV              *viper.Viper
 }
 
@@ -69,6 +71,17 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 	if bsp.Arch == "" {
 		return util.NewNewtError("BSP does not specify an architecture " +
 			"(bsp.arch)")
+	}
+
+	ymlFlashMap := newtutil.GetStringMapFeatures(bsp.BspV, features,
+		"bsp.flash_map")
+	if ymlFlashMap == nil {
+		return util.NewNewtError("BSP does not specify a flash map " +
+			"(bsp.flash_map)")
+	}
+	bsp.FlashMap, err = flash.Read(ymlFlashMap)
+	if err != nil {
+		return err
 	}
 
 	return nil

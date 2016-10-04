@@ -26,6 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -37,6 +38,7 @@ type Resolver struct {
 	apis             map[string]*ResolvePackage
 	pkgMap           map[*pkg.LocalPackage]*ResolvePackage
 	injectedSettings map[string]string
+	flashMap         flash.FlashMap
 	cfg              syscfg.Cfg
 }
 
@@ -208,8 +210,8 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 		lpkg, ok := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
 		if !ok {
 			return false,
-				util.NewNewtError("Could not resolve package dependency " +
-					newDep.String())
+				util.FmtNewtError("Could not resolve package dependency: "+
+					"%s; depender: %s", newDep.String(), rpkg.Name())
 		}
 
 		if r.pkgMap[lpkg] == nil {
@@ -277,7 +279,8 @@ func (r *Resolver) reloadCfg() (bool, error) {
 	// required for reloading syscfg, as features may unlock additional
 	// settings.
 	features := r.cfg.Features()
-	cfg, err := syscfg.Read(lpkgs, apis, r.injectedSettings, features)
+	cfg, err := syscfg.Read(lpkgs, apis, r.injectedSettings, features,
+		r.flashMap)
 	if err != nil {
 		return false, err
 	}
@@ -464,11 +467,13 @@ func ResolveSplitPkgs(cfgResolution CfgResolution,
 }
 
 func ResolveCfg(seedPkgs []*pkg.LocalPackage,
-	injectedSettings map[string]string) (CfgResolution, error) {
+	injectedSettings map[string]string,
+	flashMap flash.FlashMap) (CfgResolution, error) {
 
 	resolution := newCfgResolution()
 
 	r := newResolver()
+	r.flashMap = flashMap
 	if injectedSettings == nil {
 		injectedSettings = map[string]string{}
 	}
@@ -537,4 +542,8 @@ func (cfgResolution *CfgResolution) ErrorText() string {
 	str += cfgResolution.Cfg.ErrorText()
 
 	return strings.TrimSpace(str)
+}
+
+func (cfgResolution *CfgResolution) WarningText() string {
+	return cfgResolution.Cfg.WarningText()
 }

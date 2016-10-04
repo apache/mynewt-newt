@@ -30,8 +30,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -89,7 +89,7 @@ func write(pkgs []*pkg.LocalPackage, isLoader bool,
 	}
 	sort.Ints(stages)
 
-	syscfg.WritePreamble(w)
+	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
 	if isLoader {
 		fmt.Fprintf(w, "#if SPLIT_LOADER\n\n")

@@ -390,7 +390,7 @@ func (b *Builder) PrepBuild() error {
 	}
 	baseCi.AddCompilerInfo(bspCi)
 
-	// All packages have access to the generated syscfg header directory.
+	// All packages have access to the generated code header directory.
 	baseCi.Cflags = append(baseCi.Cflags,
 		"-I"+GeneratedIncludeDir(b.targetPkg.Name()))
 
