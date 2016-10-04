@@ -21,7 +21,6 @@ package builder
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -505,18 +504,6 @@ func (t *TargetBuilder) Test() error {
 
 	if err := t.AppBuilder.Test(t.testPkg); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (t *TargetBuilder) Clean() error {
-	path := TargetBinDir(t.target)
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Cleaning directory %s\n",
-		path)
-	err := os.RemoveAll(path)
-	if err != nil {
-		return util.NewNewtError(err.Error())
 	}
 
 	return nil
