@@ -148,6 +148,16 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func cleanDir(path string) {
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Cleaning directory %s\n", path)
+
+	err := os.RemoveAll(path)
+	if err != nil {
+		NewtUsage(nil, util.NewNewtError(err.Error()))
+	}
+}
+
 func cleanRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
@@ -172,23 +182,10 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if cleanAll {
-		path := builder.BinRoot()
-		util.StatusMessage(util.VERBOSITY_VERBOSE,
-			"Cleaning directory %s\n", path)
-
-		err := os.RemoveAll(path)
-		if err != nil {
-			NewtUsage(cmd, err)
-		}
+		cleanDir(builder.BinRoot())
 	} else {
 		for _, t := range targets {
-			b, err := builder.NewTargetBuilder(t, nil)
-			if err != nil {
-				NewtUsage(nil, err)
-			}
-			if err := b.Clean(); err != nil {
-				NewtUsage(cmd, err)
-			}
+			cleanDir(builder.TargetBinDir(t))
 		}
 	}
 }
