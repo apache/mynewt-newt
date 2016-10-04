@@ -146,4 +146,5 @@ func main() {
 	}
 
 	log.SetLevel(hold_lvl)
+	cmd.Execute()
 }
