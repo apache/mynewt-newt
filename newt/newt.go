@@ -146,7 +146,4 @@ func main() {
 	}
 
 	log.SetLevel(hold_lvl)
-	if err := cmd.Execute(); err != nil {
-		cli.NewtUsage(nil, err)
-	}
 }
