@@ -49,12 +49,12 @@ const (
 	COREDUMP_MAGIC = 0x690c47c3
 )
 
-type coreDumpHdr struct {
+type CoreDumpHdr struct {
 	Magic uint32
 	Size  uint32
 }
 
-type coreDumpTlv struct {
+type CoreDumpTlv struct {
 	Type uint8
 	pad  uint8
 	Len  uint16
