@@ -66,7 +66,7 @@ func NewCoreConvert() *CoreConvert {
 }
 
 func (cc *CoreConvert) readHdr() error {
-	var hdr coreDumpHdr
+	var hdr CoreDumpHdr
 
 	hdr_buf := make([]byte, binary.Size(hdr))
 	if hdr_buf == nil {
@@ -90,8 +90,8 @@ func (cc *CoreConvert) readHdr() error {
 	return nil
 }
 
-func (cc *CoreConvert) readTlv() (*coreDumpTlv, error) {
-	var tlv coreDumpTlv
+func (cc *CoreConvert) readTlv() (*CoreDumpTlv, error) {
+	var tlv CoreDumpTlv
 
 	tlv_buf := make([]byte, binary.Size(tlv))
 	if tlv_buf == nil {
