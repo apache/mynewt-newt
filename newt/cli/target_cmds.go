@@ -334,11 +334,23 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 	err = dstTarget.Save()
 	if err != nil {
 		NewtUsage(nil, err)
-	} else {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Target successfully copied; %s --> %s\n",
-			srcTarget.FullName(), dstTarget.FullName())
 	}
+
+	// Copy syscfg.yml file.
+	srcSyscfgPath := fmt.Sprintf("%s/%s",
+		srcTarget.Package().BasePath(),
+		pkg.SYSCFG_YAML_FILENAME)
+	dstSyscfgPath := fmt.Sprintf("%s/%s",
+		dstTarget.Package().BasePath(),
+		pkg.SYSCFG_YAML_FILENAME)
+
+	if err := util.CopyFile(srcSyscfgPath, dstSyscfgPath); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Target successfully copied; %s --> %s\n",
+		srcTarget.FullName(), dstTarget.FullName())
 }
 
 func printSetting(entry syscfg.CfgEntry) {
