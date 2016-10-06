@@ -345,7 +345,10 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 		pkg.SYSCFG_YAML_FILENAME)
 
 	if err := util.CopyFile(srcSyscfgPath, dstSyscfgPath); err != nil {
-		NewtUsage(nil, err)
+		// If there is just no source syscfg.yml file, that is not an error.
+		if !util.IsNotExist(err) {
+			NewtUsage(nil, err)
+		}
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
