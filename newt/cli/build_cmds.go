@@ -109,24 +109,37 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	// Verify that all target names are valid.
-	_, err := ResolveTargets(args...)
+	// Verify and resolve each specified package.
+	targets, all, err := ResolveTargetsOrAll(args...)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	for _, targetName := range args {
+	if all {
+		// Collect all targets that specify an app package.
+		targets = []*target.Target{}
+		for _, name := range targetList() {
+			t := ResolveTarget(name)
+			if t != nil && t.AppName != "" {
+				targets = append(targets, t)
+			}
+		}
+	}
+
+	for i, _ := range targets {
 		// Reset the global state for the next build.
+		// XXX: It is not good that this is necessary.  This is certainly going
+		// to bite us...
 		if err := ResetGlobalState(); err != nil {
 			NewtUsage(nil, err)
 		}
 
-		// Lookup the target by name.  This has to be done a second time here
+		// Look up the target by name.  This has to be done a second time here
 		// now that the project has been reset.
-		t := ResolveTarget(targetName)
+		t := ResolveTarget(targets[i].Name())
 		if t == nil {
 			NewtUsage(nil, util.NewNewtError("Failed to resolve target: "+
-				targetName))
+				targets[i].Name()))
 		}
 
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Building target %s\n",
@@ -142,9 +155,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		}
 
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Target successfully built: %s\n", targetName)
-
-		/* TODO */
+			"Target successfully built: %s\n", t.Name())
 	}
 }
 

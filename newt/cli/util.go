@@ -105,17 +105,40 @@ func ResolveTarget(name string) *target.Target {
 	return nil
 }
 
-func ResolveTargets(names ...string) ([]*target.Target, error) {
+// Resolves a list of target names and checks for the optional "all" keyword
+// among them.  Regardless of whether "all" is specified, all target names must
+// be valid, or an error is reported.
+//
+// @return                      targets, all (t/f), err
+func ResolveTargetsOrAll(names ...string) ([]*target.Target, bool, error) {
 	targets := []*target.Target{}
+	all := false
 
 	for _, name := range names {
-		t := ResolveTarget(name)
-		if t == nil {
-			return nil, util.NewNewtError("Could not resolve target name: " +
-				name)
-		}
+		if name == "all" {
+			all = true
+		} else {
+			t := ResolveTarget(name)
+			if t == nil {
+				return nil, false,
+					util.NewNewtError("Could not resolve target name: " + name)
+			}
 
-		targets = append(targets, t)
+			targets = append(targets, t)
+		}
+	}
+
+	return targets, all, nil
+}
+
+func ResolveTargets(names ...string) ([]*target.Target, error) {
+	targets, all, err := ResolveTargetsOrAll(names...)
+	if err != nil {
+		return nil, err
+	}
+	if all {
+		return nil,
+			util.NewNewtError("Keyword \"all\" not allowed in thie context")
 	}
 
 	return targets, nil

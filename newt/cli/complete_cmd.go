@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/pkg"
@@ -46,9 +47,12 @@ func targetList() []string {
 		// XXX: This is a hack; come up with a better solution for unit
 		// testing.
 		if !strings.HasSuffix(name, "/unittest") {
-			targetNames = append(targetNames, strings.TrimPrefix(name, "targets/"))
+			targetNames = append(targetNames,
+				strings.TrimPrefix(name, "targets/"))
 		}
 	}
+
+	sort.Strings(targetNames)
 	return targetNames
 }
 
