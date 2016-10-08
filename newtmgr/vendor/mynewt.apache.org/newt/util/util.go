@@ -51,6 +51,7 @@ func ParseEqualsPair(v string) (string, string, error) {
 }
 
 type NewtError struct {
+	Parent     error
 	Text       string
 	StackTrace []byte
 }
@@ -87,6 +88,20 @@ func PreNewtError(err error, format string, args ...interface{}) *NewtError {
 	baseErr.Text = fmt.Sprintf(format, args...) + "; " + baseErr.Text
 
 	return baseErr
+}
+
+func ChildNewtError(parent error) *NewtError {
+	for {
+		newtErr, ok := parent.(*NewtError)
+		if !ok {
+			break
+		}
+		parent = newtErr.Parent
+	}
+
+	newtErr := NewNewtError(parent.Error())
+	newtErr.Parent = parent
+	return newtErr
 }
 
 // Print Silent, Quiet and Verbose aware status messages to stdout.
@@ -341,20 +356,68 @@ func ShellInteractiveCommand(cmdStr []string, env []string) error {
 	return nil
 }
 
-func CopyFile(srcFile string, destFile string) error {
-	_, err := ShellCommand(fmt.Sprintf("mkdir -p %s", filepath.Dir(destFile)))
+func CopyFile(srcFile string, dstFile string) error {
+	in, err := os.Open(srcFile)
 	if err != nil {
+		return ChildNewtError(err)
+	}
+	defer in.Close()
+
+	dstDir := filepath.Dir(dstFile)
+	if err := os.MkdirAll(dstDir, os.ModePerm); err != nil {
+		return ChildNewtError(err)
+	}
+
+	out, err := os.Create(dstFile)
+	if err != nil {
+		return ChildNewtError(err)
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, in); err != nil {
+		return ChildNewtError(err)
+	}
+
+	if err := in.Close(); err != nil {
 		return err
 	}
-	if _, err := ShellCommand(fmt.Sprintf("cp -Rf %s %s", srcFile,
-		destFile)); err != nil {
+	if err := out.Close(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func CopyDir(srcDir, destDir string) error {
-	return CopyFile(srcDir, destDir)
+func CopyDir(srcDirStr, dstDirStr string) error {
+	srcDir, err := os.Open(srcDirStr)
+	if err != nil {
+		return ChildNewtError(err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dstDirStr), os.ModePerm); err != nil {
+		return ChildNewtError(err)
+	}
+
+	infos, err := srcDir.Readdir(-1)
+	if err != nil {
+		return ChildNewtError(err)
+	}
+
+	for _, info := range infos {
+		src := srcDirStr + "/" + info.Name()
+		dst := dstDirStr + "/" + info.Name()
+		if info.IsDir() {
+			if err := CopyDir(src, dst); err != nil {
+				return err
+			}
+		} else {
+			if err := CopyFile(src, dst); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Reads each line from the specified text file into an array of strings.  If a
@@ -449,4 +512,28 @@ func AtoiNoOct(s string) (int, error) {
 	}
 
 	return int(i), nil
+}
+
+func IsNotExist(err error) bool {
+	newtErr, ok := err.(*NewtError)
+	if ok {
+		err = newtErr.Parent
+	}
+
+	return os.IsNotExist(err)
+}
+
+func FileContentsChanged(path string, newContents []byte) (bool, error) {
+	oldContents, err := ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist; write required.
+			return true, nil
+		}
+
+		return true, NewNewtError(err.Error())
+	}
+
+	rc := bytes.Compare(oldContents, newContents)
+	return rc != 0, nil
 }
