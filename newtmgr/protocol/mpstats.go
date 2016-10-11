@@ -58,10 +58,10 @@ func (tsr *MempoolStatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
 
 func DecodeMempoolStatsReadResponse(data []byte) (*MempoolStatsReadRsp, error) {
 	var tsr MempoolStatsReadRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&tsr)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 

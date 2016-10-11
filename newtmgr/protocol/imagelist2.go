@@ -29,7 +29,7 @@ import (
 type Image2 struct {
 	Slot     int    `codec:"slot"`
 	Version  string `codec:"version"`
-	Hash     string `codec:"hash"`
+	Hash     []byte `codec:"hash"`
 	Bootable bool   `codec:"bootable"`
 }
 
@@ -61,10 +61,10 @@ func DecodeImageListResponse2(data []byte) (*ImageList2, error) {
 
 	list2 := &ImageList2{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&list2)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return list2, nil

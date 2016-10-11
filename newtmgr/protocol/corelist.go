@@ -54,10 +54,10 @@ func (ce *CoreList) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeCoreListResponse(data []byte) (*CoreList, error) {
 	cl := &CoreList{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&cl)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return cl, nil

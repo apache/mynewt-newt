@@ -27,19 +27,19 @@ import (
 )
 
 type ImageBoot2 struct {
-	BootTarget string
-	Test       string `codec:"test"`
-	Main       string `codec:"main"`
-	Active     string `codec:"active"`
-	ReturnCode int `codec:"rc"`
+	BootTarget []byte
+	Test       []byte `codec:"test"`
+	Main       []byte `codec:"main"`
+	Active     []byte `codec:"active"`
+	ReturnCode int    `codec:"rc"`
 }
 
 func NewImageBoot2() (*ImageBoot2, error) {
 	s := &ImageBoot2{}
-	s.BootTarget = ""
-	s.Test = ""
-	s.Main = ""
-	s.Active = ""
+	s.BootTarget = make([]byte, 0)
+	s.Test = make([]byte, 0)
+	s.Main = make([]byte, 0)
+	s.Active = make([]byte, 0)
 	return s, nil
 }
 
@@ -55,20 +55,16 @@ func (i *ImageBoot2) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Id = IMGMGR_NMGR_OP_BOOT2
 	nmr.Len = 0
 
-	if i.BootTarget != "" {
+	if len(i.BootTarget) != 0 {
 		type BootReq struct {
-			Test string `codec:"test"`
+			Test []byte `codec:"test"`
 		}
 
-		hash, err := HashEncode(i.BootTarget)
-		if err != nil {
-			return nil, err
-		}
 		bReq := &BootReq{
-			Test: hash,
+			Test: i.BootTarget,
 		}
 		data := make([]byte, 0)
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 		enc.Encode(bReq)
 		nmr.Data = data
 		nmr.Len = uint16(len(data))
@@ -83,33 +79,16 @@ func DecodeImageBoot2Response(data []byte) (*ImageBoot2, error) {
 	if len(data) == 0 {
 		return i, nil
 	}
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if i.ReturnCode != 0 {
 		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
 			i.ReturnCode))
 	}
-	if i.Test != "" {
-		i.Test, err = HashDecode(i.Test)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if i.Main != "" {
-		i.Main, err = HashDecode(i.Main)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if i.Active != "" {
-		i.Active, err = HashDecode(i.Active)
-		if err != nil {
-			return nil, err
-		}
-	}
+
 	return i, nil
 }

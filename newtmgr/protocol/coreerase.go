@@ -54,10 +54,10 @@ func (ce *CoreErase) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeCoreEraseResponse(data []byte) (*CoreErase, error) {
 	ce := &CoreErase{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&ce)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return ce, nil

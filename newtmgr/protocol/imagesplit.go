@@ -141,7 +141,7 @@ func (s *Split) EncoderReadRequest() (*NmgrReq, error) {
 func (s *Split) EncoderWriteRequest() (*NmgrReq, error) {
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	err := enc.Encode(s)
 	if err != nil {
 		return nil, err
@@ -169,10 +169,10 @@ func DecodeSplitReadResponse(data []byte) (*Split, error) {
 		return i, nil
 	}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if i.ReturnCode != 0 {

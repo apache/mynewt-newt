@@ -20,7 +20,6 @@
 package protocol
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"github.com/ugorji/go/codec"
@@ -44,12 +43,12 @@ func NewImageUpload() (*ImageUpload, error) {
 func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	type UploadReq struct {
 		Off  uint32 `codec:"off"`
-		Data string `codec:"data"`
+		Data []byte `codec:"data"`
 	}
 	type UploadFirstReq struct {
 		Off  uint32 `codec:"off"`
 		Size uint32 `codec:"len"`
-		Data string `codec:"data"`
+		Data []byte `codec:"data"`
 	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -67,16 +66,16 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 		uploadReq := &UploadFirstReq{
 			Off:  i.Offset,
 			Size: i.Size,
-			Data: base64.StdEncoding.EncodeToString(i.Data),
+			Data: i.Data,
 		}
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 		enc.Encode(uploadReq)
 	} else {
 		uploadReq := &UploadReq{
 			Off:  i.Offset,
-			Data: base64.StdEncoding.EncodeToString(i.Data),
+			Data: i.Data,
 		}
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 		enc.Encode(uploadReq)
 	}
 	nmr.Len = uint16(len(data))
@@ -88,10 +87,10 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeImageUploadResponse(data []byte) (*ImageUpload, error) {
 	i := &ImageUpload{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if i.ReturnCode != 0 {

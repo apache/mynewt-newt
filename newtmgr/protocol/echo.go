@@ -28,8 +28,8 @@ import (
 )
 
 type Echo struct {
-	Message  string	`codec:"d"`
-	Response string	`codec:"r,omitempty"`
+	Message  string `codec:"d"`
+	Response string `codec:"r,omitempty"`
 }
 
 func NewEcho() (*Echo, error) {
@@ -39,7 +39,7 @@ func NewEcho() (*Echo, error) {
 
 func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	if err := enc.Encode(e); err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Failed to encode message %s",
 			err.Error()))
@@ -85,7 +85,7 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 	nmr.Id = NMGR_ID_CONS_ECHO_CTRL
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	if err := enc.Encode(echoCtl); err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Failed to encode message %s",
 			err.Error()))
@@ -99,7 +99,7 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 func DecodeEchoResponse(data []byte) (*Echo, error) {
 	e := &Echo{}
 
-	cborCodec := new(codec.JsonHandle)
+	cborCodec := new(codec.CborHandle)
 	dec := codec.NewDecoderBytes(data, cborCodec)
 
 	if err := dec.Decode(e); err != nil {

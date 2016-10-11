@@ -66,10 +66,10 @@ func NewStatsReadReq() (*StatsReadReq, error) {
 func DecodeStatsListResponse(data []byte) (*StatsListRsp, error) {
 	var resp StatsListRsp
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -90,7 +90,7 @@ func (sr *StatsListReq) Encode() (*NmgrReq, error) {
 	req := &StatsListReq{}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 
 	nmr.Data = data
@@ -115,7 +115,7 @@ func (sr *StatsReadReq) Encode() (*NmgrReq, error) {
 	}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(srr)
 
 	nmr.Data = data
@@ -127,10 +127,10 @@ func (sr *StatsReadReq) Encode() (*NmgrReq, error) {
 func DecodeStatsReadResponse(data []byte) (*StatsReadRsp, error) {
 	var sr StatsReadRsp
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&sr)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 

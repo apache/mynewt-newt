@@ -50,8 +50,8 @@ func (i *DateTime) EncodeRequest() (*NmgrReq, error) {
 
 	if i.DateTime != "" {
 		data := make([]byte, 0)
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
-		enc.Encode(i);
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
+		enc.Encode(i)
 		nmr.Data = data
 		nmr.Len = uint16(len(data))
 	} else {
@@ -67,10 +67,10 @@ func DecodeDateTimeResponse(data []byte) (*DateTime, error) {
 	if len(data) == 0 {
 		return i, nil
 	}
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return i, nil

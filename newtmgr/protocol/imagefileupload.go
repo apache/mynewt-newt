@@ -20,7 +20,6 @@
 package protocol
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"github.com/ugorji/go/codec"
@@ -45,13 +44,13 @@ func NewFileUpload() (*FileUpload, error) {
 func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	type UploadReq struct {
 		Off  uint32 `codec:"off"`
-		Data string `codec:"data"`
+		Data []byte `codec:"data"`
 	}
 	type UploadFirstReq struct {
 		Off  uint32 `codec:"off"`
 		Size uint32 `codec:"len"`
 		Name string `codec:"name"`
-		Data string `codec:"data"`
+		Data []byte `codec:"data"`
 	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
@@ -70,16 +69,16 @@ func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 			Off:  f.Offset,
 			Size: f.Size,
 			Name: f.Name,
-			Data: base64.StdEncoding.EncodeToString(f.Data),
+			Data: f.Data,
 		}
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 		enc.Encode(uploadReq)
 	} else {
 		uploadReq := &UploadReq{
 			Off:  f.Offset,
-			Data: base64.StdEncoding.EncodeToString(f.Data),
+			Data: f.Data,
 		}
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 		enc.Encode(uploadReq)
 	}
 	nmr.Len = uint16(len(data))
@@ -91,10 +90,10 @@ func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeFileUploadResponse(data []byte) (*FileUpload, error) {
 	f := &FileUpload{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&f)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if f.ReturnCode != 0 {

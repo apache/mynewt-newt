@@ -20,7 +20,6 @@
 package cli
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -81,15 +80,10 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 		fmt.Printf(" slot=%d\n", img.Slot)
 		fmt.Printf("    version=%s\n", img.Version)
 		fmt.Printf("    bootable=%v\n", img.Bootable)
-		if img.Hash == "" {
+		if len(img.Hash) == 0 {
 			fmt.Printf("    hash=Unavailable\n")
 		} else {
-			dec, err := base64.StdEncoding.DecodeString(img.Hash)
-			if err != nil {
-				fmt.Printf("    hash=Unable to Decode")
-			} else {
-				fmt.Printf("    hash=%s\n", hex.EncodeToString(dec[:]))
-			}
+			fmt.Printf("    hash=%x\n", img.Hash)
 		}
 	}
 }
@@ -245,7 +239,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if profile.Type() == "ble" {
 		mtu = uint32((transport.BleMTU - 33) * 3 / 4)
 	} else {
-		mtu = 36
+		mtu = 64
 	}
 
 	for currOff < imageSz {
@@ -259,7 +253,10 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 			blockSz = mtu
 		}
 		if currOff == 0 {
-			blockSz = 33
+			/* we need extra space to encode the image size */
+			if blockSz > (mtu - 8) {
+				blockSz = mtu - 8
+			}
 		}
 
 		imageUpload.Offset = currOff
@@ -332,7 +329,7 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if len(args) >= 1 {
-		imageBoot.BootTarget = args[0]
+		imageBoot.BootTarget, _ = hex.DecodeString(args[0])
 	}
 	nmr, err := imageBoot.EncodeWriteRequest()
 	if err != nil {
@@ -353,9 +350,9 @@ func imageBootCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 	if len(args) == 0 {
-		fmt.Println("   Test image:", iRsp.Test)
-		fmt.Println("   Main image:", iRsp.Main)
-		fmt.Println("   Active img:", iRsp.Active)
+		fmt.Printf("   Test image: %x\n", iRsp.Test)
+		fmt.Printf("   Main image: %x\n", iRsp.Main)
+		fmt.Printf("   Active img: %x\n", iRsp.Active)
 	}
 }
 

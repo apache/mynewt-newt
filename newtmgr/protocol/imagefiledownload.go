@@ -20,7 +20,6 @@
 package protocol
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"github.com/ugorji/go/codec"
@@ -37,6 +36,7 @@ type FileDownload struct {
 func NewFileDownload() (*FileDownload, error) {
 	f := &FileDownload{}
 	f.Offset = 0
+	f.Data = make([]byte, 0)
 
 	return f, nil
 }
@@ -62,7 +62,7 @@ func (f *FileDownload) EncodeWriteRequest() (*NmgrReq, error) {
 	}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(downloadReq)
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
@@ -74,29 +74,28 @@ func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
 	type DownloadResp struct {
 		Off        uint32 `json:"off"`
 		Size       uint32 `json:"len"`
-		Data       string `json:"data"`
+		Data       []byte `json:"data"`
 		ReturnCode int    `json:"rc"`
 	}
 	resp := &DownloadResp{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if resp.ReturnCode != 0 {
 		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
 			resp.ReturnCode))
 	}
-	decodedData, err := base64.StdEncoding.DecodeString(resp.Data)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
 	f := &FileDownload{
 		Offset: resp.Off,
-		Data:   decodedData,
+		Data:   resp.Data,
 		Size:   resp.Size,
 	}
 	return f, nil

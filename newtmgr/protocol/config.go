@@ -49,7 +49,7 @@ func (c *Config) EncodeRequest() (*NmgrReq, error) {
 	nmr.Len = 0
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 
 	if c.Value == "" {
 		type ConfigReadReq struct {
@@ -79,10 +79,10 @@ func DecodeConfigResponse(data []byte) (*Config, error) {
 		return c, nil
 	}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&c)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return c, nil

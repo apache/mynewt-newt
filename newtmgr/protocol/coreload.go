@@ -20,7 +20,6 @@
 package protocol
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -42,7 +41,7 @@ type coreLoadReq struct {
 type coreLoadResp struct {
 	ErrCode uint32 `codec:"rc"`
 	Off     uint32 `codec:"off"`
-	Data    string `codec:"data"`
+	Data    []byte `codec:"data"`
 }
 
 func NewCoreDownload() (*CoreDownload, error) {
@@ -72,7 +71,7 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 		req.Off = off
 
 		data := make([]byte, 0)
-		enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 		enc.Encode(req)
 
 		nmr.Op = NMGR_OP_READ
@@ -93,9 +92,9 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 
 		fmt.Printf("Got response: %d bytes\n", len(nmRsp.Data))
 		clRsp := coreLoadResp{}
-		dec := codec.NewDecoderBytes(nmRsp.Data, new(codec.JsonHandle))
+		dec := codec.NewDecoderBytes(nmRsp.Data, new(codec.CborHandle))
 		if err = dec.Decode(&clRsp); err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			return util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 				err.Error()))
 		}
 		if clRsp.ErrCode == NMGR_ERR_ENOENT {
@@ -114,7 +113,7 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 					clRsp.Off, off))
 		}
 
-		data, err = base64.StdEncoding.DecodeString(clRsp.Data)
+		data = clRsp.Data
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 				err.Error()))

@@ -40,7 +40,7 @@ func NewCrash(crashType string) (*Crash, error) {
 
 func (c *Crash) EncodeWriteRequest() (*NmgrReq, error) {
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(c)
 
 	fmt.Printf("crashtype:%s\n", c.CrashType)
@@ -62,7 +62,7 @@ func (c *Crash) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeCrashResponse(data []byte) (*Crash, error) {
 	c := &Crash{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	if err := dec.Decode(&c); err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid response: %s",
 			err.Error()))

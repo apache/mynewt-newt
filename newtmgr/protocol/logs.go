@@ -118,7 +118,7 @@ func (sr *LogsModuleListReq) Encode() (*NmgrReq, error) {
 	req := &LogsModuleListReq{}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 
 	nmr.Data = data
@@ -129,10 +129,10 @@ func (sr *LogsModuleListReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsListResponse(data []byte) (*LogsListRsp, error) {
 	var resp LogsListRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -153,7 +153,7 @@ func (sr *LogsListReq) Encode() (*NmgrReq, error) {
 	req := &LogsListReq{}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 
 	nmr.Data = data
@@ -164,10 +164,10 @@ func (sr *LogsListReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsLevelListResponse(data []byte) (*LogsLevelListRsp, error) {
 	var resp LogsLevelListRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -188,7 +188,7 @@ func (sr *LogsLevelListReq) Encode() (*NmgrReq, error) {
 	req := &LogsLevelListReq{}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
@@ -198,10 +198,10 @@ func (sr *LogsLevelListReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsModuleListResponse(data []byte) (*LogsModuleListRsp, error) {
 	var resp LogsModuleListRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -225,7 +225,7 @@ func (sr *LogsShowReq) Encode() (*NmgrReq, error) {
 	}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
@@ -235,10 +235,10 @@ func (sr *LogsShowReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsShowResponse(data []byte) (*LogsShowRsp, error) {
 	var resp LogsShowRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -272,7 +272,7 @@ func (sr *LogsClearReq) Encode() (*NmgrReq, error) {
 	req := &LogsClearReq{}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
@@ -282,10 +282,10 @@ func (sr *LogsClearReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsClearResponse(data []byte) (*LogsClearRsp, error) {
 	var resp LogsClearRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -321,7 +321,7 @@ func (sr *LogsAppendReq) Encode() (*NmgrReq, error) {
 	req := &LogsAppendReq{}
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
@@ -331,10 +331,10 @@ func (sr *LogsAppendReq) Encode() (*NmgrReq, error) {
 
 func DecodeLogsAppendResponse(data []byte) (*LogsAppendRsp, error) {
 	var resp LogsAppendRsp
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 

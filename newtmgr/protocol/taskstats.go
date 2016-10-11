@@ -59,10 +59,10 @@ func (tsr *TaskStatsReadReq) EncodeWriteRequest() (*NmgrReq, error) {
 func DecodeTaskStatsReadResponse(data []byte) (*TaskStatsReadRsp, error) {
 	var tsr TaskStatsReadRsp
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&tsr)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
