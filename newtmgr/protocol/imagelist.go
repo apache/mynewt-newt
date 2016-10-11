@@ -36,6 +36,7 @@ const (
 	IMGMGR_NMGR_OP_BOOT2    = 5
 	IMGMGR_NMGR_OP_CORELIST = 6
 	IMGMGR_NMGR_OP_CORELOAD = 7
+	IMGMGR_NMGR_OP_STATE    = 8
 )
 
 func HashDecode(src string) (string, error) {

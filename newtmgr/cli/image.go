@@ -93,6 +93,57 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func imageStateCmd(cmd *cobra.Command, args []string) {
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	defer runner.Conn.Close()
+
+	imageState, err := protocol.NewImageState()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := imageState.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	iRsp, err := protocol.DecodeImageStateResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	fmt.Println("Images:")
+	for _, img := range iRsp.Images {
+		fmt.Printf(" slot=%d\n", img.Slot)
+		fmt.Printf("    version=%s\n", img.Version)
+		fmt.Printf("    active=%v\n", img.Active)
+		fmt.Printf("    confirmed=%v\n", img.Confirmed)
+		fmt.Printf("    pending=%v\n", img.Pending)
+		fmt.Printf("    bootable=%v\n", img.Bootable)
+		if img.Hash == "" {
+			fmt.Printf("    hash=Unavailable\n")
+		} else {
+			dec, err := base64.StdEncoding.DecodeString(img.Hash)
+			if err != nil {
+				fmt.Printf("    hash=Unable to Decode")
+			} else {
+				fmt.Printf("    hash=%s\n", hex.EncodeToString(dec[:]))
+			}
+		}
+	}
+}
+
 func echoOnNmUsage(runner *protocol.CmdRunner, cmderr error, cmd *cobra.Command) {
 	echoCtrl(runner, "1")
 	nmUsage(cmd, cmderr)
@@ -574,6 +625,13 @@ func imageCmd() *cobra.Command {
 		Run:   imageListCmd,
 	}
 	imageCmd.AddCommand(listCmd)
+
+	stateCmd := &cobra.Command{
+		Use:   "state",
+		Short: "Show target images",
+		Run:   imageStateCmd,
+	}
+	imageCmd.AddCommand(stateCmd)
 
 	uploadEx := "  newtmgr -c olimex image upload <image_file\n"
 	uploadEx += "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
