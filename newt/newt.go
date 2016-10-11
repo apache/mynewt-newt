@@ -127,6 +127,7 @@ func main() {
 	cli.AddImageCommands(cmd)
 	cli.AddRunCommands(cmd)
 	cli.AddValsCommands(cmd)
+	cli.AddPackageCommands(cmd)
 
 	/* only pass the first two args to check for complete command */
 	if len(os.Args) > 2 {
