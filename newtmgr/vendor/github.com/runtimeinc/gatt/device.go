@@ -81,6 +81,9 @@ type Device interface {
 	// Handle registers the specified handlers.
 	Handle(h ...Handler)
 
+	// Stop HCI Connection
+        Stop() error
+
 	// Option sets the options specified.
 	Option(o ...Option) error
 }

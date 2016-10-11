@@ -194,6 +194,5 @@ func (cb *ConnBLE) WritePacket(pkt *Packet) error {
 
 func (cb *ConnBLE) Close() error {
 	log.Debugf("Closing Connection %+v", cb)
-	cb.bleDevice.CancelConnection(devicePerph)
-	return nil
+	return cb.bleDevice.Stop()
 }

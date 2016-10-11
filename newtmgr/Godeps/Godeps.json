@@ -35,35 +35,35 @@
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux/cmd",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux/evt",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux/gioctl",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux/socket",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux/util",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/xpc",
-			"Rev": "71e7ae065312559668a7d696b81d6768b69db57a"
+			"Rev": "e559c7ba05f6cc18349eb06b3f65e0a9eb1b22f7"
 		},
 		{
 			"ImportPath": "github.com/spf13/cast",
@@ -91,27 +91,27 @@
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "8d1157a435470616f975ff9bb013bea8d0962067"
+			"Rev": "67f277b6fe017c42fc3b4a445edc999dd99edd58"
 		},
 		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
-			"Comment": "v1.4.1",
-			"Rev": "944cff21b3baf3ced9a880365682152ba577d348"
+			"Comment": "v1.4.2",
+			"Rev": "629574ca2a5df945712d3079857300b5e4da0236"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "pre_sterly_refactor-39-gc1470a5",
-			"Rev": "c1470a51a7f7b6b3deef4597de828f980780ae3d"
+			"Comment": "pre_sterly_refactor-40-ge56049b",
+			"Rev": "e56049b237d9fed510d92024358e4dc16a944b56"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "pre_sterly_refactor-39-gc1470a5",
-			"Rev": "c1470a51a7f7b6b3deef4597de828f980780ae3d"
+			"Comment": "pre_sterly_refactor-40-ge56049b",
+			"Rev": "e56049b237d9fed510d92024358e4dc16a944b56"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "pre_sterly_refactor-39-gc1470a5",
-			"Rev": "c1470a51a7f7b6b3deef4597de828f980780ae3d"
+			"Comment": "pre_sterly_refactor-40-ge56049b",
+			"Rev": "e56049b237d9fed510d92024358e4dc16a944b56"
 		}
 	]
 }
