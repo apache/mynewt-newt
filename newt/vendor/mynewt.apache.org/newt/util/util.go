@@ -363,12 +363,17 @@ func CopyFile(srcFile string, dstFile string) error {
 	}
 	defer in.Close()
 
+	info, err := in.Stat()
+	if err != nil {
+		return ChildNewtError(err)
+	}
+
 	dstDir := filepath.Dir(dstFile)
 	if err := os.MkdirAll(dstDir, os.ModePerm); err != nil {
 		return ChildNewtError(err)
 	}
 
-	out, err := os.Create(dstFile)
+	out, err := os.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY, info.Mode())
 	if err != nil {
 		return ChildNewtError(err)
 	}
@@ -394,7 +399,12 @@ func CopyDir(srcDirStr, dstDirStr string) error {
 		return ChildNewtError(err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dstDirStr), os.ModePerm); err != nil {
+	info, err := srcDir.Stat()
+	if err != nil {
+		return ChildNewtError(err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dstDirStr), info.Mode()); err != nil {
 		return ChildNewtError(err)
 	}
 
