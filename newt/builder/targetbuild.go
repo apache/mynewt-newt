@@ -123,9 +123,13 @@ func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
 	}
 
 	if t.testPkg != nil {
-		// Inject the TEST setting into the entire build.  This setting
-		// exposes unit test code in each package.
+		// A few features are automatically supported when the test command is
+		// used:
+		//     * TEST:      lets packages know that this is a test app
+		//     * SELFTEST:  indicates that the "newt test" command is used;
+		//                  causes a package to define a main() function.
 		t.injectedSettings["TEST"] = "1"
+		t.injectedSettings["SELFTEST"] = "1"
 
 		seeds = append(seeds, t.testPkg)
 	}
@@ -507,10 +511,6 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 }
 
 func (t *TargetBuilder) Test() error {
-	// Inject the SELFTEST setting into the package under test.  This setting
-	// indicates that the package needs to provide its own main().
-	t.testPkg.InjectedSettings()["SELFTEST"] = "1"
-
 	cfgResolution, err := t.ExportCfg()
 	if err != nil {
 		return err

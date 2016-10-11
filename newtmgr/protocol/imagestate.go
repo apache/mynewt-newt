@@ -26,26 +26,44 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+//type SplitStatus int
+
+//const (
+//NOT_APPLICABLE SplitStatus = iota
+//NOT_MATCHING
+//MATCHING
+//)
+
 type ImageStateEntry struct {
-	Slot        int    `codec:"slot"`
-	Version     string `codec:"version"`
-	Hash        string `codec:"hash"`
-	Bootable    bool   `codec:"bootable"`
-	Pending bool   `codec:"test-pending"`
-	Confirmed   bool   `codec:"confirmed"`
-	Active      bool   `codec:"active"`
+	Slot      int    `codec:"slot"`
+	Version   string `codec:"version"`
+	Hash      string `codec:"hash"`
+	Bootable  bool   `codec:"bootable"`
+	Pending   bool   `codec:"pending"`
+	Confirmed bool   `codec:"confirmed"`
+	Active    bool   `codec:"active"`
 }
 
-type ImageState struct {
-	Images []ImageStateEntry `codec:"images"`
+type ImageStateRsp struct {
+	ReturnCode  int               `codec:"rc"`
+	Images      []ImageStateEntry `codec:"images"`
+	SplitStatus SplitStatus       `codec:"splitStatus"`
 }
 
-func NewImageState() (*ImageState, error) {
-	s := &ImageState{}
+type ImageStateReadReq struct {
+}
+
+type ImageStateWriteReq struct {
+	Hash    string `codec:"hash"`
+	Confirm bool   `codec:"confirm"`
+}
+
+func NewImageStateRsp() (*ImageStateRsp, error) {
+	s := &ImageStateRsp{}
 	return s, nil
 }
 
-func (i *ImageState) EncodeWriteRequest() (*NmgrReq, error) {
+func (i *ImageStateReadReq) Encode() (*NmgrReq, error) {
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -60,14 +78,45 @@ func (i *ImageState) EncodeWriteRequest() (*NmgrReq, error) {
 	return nmr, nil
 }
 
-func DecodeImageStateResponse(data []byte) (*ImageState, error) {
-	state := &ImageState{}
+func (i *ImageStateWriteReq) Encode() (*NmgrReq, error) {
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
+
+	clone := ImageStateWriteReq{
+		Confirm: i.Confirm,
+	}
+
+	if i.Hash != "" {
+		clone.Hash, err = HashEncode(i.Hash)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	nmr.Op = NMGR_OP_WRITE
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_IMAGE
+	nmr.Id = IMGMGR_NMGR_OP_STATE
+
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc.Encode(clone)
+	nmr.Data = data
+	nmr.Len = uint16(len(data))
+
+	return nmr, nil
+}
+
+func DecodeImageStateResponse(data []byte) (*ImageStateRsp, error) {
+	rsp := &ImageStateRsp{}
 
 	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
-	err := dec.Decode(&state)
+	err := dec.Decode(&rsp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
-	return state, nil
+	return rsp, nil
 }

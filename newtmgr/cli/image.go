@@ -100,14 +100,38 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 	}
 	defer runner.Conn.Close()
 
-	imageState, err := protocol.NewImageState()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
+	var nmr *protocol.NmgrReq
 
-	nmr, err := imageState.EncodeWriteRequest()
-	if err != nil {
-		nmUsage(cmd, err)
+	if args[0] == "show" {
+		req := protocol.ImageStateReadReq{}
+		nmr, err = req.Encode()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+	} else if args[0] == "test" {
+		if len(args) < 2 {
+			nmUsage(cmd, nil)
+		}
+
+		req := protocol.ImageStateWriteReq{
+			Hash:    args[1],
+			Confirm: false,
+		}
+		nmr, err = req.Encode()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+	} else if args[0] == "confirm" {
+		req := protocol.ImageStateWriteReq{
+			Hash:    args[1],
+			Confirm: false,
+		}
+		nmr, err = req.Encode()
+		if err != nil {
+			nmUsage(cmd, err)
+		}
+	} else {
+		nmUsage(cmd, nil)
 	}
 
 	if err := runner.WriteReq(nmr); err != nil {
@@ -122,6 +146,10 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 	iRsp, err := protocol.DecodeImageStateResponse(rsp.Data)
 	if err != nil {
 		nmUsage(cmd, err)
+	}
+	if iRsp.ReturnCode != 0 {
+		fmt.Printf("Error executing state command: rc=%d\n", iRsp.ReturnCode)
+		return
 	}
 	fmt.Println("Images:")
 	for _, img := range iRsp.Images {
@@ -142,6 +170,8 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+
+	fmt.Printf("Split status: %s\n", iRsp.SplitStatus.String())
 }
 
 func echoOnNmUsage(runner *protocol.CmdRunner, cmderr error, cmd *cobra.Command) {
