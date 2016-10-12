@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -438,6 +439,13 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 	cfgResolution, err := b.ExportCfg()
 	if err != nil {
 		NewtUsage(nil, err)
+	}
+
+	warningText := strings.TrimSpace(cfgResolution.WarningText())
+	if warningText != "" {
+		for _, line := range strings.Split(warningText, "\n") {
+			log.Warn(line)
+		}
 	}
 
 	printCfg(t.Name(), cfgResolution.Cfg)

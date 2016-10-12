@@ -150,11 +150,6 @@ func (t *TargetBuilder) validateAndWriteCfg(
 		return util.NewNewtError(errText)
 	}
 
-	warningText := strings.TrimSpace(cfgResolution.WarningText())
-	for _, line := range strings.Split(warningText, "\n") {
-		log.Warn(line)
-	}
-
 	if err := syscfg.EnsureWritten(cfgResolution.Cfg,
 		GeneratedIncludeDir(t.target.Name())); err != nil {
 
