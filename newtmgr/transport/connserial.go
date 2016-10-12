@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -87,8 +88,9 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 		data, err := base64.StdEncoding.DecodeString(base64Data)
 		if err != nil {
 			return nil, util.NewNewtError(
-				fmt.Sprintf("Couldn't decode base64 string: %b",
-					base64Data))
+				fmt.Sprintf("Couldn't decode base64 string: %s\n"+
+					"Packet hex dump:\n%s",
+					base64Data, hex.Dump(line)))
 		}
 
 		if line[0] == 6 && line[1] == 9 {
