@@ -552,7 +552,7 @@ func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManife
 		Name: ip.Repo,
 	}
 
-	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse head", path))
+	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse HEAD", path))
 	if err != nil {
 		log.Debugf("Unable to determine commit hash for %s: %v", path, err)
 		repo.Commit = "UNKNOWN"
