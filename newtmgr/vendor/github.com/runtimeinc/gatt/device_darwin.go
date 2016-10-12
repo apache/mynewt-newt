@@ -359,6 +359,14 @@ func (d *device) respondToRequest(id int, args xpc.Dict) {
 	}
 }
 
+/*
+ * OSX GATT library currently doesn't work for Mynewt, so adding this stub to keep
+ * it buildable for OSX.
+ */
+func (d *device) Stop() error {
+	return nil
+}
+
 func (d *device) CancelConnection(p Peripheral) {
 	d.sendCmd(32, xpc.Dict{"kCBMsgArgDeviceUUID": p.(*peripheral).id})
 }
