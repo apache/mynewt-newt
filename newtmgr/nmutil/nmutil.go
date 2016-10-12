@@ -70,5 +70,5 @@ func LogOutgoing(bytes []byte) {
 }
 
 func LogMessage(msg string) {
-
+	fmt.Fprintf(traceFile, "Message: %s\n", msg)
 }
