@@ -64,7 +64,7 @@ const (
 )
 
 func (se *NewtError) Error() string {
-	return se.Text + "\n" + string(se.StackTrace)
+	return se.Text
 }
 
 func NewNewtError(msg string) *NewtError {
