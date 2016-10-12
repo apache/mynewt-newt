@@ -100,18 +100,18 @@
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "pre_sterly_refactor-45-g881df6a",
-			"Rev": "881df6a00e22b8b121e34bd6804bebc9ae28b68a"
+			"Comment": "pre_sterly_refactor-55-g1e49885",
+			"Rev": "1e49885a484a8975f6269d098d1469e0c31be19e"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "pre_sterly_refactor-45-g881df6a",
-			"Rev": "881df6a00e22b8b121e34bd6804bebc9ae28b68a"
+			"Comment": "pre_sterly_refactor-55-g1e49885",
+			"Rev": "1e49885a484a8975f6269d098d1469e0c31be19e"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "pre_sterly_refactor-45-g881df6a",
-			"Rev": "881df6a00e22b8b121e34bd6804bebc9ae28b68a"
+			"Comment": "pre_sterly_refactor-55-g1e49885",
+			"Rev": "1e49885a484a8975f6269d098d1469e0c31be19e"
 		}
 	]
 }
