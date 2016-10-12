@@ -59,10 +59,12 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 
 	fmt.Printf("Return Code = %d\n", tsrsp.ReturnCode)
 	if tsrsp.ReturnCode == 0 {
+		fmt.Printf("  %8s %3s %3s %8s %8s %8s %8s %8s %8s\n",
+			"task", "pri", "tid", "runtime", "csw", "stksz",
+			"stkuse", "last_checkin", "next_checkin");
 		for k, info := range tsrsp.Tasks {
-			fmt.Printf("  %s ", k)
-			fmt.Printf("(prio=%d tid=%d runtime=%d cswcnt=%d stksize=%d "+
-				"stkusage=%d last_checkin=%d next_checkin=%d)",
+			fmt.Printf("  %8s %3d %3d %8d %8d %8d %8d %8d %8d\n",
+				k,
 				int(info["prio"].(uint64)),
 				int(info["tid"].(uint64)),
 				int(info["runtime"].(uint64)),
@@ -71,7 +73,6 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 				int(info["stkuse"].(uint64)),
 				int(info["last_checkin"].(uint64)),
 				int(info["next_checkin"].(uint64)))
-			fmt.Printf("\n")
 		}
 	}
 }
