@@ -77,7 +77,11 @@ func ParseSplitMode(str string) (SplitMode, error) {
 	return NONE, util.NewNewtError("Invalid value for Split Mode %v" + str)
 }
 
-var splitStatus = [...]string{NOT_APPLICABLE: "N/A", NOT_MATCHING: "Non-matching", MATCHING: "matching"}
+var splitStatus = [...]string{
+	NOT_APPLICABLE: "N/A",
+	NOT_MATCHING:   "Non-matching",
+	MATCHING:       "matching",
+}
 
 /* is the enum valid */
 func (sm SplitStatus) Valid() bool {
@@ -138,7 +142,7 @@ func (s *Split) EncoderWriteRequest() (*NmgrReq, error) {
 
 	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
-	err := enc.Encode(s);
+	err := enc.Encode(s)
 	if err != nil {
 		return nil, err
 	}
