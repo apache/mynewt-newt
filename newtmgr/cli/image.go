@@ -27,6 +27,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	"mynewt.apache.org/newt/newtmgr/config"
@@ -93,6 +94,22 @@ func imageListCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func imageFlagsStr(image protocol.ImageStateEntry) string {
+	strs := []string{}
+
+	if image.Active {
+		strs = append(strs, "active")
+	}
+	if image.Confirmed {
+		strs = append(strs, "confirmed")
+	}
+	if image.Pending {
+		strs = append(strs, "pending")
+	}
+
+	return strings.Join(strs, " ")
+}
+
 func imageStateCmd(cmd *cobra.Command, args []string) {
 	runner, err := getTargetCmdRunner()
 	if err != nil {
@@ -101,6 +118,10 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 	defer runner.Conn.Close()
 
 	var nmr *protocol.NmgrReq
+
+	if len(args) == 0 {
+		nmUsage(cmd, nil)
+	}
 
 	if args[0] == "show" {
 		req := protocol.ImageStateReadReq{}
@@ -123,8 +144,8 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 		}
 	} else if args[0] == "confirm" {
 		req := protocol.ImageStateWriteReq{
-			Hash:    args[1],
-			Confirm: false,
+			Hash:    "",
+			Confirm: true,
 		}
 		nmr, err = req.Encode()
 		if err != nil {
@@ -154,19 +175,17 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Images:")
 	for _, img := range iRsp.Images {
 		fmt.Printf(" slot=%d\n", img.Slot)
-		fmt.Printf("    version=%s\n", img.Version)
-		fmt.Printf("    active=%v\n", img.Active)
-		fmt.Printf("    confirmed=%v\n", img.Confirmed)
-		fmt.Printf("    pending=%v\n", img.Pending)
-		fmt.Printf("    bootable=%v\n", img.Bootable)
+		fmt.Printf("    version: %s\n", img.Version)
+		fmt.Printf("    bootable: %v\n", img.Bootable)
+		fmt.Printf("    flags: %s\n", imageFlagsStr(img))
 		if img.Hash == "" {
-			fmt.Printf("    hash=Unavailable\n")
+			fmt.Printf("    hash: Unavailable\n")
 		} else {
 			dec, err := base64.StdEncoding.DecodeString(img.Hash)
 			if err != nil {
-				fmt.Printf("    hash=Unable to Decode")
+				fmt.Printf("    hash: Unable to Decode")
 			} else {
-				fmt.Printf("    hash=%s\n", hex.EncodeToString(dec[:]))
+				fmt.Printf("    hash: %s\n", hex.EncodeToString(dec[:]))
 			}
 		}
 	}
@@ -287,7 +306,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 
 		ersp, err := protocol.DecodeImageUploadResponse(rsp.Data)
 		if err != nil {
-			echoOnNmUsage(runner, err, cmd)
+			echoOnNmUsage(runner, err, nil)
 		}
 		currOff = ersp.Offset
 

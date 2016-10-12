@@ -23,17 +23,23 @@ import (
 	"fmt"
 	"os"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"mynewt.apache.org/newt/util"
 )
 
 func nmUsage(cmd *cobra.Command, err error) {
 	if err != nil {
-		fmt.Printf("ERROR: %s\n", err.Error())
+		sErr := err.(*util.NewtError)
+		log.Debugf("%s", sErr.StackTrace)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", sErr.Text)
 	}
 
 	if cmd != nil {
-		cmd.HelpFunc()(cmd, nil)
+		fmt.Printf("\n")
+		fmt.Printf("%s - ", cmd.Name())
+		cmd.Help()
 	}
-
 	os.Exit(1)
 }
