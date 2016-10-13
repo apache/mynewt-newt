@@ -114,7 +114,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 	for scanner.Scan() {
 		line := []byte(scanner.Text())
 
-		nmutil.LogIncoming(line)
+		nmutil.TraceIncoming(line)
 
 		for {
 			if len(line) > 1 && line[0] == '\r' {
@@ -133,7 +133,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 
 		data, err := base64.StdEncoding.DecodeString(base64Data)
 		if err != nil {
-			nmutil.LogMessage("base64 decode error\n")
+			nmutil.TraceMessage("base64 decode error\n")
 			return nil, util.NewNewtError(
 				fmt.Sprintf("Couldn't decode base64 string: %s\n"+
 					"Packet hex dump:\n%s",
@@ -160,7 +160,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 		full := cs.currentPacket.AddBytes(data)
 		if full {
 			if crc16.Crc16(cs.currentPacket.GetBytes()) != 0 {
-				nmutil.LogMessage("CRC error\n")
+				nmutil.TraceMessage("CRC error\n")
 				return nil, util.NewNewtError("CRC error")
 			}
 
@@ -178,7 +178,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 	if err == nil {
 		// Scanner hit EOF, so we'll need to create a new one.  This only
 		// happens on timeouts.
-		nmutil.LogMessage("Timeout reading from serial connection\n")
+		nmutil.TraceMessage("Timeout reading from serial connection\n")
 		err = util.NewNewtError("Timeout reading from serial connection")
 		cs.scanner = bufio.NewScanner(cs.serialChannel)
 	}
@@ -186,7 +186,7 @@ func (cs *ConnSerial) ReadPacket() (*Packet, error) {
 }
 
 func (cs *ConnSerial) writeData(bytes []byte) {
-	nmutil.LogOutgoing(bytes)
+	nmutil.TraceOutgoing(bytes)
 	log.Debugf("Writing %+v to data channel", bytes)
 	cs.serialChannel.Write(bytes)
 }

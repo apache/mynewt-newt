@@ -24,9 +24,12 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var PacketTraceDir string
+var TraceLogEnabled bool
 var traceFile *os.File
 
 // @return                      true if the file can be used;
@@ -53,22 +56,23 @@ func ensureTraceFileOpen() bool {
 	return true
 }
 
-func LogIncoming(bytes []byte) {
-	if !ensureTraceFileOpen() {
-		return
+func traceText(text string) {
+	if ensureTraceFileOpen() {
+		fmt.Fprintf(traceFile, "%s\n", text)
 	}
-
-	fmt.Fprintf(traceFile, "Incoming:\n%s\n", hex.Dump(bytes))
+	if TraceLogEnabled {
+		log.Infof("%s", text)
+	}
 }
 
-func LogOutgoing(bytes []byte) {
-	if !ensureTraceFileOpen() {
-		return
-	}
-
-	fmt.Fprintf(traceFile, "Outgoing:\n%s\n", hex.Dump(bytes))
+func TraceIncoming(bytes []byte) {
+	traceText(fmt.Sprintf("Incoming:\n%s", hex.Dump(bytes)))
 }
 
-func LogMessage(msg string) {
-	fmt.Fprintf(traceFile, "Message: %s\n", msg)
+func TraceOutgoing(bytes []byte) {
+	traceText(fmt.Sprintf("Outgoing:\n%s", hex.Dump(bytes)))
+}
+
+func TraceMessage(msg string) {
+	traceText(fmt.Sprintf("Message: %s\n", msg))
 }

@@ -23,6 +23,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"mynewt.apache.org/newt/newtmgr/nmutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -49,8 +50,11 @@ func Commands() *cobra.Command {
 	nmCmd.PersistentFlags().StringVarP(&ConnProfileName, "conn", "c", "",
 		"connection profile to use.")
 
-	nmCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l", "",
-		"log level to use (default WARN.)")
+	nmCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l", "info",
+		"log level to use (default INFO.)")
+
+	nmCmd.PersistentFlags().BoolVarP(&nmutil.TraceLogEnabled, "trace", "t",
+		false, "print all bytes transmitted and received")
 
 	nmCmd.AddCommand(connProfileCmd())
 	nmCmd.AddCommand(echoCmd())
