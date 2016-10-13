@@ -26,14 +26,6 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-//type SplitStatus int
-
-//const (
-//NOT_APPLICABLE SplitStatus = iota
-//NOT_MATCHING
-//MATCHING
-//)
-
 type ImageStateEntry struct {
 	Slot      int    `codec:"slot"`
 	Version   string `codec:"version"`

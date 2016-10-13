@@ -44,50 +44,6 @@ var (
 	coreNumBytes uint32
 )
 
-func imageListCmd(cmd *cobra.Command, args []string) {
-	runner, err := getTargetCmdRunner()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer runner.Conn.Close()
-
-	imageList, err := protocol.NewImageList2()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	nmr, err := imageList.EncodeWriteRequest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if err := runner.WriteReq(nmr); err != nil {
-		nmUsage(cmd, err)
-	}
-
-	rsp, err := runner.ReadResp()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	iRsp, err := protocol.DecodeImageListResponse2(rsp.Data)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	fmt.Println("Images:")
-	for _, img := range iRsp.Images {
-
-		fmt.Printf(" slot=%d\n", img.Slot)
-		fmt.Printf("    version=%s\n", img.Version)
-		fmt.Printf("    bootable=%v\n", img.Bootable)
-		if len(img.Hash) == 0 {
-			fmt.Printf("    hash=Unavailable\n")
-		} else {
-			fmt.Printf("    hash=%x\n", img.Hash)
-		}
-	}
-}
-
 func imageFlagsStr(image protocol.ImageStateEntry) string {
 	strs := []string{}
 
@@ -104,72 +60,12 @@ func imageFlagsStr(image protocol.ImageStateEntry) string {
 	return strings.Join(strs, " ")
 }
 
-func imageStateCmd(cmd *cobra.Command, args []string) {
-	runner, err := getTargetCmdRunner()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer runner.Conn.Close()
-
-	var nmr *protocol.NmgrReq
-
-	if len(args) == 0 {
-		nmUsage(cmd, nil)
-	}
-
-	if args[0] == "show" {
-		req := protocol.ImageStateReadReq{}
-		nmr, err = req.Encode()
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-	} else if args[0] == "test" {
-		if len(args) < 2 {
-			nmUsage(cmd, nil)
-		}
-
-		hex_bytes, _ := hex.DecodeString(args[1])
-
-		req := protocol.ImageStateWriteReq{
-			Hash:    hex_bytes,
-			Confirm: false,
-		}
-		nmr, err = req.Encode()
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-	} else if args[0] == "confirm" {
-		req := protocol.ImageStateWriteReq{
-			Hash:    make([]byte, 0),
-			Confirm: true,
-		}
-		nmr, err = req.Encode()
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-	} else {
-		nmUsage(cmd, nil)
-	}
-
-	if err := runner.WriteReq(nmr); err != nil {
-		nmUsage(cmd, err)
-	}
-
-	rsp, err := runner.ReadResp()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	iRsp, err := protocol.DecodeImageStateResponse(rsp.Data)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	if iRsp.ReturnCode != 0 {
-		fmt.Printf("Error executing state command: rc=%d\n", iRsp.ReturnCode)
-		return
+func imageStatePrintRsp(rsp *protocol.ImageStateRsp) error {
+	if rsp.ReturnCode != 0 {
+		return util.FmtNewtError("rc=%d\n", rsp.ReturnCode)
 	}
 	fmt.Println("Images:")
-	for _, img := range iRsp.Images {
+	for _, img := range rsp.Images {
 		fmt.Printf(" slot=%d\n", img.Slot)
 		fmt.Printf("    version: %s\n", img.Version)
 		fmt.Printf("    bootable: %v\n", img.Bootable)
@@ -181,10 +77,120 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	fmt.Printf("Split status: %s\n", iRsp.SplitStatus.String())
+	fmt.Printf("Split status: %s\n", rsp.SplitStatus.String())
+	return nil
 }
 
-func echoOnNmUsage(runner *protocol.CmdRunner, cmderr error, cmd *cobra.Command) {
+func imageStateListCmd(cmd *cobra.Command, args []string) {
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+	defer runner.Conn.Close()
+
+	var nmr *protocol.NmgrReq
+
+	req := protocol.ImageStateReadReq{}
+	nmr, err = req.Encode()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(nil, err)
+	}
+
+	rawRsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+
+	rsp, err := protocol.DecodeImageStateResponse(rawRsp.Data)
+	if err != nil {
+		nmUsage(nil, err)
+	}
+	if err := imageStatePrintRsp(rsp); err != nil {
+		nmUsage(nil, err)
+	}
+}
+
+func imageStateTestCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		nmUsage(cmd, nil)
+	}
+
+	hex_bytes, _ := hex.DecodeString(args[0])
+
+	req := protocol.ImageStateWriteReq{
+		Hash:    hex_bytes,
+		Confirm: false,
+	}
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+	defer runner.Conn.Close()
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(nil, err)
+	}
+
+	rawRsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+
+	rsp, err := protocol.DecodeImageStateResponse(rawRsp.Data)
+	if err != nil {
+		nmUsage(nil, err)
+	}
+	if err := imageStatePrintRsp(rsp); err != nil {
+		nmUsage(nil, err)
+	}
+}
+
+func imageStateConfirmCmd(cmd *cobra.Command, args []string) {
+	req := protocol.ImageStateWriteReq{
+		Hash:    nil,
+		Confirm: true,
+	}
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+	defer runner.Conn.Close()
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(nil, err)
+	}
+
+	rawRsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+
+	rsp, err := protocol.DecodeImageStateResponse(rawRsp.Data)
+	if err != nil {
+		nmUsage(nil, err)
+	}
+	if err := imageStatePrintRsp(rsp); err != nil {
+		nmUsage(nil, err)
+	}
+}
+
+func echoOnNmUsage(
+	runner *protocol.CmdRunner, cmderr error, cmd *cobra.Command) {
+
 	echoCtrl(runner, "1")
 	nmUsage(cmd, cmderr)
 }
@@ -311,46 +317,6 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		fmt.Printf(" %d retransmits\n", rexmits)
 	}
 	fmt.Println("Done")
-}
-
-func imageBootCmd(cmd *cobra.Command, args []string) {
-	runner, err := getTargetCmdRunner()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer runner.Conn.Close()
-
-	imageBoot, err := protocol.NewImageBoot2()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if len(args) >= 1 {
-		imageBoot.BootTarget, _ = hex.DecodeString(args[0])
-	}
-	nmr, err := imageBoot.EncodeWriteRequest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if err := runner.WriteReq(nmr); err != nil {
-		nmUsage(cmd, err)
-	}
-
-	rsp, err := runner.ReadResp()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	iRsp, err := protocol.DecodeImageBoot2Response(rsp.Data)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	if len(args) == 0 {
-		fmt.Printf("   Test image: %x\n", iRsp.Test)
-		fmt.Printf("   Main image: %x\n", iRsp.Main)
-		fmt.Printf("   Active img: %x\n", iRsp.Active)
-	}
 }
 
 func fileUploadCmd(cmd *cobra.Command, args []string) {
@@ -665,21 +631,23 @@ func imageCmd() *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Show target images",
-		Run:   imageListCmd,
+		Run:   imageStateListCmd,
 	}
 	imageCmd.AddCommand(listCmd)
 
-	stateEx := "  newtmgr -c olimex image state show\n"
-	stateEx += "  newtmgr -c olimex image state test <hash>\n"
-	stateEx += "  newtmgr -c olimex image state confirm"
-
-	stateCmd := &cobra.Command{
-		Use:     "state",
-		Short:   "Show target images",
-		Example: stateEx,
-		Run:     imageStateCmd,
+	testCmd := &cobra.Command{
+		Use:   "test <hex-image-hash>",
+		Short: "Test an image on next reboot",
+		Run:   imageStateTestCmd,
 	}
-	imageCmd.AddCommand(stateCmd)
+	imageCmd.AddCommand(testCmd)
+
+	confirmCmd := &cobra.Command{
+		Use:   "confirm",
+		Short: "Confirm current image setup",
+		Run:   imageStateConfirmCmd,
+	}
+	imageCmd.AddCommand(confirmCmd)
 
 	uploadEx := "  newtmgr -c olimex image upload <image_file\n"
 	uploadEx += "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
@@ -691,17 +659,6 @@ func imageCmd() *cobra.Command {
 		Run:     imageUploadCmd,
 	}
 	imageCmd.AddCommand(uploadCmd)
-
-	bootEx := "  newtmgr -c olimex image boot [<image hash>]\n"
-	bootEx += "  newtmgr -c olimex image boot\n"
-
-	bootCmd := &cobra.Command{
-		Use:     "boot",
-		Short:   "Which image to boot",
-		Example: bootEx,
-		Run:     imageBootCmd,
-	}
-	imageCmd.AddCommand(bootCmd)
 
 	fileUploadEx := "  newtmgr -c olimex image fileupload <filename> <tgt_file>\n"
 	fileUploadEx += "  newtmgr -c olimex image fileupload sample.lua /sample.lua\n"
