@@ -25,6 +25,7 @@ import (
 
 	"encoding/json"
 	"io/ioutil"
+	"sort"
 
 	"mynewt.apache.org/newt/util"
 )
@@ -42,10 +43,10 @@ type NewtmgrConnProfile interface {
 }
 
 type ConnProfile struct {
-	MyName       string
-	MyType       string
-	MyConnString string
-	MyDeviceAddress []byte
+	MyName              string
+	MyType              string
+	MyConnString        string
+	MyDeviceAddress     []byte
 	MyDeviceAddressType uint8
 }
 
@@ -98,6 +99,33 @@ func (cpm *ConnProfileMgr) Init() error {
 	return nil
 }
 
+type connProfSorter struct {
+	cps []*ConnProfile
+}
+
+func (s connProfSorter) Len() int {
+	return len(s.cps)
+}
+func (s connProfSorter) Swap(i, j int) {
+	s.cps[i], s.cps[j] = s.cps[j], s.cps[i]
+}
+func (s connProfSorter) Less(i, j int) bool {
+	return s.cps[i].Name() < s.cps[j].Name()
+}
+
+func SortConnProfs(cps []*ConnProfile) []*ConnProfile {
+	sorter := connProfSorter{
+		cps: make([]*ConnProfile, 0, len(cps)),
+	}
+
+	for _, p := range cps {
+		sorter.cps = append(sorter.cps, p)
+	}
+
+	sort.Sort(sorter)
+	return sorter.cps
+}
+
 func (cpm *ConnProfileMgr) GetConnProfileList() ([]*ConnProfile, error) {
 	log.Debugf("Getting list of connection profiles")
 
@@ -106,7 +134,7 @@ func (cpm *ConnProfileMgr) GetConnProfileList() ([]*ConnProfile, error) {
 		cpList = append(cpList, p)
 	}
 
-	return cpList, nil
+	return SortConnProfs(cpList), nil
 }
 
 func (cpm *ConnProfileMgr) save() error {
