@@ -123,14 +123,14 @@ func imageStateTestCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, nil)
 	}
 
-	hex_bytes, _ := hex.DecodeString(args[0])
+	hexBytes, _ := hex.DecodeString(args[0])
 
 	req, err := protocol.NewImageStateWriteReq()
 	if err != nil {
 		nmUsage(nil, err)
 	}
 
-	req.Hash = hex_bytes
+	req.Hash = hexBytes
 	req.Confirm = false
 
 	nmr, err := req.Encode()
