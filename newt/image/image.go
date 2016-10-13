@@ -558,7 +558,7 @@ func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManife
 		repo.Commit = "UNKNOWN"
 	} else {
 		repo.Commit = strings.TrimSpace(string(res))
-		res, err := util.ShellCommand(fmt.Sprintf("cd %s && git diff-index HEAD", path))
+		res, err := util.ShellCommand(fmt.Sprintf("cd %s && git status --porcelain", path))
 		if err != nil {
 			log.Debugf("Unable to determine dirty state for %s: %v", path, err)
 		} else {
