@@ -37,7 +37,7 @@ import (
 type ImageStateEntry struct {
 	Slot      int    `codec:"slot"`
 	Version   string `codec:"version"`
-	Hash      string `codec:"hash"`
+	Hash      []byte `codec:"hash"`
 	Bootable  bool   `codec:"bootable"`
 	Pending   bool   `codec:"pending"`
 	Confirmed bool   `codec:"confirmed"`
@@ -54,7 +54,7 @@ type ImageStateReadReq struct {
 }
 
 type ImageStateWriteReq struct {
-	Hash    string `codec:"hash"`
+	Hash    []byte `codec:"hash"`
 	Confirm bool   `codec:"confirm"`
 }
 
@@ -88,8 +88,8 @@ func (i *ImageStateWriteReq) Encode() (*NmgrReq, error) {
 		Confirm: i.Confirm,
 	}
 
-	if i.Hash != "" {
-		clone.Hash, err = HashEncode(i.Hash)
+	if len(i.Hash) != 0 {
+		clone.Hash = i.Hash
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func (i *ImageStateWriteReq) Encode() (*NmgrReq, error) {
 	nmr.Id = IMGMGR_NMGR_OP_STATE
 
 	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.JsonHandle))
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(clone)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
@@ -112,10 +112,10 @@ func (i *ImageStateWriteReq) Encode() (*NmgrReq, error) {
 func DecodeImageStateResponse(data []byte) (*ImageStateRsp, error) {
 	rsp := &ImageStateRsp{}
 
-	dec := codec.NewDecoderBytes(data, new(codec.JsonHandle))
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&rsp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return rsp, nil

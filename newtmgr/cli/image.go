@@ -128,8 +128,10 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 			nmUsage(cmd, nil)
 		}
 
+		hex_bytes, _ := hex.DecodeString(args[1])
+
 		req := protocol.ImageStateWriteReq{
-			Hash:    args[1],
+			Hash:    hex_bytes,
 			Confirm: false,
 		}
 		nmr, err = req.Encode()
@@ -138,7 +140,7 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 		}
 	} else if args[0] == "confirm" {
 		req := protocol.ImageStateWriteReq{
-			Hash:    "",
+			Hash:    make([]byte, 0),
 			Confirm: true,
 		}
 		nmr, err = req.Encode()
@@ -172,15 +174,10 @@ func imageStateCmd(cmd *cobra.Command, args []string) {
 		fmt.Printf("    version: %s\n", img.Version)
 		fmt.Printf("    bootable: %v\n", img.Bootable)
 		fmt.Printf("    flags: %s\n", imageFlagsStr(img))
-		if img.Hash == "" {
+		if len(img.Hash) == 0 {
 			fmt.Printf("    hash: Unavailable\n")
 		} else {
-			dec, err := base64.StdEncoding.DecodeString(img.Hash)
-			if err != nil {
-				fmt.Printf("    hash: Unable to Decode")
-			} else {
-				fmt.Printf("    hash: %s\n", hex.EncodeToString(dec[:]))
-			}
+			fmt.Printf("    hash: %x\n", img.Hash)
 		}
 	}
 
@@ -672,10 +669,15 @@ func imageCmd() *cobra.Command {
 	}
 	imageCmd.AddCommand(listCmd)
 
+	stateEx := "  newtmgr -c olimex image state show\n"
+	stateEx += "  newtmgr -c olimex image state test <hash>\n"
+	stateEx += "  newtmgr -c olimex image state confirm"
+
 	stateCmd := &cobra.Command{
-		Use:   "state",
-		Short: "Show target images",
-		Run:   imageStateCmd,
+		Use:     "state",
+		Short:   "Show target images",
+		Example: stateEx,
+		Run:     imageStateCmd,
 	}
 	imageCmd.AddCommand(stateCmd)
 

@@ -19,14 +19,6 @@
 
 package protocol
 
-import (
-	"encoding/base64"
-	"encoding/hex"
-	"fmt"
-
-	"mynewt.apache.org/newt/util"
-)
-
 const (
 	IMGMGR_NMGR_OP_LIST     = 0
 	IMGMGR_NMGR_OP_UPLOAD   = 1
@@ -38,21 +30,3 @@ const (
 	IMGMGR_NMGR_OP_CORELOAD = 7
 	IMGMGR_NMGR_OP_STATE    = 8
 )
-
-func HashDecode(src string) (string, error) {
-	imgHex, err := base64.StdEncoding.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash decode error: %s",
-			err.Error()))
-	}
-	return hex.EncodeToString(imgHex), nil
-}
-
-func HashEncode(src string) (string, error) {
-	imgHex, err := hex.DecodeString(src)
-	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash encode error: %s",
-			err.Error()))
-	}
-	return base64.StdEncoding.EncodeToString(imgHex), nil
-}
