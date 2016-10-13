@@ -25,6 +25,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -44,18 +46,59 @@ type ConnSerial struct {
 	serialChannel *serial.Port
 }
 
-func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration) error {
-	var err error
+func newSerialConfig(
+	connString string, readTimeout time.Duration) (*serial.Config, error) {
+
+	fields := strings.Split(connString, ":")
+	if len(fields) == 0 {
+		return nil, util.FmtNewtError("invalid connstring: %s", connString)
+	}
+
+	name := ""
+	baud := 115200
+
+	for _, field := range fields {
+		parts := strings.Split(field, "=")
+		if len(parts) == 2 {
+			if parts[0] == "baud" {
+				var err error
+				baud, err = strconv.Atoi(parts[1])
+				if err != nil {
+					return nil, util.ChildNewtError(err)
+				}
+
+			}
+
+			if parts[0] == "dev" {
+				name = parts[1]
+			}
+		}
+	}
+
+	// Handle old-style conn string (single token indicating dev file).
+	if name == "" {
+		name = fields[0]
+	}
 
 	c := &serial.Config{
-		Name:        cp.ConnString(),
-		Baud:        115200,
+		Name:        name,
+		Baud:        baud,
 		ReadTimeout: readTimeout,
+	}
+
+	return c, nil
+}
+
+func (cs *ConnSerial) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration) error {
+
+	c, err := newSerialConfig(cp.ConnString(), readTimeout)
+	if err != nil {
+		return err
 	}
 
 	cs.serialChannel, err = serial.OpenPort(c)
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return util.ChildNewtError(err)
 	}
 	//defer cs.serialChannel.Close()
 

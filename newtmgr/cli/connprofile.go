@@ -20,10 +20,10 @@
 package cli
 
 import (
-	"fmt"
-	"strings"
-	"strconv"
 	"encoding/hex"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
@@ -32,13 +32,13 @@ import (
 )
 
 func copyValidAddress(cp *config.ConnProfile, addrString string) bool {
-	switch(cp.MyType) {
-	case "ble" :
-		deviceAddr,err := hex.DecodeString(strings.Replace(addrString, ":", "", -1))
+	switch cp.MyType {
+	case "ble":
+		deviceAddr, err := hex.DecodeString(strings.Replace(addrString, ":", "", -1))
 		if err != nil {
 			return false
 		}
-		if (len(deviceAddr) > 6) {
+		if len(deviceAddr) > 6 {
 			return false
 		}
 		cp.MyDeviceAddress = deviceAddr
@@ -69,7 +69,7 @@ func connProfileAddCmd(cmd *cobra.Command, args []string) {
 	}
 
 	for _, vdef := range args[1:] {
-		s := strings.Split(vdef, "=")
+		s := strings.SplitN(vdef, "=", 2)
 		switch s[0] {
 		case "name":
 			cp.MyName = s[1]
@@ -101,11 +101,11 @@ func connProfileAddCmd(cmd *cobra.Command, args []string) {
 
 func print_addr_hex(addr []byte, sep string) string {
 	var str string = ""
-	for _, a:= range addr {
+	for _, a := range addr {
 		str += fmt.Sprintf("%02x", a)
 		str += fmt.Sprintf(sep)
 	}
-	return str[:len(addr)*3 - 1]
+	return str[:len(addr)*3-1]
 }
 
 func connProfileShowCmd(cmd *cobra.Command, args []string) {
@@ -137,8 +137,8 @@ func connProfileShowCmd(cmd *cobra.Command, args []string) {
 			fmt.Printf("Connection profiles: \n")
 		}
 		fmt.Printf("  %s: type=%s, connstring='%s'", cp.MyName, cp.MyType,
-			   cp.MyConnString)
-		if (len(cp.MyDeviceAddress) > 0) {
+			cp.MyConnString)
+		if len(cp.MyDeviceAddress) > 0 {
 			fmt.Printf(", addr=%s", print_addr_hex(cp.MyDeviceAddress, ":"))
 			fmt.Printf(", addrtype=%+v", cp.MyDeviceAddressType)
 		}
