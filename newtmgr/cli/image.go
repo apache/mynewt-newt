@@ -90,7 +90,11 @@ func imageStateListCmd(cmd *cobra.Command, args []string) {
 
 	var nmr *protocol.NmgrReq
 
-	req := protocol.ImageStateReadReq{}
+	req, err := protocol.NewImageStateReadReq()
+	if err != nil {
+		nmUsage(nil, err)
+	}
+
 	nmr, err = req.Encode()
 	if err != nil {
 		nmUsage(nil, err)
@@ -121,10 +125,14 @@ func imageStateTestCmd(cmd *cobra.Command, args []string) {
 
 	hex_bytes, _ := hex.DecodeString(args[0])
 
-	req := protocol.ImageStateWriteReq{
-		Hash:    hex_bytes,
-		Confirm: false,
+	req, err := protocol.NewImageStateWriteReq()
+	if err != nil {
+		nmUsage(nil, err)
 	}
+
+	req.Hash = hex_bytes
+	req.Confirm = false
+
 	nmr, err := req.Encode()
 	if err != nil {
 		nmUsage(nil, err)
@@ -155,10 +163,13 @@ func imageStateTestCmd(cmd *cobra.Command, args []string) {
 }
 
 func imageStateConfirmCmd(cmd *cobra.Command, args []string) {
-	req := protocol.ImageStateWriteReq{
-		Hash:    nil,
-		Confirm: true,
+	req, err := protocol.NewImageStateWriteReq()
+	if err != nil {
+		nmUsage(nil, err)
 	}
+
+	req.Confirm = true
+
 	nmr, err := req.Encode()
 	if err != nil {
 		nmUsage(cmd, err)

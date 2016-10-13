@@ -50,6 +50,16 @@ type ImageStateWriteReq struct {
 	Confirm bool   `codec:"confirm"`
 }
 
+func NewImageStateReadReq() (*ImageStateReadReq, error) {
+	s := &ImageStateReadReq{}
+	return s, nil
+}
+
+func NewImageStateWriteReq() (*ImageStateWriteReq, error) {
+	s := &ImageStateWriteReq{}
+	return s, nil
+}
+
 func NewImageStateRsp() (*ImageStateRsp, error) {
 	s := &ImageStateRsp{}
 	return s, nil
@@ -76,9 +86,12 @@ func (i *ImageStateWriteReq) Encode() (*NmgrReq, error) {
 		return nil, err
 	}
 
-	clone := ImageStateWriteReq{
-		Confirm: i.Confirm,
+	clone, err := NewImageStateWriteReq()
+	if err != nil {
+		return nil, err
 	}
+
+	clone.Confirm = i.Confirm
 
 	if len(i.Hash) != 0 {
 		clone.Hash = i.Hash
