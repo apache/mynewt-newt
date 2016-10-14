@@ -21,6 +21,7 @@ package builder
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -102,12 +103,33 @@ func (b *Builder) AppImgPath() string {
 		".img"
 }
 
+func (b *Builder) AppBinPath() string {
+	return b.AppElfPath() + ".bin"
+}
+
 func (b *Builder) AppPath() string {
 	return b.PkgBinDir(b.appPkg) + "/"
 }
 
+func (b *Builder) ManifestPath() string {
+	return b.AppPath() + "/manifest.json"
+}
+
 func (b *Builder) AppBinBasePath() string {
 	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name())
+}
+
+func MfgBinDir(mfgPkgName string) string {
+	return BinRoot() + "/" + mfgPkgName
+}
+
+func MfgBinPath(mfgPkgName string) string {
+	return MfgBinDir(mfgPkgName) + "/" + filepath.Base(mfgPkgName) + ".mfg"
+}
+
+func MfgSectionPath(mfgPkgName string, sectionNum int) string {
+	return fmt.Sprintf("%s/%s-s%d.bin", MfgBinDir(mfgPkgName),
+		filepath.Base(mfgPkgName), sectionNum)
 }
 
 func TestTargetName(testPkgName string) string {

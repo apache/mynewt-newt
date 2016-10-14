@@ -24,42 +24,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
-
-func CreateImage(b *builder.Builder, version string,
-	keystr string, keyId uint8, loader *image.Image) (error, *image.Image) {
-
-	/* do the app image */
-	app_image, err := image.NewImage(b)
-	if err != nil {
-		return err, nil
-	}
-
-	err = app_image.SetVersion(version)
-	if err != nil {
-		return err, nil
-	}
-
-	if keystr != "" {
-		err = app_image.SetSigningKey(keystr, keyId)
-		if err != nil {
-			return err, nil
-		}
-	}
-
-	err = app_image.Generate(loader)
-	if err != nil {
-		return err, nil
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"App image succesfully generated: %s\n", app_image.TargetImg())
-
-	return nil, app_image
-}
 
 func createImageRunCmd(cmd *cobra.Command, args []string) {
 	var keyId uint8
@@ -93,47 +60,14 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		keystr = args[2]
 	}
 
-	b, err := builder.NewTargetBuilder(t, nil)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	if err := b.PrepBuild(); err != nil {
+	if _, _, err := b.CreateImages(version, keystr, keyId); err != nil {
 		NewtUsage(cmd, err)
 		return
-	}
-
-	var appImg *image.Image
-	var loaderImg *image.Image
-
-	if b.LoaderBuilder == nil {
-		err, appImg = CreateImage(b.AppBuilder, version, keystr, keyId, nil)
-		if err != nil {
-			NewtUsage(cmd, err)
-			return
-		}
-	} else {
-		err, loaderImg = CreateImage(b.LoaderBuilder, version, keystr,
-			keyId, nil)
-		if err != nil {
-			NewtUsage(cmd, err)
-			return
-		}
-
-		err, appImg = CreateImage(b.AppBuilder, version, keystr, keyId,
-			loaderImg)
-		if err != nil {
-			NewtUsage(cmd, err)
-			return
-		}
-
-	}
-
-	buildId := image.CreateBuildId(appImg, loaderImg)
-	if err := image.CreateManifest(b, appImg, loaderImg,
-		buildId); err != nil {
-
-		NewtUsage(nil, err)
 	}
 }
 

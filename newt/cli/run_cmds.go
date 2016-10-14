@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -43,7 +42,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
 	}
 
-	b, err := builder.NewTargetBuilder(t, nil)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -58,40 +57,16 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	 * will barf if it needs an image for this type of target, instead of
 	 * downloading an older version.
 	 */
-	var appImg *image.Image
-	var loaderImg *image.Image
-
 	if len(args) > 1 {
-		if b.LoaderBuilder == nil {
-			err, appImg = CreateImage(b.AppBuilder, args[1], "", 0, nil)
-			if err != nil {
-				NewtUsage(cmd, err)
-			}
-		} else {
-			err, loaderImg = CreateImage(b.LoaderBuilder, args[1], "", 0, nil)
-			if err != nil {
-				NewtUsage(cmd, err)
-			}
-			err, appImg = CreateImage(b.AppBuilder, args[1], "", 0, loaderImg)
-			if err != nil {
-				NewtUsage(cmd, err)
-			}
-
+		_, _, err = b.CreateImages(args[1], "", 0)
+		if err != nil {
+			NewtUsage(cmd, err)
 		}
 	} else {
 		os.Remove(b.AppBuilder.AppImgPath())
 
 		if b.LoaderBuilder != nil {
 			os.Remove(b.LoaderBuilder.AppImgPath())
-		}
-	}
-	if appImg != nil {
-		buildId := image.CreateBuildId(appImg, loaderImg)
-
-		if err := image.CreateManifest(b, appImg, loaderImg,
-			buildId); err != nil {
-
-			NewtUsage(nil, err)
 		}
 	}
 

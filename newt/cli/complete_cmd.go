@@ -69,6 +69,22 @@ func packageList() []string {
 	return names
 }
 
+func mfgList() []string {
+	names := []string{}
+
+	proj, err := project.TryGetProject()
+	if err != nil {
+		return names
+	}
+
+	for _, pack := range proj.PackagesOfType(pkg.PACKAGE_TYPE_MFG) {
+		names = append(names, strings.TrimPrefix(pack.Name(), "mfgs/"))
+	}
+
+	sort.Strings(names)
+	return names
+}
+
 func completeRunCmd(cmd *cobra.Command, args []string) {
 	cmd_line := os.Getenv("COMP_LINE")
 

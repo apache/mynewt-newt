@@ -23,7 +23,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -48,56 +51,35 @@ func (t *TargetBuilder) Load(extraJtagCmd string) error {
 	return err
 }
 
-func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
-	if b.appPkg == nil {
-		return util.NewNewtError("app package not specified")
+func Load(binBaseName string, bspPkg *pkg.BspPackage,
+	extraEnvSettings map[string]string) error {
+
+	if bspPkg.DownloadScript == "" {
+		return util.FmtNewtError("No download script for BSP %s\n",
+			bspPkg.Name())
 	}
 
-	/*
-	 * Populate the package list and feature sets.
-	 */
-	err := b.targetBuilder.PrepBuild()
-	if err != nil {
-		return err
+	bspPath := bspPkg.BasePath()
+	downloadScript := filepath.Join(bspPath, bspPkg.DownloadScript)
+
+	sortedKeys := make([]string, 0, len(extraEnvSettings))
+	for k, _ := range extraEnvSettings {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	envSettings := ""
+	for _, key := range sortedKeys {
+		envSettings += fmt.Sprintf("%s=\"%s\" ", key, extraEnvSettings[key])
 	}
 
-	if b.targetBuilder.bspPkg.DownloadScript == "" {
-		/*
-		 *
-		 */
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"No download script for BSP %s\n", b.bspPkg.Name())
-		return nil
-	}
-
-	bspPath := b.bspPkg.BasePath()
-	downloadScript := filepath.Join(bspPath,
-		b.targetBuilder.bspPkg.DownloadScript)
-	binBaseName := b.AppBinBasePath()
-	featureString := b.FeatureString()
-
-	envSettings := fmt.Sprintf("BSP_PATH=%s ", bspPath)
-	envSettings += fmt.Sprintf("BIN_BASENAME=%s ", binBaseName)
-	envSettings += fmt.Sprintf("IMAGE_SLOT=%d ", image_slot)
-	envSettings += fmt.Sprintf("FEATURES=\"%s\" ", featureString)
-	if extraJtagCmd != "" {
-		envSettings += fmt.Sprintf("EXTRA_JTAG_CMD=\"%s\" ", extraJtagCmd)
-	}
+	envSettings += fmt.Sprintf("BSP_PATH=\"%s\" ", bspPath)
+	envSettings += fmt.Sprintf("BIN_BASENAME=\"%s\" ", binBaseName)
 
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
 	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript,
 		bspPath, binBaseName)
-
-	features := b.cfg.Features()
-
-	if _, ok := features["bootloader"]; ok {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Loading bootloader\n")
-	} else {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Loading %s image into slot %d\n", b.buildName, image_slot+1)
-	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		downloadCmd)
@@ -106,6 +88,46 @@ func (b *Builder) Load(image_slot int, extraJtagCmd string) error {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", rsp)
 		return err
 	}
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
+
+	return nil
+}
+
+func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
+	if b.appPkg == nil {
+		return util.NewNewtError("app package not specified")
+	}
+
+	/* Populate the package list and feature sets. */
+	err := b.targetBuilder.PrepBuild()
+	if err != nil {
+		return err
+	}
+
+	envSettings := map[string]string{
+		"IMAGE_SLOT": strconv.Itoa(imageSlot),
+		"FEATURES":   b.FeatureString(),
+	}
+	if extraJtagCmd != "" {
+		envSettings["EXTRA_JTAG_CMD"] = extraJtagCmd
+	}
+
+	features := b.cfg.Features()
+
+	if _, ok := features["BOOT_LOADER"]; ok {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Loading bootloader\n")
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Loading %s image into slot %d\n", b.buildName, imageSlot+1)
+	}
+
+	if err := Load(b.AppBinBasePath(), b.targetBuilder.bspPkg,
+		envSettings); err != nil {
+
+		return err
+	}
+
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
 
 	return nil

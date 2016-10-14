@@ -480,7 +480,7 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	b, err := builder.NewTargetBuilder(t, nil)
+	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
 	}

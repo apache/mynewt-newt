@@ -36,12 +36,16 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+const FLASH_AREA_NAME_BOOTLOADER = "FLASH_AREA_BOOTLOADER"
+const FLASH_AREA_NAME_IMAGE_0 = "FLASH_AREA_IMAGE_0"
+const FLASH_AREA_NAME_IMAGE_1 = "FLASH_AREA_IMAGE_1"
+const FLASH_AREA_NAME_IMAGE_SCRATCH = "FLASH_AREA_IMAGE_SCRATCH"
+
 var SYSTEM_AREA_NAME_ID_MAP = map[string]int{
-	"FLASH_AREA_BOOTLOADER":    0,
-	"FLASH_AREA_IMAGE_0":       1,
-	"FLASH_AREA_IMAGE_1":       2,
-	"FLASH_AREA_IMAGE_SCRATCH": 3,
-	"FLASH_AREA_META":          4,
+	FLASH_AREA_NAME_BOOTLOADER:    0,
+	FLASH_AREA_NAME_IMAGE_0:       1,
+	FLASH_AREA_NAME_IMAGE_1:       2,
+	FLASH_AREA_NAME_IMAGE_SCRATCH: 3,
 }
 
 const AREA_USER_ID_MIN = 16
@@ -175,7 +179,7 @@ func parseFlashArea(
 	return area, nil
 }
 
-func (flashMap FlashMap) unsortedAreas() []FlashArea {
+func (flashMap FlashMap) unSortedAreas() []FlashArea {
 	areas := make([]FlashArea, 0, len(flashMap.Areas))
 	for _, area := range flashMap.Areas {
 		areas = append(areas, area)
@@ -184,7 +188,7 @@ func (flashMap FlashMap) unsortedAreas() []FlashArea {
 	return areas
 }
 
-func (flashMap FlashMap) sortedAreas() []FlashArea {
+func (flashMap FlashMap) SortedAreas() []FlashArea {
 	idMap := make(map[int]FlashArea, len(flashMap.Areas))
 	ids := make([]int, 0, len(flashMap.Areas))
 	for _, area := range flashMap.Areas {
@@ -220,7 +224,7 @@ func (flashMap *FlashMap) detectOverlaps() {
 	flashMap.Overlaps = [][]FlashArea{}
 
 	// Convert the map to a slice.
-	areas := flashMap.unsortedAreas()
+	areas := flashMap.unSortedAreas()
 
 	for i := 0; i < len(areas)-1; i++ {
 		iarea := areas[i]
@@ -313,7 +317,7 @@ func (flashMap FlashMap) writeHeader(w io.Writer) {
 	fmt.Fprintf(w, "extern %s;\n", flashMap.varDecl())
 	fmt.Fprintf(w, "\n")
 
-	for _, area := range flashMap.sortedAreas() {
+	for _, area := range flashMap.SortedAreas() {
 		area.writeHeader(w)
 	}
 
@@ -347,7 +351,7 @@ func (flashMap FlashMap) writeSrc(w io.Writer) {
 	fmt.Fprintf(w, "%s", C_VAR_COMMENT)
 	fmt.Fprintf(w, "%s = {", flashMap.varDecl())
 
-	for _, area := range flashMap.sortedAreas() {
+	for _, area := range flashMap.SortedAreas() {
 		fmt.Fprintf(w, "\n")
 		area.writeSrc(w)
 	}

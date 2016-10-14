@@ -38,6 +38,7 @@ type BspPackage struct {
 	Part2LinkerScript string /* script to link app to second partition */
 	DownloadScript    string
 	DebugScript       string
+	WriteScript       string
 	FlashMap          flash.FlashMap
 	BspV              *viper.Viper
 }
@@ -63,6 +64,8 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 		features, "bsp.downloadscript")
 	bsp.DebugScript = newtutil.GetStringFeatures(bsp.BspV,
 		features, "bsp.debugscript")
+	bsp.WriteScript = newtutil.GetStringFeatures(bsp.BspV,
+		features, "bsp.writescript")
 
 	if bsp.CompilerName == "" {
 		return util.NewNewtError("BSP does not specify a compiler " +

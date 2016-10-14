@@ -39,6 +39,7 @@ import (
 
 const TARGET_KEYWORD_ALL string = "all"
 const TARGET_DEFAULT_DIR string = "targets"
+const MFG_DEFAULT_DIR string = "mfgs"
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {

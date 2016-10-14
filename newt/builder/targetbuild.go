@@ -20,11 +20,17 @@
 package builder
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -54,7 +60,7 @@ type TargetBuilder struct {
 	injectedSettings map[string]string
 }
 
-func NewTargetBuilder(target *target.Target,
+func NewTargetTester(target *target.Target,
 	testPkg *pkg.LocalPackage) (*TargetBuilder, error) {
 
 	if err := target.Validate(testPkg == nil); err != nil {
@@ -83,6 +89,10 @@ func NewTargetBuilder(target *target.Target,
 	}
 
 	return t, nil
+}
+
+func NewTargetBuilder(target *target.Target) (*TargetBuilder, error) {
+	return NewTargetTester(target, nil)
 }
 
 func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) {
@@ -541,5 +551,104 @@ func (t *TargetBuilder) Test() error {
 }
 
 func (t *TargetBuilder) GetTarget() *target.Target {
-	return (*t).target
+	return t.target
+}
+
+func (t *TargetBuilder) createManifest(
+	appImg *image.Image,
+	loaderImg *image.Image,
+	buildId []byte) error {
+
+	versionStr := fmt.Sprintf("%d.%d.%d.%d",
+		appImg.Version.Major, appImg.Version.Minor,
+		appImg.Version.Rev, appImg.Version.BuildNum)
+	hashStr := fmt.Sprintf("%x", appImg.Hash)
+	timeStr := time.Now().Format(time.RFC3339)
+
+	manifest := &image.ImageManifest{
+		Version:   versionStr,
+		ImageHash: hashStr,
+		Image:     filepath.Base(appImg.TargetImg),
+		Date:      timeStr,
+	}
+
+	rm := image.NewRepoManager()
+	for _, builtPkg := range t.AppBuilder.PkgMap {
+		manifest.Pkgs = append(manifest.Pkgs,
+			rm.GetImageManifestPkg(builtPkg.LocalPackage))
+	}
+
+	if loaderImg != nil {
+		manifest.Loader = filepath.Base(loaderImg.TargetImg)
+		manifest.LoaderHash = fmt.Sprintf("%x", loaderImg.Hash)
+
+		for _, builtPkg := range t.LoaderBuilder.PkgMap {
+			manifest.LoaderPkgs = append(manifest.LoaderPkgs,
+				rm.GetImageManifestPkg(builtPkg.LocalPackage))
+		}
+	}
+	manifest.Repos = rm.AllRepos()
+
+	manifest.BuildID = fmt.Sprintf("%x", buildId)
+
+	vars := t.GetTarget().Vars
+	keys := make([]string, 0, len(vars))
+	for k := range vars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
+	}
+	file, err := os.Create(t.AppBuilder.ManifestPath())
+	if err != nil {
+		return util.FmtNewtError("Cannot create manifest file %s: %s",
+			t.AppBuilder.ManifestPath(), err.Error())
+	}
+	defer file.Close()
+
+	buffer, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return util.FmtNewtError("Cannot encode manifest: %s", err.Error())
+	}
+	_, err = file.Write(buffer)
+	if err != nil {
+		return util.FmtNewtError("Cannot write manifest file: %s",
+			err.Error())
+	}
+
+	return nil
+}
+
+// @return                      app-image, loader-image, error
+func (t *TargetBuilder) CreateImages(version string,
+	keystr string, keyId uint8) (*image.Image, *image.Image, error) {
+
+	if err := t.Build(); err != nil {
+		return nil, nil, err
+	}
+
+	var err error
+	var appImg *image.Image
+	var loaderImg *image.Image
+
+	if t.LoaderBuilder != nil {
+		loaderImg, err = t.LoaderBuilder.CreateImage(version, keystr, keyId,
+			nil)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	appImg, err = t.AppBuilder.CreateImage(version, keystr, keyId, loaderImg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	buildId := image.CreateBuildId(appImg, loaderImg)
+	if err := t.createManifest(appImg, loaderImg, buildId); err != nil {
+		return nil, nil, err
+	}
+
+	return appImg, loaderImg, nil
 }

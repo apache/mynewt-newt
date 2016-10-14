@@ -39,16 +39,19 @@ const (
 	PACKAGE_TYPE_TARGET
 	PACKAGE_TYPE_UNITTEST
 	PACKAGE_TYPE_GENERATED
+	PACKAGE_TYPE_MFG
 )
 
 var PackageTypeNames = map[interfaces.PackageType]string{
-	PACKAGE_TYPE_APP:      "app",
-	PACKAGE_TYPE_BSP:      "bsp",
-	PACKAGE_TYPE_SDK:      "sdk",
-	PACKAGE_TYPE_COMPILER: "compiler",
-	PACKAGE_TYPE_LIB:      "lib",
-	PACKAGE_TYPE_TARGET:   "target",
-	PACKAGE_TYPE_UNITTEST: "unittest",
+	PACKAGE_TYPE_APP:       "app",
+	PACKAGE_TYPE_BSP:       "bsp",
+	PACKAGE_TYPE_SDK:       "sdk",
+	PACKAGE_TYPE_COMPILER:  "compiler",
+	PACKAGE_TYPE_LIB:       "lib",
+	PACKAGE_TYPE_TARGET:    "target",
+	PACKAGE_TYPE_UNITTEST:  "unittest",
+	PACKAGE_TYPE_GENERATED: "generated",
+	PACKAGE_TYPE_MFG:       "mfg",
 }
 
 // An interface, representing information about a Package

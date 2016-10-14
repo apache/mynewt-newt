@@ -120,14 +120,15 @@ func main() {
 	hold_lvl := log.GetLevel()
 	log.SetLevel(log.FatalLevel)
 
-	cli.AddCompleteCommands(cmd)
-	cli.AddProjectCommands(cmd)
-	cli.AddTargetCommands(cmd)
 	cli.AddBuildCommands(cmd)
+	cli.AddCompleteCommands(cmd)
 	cli.AddImageCommands(cmd)
-	cli.AddRunCommands(cmd)
-	cli.AddValsCommands(cmd)
 	cli.AddPackageCommands(cmd)
+	cli.AddProjectCommands(cmd)
+	cli.AddRunCommands(cmd)
+	cli.AddTargetCommands(cmd)
+	cli.AddValsCommands(cmd)
+	cli.AddMfgCommands(cmd)
 
 	/* only pass the first two args to check for complete command */
 	if len(os.Args) > 2 {

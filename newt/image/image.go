@@ -30,22 +30,19 @@ import (
 	"encoding/asn1"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -57,14 +54,13 @@ type ImageVersion struct {
 }
 
 type Image struct {
-	sourceBin    string
-	targetImg    string
-	manifestFile string
-	version      ImageVersion
-	signingRSA   *rsa.PrivateKey
-	signingEC    *ecdsa.PrivateKey
-	keyId        uint8
-	hash         []byte
+	SourceBin  string
+	TargetImg  string
+	Version    ImageVersion
+	SigningRSA *rsa.PrivateKey
+	SigningEC  *ecdsa.PrivateKey
+	KeyId      uint8
+	Hash       []byte
 }
 
 type ImageHdr struct {
@@ -143,7 +139,7 @@ type ImageManifestRepo struct {
 	URL    string `json:"url,omitempty"`
 }
 
-type repoManager struct {
+type RepoManager struct {
 	repos map[string]ImageManifestRepo
 }
 
@@ -152,21 +148,12 @@ type ECDSASig struct {
 	S *big.Int
 }
 
-func NewImage(b *builder.Builder) (*Image, error) {
+func NewImage(srcBinPath string, dstImgPath string) (*Image, error) {
 	image := &Image{}
 
-	image.sourceBin = b.AppElfPath() + ".bin"
-	image.targetImg = b.AppImgPath()
-	image.manifestFile = b.AppPath() + "manifest.json"
+	image.SourceBin = srcBinPath
+	image.TargetImg = dstImgPath
 	return image, nil
-}
-
-func (image *Image) TargetImg() string {
-	return image.targetImg
-}
-
-func (image *Image) ManifestFile() string {
-	return image.manifestFile
 }
 
 func (image *Image) SetVersion(versStr string) error {
@@ -203,16 +190,16 @@ func (image *Image) SetVersion(versStr string) error {
 				versStr))
 		}
 	}
-	image.version.Major = uint8(major)
-	image.version.Minor = uint8(minor)
-	image.version.Rev = uint16(rev)
-	image.version.BuildNum = uint32(buildNum)
+	image.Version.Major = uint8(major)
+	image.Version.Minor = uint8(minor)
+	image.Version.Rev = uint16(rev)
+	image.Version.BuildNum = uint32(buildNum)
 	log.Debugf("Assigning version number %d.%d.%d.%d\n",
-		image.version.Major, image.version.Minor,
-		image.version.Rev, image.version.BuildNum)
+		image.Version.Major, image.Version.Minor,
+		image.Version.Rev, image.Version.BuildNum)
 
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.LittleEndian, image.version)
+	err = binary.Write(buf, binary.LittleEndian, image.Version)
 	if err != nil {
 		fmt.Printf("Bombing out\n")
 		return nil
@@ -238,7 +225,7 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 			return util.NewNewtError(fmt.Sprintf("Private key parsing "+
 				"failed: %s", err))
 		}
-		image.signingRSA = privateKey
+		image.SigningRSA = privateKey
 	}
 	if block != nil && block.Type == "EC PRIVATE KEY" {
 		/*
@@ -249,19 +236,19 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 			return util.NewNewtError(fmt.Sprintf("Private key parsing "+
 				"failed: %s", err))
 		}
-		image.signingEC = privateKey
+		image.SigningEC = privateKey
 	}
-	if image.signingEC == nil && image.signingRSA == nil {
+	if image.SigningEC == nil && image.SigningRSA == nil {
 		return util.NewNewtError("Unknown private key format, EC/RSA private " +
 			"key in PEM format only.")
 	}
-	image.keyId = keyId
+	image.KeyId = keyId
 
 	return nil
 }
 
 func (image *Image) Generate(loader *Image) error {
-	binFile, err := os.Open(image.sourceBin)
+	binFile, err := os.Open(image.SourceBin)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
 			err.Error()))
@@ -271,14 +258,14 @@ func (image *Image) Generate(loader *Image) error {
 	binInfo, err := binFile.Stat()
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't stat app binary %s: %s",
-			image.sourceBin, err.Error()))
+			image.SourceBin, err.Error()))
 	}
 
-	imgFile, err := os.OpenFile(image.targetImg,
+	imgFile, err := os.OpenFile(image.TargetImg,
 		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't open target image %s: %s",
-			image.targetImg, err.Error()))
+			image.TargetImg, err.Error()))
 	}
 	defer imgFile.Close()
 
@@ -288,7 +275,7 @@ func (image *Image) Generate(loader *Image) error {
 	hash := sha256.New()
 
 	if loader != nil {
-		err = binary.Write(hash, binary.LittleEndian, loader.hash)
+		err = binary.Write(hash, binary.LittleEndian, loader.Hash)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Failed to seed hash: %s",
 				err.Error()))
@@ -307,18 +294,18 @@ func (image *Image) Generate(loader *Image) error {
 		Pad2:  0,
 		ImgSz: uint32(binInfo.Size()),
 		Flags: 0,
-		Vers:  image.version,
+		Vers:  image.Version,
 		Pad3:  0,
 	}
 
-	if image.signingRSA != nil {
+	if image.SigningRSA != nil {
 		hdr.TlvSz = 4 + 256
 		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
-		hdr.KeyId = image.keyId
-	} else if image.signingEC != nil {
+		hdr.KeyId = image.KeyId
+	} else if image.SigningEC != nil {
 		hdr.TlvSz = 4 + 68
 		hdr.Flags = IMAGE_F_ECDSA224_SHA256
-		hdr.KeyId = image.keyId
+		hdr.KeyId = image.KeyId
 	}
 
 	hdr.TlvSz += 4 + 32
@@ -347,7 +334,7 @@ func (image *Image) Generate(loader *Image) error {
 		cnt, err := binFile.Read(dataBuf)
 		if err != nil && err != io.EOF {
 			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
-				image.sourceBin, err.Error()))
+				image.SourceBin, err.Error()))
 		}
 		if cnt == 0 {
 			break
@@ -355,7 +342,7 @@ func (image *Image) Generate(loader *Image) error {
 		_, err = imgFile.Write(dataBuf[0:cnt])
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
-				image.targetImg, err.Error()))
+				image.TargetImg, err.Error()))
 		}
 		_, err = hash.Write(dataBuf[0:cnt])
 		if err != nil {
@@ -364,7 +351,7 @@ func (image *Image) Generate(loader *Image) error {
 		}
 	}
 
-	image.hash = hash.Sum(nil)
+	image.Hash = hash.Sum(nil)
 
 	/*
 	 * Trailer with hash of the data
@@ -372,20 +359,20 @@ func (image *Image) Generate(loader *Image) error {
 	tlv := &ImageTrailerTlv{
 		Type: IMAGE_TLV_SHA256,
 		Pad:  0,
-		Len:  uint16(len(image.hash)),
+		Len:  uint16(len(image.Hash)),
 	}
 	err = binary.Write(imgFile, binary.LittleEndian, tlv)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
 			"trailer: %s", err.Error()))
 	}
-	_, err = imgFile.Write(image.hash)
+	_, err = imgFile.Write(image.Hash)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
 			err.Error()))
 	}
 
-	if image.signingRSA != nil {
+	if image.SigningRSA != nil {
 		/*
 		 * If signing key was set, generate TLV for that.
 		 */
@@ -394,8 +381,8 @@ func (image *Image) Generate(loader *Image) error {
 			Pad:  0,
 			Len:  256, /* 2048 bits */
 		}
-		signature, err := rsa.SignPKCS1v15(rand.Reader, image.signingRSA,
-			crypto.SHA256, image.hash)
+		signature, err := rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
+			crypto.SHA256, image.Hash)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to compute signature: %s", err))
@@ -412,8 +399,8 @@ func (image *Image) Generate(loader *Image) error {
 				err.Error()))
 		}
 	}
-	if image.signingEC != nil {
-		r, s, err := ecdsa.Sign(rand.Reader, image.signingEC, image.hash)
+	if image.SigningEC != nil {
+		r, s, err := ecdsa.Sign(rand.Reader, image.SigningEC, image.Hash)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to compute signature: %s", err))
@@ -455,93 +442,35 @@ func (image *Image) Generate(loader *Image) error {
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"Computed Hash for image %s as %s \n", image.TargetImg(), hex.EncodeToString(image.hash[:]))
+		"Computed Hash for image %s as %s \n",
+		image.TargetImg, hex.EncodeToString(image.Hash))
 	return nil
 }
 
 func CreateBuildId(app *Image, loader *Image) []byte {
-	return app.hash
+	return app.Hash
 }
 
-func CreateManifest(t *builder.TargetBuilder, app *Image, loader *Image, build_id []byte) error {
-	versionStr := fmt.Sprintf("%d.%d.%d.%d",
-		app.version.Major, app.version.Minor,
-		app.version.Rev, app.version.BuildNum)
-	hashStr := fmt.Sprintf("%x", app.hash)
-	timeStr := time.Now().Format(time.RFC3339)
-
-	manifest := &ImageManifest{
-		Version:   versionStr,
-		ImageHash: hashStr,
-		Image:     filepath.Base(app.targetImg),
-		Date:      timeStr,
-	}
-
-	rm := newRepoManager()
-	for _, builtPkg := range t.AppBuilder.PkgMap {
-		manifest.Pkgs = append(manifest.Pkgs, rm.getImageManifestPkg(builtPkg))
-	}
-
-	if loader != nil {
-		manifest.Loader = filepath.Base(loader.targetImg)
-		manifest.LoaderHash = fmt.Sprintf("%x", loader.hash)
-
-		for _, builtPkg := range t.LoaderBuilder.PkgMap {
-			manifest.LoaderPkgs = append(manifest.LoaderPkgs, rm.getImageManifestPkg(builtPkg))
-		}
-	}
-	manifest.Repos = rm.allRepos()
-
-	manifest.BuildID = fmt.Sprintf("%x", build_id)
-
-	vars := t.GetTarget().Vars
-	var keys []string
-	for k := range vars {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
-	}
-	file, err := os.Create(app.manifestFile)
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Cannot create manifest file %s: %s",
-			app.manifestFile, err.Error()))
-	}
-	defer file.Close()
-
-	buffer, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Cannot encode manifest: %s",
-			err.Error()))
-	}
-	_, err = file.Write(buffer)
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Cannot write manifest file: %s",
-			err.Error()))
-	}
-
-	return nil
-}
-
-func newRepoManager() *repoManager {
-	return &repoManager{
+func NewRepoManager() *RepoManager {
+	return &RepoManager{
 		repos: make(map[string]ImageManifestRepo),
 	}
 }
 
-func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManifestPkg {
+func (r *RepoManager) GetImageManifestPkg(
+	lpkg *pkg.LocalPackage) *ImageManifestPkg {
+
 	ip := &ImageManifestPkg{
-		Name: bp.Name(),
+		Name: lpkg.Name(),
 	}
 
 	var path string
-	if bp.Repo().IsLocal() {
-		ip.Repo = bp.LocalPackage.Repo().Name()
-		path = bp.LocalPackage.BasePath()
+	if lpkg.Repo().IsLocal() {
+		ip.Repo = lpkg.Repo().Name()
+		path = lpkg.BasePath()
 	} else {
-		ip.Repo = bp.Repo().Name()
-		path = bp.BasePath()
+		ip.Repo = lpkg.Repo().Name()
+		path = lpkg.BasePath()
 	}
 
 	if _, present := r.repos[ip.Repo]; present {
@@ -552,13 +481,15 @@ func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManife
 		Name: ip.Repo,
 	}
 
-	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse HEAD", path))
+	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse HEAD",
+		path))
 	if err != nil {
 		log.Debugf("Unable to determine commit hash for %s: %v", path, err)
 		repo.Commit = "UNKNOWN"
 	} else {
 		repo.Commit = strings.TrimSpace(string(res))
-		res, err := util.ShellCommand(fmt.Sprintf("cd %s && git status --porcelain", path))
+		res, err := util.ShellCommand(fmt.Sprintf(
+			"cd %s && git status --porcelain", path))
 		if err != nil {
 			log.Debugf("Unable to determine dirty state for %s: %v", path, err)
 		} else {
@@ -566,7 +497,8 @@ func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManife
 				repo.Dirty = true
 			}
 		}
-		res, err = util.ShellCommand(fmt.Sprintf("cd %s && git config --get remote.origin.url", path))
+		res, err = util.ShellCommand(fmt.Sprintf(
+			"cd %s && git config --get remote.origin.url", path))
 		if err != nil {
 			log.Debugf("Unable to determine URL for %s: %v", path, err)
 		} else {
@@ -578,7 +510,7 @@ func (r *repoManager) getImageManifestPkg(bp *builder.BuildPackage) *ImageManife
 	return ip
 }
 
-func (r *repoManager) allRepos() []ImageManifestRepo {
+func (r *RepoManager) AllRepos() []ImageManifestRepo {
 	keys := make([]string, 0, len(r.repos))
 	for k := range r.repos {
 		keys = append(keys, k)

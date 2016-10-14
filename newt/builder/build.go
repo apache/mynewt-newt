@@ -26,6 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
@@ -318,9 +319,6 @@ func (b *Builder) link(elfName string, linkerScript string,
 			pkgNames = append(pkgNames, b.ArchivePath(bpkg))
 		}
 	}
-
-	// Include sysinit archive in elf file. */
-	//pkgNames = append(pkgNames, SysinitArchivePath(b.targetPkg.Name()))
 
 	if linkerScript != "" {
 		c.LinkerScript = b.bspPkg.BasePath() + "/" + linkerScript
@@ -630,4 +628,35 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 		return err
 	}
 	return nil
+}
+
+func (b *Builder) CreateImage(version string,
+	keystr string, keyId uint8, loaderImg *image.Image) (*image.Image, error) {
+
+	img, err := image.NewImage(b.AppBinPath(), b.AppImgPath())
+	if err != nil {
+		return nil, err
+	}
+
+	err = img.SetVersion(version)
+	if err != nil {
+		return nil, err
+	}
+
+	if keystr != "" {
+		err = img.SetSigningKey(keystr, keyId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = img.Generate(loaderImg)
+	if err != nil {
+		return nil, err
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"App image succesfully generated: %s\n", img.TargetImg)
+
+	return img, nil
 }
