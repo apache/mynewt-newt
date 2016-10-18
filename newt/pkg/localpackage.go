@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -229,6 +230,42 @@ func (pkg *LocalPackage) sequenceString(key string) string {
 	} else {
 		return key + ":\n" + buffer.String()
 	}
+}
+
+func (lpkg *LocalPackage) SaveSyscfgVals() error {
+	dirpath := lpkg.BasePath()
+	if err := os.MkdirAll(dirpath, 0755); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	filepath := dirpath + "/" + SYSCFG_YAML_FILENAME
+
+	syscfgVals := lpkg.SyscfgV.GetStringMapString("syscfg.vals")
+	if syscfgVals == nil || len(syscfgVals) == 0 {
+		os.Remove(filepath)
+		return nil
+	}
+
+	file, err := os.Create(filepath)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+	defer file.Close()
+
+	names := make([]string, 0, len(syscfgVals))
+	for k, _ := range syscfgVals {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	fmt.Fprintf(file, "### Package: %s\n", lpkg.Name())
+	fmt.Fprintf(file, "\n")
+	fmt.Fprintf(file, "syscfg.vals:\n")
+	for _, name := range names {
+		fmt.Fprintf(file, "    %s: %s\n", name, syscfgVals[name])
+	}
+
+	return nil
 }
 
 // Saves the package's pkg.yml file.

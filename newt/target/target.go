@@ -250,6 +250,10 @@ func (t *Target) Save() error {
 		file.WriteString(k + ": " + yaml.EscapeString(t.Vars[k]) + "\n")
 	}
 
+	if err := t.basePkg.SaveSyscfgVals(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -36,6 +36,7 @@ import (
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/viper"
 )
 
 var targetForce bool = false
@@ -122,8 +123,8 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		}
 
 		// A few variables come from the base package rather than the target.
-		kvPairs["features"] = pkgVarSliceString(target.Package(),
-			"pkg.features")
+		kvPairs["syscfg"] = targetSyscfgKVToStr(
+			target.Package().SyscfgV.GetStringMapString("syscfg.vals"))
 		kvPairs["cflags"] = pkgVarSliceString(target.Package(), "pkg.cflags")
 		kvPairs["lflags"] = pkgVarSliceString(target.Package(), "pkg.lflags")
 		kvPairs["aflags"] = pkgVarSliceString(target.Package(), "pkg.aflags")
@@ -141,6 +142,51 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+}
+
+func targetSyscfgKVFromStr(str string) map[string]string {
+	vals := map[string]string{}
+
+	if strings.TrimSpace(str) == "" {
+		return vals
+	}
+
+	// Separate syscfg vals are delimited by ':'.
+	fields := strings.Split(str, ":")
+
+	// Key-value pairs are delimited by '='.  If no '=' is present, assume the
+	// string is the key name and the value is 1.
+	for _, f := range fields {
+		kv := strings.SplitN(f, "=", 2)
+		switch len(kv) {
+		case 1:
+			vals[f] = "1"
+		case 2:
+			vals[kv[0]] = kv[1]
+		}
+	}
+
+	return vals
+}
+
+func targetSyscfgKVToStr(syscfgKv map[string]string) string {
+	str := ""
+
+	names := make([]string, 0, len(syscfgKv))
+	for k, _ := range syscfgKv {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	for i, name := range names {
+		if i != 0 {
+			str += ":"
+		}
+
+		str += fmt.Sprintf("%s=%s", name, syscfgKv[name])
+	}
+
+	return str
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
@@ -185,8 +231,11 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	for _, kv := range vars {
 		// A few variables are special cases; they get set in the base package
 		// instead of the target.
-		if kv[0] == "target.features" ||
-			kv[0] == "target.cflags" ||
+		if kv[0] == "target.syscfg" {
+			t.Package().SyscfgV = viper.New()
+			kv := targetSyscfgKVFromStr(kv[1])
+			t.Package().SyscfgV.Set("syscfg.vals", kv)
+		} else if kv[0] == "target.cflags" ||
 			kv[0] == "target.lflags" ||
 			kv[0] == "target.aflags" {
 
