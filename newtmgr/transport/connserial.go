@@ -212,13 +212,22 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 	totlen := len(base64Data)
 
 	for written < totlen {
+		/* write the packet stat designators. They are
+		* different whether we are starting a new packet or continuing one */
 		if written == 0 {
 			cs.writeData([]byte{6, 9})
 		} else {
 			cs.writeData([]byte{4, 20})
 		}
 
-		writeLen := util.Min(120, totlen-written)
+		/* ensure that the total frame fits into 128 bytes.
+		 * base 64 is 3 ascii to 4 base 64 byte encoding.  so
+		 * the number below should be a multiple of 4.  Also,
+		 * we need to save room for the header (2 byte) and
+		 * carriage return (and possibly LF 2 bytes), */
+
+		/* all totaled, 124 bytes should work */
+		writeLen := util.Min(124, totlen-written)
 
 		writeBytes := base64Data[written : written+writeLen]
 		cs.writeData(writeBytes)

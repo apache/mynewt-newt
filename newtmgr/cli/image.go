@@ -253,6 +253,32 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	if profile.Type() == "ble" {
 		mtu = uint32((transport.BleMTU - 33) * 3 / 4)
 	} else {
+		/* since this possibly gets base 64 encoded, we want
+		 * to ensure that the payload leaving this layer is 91
+		 * bytes or less (91 bytes plus 2 byte crc will encode
+		 * to 124 with 4 bytes of header
+		 * left over */
+
+		/* 00000000  02 00 00 4f 00 01 00 01  a2 64 64 61 74 61 58 40  |...O.....ddataX@|
+		 * 00000010  00 f0 5a f8 0e 4b 1c 70  0e 4b 5a 88 12 05 10 0f  |..Z..K.p.KZ.....|
+		 * 00000020  59 88 0d 4a 0a 40 5a 80  59 88 0c 4a 0a 40 5a 80  |Y..J.@Z.Y..J.@Z.|
+		 * 00000030  19 1c 80 22 d2 01 4b 88  13 42 fc d1 05 49 02 02  |..."..K..B...I..|
+		 * 00000040  48 88 05 4b 03 40 13 43  4b 80 00 f0 5d f8 10 bd  |H..K.@.CK...]...|
+		 * 00000050  63 6f 66 66 1a 00 01 5d  b8                       |coff..x|
+		 */
+
+		/* from this dump we can see the following
+		* 1) newtmgr hdr 8 bytes
+		* 2) cbor wrapper up to data (and length) 8 bytes
+		* 3) cbor data 64 bytes
+		* 4) offset tag 4 bytes
+		* 5) offsert value 3 (safely say 5 bytes since it could be bigger
+		*      than uint16_t
+		* That makes 25 bytes plus the data needs to fit in 91 bytes
+		 */
+
+		/* however, something is not calcualated properly as we
+		 * can only do 66 bytes here.  Use 64 for power of 2 */
 		mtu = 64
 	}
 
