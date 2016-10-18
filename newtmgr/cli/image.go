@@ -295,6 +295,17 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 		if currOff == 0 {
 			/* we need extra space to encode the image size */
 			if blockSz > (mtu - 8) {
+				/*
+				 * to encode the image size, we write clen=val in CBOR.
+				 * From below (for up to 2G images, you can see that it
+				 * will take up to 9 bytes.  (starts at 63.. ends at e8)
+				 * 00000040  7d c4 00 00 7d c4 00 00  63 6c 65 6e 1a 00 01 5d  |}...}...clen...]|
+				 * 00000050  e8 63 6f 66 66 00                                 |.coff.|
+				 * However, since the offset is zero, we will use less
+				 * bytes (we budgeted for 5 bytes but will only use 1
+				 */
+
+				/* to make these powers of 2, just go with 8 bytes */
 				blockSz = mtu - 8
 			}
 		}
