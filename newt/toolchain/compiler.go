@@ -44,6 +44,7 @@ const COMPILER_FILENAME string = "compiler.yml"
 const (
 	COMPILER_TYPE_C   = 0
 	COMPILER_TYPE_ASM = 1
+	COMPILER_TYPE_CPP = 2
 )
 
 type CompilerInfo struct {
@@ -61,6 +62,7 @@ type Compiler struct {
 
 	depTracker            DepTracker
 	ccPath                string
+	cppPath               string
 	asPath                string
 	arPath                string
 	odPath                string
@@ -219,6 +221,7 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	}
 
 	c.ccPath = newtutil.GetStringFeatures(v, features, "compiler.path.cc")
+	c.cppPath = newtutil.GetStringFeatures(v, features, "compiler.path.cpp")
 	c.asPath = newtutil.GetStringFeatures(v, features, "compiler.path.as")
 	c.arPath = newtutil.GetStringFeatures(v, features, "compiler.path.archive")
 	c.odPath = newtutil.GetStringFeatures(v, features, "compiler.path.objdump")
@@ -337,6 +340,8 @@ func (c *Compiler) CompileFileCmd(file string,
 		cmd = c.ccPath
 	case COMPILER_TYPE_ASM:
 		cmd = c.asPath
+	case COMPILER_TYPE_CPP:
+		cmd = c.cppPath
 	default:
 		return "", util.NewNewtError("Unknown compiler type")
 	}
@@ -434,6 +439,8 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	switch compilerType {
 	case COMPILER_TYPE_C:
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
+	case COMPILER_TYPE_CPP:
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
 	case COMPILER_TYPE_ASM:
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", file)
 	default:
@@ -468,8 +475,6 @@ func (c *Compiler) shouldIgnoreFile(file string) bool {
 
 // Compiles all C files matching the specified file glob.
 //
-// @param match                 The file glob specifying which C files to
-//                                  compile.
 func (c *Compiler) CompileC() error {
 	files, _ := filepath.Glob("*.c")
 
@@ -499,6 +504,49 @@ func (c *Compiler) CompileC() error {
 		} else {
 			err = c.SkipSourceFile(file)
 		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Compiles all CPP files
+func (c *Compiler) CompileCpp() error {
+	files, _ := filepath.Glob("*.cc")
+	moreFiles, _ := filepath.Glob("*.cpp")
+	files = append(files, moreFiles...)
+	moreFiles, _ = filepath.Glob("*.cxx")
+	files = append(files, moreFiles...)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Compiling CC if outdated (%s/*.cc) %s", wd,
+		strings.Join(files, " "))
+
+	for _, file := range files {
+		file = filepath.ToSlash(file)
+
+		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
+			log.Infof("Ignoring %s because package dictates it.", file)
+		}
+
+		compileRequired, err := c.depTracker.CompileRequired(file,
+			COMPILER_TYPE_CPP)
+		if err != nil {
+			return err
+		}
+
+		if compileRequired {
+			err = c.CompileFile(file, COMPILER_TYPE_CPP)
+		} else {
+			err = c.SkipSourceFile(file)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -607,6 +655,8 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 		return c.CompileC()
 	case COMPILER_TYPE_ASM:
 		return c.CompileAs()
+	case COMPILER_TYPE_CPP:
+		return c.CompileCpp()
 	default:
 		return util.NewNewtError("Wrong compiler type specified to " +
 			"RecursiveCompile")

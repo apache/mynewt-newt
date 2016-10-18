@@ -169,6 +169,12 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		return err
 	}
 
+	// Compile CPP files
+	if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_CPP,
+		append(ignDirs, "arch")); err != nil {
+		return err
+	}
+
 	archDir := srcDir + "/arch/" + arch + "/"
 	if util.NodeExist(archDir) {
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -182,6 +188,12 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_C,
 			ignDirs); err != nil {
 
+			return err
+		}
+
+		// Compile CPP source
+		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_CPP,
+			ignDirs); err != nil {
 			return err
 		}
 
