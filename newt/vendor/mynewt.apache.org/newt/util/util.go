@@ -568,6 +568,14 @@ func CIdentifier(s string) string {
 	return s
 }
 
+func IntMax(a, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
 func IntMin(a, b int) int {
 	if a < b {
 		return a

@@ -39,11 +39,11 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "b83537d79690b75cac5e021b036ae16792bf0f20"
+			"Rev": "bf8481a6aebc13a8aab52e699ffe2e79771f5a3f"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "67f277b6fe017c42fc3b4a445edc999dd99edd58"
+			"Rev": "9bb9f0998d48b31547d975974935ae9b48c7a03c"
 		},
 		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
@@ -52,18 +52,18 @@
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "pre_sterly_refactor-43-g31d6944",
-			"Rev": "31d69448a7b7f73feaa323392bd7f7a62931b6f8"
+			"Comment": "pre_sterly_refactor-77-gff4ef02",
+			"Rev": "ff4ef02818cd4fe0387f7314f3ba6a33cc247d5f"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "pre_sterly_refactor-43-g31d6944",
-			"Rev": "31d69448a7b7f73feaa323392bd7f7a62931b6f8"
+			"Comment": "pre_sterly_refactor-77-gff4ef02",
+			"Rev": "ff4ef02818cd4fe0387f7314f3ba6a33cc247d5f"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "pre_sterly_refactor-43-g31d6944",
-			"Rev": "31d69448a7b7f73feaa323392bd7f7a62931b6f8"
+			"Comment": "pre_sterly_refactor-77-gff4ef02",
+			"Rev": "ff4ef02818cd4fe0387f7314f3ba6a33cc247d5f"
 		}
 	]
 }
