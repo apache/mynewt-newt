@@ -601,11 +601,7 @@ func (cfg *Cfg) WarningText() string {
 }
 
 func escapeStr(s string) string {
-	s = strings.Replace(s, "/", "_", -1)
-	s = strings.Replace(s, "-", "_", -1)
-	s = strings.Replace(s, " ", "_", -1)
-	s = strings.ToUpper(s)
-	return s
+	return strings.ToUpper(util.CIdentifier(s))
 }
 
 func settingName(setting string) string {

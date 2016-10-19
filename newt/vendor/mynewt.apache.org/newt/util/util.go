@@ -64,7 +64,7 @@ const (
 )
 
 func (se *NewtError) Error() string {
-	return se.Text + "\n" + string(se.StackTrace)
+	return se.Text
 }
 
 func NewNewtError(msg string) *NewtError {
@@ -558,4 +558,12 @@ func FileContentsChanged(path string, newContents []byte) (bool, error) {
 
 	rc := bytes.Compare(oldContents, newContents)
 	return rc != 0, nil
+}
+
+func CIdentifier(s string) string {
+	s = strings.Replace(s, "/", "_", -1)
+	s = strings.Replace(s, "-", "_", -1)
+	s = strings.Replace(s, " ", "_", -1)
+
+	return s
 }
