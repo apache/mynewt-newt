@@ -393,13 +393,21 @@ func (b *Builder) PrepBuild() error {
 
 	// Define a cpp symbol indicating the BSP architecture, name of the
 	// BSP and app.
-	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+b.targetBuilder.bspPkg.Arch)
-	bspCi.Cflags = append(bspCi.Cflags,
-		"-DBSP_NAME=\""+filepath.Base(b.bspPkg.Name())+"\"")
+
+	archName := b.targetBuilder.bspPkg.Arch
+	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+archName)
+	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_NAME=\""+archName+"\"")
+
 	if b.appPkg != nil {
-		bspCi.Cflags = append(bspCi.Cflags,
-			"-DAPP_NAME=\""+filepath.Base(b.appPkg.Name())+"\"")
+		appName := filepath.Base(b.appPkg.Name())
+		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_"+appName)
+		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_NAME=\""+appName+"\"")
 	}
+
+	bspName := filepath.Base(b.bspPkg.Name())
+	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_"+bspName)
+	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_NAME=\""+bspName+"\"")
+
 	baseCi.AddCompilerInfo(bspCi)
 
 	// All packages have access to the generated code header directory.
