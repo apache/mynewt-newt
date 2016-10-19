@@ -21,116 +21,13 @@ package builder
 
 import (
 	"bytes"
-	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
-	"mynewt.apache.org/newt/newt/target"
 )
-
-func BinRoot() string {
-	return project.GetProject().Path() + "/bin"
-}
-
-func TargetBinDir(target *target.Target) string {
-	return BinRoot() + "/" + target.Name()
-}
-
-func GeneratedBaseDir(targetName string) string {
-	return BinRoot() + "/" + targetName + "/generated"
-}
-
-func GeneratedSrcDir(targetName string) string {
-	return GeneratedBaseDir(targetName) + "/src"
-}
-
-func GeneratedIncludeDir(targetName string) string {
-	return GeneratedBaseDir(targetName) + "/include"
-}
-
-func GeneratedBinDir(targetName string) string {
-	return GeneratedBaseDir(targetName) + "/bin"
-}
-
-func SysinitArchivePath(targetName string) string {
-	return GeneratedBinDir(targetName) + "/sysinit.a"
-}
-
-func (b *Builder) BinDir() string {
-	return BinRoot() + "/" + b.targetPkg.Name() + "/" + b.buildName
-}
-
-func (b *Builder) FileBinDir(pkgName string) string {
-	return b.BinDir() + "/" + pkgName
-}
-
-func (b *Builder) PkgBinDir(bpkg *BuildPackage) string {
-	switch bpkg.Type() {
-	case pkg.PACKAGE_TYPE_GENERATED:
-		return GeneratedBinDir(b.targetPkg.Name())
-	default:
-		return b.FileBinDir(bpkg.Name())
-	}
-}
-
-// Generates the path+filename of the specified package's .a file.
-func (b *Builder) ArchivePath(bpkg *BuildPackage) string {
-	return b.PkgBinDir(bpkg) + "/" + filepath.Base(bpkg.Name()) + ".a"
-}
-
-func (b *Builder) AppTempElfPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
-		"_tmp.elf"
-}
-
-func (b *Builder) AppElfPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
-		".elf"
-}
-
-func (b *Builder) AppLinkerElfPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
-		"linker.elf"
-}
-
-func (b *Builder) AppImgPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
-		".img"
-}
-
-func (b *Builder) AppBinPath() string {
-	return b.AppElfPath() + ".bin"
-}
-
-func (b *Builder) AppPath() string {
-	return b.PkgBinDir(b.appPkg) + "/"
-}
-
-func (b *Builder) ManifestPath() string {
-	return b.AppPath() + "/manifest.json"
-}
-
-func (b *Builder) AppBinBasePath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name())
-}
-
-func MfgBinDir(mfgPkgName string) string {
-	return BinRoot() + "/" + mfgPkgName
-}
-
-func MfgBinPath(mfgPkgName string) string {
-	return MfgBinDir(mfgPkgName) + "/" + filepath.Base(mfgPkgName) + ".mfg"
-}
-
-func MfgSectionPath(mfgPkgName string, sectionNum int) string {
-	return fmt.Sprintf("%s/%s-s%d.bin", MfgBinDir(mfgPkgName),
-		filepath.Base(mfgPkgName), sectionNum)
-}
 
 func TestTargetName(testPkgName string) string {
 	return strings.Replace(testPkgName, "/", "_", -1)

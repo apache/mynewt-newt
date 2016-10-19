@@ -54,13 +54,19 @@ func resolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
 }
 
 func mfgCreate(mi *mfg.MfgImage) {
-	binPath, sectionPaths, err := mi.CreateMfgImage()
-	if err != nil {
-		NewtUsage(nil, err)
+	pathStr := ""
+	for _, path := range mi.SrcPaths() {
+		pathStr += "    * " + path + "\n"
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Created manufacturing image: %s\n", binPath)
+		"Creating a manufacturing image from the following files:\n%s",
+		pathStr)
+
+	sectionPaths, err := mi.CreateMfgImage()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
 
 	for _, sectionPath := range sectionPaths {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -151,31 +157,25 @@ func AddMfgCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(mfgCmd)
 
-	mfgCreateHelpText := "TBD"
 	mfgCreateCmd := &cobra.Command{
 		Use:       "create <mfg-package-name>",
 		Short:     "Create a manufacturing flash image",
-		Long:      mfgCreateHelpText,
 		Run:       mfgCreateRunCmd,
 		ValidArgs: mfgList(),
 	}
 	mfgCmd.AddCommand(mfgCreateCmd)
 
-	mfgLoadHelpText := "TBD"
 	mfgLoadCmd := &cobra.Command{
 		Use:       "load <mfg-package-name>",
 		Short:     "Load a manufacturing flash image onto a device",
-		Long:      mfgLoadHelpText,
 		Run:       mfgLoadRunCmd,
 		ValidArgs: mfgList(),
 	}
 	mfgCmd.AddCommand(mfgLoadCmd)
 
-	mfgDeployHelpText := "TBD"
 	mfgDeployCmd := &cobra.Command{
 		Use:       "deploy <mfg-package-name>",
 		Short:     "Builds and uploads a manufacturing image (build + load)",
-		Long:      mfgDeployHelpText,
 		Run:       mfgDeployRunCmd,
 		ValidArgs: mfgList(),
 	}

@@ -22,17 +22,24 @@ package mfg
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/flash"
-	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
+
+type mfgManifest struct {
+	BuildTime string `json:"build_time"`
+	MfgHash   string `json:"mfg_hash"`
+}
 
 func insertPartIntoBlob(blob []byte, part mfgPart) {
 	partEnd := part.offset + len(part.data)
@@ -153,74 +160,25 @@ func createSectionHeader(deviceId int, offset int, size int) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (mi *MfgImage) createBlob(parts []mfgPart) ([]byte, error) {
-	section0Data, hashSubOff, err := mi.section0Data(parts)
+// @return						[section0blob, section1blob,...], hash, err
+func (mi *MfgImage) createDeviceSections(parts []mfgPart) (
+	[][]byte, []byte, error) {
+
+	section0Data, hashOff, err := mi.section0Data(parts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	hashOff := MFG_IMAGE_HEADER_SIZE + MFG_IMAGE_SECTION_HEADER_SIZE +
-		hashSubOff
+	// XXX: Append additional flash device sections.
 
-	imageHdr, err := createImageHeader(hashOff)
-	if err != nil {
-		return nil, err
-	}
+	// Calculate manufacturing has.
+	sections := [][]byte{section0Data}
+	hash := calcMetaHash(sections)
 
-	section0Hdr, err := createSectionHeader(0, 0, len(section0Data))
-	if err != nil {
-		return nil, err
-	}
+	// Write hash to meta region in section 0.
+	copy(section0Data[hashOff:hashOff+META_HASH_SZ], hash)
 
-	blob := append(imageHdr, section0Hdr...)
-	blob = append(blob, section0Data...)
-
-	fillMetaHash(blob, hashOff)
-
-	return blob, nil
-}
-
-// @return                      bin-path, error
-func (mi *MfgImage) buildBoot() (string, error) {
-	t, err := builder.NewTargetBuilder(mi.boot)
-	if err != nil {
-		return "", err
-	}
-
-	if err := t.Build(); err != nil {
-		return "", err
-	}
-
-	binPath := t.AppBuilder.AppBinPath()
-	project.ResetProject()
-
-	return binPath, nil
-}
-
-// @return                      [[loader-path], app-path], error
-func (mi *MfgImage) buildTarget(target *target.Target) ([]string, error) {
-	t, err := builder.NewTargetBuilder(target)
-	if err != nil {
-		return nil, err
-	}
-
-	// XXX: Currently using made up version and key values.
-	appImg, loaderImg, err := t.CreateImages("99.0.99.0", "", 0)
-	if err != nil {
-		return nil, err
-	}
-
-	paths := []string{}
-
-	if loaderImg != nil {
-		paths = append(paths, loaderImg.TargetImg)
-	}
-
-	paths = append(paths, appImg.TargetImg)
-
-	project.ResetProject()
-
-	return paths, nil
+	return sections, hash, nil
 }
 
 func areaNameFromImgIdx(imgIdx int) (string, error) {
@@ -245,88 +203,258 @@ func (mi *MfgImage) rawSectionParts() []mfgPart {
 	return parts
 }
 
-func (mi *MfgImage) build() ([]byte, error) {
-	bootPath, err := mi.buildBoot()
-	if err != nil {
-		return nil, err
+func bootLoaderBinPaths(t *target.Target) []string {
+	return []string{
+		/* boot.elf */
+		builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
+
+		/* boot.elf.bin */
+		builder.AppBinPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
+
+		/* manifest.json */
+		builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
+	}
+}
+
+func loaderBinPaths(t *target.Target) []string {
+	if t.LoaderName == "" {
+		return nil
 	}
 
-	paths := []string{bootPath}
+	return []string{
+		/* <loader>.elf */
+		builder.AppElfPath(t.Name(), builder.BUILD_NAME_LOADER,
+			t.Loader().Name()),
+	}
+}
 
-	bootPart, err := mi.partFromImage(
-		paths[0],
-		flash.FLASH_AREA_NAME_BOOTLOADER)
-	if err != nil {
-		return nil, err
+func appBinPaths(t *target.Target) []string {
+	return []string{
+		/* <app>.elf */
+		builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
+
+		/* <app>.img */
+		builder.AppImgPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
+
+		/* manifest.json */
+		builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
+	}
+}
+
+func imageBinPaths(t *target.Target) []string {
+	paths := loaderBinPaths(t)
+	paths = append(paths, appBinPaths(t)...)
+	return paths
+}
+
+func (mi *MfgImage) copyBinFile(srcPath string, dstDir string) error {
+	dstPath := dstDir + "/" + filepath.Base(srcPath)
+
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "copying file %s --> %s\n",
+		srcPath, dstPath)
+
+	if err := util.CopyFile(srcPath, dstPath); err != nil {
+		return err
 	}
 
-	imgParts := []mfgPart{}
-	for _, img := range mi.images {
-		paths, err := mi.buildTarget(img)
+	return nil
+}
+
+func (mi *MfgImage) copyBinFiles() error {
+	dstPath := builder.MfgBinDir(mi.basePkg.Name())
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	bootPaths := bootLoaderBinPaths(mi.boot)
+	for _, path := range bootPaths {
+		dstDir := builder.MfgBinBootDir(mi.basePkg.Name())
+		if err := mi.copyBinFile(path, dstDir); err != nil {
+			return err
+		}
+	}
+
+	for i, imgTarget := range mi.images {
+		imgPaths := imageBinPaths(imgTarget)
+		dstDir := builder.MfgBinImageDir(mi.basePkg.Name(), i)
+		for _, path := range imgPaths {
+			if err := mi.copyBinFile(path, dstDir); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (mi *MfgImage) dstBootBinPath() string {
+	if mi.boot == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%s/%s.elf.bin",
+		builder.MfgBinBootDir(mi.basePkg.Name()),
+		pkg.ShortName(mi.boot.App()))
+}
+
+func (mi *MfgImage) dstImgPath(imgIdx int) string {
+	var pack *pkg.LocalPackage
+
+	if len(mi.images) >= 1 {
+		switch imgIdx {
+		case 0:
+			if mi.images[0].LoaderName != "" {
+				pack = mi.images[0].Loader()
+			} else {
+				pack = mi.images[0].App()
+			}
+
+		case 1:
+			if mi.images[0].LoaderName != "" {
+				pack = mi.images[0].App()
+			} else {
+				if len(mi.images) >= 2 {
+					pack = mi.images[1].App()
+				}
+			}
+
+		default:
+			panic(fmt.Sprintf("invalid image index: %d", imgIdx))
+		}
+	}
+
+	if pack == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%s/%s.img",
+		builder.MfgBinImageDir(mi.basePkg.Name(), imgIdx), pkg.ShortName(pack))
+}
+
+func (mi *MfgImage) targetParts() ([]mfgPart, error) {
+	parts := []mfgPart{}
+
+	bootPath := mi.dstBootBinPath()
+	if bootPath != "" {
+		bootPart, err := mi.partFromImage(
+			bootPath, flash.FLASH_AREA_NAME_BOOTLOADER)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, path := range paths {
-			areaName, err := areaNameFromImgIdx(len(imgParts))
+		parts = append(parts, bootPart)
+	}
+
+	for i := 0; i < 2; i++ {
+		imgPath := mi.dstImgPath(i)
+		if imgPath != "" {
+			areaName, err := areaNameFromImgIdx(i)
 			if err != nil {
 				return nil, err
 			}
 
-			part, err := mi.partFromImage(path, areaName)
+			part, err := mi.partFromImage(imgPath, areaName)
 			if err != nil {
 				return nil, err
 			}
-			imgParts = append(imgParts, part)
+			parts = append(parts, part)
 		}
 	}
 
-	sectionParts := mi.rawSectionParts()
+	return parts, nil
+}
 
-	parts := []mfgPart{bootPart}
-	parts = append(parts, imgParts...)
-	parts = append(parts, sectionParts...)
+// Returns a slice containing the path of each file required to build the
+// manufacturing image.
+func (mi *MfgImage) SrcPaths() []string {
+	paths := []string{}
 
+	if mi.boot != nil {
+		paths = append(paths, bootLoaderBinPaths(mi.boot)...)
+	}
+	if len(mi.images) >= 1 {
+		paths = append(paths, imageBinPaths(mi.images[0])...)
+	}
+	if len(mi.images) >= 2 {
+		paths = append(paths, imageBinPaths(mi.images[1])...)
+	}
+
+	for _, raw := range mi.rawSections {
+		paths = append(paths, raw.filename)
+	}
+
+	return paths
+}
+
+// @return						[section0blob, section1blob,...], hash, err
+func (mi *MfgImage) build() ([][]byte, []byte, error) {
+	if err := mi.copyBinFiles(); err != nil {
+		return nil, nil, err
+	}
+
+	targetParts, err := mi.targetParts()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rawParts := mi.rawSectionParts()
+
+	parts := append(targetParts, rawParts...)
 	sortParts(parts)
 
-	blob, err := mi.createBlob(parts)
+	deviceSections, hash, err := mi.createDeviceSections(parts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return deviceSections, hash, nil
+}
+
+func (mi *MfgImage) createManifest(hash []byte) ([]byte, error) {
+	manifest := mfgManifest{
+		BuildTime: time.Now().Format(time.RFC3339),
+		MfgHash:   fmt.Sprintf("%x", hash),
+	}
+	buffer, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return nil, util.FmtNewtError("Failed to encode mfg manifest: %s",
+			err.Error())
+	}
+
+	return buffer, nil
+}
+
+// @return                      [paths-of-sections], error
+func (mi *MfgImage) CreateMfgImage() ([]string, error) {
+	sections, hash, err := mi.build()
 	if err != nil {
 		return nil, err
 	}
 
-	return blob, nil
-}
-
-// @return                      path-of-image, [paths-of-sections], error
-func (mi *MfgImage) CreateMfgImage() (string, []string, error) {
-	blob, err := mi.build()
-	if err != nil {
-		return "", nil, err
-	}
-
-	dstPath := builder.MfgBinPath(mi.basePkg.Name())
-
-	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
-		return "", nil, util.ChildNewtError(err)
-	}
-
-	if err := ioutil.WriteFile(dstPath, blob, 0644); err != nil {
-		return "", nil, util.ChildNewtError(err)
-	}
-
-	sections, err := mi.ExtractSections()
-	if err != nil {
-		return "", nil, err
+	sectionDir := builder.MfgSectionDir(mi.basePkg.Name())
+	if err := os.MkdirAll(sectionDir, 0755); err != nil {
+		return nil, util.ChildNewtError(err)
 	}
 
 	sectionPaths := make([]string, len(sections))
 	for i, section := range sections {
 		sectionPath := builder.MfgSectionPath(mi.basePkg.Name(), i)
 		if err := ioutil.WriteFile(sectionPath, section, 0644); err != nil {
-			return "", nil, util.ChildNewtError(err)
+			return nil, util.ChildNewtError(err)
 		}
 		sectionPaths[i] = sectionPath
 	}
 
-	return dstPath, sectionPaths, nil
+	manifest, err := mi.createManifest(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	manifestPath := builder.MfgManifestPath(mi.basePkg.Name())
+	if err := ioutil.WriteFile(manifestPath, manifest, 0644); err != nil {
+		return nil, util.FmtNewtError("Failed to write mfg manifest file: %s",
+			err.Error())
+	}
+
+	return sectionPaths, nil
 }

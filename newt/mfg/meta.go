@@ -180,25 +180,15 @@ func insertMeta(section0Data []byte, flashMap flash.FlashMap) (int, error) {
 	return metaOff + hashSubOff, nil
 }
 
-func calcMetaHash(mfgImageBlob []byte, hashOffset int) []byte {
-	// Temporarily zero-out old contents for hash calculation.
-	oldContents := make([]byte, META_HASH_SZ)
-	copy(oldContents, mfgImageBlob[hashOffset:hashOffset+META_HASH_SZ])
-
-	for i := 0; i < META_HASH_SZ; i++ {
-		mfgImageBlob[hashOffset+i] = 0
+func calcMetaHash(deviceSections [][]byte) []byte {
+	// Concatenate all device sections.
+	blob := []byte{}
+	for _, section := range deviceSections {
+		blob = append(blob, section...)
 	}
 
 	// Calculate hash.
-	hash := sha256.Sum256(mfgImageBlob)
-
-	// Restore old contents.
-	copy(mfgImageBlob[hashOffset:hashOffset+META_HASH_SZ], oldContents)
+	hash := sha256.Sum256(blob)
 
 	return hash[:]
-}
-
-func fillMetaHash(mfgImageBlob []byte, hashOffset int) {
-	hash := calcMetaHash(mfgImageBlob, hashOffset)
-	copy(mfgImageBlob[hashOffset:hashOffset+META_HASH_SZ], hash)
 }

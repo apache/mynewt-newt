@@ -250,7 +250,7 @@ func (t *TargetBuilder) PrepBuild() error {
 	}
 
 	if loaderPkgs != nil {
-		t.LoaderBuilder, err = NewBuilder(t, "loader", loaderPkgs,
+		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER, loaderPkgs,
 			cfgResolution.ApiMap, cfgResolution.Cfg)
 		if err != nil {
 			return err
@@ -266,7 +266,7 @@ func (t *TargetBuilder) PrepBuild() error {
 		t.LoaderList = project.ResetDeps(nil)
 	}
 
-	t.AppBuilder, err = NewBuilder(t, "app", appPkgs,
+	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, appPkgs,
 		cfgResolution.ApiMap, cfgResolution.Cfg)
 	if err != nil {
 		return err
