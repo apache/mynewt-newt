@@ -260,6 +260,13 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 		srcDirs = append(srcDirs, srcDir)
 	}
 
+	// Make sure we restore the current working dir to whatever it was when this function was called
+	cwd, err := os.Getwd()
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Unable to determine current working directory: %v", err))
+	}
+	defer os.Chdir(cwd)
+
 	for _, dir := range srcDirs {
 		if err = buildDir(dir, c, b.targetBuilder.bspPkg.Arch, nil); err != nil {
 			return err
