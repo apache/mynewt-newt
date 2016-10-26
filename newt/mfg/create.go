@@ -225,6 +225,10 @@ func loaderBinPaths(t *target.Target) []string {
 		/* <loader>.elf */
 		builder.AppElfPath(t.Name(), builder.BUILD_NAME_LOADER,
 			t.Loader().Name()),
+
+		/* <app>.img */
+		builder.AppImgPath(t.Name(), builder.BUILD_NAME_LOADER,
+			t.Loader().Name()),
 	}
 }
 
@@ -297,25 +301,29 @@ func (mi *MfgImage) dstBootBinPath() string {
 		pkg.ShortName(mi.boot.App()))
 }
 
-func (mi *MfgImage) dstImgPath(imgIdx int) string {
+func (mi *MfgImage) dstImgPath(slotIdx int) string {
 	var pack *pkg.LocalPackage
+	var imgIdx int
 
 	if len(mi.images) >= 1 {
-		switch imgIdx {
+		switch slotIdx {
 		case 0:
 			if mi.images[0].LoaderName != "" {
 				pack = mi.images[0].Loader()
 			} else {
 				pack = mi.images[0].App()
 			}
+			imgIdx = 0
 
 		case 1:
 			if mi.images[0].LoaderName != "" {
 				pack = mi.images[0].App()
+				imgIdx = 0
 			} else {
 				if len(mi.images) >= 2 {
 					pack = mi.images[1].App()
 				}
+				imgIdx = 1
 			}
 
 		default:
