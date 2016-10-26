@@ -290,9 +290,6 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 			}
 
 			t = baseTarget.Clone(proj.LocalRepo(), targetName)
-			if err := t.Save(); err != nil {
-				NewtUsage(nil, err)
-			}
 		}
 
 		b, err := builder.NewTargetTester(t, pack)
