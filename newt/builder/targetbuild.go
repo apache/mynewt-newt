@@ -22,6 +22,7 @@ package builder
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -290,56 +291,25 @@ func (t *TargetBuilder) PrepBuild() error {
 	return nil
 }
 
-func (t *TargetBuilder) Build() error {
-	var err error
-	var linkerScript string
-
-	if err = t.PrepBuild(); err != nil {
-		return err
-	}
-
-	/* Build the Apps */
-	project.ResetDeps(t.AppList)
-
-	if err := t.bspPkg.Reload(t.AppBuilder.cfg.Features()); err != nil {
-		return err
-	}
-
-	err = t.AppBuilder.Build()
-	if err != nil {
-		return err
-	}
-
-	/* if we have no loader, we are done here.  All of the rest of this
-	 * function is for split images */
-	if t.LoaderBuilder == nil {
-		err = t.AppBuilder.Link(t.bspPkg.LinkerScript)
-		return err
-	}
-
+func (t *TargetBuilder) buildLoader() error {
 	/* Link the app as a test (using the normal single image linker script) */
-	err = t.AppBuilder.TestLink(t.bspPkg.LinkerScript)
-	if err != nil {
+	if err := t.AppBuilder.TestLink(t.bspPkg.LinkerScript); err != nil {
 		return err
 	}
 
 	/* rebuild the loader */
 	project.ResetDeps(t.LoaderList)
 
-	if err = t.bspPkg.Reload(t.LoaderBuilder.cfg.Features()); err != nil {
+	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.Features()); err != nil {
 		return err
 	}
 
-	err = t.LoaderBuilder.Build()
-
-	if err != nil {
+	if err := t.LoaderBuilder.Build(); err != nil {
 		return err
 	}
 
 	/* perform a test link of the loader */
-	err = t.LoaderBuilder.TestLink(t.bspPkg.LinkerScript)
-
-	if err != nil {
+	if err := t.LoaderBuilder.TestLink(t.bspPkg.LinkerScript); err != nil {
 		return err
 	}
 
@@ -362,15 +332,57 @@ func (t *TargetBuilder) Build() error {
 
 	/* set up the linker elf and linker script for the app */
 	t.AppBuilder.linkElf = t.LoaderBuilder.AppLinkerElfPath()
-	linkerScript = t.bspPkg.Part2LinkerScript
+	linkerScript := t.bspPkg.Part2LinkerScript
 
 	if linkerScript == "" {
 		return util.NewNewtError("BSP must specify linker script ")
 	}
 
-	/* link the app */
-	err = t.AppBuilder.Link(linkerScript)
-	if err != nil {
+	return nil
+
+}
+
+func (t *TargetBuilder) Build() error {
+	if err := t.PrepBuild(); err != nil {
+		return err
+	}
+
+	/* Build the Apps */
+	project.ResetDeps(t.AppList)
+
+	if err := t.bspPkg.Reload(t.AppBuilder.cfg.Features()); err != nil {
+		return err
+	}
+
+	if err := t.AppBuilder.Build(); err != nil {
+		return err
+	}
+
+	linkerScript := ""
+	if t.LoaderBuilder == nil {
+		linkerScript = t.bspPkg.LinkerScript
+		if linkerScript == "" {
+			return util.NewNewtError("BSP does not specify linker script")
+		}
+	} else {
+		if err := t.buildLoader(); err != nil {
+			return err
+		}
+
+		linkerScript = t.bspPkg.Part2LinkerScript
+		if linkerScript == "" {
+			return util.NewNewtError(
+				"BSP does not specify part 2 linker script for split image")
+		}
+	}
+
+	/* Link the app. */
+	if err := t.AppBuilder.Link(linkerScript); err != nil {
+		return err
+	}
+
+	/* Create manifest. */
+	if err := t.createManifest(); err != nil {
 		return err
 	}
 
@@ -554,42 +566,40 @@ func (t *TargetBuilder) GetTarget() *target.Target {
 	return t.target
 }
 
-func (t *TargetBuilder) createManifest(
-	appImg *image.Image,
-	loaderImg *image.Image,
-	buildId []byte) error {
+func readManifest(path string) (*image.ImageManifest, error) {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, util.ChildNewtError(err)
+	}
 
-	versionStr := fmt.Sprintf("%d.%d.%d.%d",
-		appImg.Version.Major, appImg.Version.Minor,
-		appImg.Version.Rev, appImg.Version.BuildNum)
-	hashStr := fmt.Sprintf("%x", appImg.Hash)
-	timeStr := time.Now().Format(time.RFC3339)
+	manifest := &image.ImageManifest{}
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		return nil, util.FmtNewtError(
+			"Failure decoding manifest with path \"%s\": %s", err.Error())
+	}
 
+	return manifest, nil
+}
+
+func (t *TargetBuilder) createManifest() error {
 	manifest := &image.ImageManifest{
-		Version:   versionStr,
-		ImageHash: hashStr,
-		Image:     filepath.Base(appImg.TargetImg),
-		Date:      timeStr,
+		Date: time.Now().Format(time.RFC3339),
 	}
 
 	rm := image.NewRepoManager()
-	for _, builtPkg := range t.AppBuilder.PkgMap {
+	for _, lpkg := range t.AppBuilder.sortedLocalPackages() {
 		manifest.Pkgs = append(manifest.Pkgs,
-			rm.GetImageManifestPkg(builtPkg.LocalPackage))
+			rm.GetImageManifestPkg(lpkg))
 	}
 
-	if loaderImg != nil {
-		manifest.Loader = filepath.Base(loaderImg.TargetImg)
-		manifest.LoaderHash = fmt.Sprintf("%x", loaderImg.Hash)
-
-		for _, builtPkg := range t.LoaderBuilder.PkgMap {
+	if t.LoaderBuilder != nil {
+		for _, lpkg := range t.LoaderBuilder.sortedLocalPackages() {
 			manifest.LoaderPkgs = append(manifest.LoaderPkgs,
-				rm.GetImageManifestPkg(builtPkg.LocalPackage))
+				rm.GetImageManifestPkg(lpkg))
 		}
 	}
-	manifest.Repos = rm.AllRepos()
 
-	manifest.BuildID = fmt.Sprintf("%x", buildId)
+	manifest.Repos = rm.AllRepos()
 
 	vars := t.GetTarget().Vars
 	keys := make([]string, 0, len(vars))
@@ -600,6 +610,56 @@ func (t *TargetBuilder) createManifest(
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
+	file, err := os.Create(t.AppBuilder.ManifestPath())
+	if err != nil {
+		return util.FmtNewtError("Cannot create manifest file %s: %s",
+			t.AppBuilder.ManifestPath(), err.Error())
+	}
+	defer file.Close()
+
+	buffer, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return util.FmtNewtError("Cannot encode manifest: %s", err.Error())
+	}
+	_, err = file.Write(buffer)
+	if err != nil {
+		return util.FmtNewtError("Cannot write manifest file: %s",
+			err.Error())
+	}
+
+	return nil
+}
+
+// Reads an existing manifest file and augments it with image fields:
+//     * Image version
+//     * App image path
+//     * App image hash
+//     * Loader image path
+//     * Loader image hash
+//     * Build ID
+func (t *TargetBuilder) augmentManifest(
+	appImg *image.Image,
+	loaderImg *image.Image,
+	buildId []byte) error {
+
+	manifest, err := readManifest(t.AppBuilder.ManifestPath())
+	if err != nil {
+		return err
+	}
+
+	manifest.Version = fmt.Sprintf("%d.%d.%d.%d",
+		appImg.Version.Major, appImg.Version.Minor,
+		appImg.Version.Rev, appImg.Version.BuildNum)
+	manifest.ImageHash = fmt.Sprintf("%x", appImg.Hash)
+	manifest.Image = filepath.Base(appImg.TargetImg)
+
+	if loaderImg != nil {
+		manifest.Loader = filepath.Base(loaderImg.TargetImg)
+		manifest.LoaderHash = fmt.Sprintf("%x", loaderImg.Hash)
+	}
+
+	manifest.BuildID = fmt.Sprintf("%x", buildId)
+
 	file, err := os.Create(t.AppBuilder.ManifestPath())
 	if err != nil {
 		return util.FmtNewtError("Cannot create manifest file %s: %s",
@@ -646,7 +706,7 @@ func (t *TargetBuilder) CreateImages(version string,
 	}
 
 	buildId := image.CreateBuildId(appImg, loaderImg)
-	if err := t.createManifest(appImg, loaderImg, buildId); err != nil {
+	if err := t.augmentManifest(appImg, loaderImg, buildId); err != nil {
 		return nil, nil, err
 	}
 
