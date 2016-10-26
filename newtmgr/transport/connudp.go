@@ -89,7 +89,7 @@ func (cs *ConnUDP) ReadPacket() (*Packet, error) {
 			err.Error()))
 	}
 	data = data[0:nr]
-	fmt.Printf("Received message from %v %d\n", srcAddr, nr)
+
 	pkt, err := NewPacket(uint16(nr))
 	if err != nil {
 		return nil, err
