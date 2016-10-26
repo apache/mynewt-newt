@@ -217,6 +217,10 @@ func (cs *ConnSerial) WritePacket(pkt *Packet) error {
 		if written == 0 {
 			cs.writeData([]byte{6, 9})
 		} else {
+			/* slower platforms take some time to process each segment
+			 * and have very small receive buffers.  Give them a bit of
+			 * time here */
+			time.Sleep(20 * time.Millisecond)
 			cs.writeData([]byte{4, 20})
 		}
 
