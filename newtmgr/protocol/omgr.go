@@ -46,6 +46,9 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 		return nil, util.NewNewtError(fmt.Sprintf(
 			"Oicmgr request invalid %s", err.Error()))
 	}
+	if req.Code == coap.GET || req.Code == coap.PUT {
+		return nil, nil
+	}
 	if req.Code != coap.Created && req.Code != coap.Deleted &&
 		req.Code != coap.Valid && req.Code != coap.Changed &&
 		req.Code != coap.Content {

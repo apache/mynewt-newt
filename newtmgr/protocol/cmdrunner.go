@@ -51,6 +51,9 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 		if err != nil {
 			return nil, err
 		}
+		if nmrfrag == nil {
+			continue
+		}
 		if nmrfrag.Op == NMGR_OP_READ_RSP || nmrfrag.Op == NMGR_OP_WRITE_RSP {
 			nmr.Data = append(nmr.Data, nmrfrag.Data...)
 			nmr.Len += nmrfrag.Len
