@@ -361,9 +361,6 @@ func (t *TargetBuilder) Build() error {
 	linkerScript := ""
 	if t.LoaderBuilder == nil {
 		linkerScript = t.bspPkg.LinkerScript
-		if linkerScript == "" {
-			return util.NewNewtError("BSP does not specify linker script")
-		}
 	} else {
 		if err := t.buildLoader(); err != nil {
 			return err
