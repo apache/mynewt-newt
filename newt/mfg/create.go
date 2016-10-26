@@ -20,8 +20,6 @@
 package mfg
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -129,35 +127,6 @@ func (mi *MfgImage) section0Data(parts []mfgPart) ([]byte, int, error) {
 
 	return blob, hashOffset, nil
 
-}
-
-func createImageHeader(hashOffset int) ([]byte, error) {
-	buf := &bytes.Buffer{}
-
-	hdr := mfgImageHeader{
-		Version:    uint8(MFG_IMAGE_VERSION),
-		HashOffset: uint32(hashOffset),
-	}
-	if err := binary.Write(buf, binary.BigEndian, hdr); err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	return buf.Bytes(), nil
-}
-
-func createSectionHeader(deviceId int, offset int, size int) ([]byte, error) {
-	buf := &bytes.Buffer{}
-
-	sectionHdr := mfgImageSectionHeader{
-		DeviceId: uint8(deviceId),
-		Offset:   uint32(offset),
-		Size:     uint32(size),
-	}
-	if err := binary.Write(buf, binary.BigEndian, sectionHdr); err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	return buf.Bytes(), nil
 }
 
 // @return						[section0blob, section1blob,...], hash, err

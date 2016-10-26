@@ -20,30 +20,11 @@
 package mfg
 
 import (
-	"encoding/binary"
-
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 )
 
 const MFG_YAML_FILENAME string = "mfg.yml"
-
-const MFG_IMAGE_VERSION = 1
-
-type mfgImageHeader struct {
-	Version    uint8 // 0x01
-	_          uint8
-	_          uint16
-	HashOffset uint32
-}
-
-type mfgImageSectionHeader struct {
-	DeviceId uint8
-	_        uint8
-	_        uint16
-	Offset   uint32 // Offset within flash device.
-	Size     uint32 // Does not include header.
-}
 
 type MfgRawEntry struct {
 	offset   int
@@ -68,6 +49,3 @@ type MfgImage struct {
 	images     []*target.Target
 	rawEntries []MfgRawEntry
 }
-
-var MFG_IMAGE_HEADER_SIZE = binary.Size(mfgImageHeader{})
-var MFG_IMAGE_SECTION_HEADER_SIZE = binary.Size(mfgImageSectionHeader{})
