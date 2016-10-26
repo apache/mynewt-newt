@@ -30,8 +30,8 @@ import (
 )
 
 type OicRsp struct {
-	Read  map[string]interface{} `codec:"r"`
-	Write map[string]interface{} `codec:"w"`
+	Read  interface{} `codec:"r"`
+	Write interface{} `codec:"w"`
 }
 
 /*
@@ -46,7 +46,12 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 		return nil, util.NewNewtError(fmt.Sprintf(
 			"Oicmgr request invalid %s", err.Error()))
 	}
-	log.Debugf("Deserialized COAP %+v", req)
+	if req.Code != coap.Created && req.Code != coap.Deleted &&
+		req.Code != coap.Valid && req.Code != coap.Changed &&
+		req.Code != coap.Content {
+		return nil, util.NewNewtError(fmt.Sprintf(
+			"OIC error rsp: %s", req.Code.String()))
+	}
 
 	var rsp OicRsp
 	err = codec.NewDecoderBytes(req.Payload, new(codec.CborHandle)).Decode(&rsp)
@@ -54,17 +59,19 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
+	log.Debugf("Deserialized response %+v", rsp)
 
 	nmr := &NmgrReq{}
 
 	var ndata []byte = make([]byte, 0)
-	if len(rsp.Read) != 0 {
+
+	if rsp.Read != nil {
 		err = codec.NewEncoderBytes(&ndata,
 			new(codec.CborHandle)).Encode(rsp.Read)
 		nmr.Op = NMGR_OP_READ_RSP
 	} else {
 		err = codec.NewEncoderBytes(&ndata,
-			new(codec.CborHandle)).Encode(rsp.Read)
+			new(codec.CborHandle)).Encode(rsp.Write)
 		nmr.Op = NMGR_OP_WRITE_RSP
 	}
 	if err != nil {
