@@ -101,9 +101,14 @@ func MfgBinImageDir(mfgPkgName string, imageIdx int) string {
 func MfgSectionDir(mfgPkgName string) string {
 	return MfgBinDir(mfgPkgName) + "/sections"
 }
+
 func MfgSectionPath(mfgPkgName string, sectionNum int) string {
 	return fmt.Sprintf("%s/%s-s%d.bin", MfgSectionDir(mfgPkgName),
 		filepath.Base(mfgPkgName), sectionNum)
+}
+
+func MfgManifestPath(mfgPkgName string) string {
+	return MfgBinDir(mfgPkgName) + "/manifest.json"
 }
 
 func (b *Builder) BinDir() string {
