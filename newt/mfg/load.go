@@ -77,42 +77,42 @@ func (mi *MfgImage) loadTarget(targetName string) (
 	return tgt, nil
 }
 
-func (mi *MfgImage) loadRawSection(
-	entryIdx int, rawEntry map[string]string) (MfgRawSection, error) {
+func (mi *MfgImage) loadRawEntry(
+	entryIdx int, rawEntry map[string]string) (MfgRawEntry, error) {
 
-	section := MfgRawSection{}
+	raw := MfgRawEntry{}
 
 	offsetStr := rawEntry["offset"]
 	if offsetStr == "" {
-		return section, mi.loadError(
+		return raw, mi.loadError(
 			"raw rawEntry %d missing required \"offset\" field", entryIdx)
 	}
 
 	var err error
-	section.offset, err = util.AtoiNoOct(offsetStr)
+	raw.offset, err = util.AtoiNoOct(offsetStr)
 	if err != nil {
-		return section, mi.loadError(
+		return raw, mi.loadError(
 			"raw rawEntry %d contains invalid offset: %s", entryIdx, offsetStr)
 	}
 
-	section.filename = rawEntry["file"]
-	if section.filename == "" {
-		return section, mi.loadError(
+	raw.filename = rawEntry["file"]
+	if raw.filename == "" {
+		return raw, mi.loadError(
 			"raw rawEntry %d missing required \"file\" field", entryIdx)
 	}
 
-	if !strings.HasPrefix(section.filename, "/") {
-		section.filename = mi.basePkg.BasePath() + "/" + section.filename
+	if !strings.HasPrefix(raw.filename, "/") {
+		raw.filename = mi.basePkg.BasePath() + "/" + raw.filename
 	}
 
-	section.data, err = ioutil.ReadFile(section.filename)
+	raw.data, err = ioutil.ReadFile(raw.filename)
 	if err != nil {
-		return section, mi.loadError(
+		return raw, mi.loadError(
 			"error loading file for raw rawEntry %d; filename=%s: %s",
-			entryIdx, section.filename, err.Error())
+			entryIdx, raw.filename, err.Error())
 	}
 
-	return section, nil
+	return raw, nil
 }
 
 func (mi *MfgImage) areaNameToPart(areaName string) (mfgPart, bool) {
@@ -160,7 +160,7 @@ func (mi *MfgImage) detectOverlaps() error {
 		}
 	}
 
-	parts = append(parts, mi.rawSectionParts()...)
+	parts = append(parts, mi.rawEntryParts()...)
 	sortParts(parts)
 
 	overlaps := []overlap{}
@@ -237,13 +237,13 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 	slice := cast.ToSlice(itf)
 	if slice != nil {
 		for i, entryItf := range slice {
-			entry := cast.ToStringMapString(entryItf)
-			section, err := mi.loadRawSection(i, entry)
+			yamlEntry := cast.ToStringMapString(entryItf)
+			entry, err := mi.loadRawEntry(i, yamlEntry)
 			if err != nil {
 				return nil, err
 			}
 
-			mi.rawSections = append(mi.rawSections, section)
+			mi.rawEntries = append(mi.rawEntries, entry)
 		}
 	}
 

@@ -180,10 +180,10 @@ func insertMeta(section0Data []byte, flashMap flash.FlashMap) (int, error) {
 	return metaOff + hashSubOff, nil
 }
 
-func calcMetaHash(deviceSections [][]byte) []byte {
-	// Concatenate all device sections.
+func calcMetaHash(sections [][]byte) []byte {
+	// Concatenate all sections.
 	blob := []byte{}
-	for _, section := range deviceSections {
+	for _, section := range sections {
 		blob = append(blob, section...)
 	}
 

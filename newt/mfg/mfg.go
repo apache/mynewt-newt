@@ -45,14 +45,14 @@ type mfgImageSectionHeader struct {
 	Size     uint32 // Does not include header.
 }
 
-type MfgRawSection struct {
+type MfgRawEntry struct {
 	offset   int
 	filename string
 	data     []byte
 }
 
 // A chunk of data in the manufacturing image.  Can be a firmware image or a
-// raw section (contents of a data file).
+// raw entry (contents of a data file).
 type mfgPart struct {
 	offset int
 	data   []byte
@@ -64,9 +64,9 @@ type MfgImage struct {
 
 	bsp *pkg.BspPackage
 
-	boot        *target.Target
-	images      []*target.Target
-	rawSections []MfgRawSection
+	boot       *target.Target
+	images     []*target.Target
+	rawEntries []MfgRawEntry
 }
 
 var MFG_IMAGE_HEADER_SIZE = binary.Size(mfgImageHeader{})

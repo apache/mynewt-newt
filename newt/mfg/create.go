@@ -101,8 +101,8 @@ func (mi *MfgImage) section0Size() int {
 		greatest = util.IntMax(greatest, image1Area.Offset+image1Area.Size)
 	}
 
-	for _, section := range mi.rawSections {
-		greatest = util.IntMax(greatest, section.offset+len(section.data))
+	for _, entry := range mi.rawEntries {
+		greatest = util.IntMax(greatest, entry.offset+len(entry.data))
 	}
 
 	return greatest
@@ -161,7 +161,7 @@ func createSectionHeader(deviceId int, offset int, size int) ([]byte, error) {
 }
 
 // @return						[section0blob, section1blob,...], hash, err
-func (mi *MfgImage) createDeviceSections(parts []mfgPart) (
+func (mi *MfgImage) createSections(parts []mfgPart) (
 	[][]byte, []byte, error) {
 
 	section0Data, hashOff, err := mi.section0Data(parts)
@@ -169,7 +169,7 @@ func (mi *MfgImage) createDeviceSections(parts []mfgPart) (
 		return nil, nil, err
 	}
 
-	// XXX: Append additional flash device sections.
+	// XXX: Append additional sections.
 
 	// Calculate manufacturing has.
 	sections := [][]byte{section0Data}
@@ -192,12 +192,12 @@ func areaNameFromImgIdx(imgIdx int) (string, error) {
 	}
 }
 
-func (mi *MfgImage) rawSectionParts() []mfgPart {
-	parts := make([]mfgPart, len(mi.rawSections))
-	for i, section := range mi.rawSections {
-		parts[i].name = fmt.Sprintf("section-%d (%s)", i, section.filename)
-		parts[i].offset = section.offset
-		parts[i].data = section.data
+func (mi *MfgImage) rawEntryParts() []mfgPart {
+	parts := make([]mfgPart, len(mi.rawEntries))
+	for i, entry := range mi.rawEntries {
+		parts[i].name = fmt.Sprintf("entry-%d (%s)", i, entry.filename)
+		parts[i].offset = entry.offset
+		parts[i].data = entry.data
 	}
 
 	return parts
@@ -387,7 +387,7 @@ func (mi *MfgImage) SrcPaths() []string {
 		paths = append(paths, imageBinPaths(mi.images[1])...)
 	}
 
-	for _, raw := range mi.rawSections {
+	for _, raw := range mi.rawEntries {
 		paths = append(paths, raw.filename)
 	}
 
@@ -405,17 +405,17 @@ func (mi *MfgImage) build() ([][]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	rawParts := mi.rawSectionParts()
+	rawParts := mi.rawEntryParts()
 
 	parts := append(targetParts, rawParts...)
 	sortParts(parts)
 
-	deviceSections, hash, err := mi.createDeviceSections(parts)
+	sections, hash, err := mi.createSections(parts)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return deviceSections, hash, nil
+	return sections, hash, nil
 }
 
 func (mi *MfgImage) createManifest(hash []byte) ([]byte, error) {
