@@ -55,8 +55,7 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	extraEnvSettings map[string]string) error {
 
 	if bspPkg.DownloadScript == "" {
-		return util.FmtNewtError("No download script for BSP %s\n",
-			bspPkg.Name())
+		return nil
 	}
 
 	bspPath := bspPkg.BasePath()
