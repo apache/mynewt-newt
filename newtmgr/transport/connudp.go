@@ -23,6 +23,8 @@ import (
 	"net"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
 )
@@ -89,7 +91,7 @@ func (cs *ConnUDP) ReadPacket() (*Packet, error) {
 			err.Error()))
 	}
 	data = data[0:nr]
-
+	log.Debugf("Received message from %v %d\n", srcAddr, nr)
 	pkt, err := NewPacket(uint16(nr))
 	if err != nil {
 		return nil, err
