@@ -44,6 +44,15 @@ type ConnSerial struct {
 
 	scanner       *bufio.Scanner
 	serialChannel *serial.Port
+	isOIC         bool
+}
+
+func (cs *ConnSerial) SetOICEncoded(b bool) {
+	cs.isOIC = b
+}
+
+func (cs *ConnSerial) GetOICEncoded() bool {
+	return cs.isOIC
 }
 
 func newSerialConfig(

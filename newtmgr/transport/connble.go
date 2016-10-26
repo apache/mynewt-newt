@@ -43,8 +43,8 @@ var deviceAddressType uint8
 type ConnBLE struct {
 	connProfile   config.NewtmgrConnProfile
 	currentPacket *Packet
-
-	bleDevice gatt.Device
+	bleDevice     gatt.Device
+	isOIC         bool
 }
 
 var deviceChar *gatt.Characteristic
@@ -133,6 +133,14 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 
 func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	log.Debugf("Disconnected", err)
+}
+
+func (cs *ConnBLE) SetOICEncoded(b bool) {
+	cs.isOIC = b
+}
+
+func (cs *ConnBLE) GetOICEncoded() bool {
+	return cs.isOIC
 }
 
 func (cb *ConnBLE) Open(cp config.NewtmgrConnProfile, readTimeout time.Duration) error {

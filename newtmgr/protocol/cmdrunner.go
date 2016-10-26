@@ -42,7 +42,12 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 		bytes := pkt.GetBytes()
 		log.Debugf("Rx packet dump:\n%s", hex.Dump(bytes))
 
-		nmrfrag, err := DeserializeNmgrReq(bytes)
+		var nmrfrag *NmgrReq
+		if cr.Conn.GetOICEncoded() == true {
+			nmrfrag, err = DeserializeOmgrReq(bytes)
+		} else {
+			nmrfrag, err = DeserializeNmgrReq(bytes)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -58,10 +63,15 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 
 func (cr *CmdRunner) WriteReq(nmr *NmgrReq) error {
 	data := []byte{}
+	var err error
 
-	log.Debugf("Writing netmgr request %+v", nmr)
+	log.Debugf("Writing newtmgr request %+v", nmr)
 
-	data, err := nmr.SerializeRequest(data)
+	if cr.Conn.GetOICEncoded() == true {
+		data, err = nmr.SerializeOmgrRequest(data)
+	} else {
+		data, err = nmr.SerializeRequest(data)
+	}
 	if err != nil {
 		return err
 	}

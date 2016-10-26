@@ -32,6 +32,8 @@ type Conn interface {
 	ReadPacket() (*Packet, error)
 	WritePacket(pkt *Packet) error
 	Close() error
+	SetOICEncoded(bool)
+	GetOICEncoded() bool
 }
 
 type Packet struct {
@@ -84,8 +86,22 @@ func newConn(cp config.NewtmgrConnProfile, readTimeout time.Duration) (Conn, err
 	switch cp.Type() {
 	case "serial":
 		c = &ConnSerial{}
+		c.SetOICEncoded(false)
+	case "oic_serial":
+		c = &ConnSerial{}
+		c.SetOICEncoded(true)
 	case "ble":
 		c = &ConnBLE{}
+		c.SetOICEncoded(false)
+	case "oic_ble":
+		c = &ConnBLE{}
+		c.SetOICEncoded(true)
+	case "udp":
+		c = &ConnUDP{}
+		c.SetOICEncoded(false)
+	case "oic_udp":
+		c = &ConnUDP{}
+		c.SetOICEncoded(true)
 	default:
 		return nil, util.NewNewtError("Invalid conn profile " + cp.Type() +
 			" not implemented")
