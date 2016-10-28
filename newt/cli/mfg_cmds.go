@@ -28,7 +28,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func resolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
+func ResolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
 	proj, err := project.TryGetProject()
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func mfgCreateRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	pkgName := args[0]
-	lpkg, err := resolveMfgPkg(pkgName)
+	lpkg, err := ResolveMfgPkg(pkgName)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -111,7 +111,7 @@ func mfgLoadRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	pkgName := args[0]
-	lpkg, err := resolveMfgPkg(pkgName)
+	lpkg, err := ResolveMfgPkg(pkgName)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -130,7 +130,7 @@ func mfgDeployRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	pkgName := args[0]
-	lpkg, err := resolveMfgPkg(pkgName)
+	lpkg, err := ResolveMfgPkg(pkgName)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
