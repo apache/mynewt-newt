@@ -267,7 +267,7 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 				"split image mode (%s is a split build)", imgTarget.Name())
 		}
 
-		if imgTarget.BspName != mi.bsp.Name() {
+		if imgTarget.Bsp() != mi.bsp.LocalPackage {
 			return nil, mi.loadError(
 				"image target \"%s\" specified conflicting BSP; "+
 					"boot loader uses %s, image uses %s",
