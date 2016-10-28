@@ -55,23 +55,25 @@ func resolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
 
 func mfgCreate(mi *mfg.MfgImage) {
 	pathStr := ""
-	for _, path := range mi.SrcPaths() {
+	for _, path := range mi.FromPaths() {
 		pathStr += "    * " + path + "\n"
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Creating a manufacturing image from the following files:\n%s",
+		"Creating a manufacturing image from the following files:\n%s\n",
 		pathStr)
 
-	sectionPaths, err := mi.CreateMfgImage()
+	outputPaths, err := mi.CreateMfgImage()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	for _, sectionPath := range sectionPaths {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Created manufacturing section: %s\n", sectionPath)
+	pathStr = ""
+	for _, path := range outputPaths {
+		pathStr += "    * " + path + "\n"
 	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Generated the following files:\n%s", pathStr)
 }
 
 func mfgLoad(mi *mfg.MfgImage) {

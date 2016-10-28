@@ -20,6 +20,8 @@
 package mfg
 
 import (
+	"sort"
+
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 )
@@ -27,6 +29,7 @@ import (
 const MFG_YAML_FILENAME string = "mfg.yml"
 
 type MfgRawEntry struct {
+	device   int
 	offset   int
 	filename string
 	data     []byte
@@ -48,4 +51,36 @@ type MfgImage struct {
 	boot       *target.Target
 	images     []*target.Target
 	rawEntries []MfgRawEntry
+}
+
+func (mi *MfgImage) imgApps(imageIdx int) (
+	app *pkg.LocalPackage, loader *pkg.LocalPackage) {
+
+	if imageIdx >= len(mi.images) {
+		return
+	}
+
+	t := mi.images[imageIdx]
+	app = t.App()
+	loader = t.Loader()
+	return
+}
+
+func (mi *MfgImage) sectionIds() []int {
+	idMap := map[int]struct{}{}
+
+	// The bootloader and images always go in section 0.
+	idMap[0] = struct{}{}
+
+	for _, entry := range mi.rawEntries {
+		idMap[entry.device] = struct{}{}
+	}
+
+	ids := make([]int, 0, len(idMap))
+	for id, _ := range idMap {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+
+	return ids
 }

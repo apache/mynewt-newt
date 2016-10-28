@@ -20,9 +20,7 @@
 package builder
 
 import (
-	"fmt"
 	"path/filepath"
-	"strconv"
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -89,26 +87,8 @@ func MfgBinDir(mfgPkgName string) string {
 	return BinRoot() + "/" + mfgPkgName
 }
 
-func MfgBinBootDir(mfgPkgName string) string {
+func MfgBootDir(mfgPkgName string) string {
 	return MfgBinDir(mfgPkgName) + "/bootloader"
-}
-
-// Image indices start at 0.
-func MfgBinImageDir(mfgPkgName string, imageIdx int) string {
-	return MfgBinDir(mfgPkgName) + "/image" + strconv.Itoa(imageIdx)
-}
-
-func MfgSectionDir(mfgPkgName string) string {
-	return MfgBinDir(mfgPkgName) + "/sections"
-}
-
-func MfgSectionPath(mfgPkgName string, sectionNum int) string {
-	return fmt.Sprintf("%s/%s-s%d.bin", MfgSectionDir(mfgPkgName),
-		filepath.Base(mfgPkgName), sectionNum)
-}
-
-func MfgManifestPath(mfgPkgName string) string {
-	return MfgBinDir(mfgPkgName) + "/manifest.json"
 }
 
 func (b *Builder) BinDir() string {

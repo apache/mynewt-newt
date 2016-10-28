@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cast"
@@ -82,23 +83,36 @@ func (mi *MfgImage) loadRawEntry(
 
 	raw := MfgRawEntry{}
 
+	var err error
+
+	deviceStr := rawEntry["device"]
+	if deviceStr == "" {
+		return raw, mi.loadError(
+			"raw entry %d missing required \"device\" field", entryIdx)
+	}
+
+	raw.device, err = util.AtoiNoOct(deviceStr)
+	if err != nil {
+		return raw, mi.loadError(
+			"raw entry %d contains invalid offset: %s", entryIdx, deviceStr)
+	}
+
 	offsetStr := rawEntry["offset"]
 	if offsetStr == "" {
 		return raw, mi.loadError(
-			"raw rawEntry %d missing required \"offset\" field", entryIdx)
+			"raw entry %d missing required \"offset\" field", entryIdx)
 	}
 
-	var err error
 	raw.offset, err = util.AtoiNoOct(offsetStr)
 	if err != nil {
 		return raw, mi.loadError(
-			"raw rawEntry %d contains invalid offset: %s", entryIdx, offsetStr)
+			"raw entry %d contains invalid offset: %s", entryIdx, offsetStr)
 	}
 
 	raw.filename = rawEntry["file"]
 	if raw.filename == "" {
 		return raw, mi.loadError(
-			"raw rawEntry %d missing required \"file\" field", entryIdx)
+			"raw entry %d missing required \"file\" field", entryIdx)
 	}
 
 	if !strings.HasPrefix(raw.filename, "/") {
@@ -108,7 +122,7 @@ func (mi *MfgImage) loadRawEntry(
 	raw.data, err = ioutil.ReadFile(raw.filename)
 	if err != nil {
 		return raw, mi.loadError(
-			"error loading file for raw rawEntry %d; filename=%s: %s",
+			"error loading file for raw entry %d; filename=%s: %s",
 			entryIdx, raw.filename, err.Error())
 	}
 
@@ -128,6 +142,39 @@ func (mi *MfgImage) areaNameToPart(areaName string) (mfgPart, bool) {
 	part.name = area.Name
 
 	return part, true
+}
+
+func (mi *MfgImage) detectInvalidDevices() error {
+	sectionIds := mi.sectionIds()
+	deviceIds := mi.bsp.FlashMap.DeviceIds()
+
+	deviceMap := map[int]struct{}{}
+	for _, device := range deviceIds {
+		deviceMap[device] = struct{}{}
+	}
+
+	invalidIds := []int{}
+	for _, sectionId := range sectionIds {
+		if _, ok := deviceMap[sectionId]; !ok {
+			invalidIds = append(invalidIds, sectionId)
+		}
+	}
+
+	if len(invalidIds) == 0 {
+		return nil
+	}
+
+	listStr := ""
+	for i, id := range invalidIds {
+		if i != 0 {
+			listStr += ", "
+		}
+		listStr += strconv.Itoa(id)
+	}
+
+	return util.FmtNewtError(
+		"image specifies flash devices that are not present in the BSP's "+
+			"flash map: %s", listStr)
 }
 
 func (mi *MfgImage) detectOverlaps() error {
@@ -273,6 +320,10 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 					"boot loader uses %s, image uses %s",
 				imgTarget.Name(), mi.bsp.Name(), imgTarget.BspName)
 		}
+	}
+
+	if err := mi.detectInvalidDevices(); err != nil {
+		return nil, err
 	}
 
 	if err := mi.detectOverlaps(); err != nil {

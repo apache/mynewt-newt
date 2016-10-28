@@ -205,6 +205,22 @@ func (flashMap FlashMap) SortedAreas() []FlashArea {
 	return areas
 }
 
+func (flashMap FlashMap) DeviceIds() []int {
+	deviceMap := map[int]struct{}{}
+
+	for _, area := range flashMap.Areas {
+		deviceMap[area.Device] = struct{}{}
+	}
+
+	devices := make([]int, 0, len(deviceMap))
+	for device, _ := range deviceMap {
+		devices = append(devices, device)
+	}
+	sort.Ints(devices)
+
+	return devices
+}
+
 func areasDistinct(a FlashArea, b FlashArea) bool {
 	var lo FlashArea
 	var hi FlashArea

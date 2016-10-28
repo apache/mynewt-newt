@@ -172,7 +172,7 @@ func (mi *MfgImage) rawEntryParts() []mfgPart {
 	return parts
 }
 
-func bootLoaderBinPaths(t *target.Target) []string {
+func bootLoaderFromPaths(t *target.Target) []string {
 	return []string{
 		/* boot.elf */
 		builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
@@ -185,7 +185,7 @@ func bootLoaderBinPaths(t *target.Target) []string {
 	}
 }
 
-func loaderBinPaths(t *target.Target) []string {
+func loaderFromPaths(t *target.Target) []string {
 	if t.LoaderName == "" {
 		return nil
 	}
@@ -201,7 +201,7 @@ func loaderBinPaths(t *target.Target) []string {
 	}
 }
 
-func appBinPaths(t *target.Target) []string {
+func appFromPaths(t *target.Target) []string {
 	return []string{
 		/* <app>.elf */
 		builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
@@ -214,9 +214,9 @@ func appBinPaths(t *target.Target) []string {
 	}
 }
 
-func imageBinPaths(t *target.Target) []string {
-	paths := loaderBinPaths(t)
-	paths = append(paths, appBinPaths(t)...)
+func imageFromPaths(t *target.Target) []string {
+	paths := loaderFromPaths(t)
+	paths = append(paths, appFromPaths(t)...)
 	return paths
 }
 
@@ -234,22 +234,22 @@ func (mi *MfgImage) copyBinFile(srcPath string, dstDir string) error {
 }
 
 func (mi *MfgImage) copyBinFiles() error {
-	dstPath := builder.MfgBinDir(mi.basePkg.Name())
+	dstPath := MfgBinDir(mi.basePkg.Name())
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 		return util.ChildNewtError(err)
 	}
 
-	bootPaths := bootLoaderBinPaths(mi.boot)
+	bootPaths := bootLoaderFromPaths(mi.boot)
 	for _, path := range bootPaths {
-		dstDir := builder.MfgBinBootDir(mi.basePkg.Name())
+		dstDir := MfgBootDir(mi.basePkg.Name())
 		if err := mi.copyBinFile(path, dstDir); err != nil {
 			return err
 		}
 	}
 
 	for i, imgTarget := range mi.images {
-		imgPaths := imageBinPaths(imgTarget)
-		dstDir := builder.MfgBinImageDir(mi.basePkg.Name(), i)
+		imgPaths := imageFromPaths(imgTarget)
+		dstDir := MfgImageBinDir(mi.basePkg.Name(), i)
 		for _, path := range imgPaths {
 			if err := mi.copyBinFile(path, dstDir); err != nil {
 				return err
@@ -266,7 +266,7 @@ func (mi *MfgImage) dstBootBinPath() string {
 	}
 
 	return fmt.Sprintf("%s/%s.elf.bin",
-		builder.MfgBinBootDir(mi.basePkg.Name()),
+		MfgBootDir(mi.basePkg.Name()),
 		pkg.ShortName(mi.boot.App()))
 }
 
@@ -305,7 +305,7 @@ func (mi *MfgImage) dstImgPath(slotIdx int) string {
 	}
 
 	return fmt.Sprintf("%s/%s.img",
-		builder.MfgBinImageDir(mi.basePkg.Name(), imgIdx), pkg.ShortName(pack))
+		MfgImageBinDir(mi.basePkg.Name(), imgIdx), pkg.ShortName(pack))
 }
 
 func (mi *MfgImage) targetParts() ([]mfgPart, error) {
@@ -343,17 +343,17 @@ func (mi *MfgImage) targetParts() ([]mfgPart, error) {
 
 // Returns a slice containing the path of each file required to build the
 // manufacturing image.
-func (mi *MfgImage) SrcPaths() []string {
+func (mi *MfgImage) FromPaths() []string {
 	paths := []string{}
 
 	if mi.boot != nil {
-		paths = append(paths, bootLoaderBinPaths(mi.boot)...)
+		paths = append(paths, bootLoaderFromPaths(mi.boot)...)
 	}
 	if len(mi.images) >= 1 {
-		paths = append(paths, imageBinPaths(mi.images[0])...)
+		paths = append(paths, imageFromPaths(mi.images[0])...)
 	}
 	if len(mi.images) >= 2 {
-		paths = append(paths, imageBinPaths(mi.images[1])...)
+		paths = append(paths, imageFromPaths(mi.images[1])...)
 	}
 
 	for _, raw := range mi.rawEntries {
@@ -401,25 +401,52 @@ func (mi *MfgImage) createManifest(hash []byte) ([]byte, error) {
 	return buffer, nil
 }
 
-// @return                      [paths-of-sections], error
+func appendNonEmptyStr(dst []string, src string) []string {
+	if src != "" {
+		dst = append(dst, src)
+	}
+
+	return dst
+}
+
+func (mi *MfgImage) ToPaths() []string {
+	paths := []string{}
+
+	paths = appendNonEmptyStr(paths, mi.BootBinPath())
+	paths = appendNonEmptyStr(paths, mi.BootElfPath())
+	paths = appendNonEmptyStr(paths, mi.BootManifestPath())
+
+	for i := 0; i < len(mi.images); i++ {
+		paths = appendNonEmptyStr(paths, mi.LoaderImgPath(i))
+		paths = appendNonEmptyStr(paths, mi.LoaderElfPath(i))
+		paths = appendNonEmptyStr(paths, mi.AppImgPath(i))
+		paths = appendNonEmptyStr(paths, mi.AppElfPath(i))
+		paths = appendNonEmptyStr(paths, mi.ImageManifestPath(i))
+	}
+
+	paths = append(paths, mi.SectionBinPaths()...)
+	paths = append(paths, mi.ManifestPath())
+
+	return paths
+}
+
+// @return                      [paths-of-artifacts], error
 func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 	sections, hash, err := mi.build()
 	if err != nil {
 		return nil, err
 	}
 
-	sectionDir := builder.MfgSectionDir(mi.basePkg.Name())
+	sectionDir := MfgSectionBinDir(mi.basePkg.Name())
 	if err := os.MkdirAll(sectionDir, 0755); err != nil {
 		return nil, util.ChildNewtError(err)
 	}
 
-	sectionPaths := make([]string, len(sections))
 	for i, section := range sections {
-		sectionPath := builder.MfgSectionPath(mi.basePkg.Name(), i)
+		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), i)
 		if err := ioutil.WriteFile(sectionPath, section, 0644); err != nil {
 			return nil, util.ChildNewtError(err)
 		}
-		sectionPaths[i] = sectionPath
 	}
 
 	manifest, err := mi.createManifest(hash)
@@ -427,11 +454,11 @@ func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 		return nil, err
 	}
 
-	manifestPath := builder.MfgManifestPath(mi.basePkg.Name())
+	manifestPath := mi.ManifestPath()
 	if err := ioutil.WriteFile(manifestPath, manifest, 0644); err != nil {
 		return nil, util.FmtNewtError("Failed to write mfg manifest file: %s",
 			err.Error())
 	}
 
-	return sectionPaths, nil
+	return mi.ToPaths(), nil
 }
