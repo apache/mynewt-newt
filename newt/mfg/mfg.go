@@ -84,3 +84,7 @@ func (mi *MfgImage) sectionIds() []int {
 
 	return ids
 }
+
+func (mi *MfgImage) NumImages() int {
+	return len(mi.images)
+}
