@@ -511,12 +511,14 @@ func (cfg *Cfg) ErrorText() string {
 	if len(cfg.Violations) > 0 {
 		str += "Syscfg restriction violations detected:\n"
 		for settingName, rslice := range cfg.Violations {
-			entry := cfg.Settings[settingName]
+			baseEntry := cfg.Settings[settingName]
+			historyMap[settingName] = baseEntry.History
 			for _, r := range rslice {
 				for _, name := range r.relevantSettingNames() {
-					historyMap[name] = entry.History
+					reqEntry := cfg.Settings[name]
+					historyMap[name] = reqEntry.History
 				}
-				str += "    " + cfg.violationText(entry, r) + "\n"
+				str += "    " + cfg.violationText(baseEntry, r) + "\n"
 			}
 		}
 	}
