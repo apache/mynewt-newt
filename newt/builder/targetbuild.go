@@ -332,11 +332,6 @@ func (t *TargetBuilder) buildLoader() error {
 
 	/* set up the linker elf and linker script for the app */
 	t.AppBuilder.linkElf = t.LoaderBuilder.AppLinkerElfPath()
-	linkerScript := t.bspPkg.Part2LinkerScript
-
-	if linkerScript == "" {
-		return util.NewNewtError("BSP must specify linker script ")
-	}
 
 	return nil
 
@@ -365,12 +360,7 @@ func (t *TargetBuilder) Build() error {
 		if err := t.buildLoader(); err != nil {
 			return err
 		}
-
 		linkerScript = t.bspPkg.Part2LinkerScript
-		if linkerScript == "" {
-			return util.NewNewtError(
-				"BSP does not specify part 2 linker script for split image")
-		}
 	}
 
 	/* Link the app. */
