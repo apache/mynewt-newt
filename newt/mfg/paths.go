@@ -92,7 +92,7 @@ func (mi *MfgImage) BootBinPath() string {
 	}
 
 	return MfgBootBinPath(mi.basePkg.Name(),
-		pkg.ShortName(mi.boot.Package()))
+		pkg.ShortName(mi.boot.App()))
 }
 
 func (mi *MfgImage) BootElfPath() string {
@@ -100,7 +100,7 @@ func (mi *MfgImage) BootElfPath() string {
 		return ""
 	}
 
-	return MfgBootElfPath(mi.basePkg.Name(), pkg.ShortName(mi.boot.Package()))
+	return MfgBootElfPath(mi.basePkg.Name(), pkg.ShortName(mi.boot.App()))
 }
 
 func (mi *MfgImage) BootManifestPath() string {
@@ -109,7 +109,7 @@ func (mi *MfgImage) BootManifestPath() string {
 	}
 
 	return MfgBootManifestPath(mi.basePkg.Name(),
-		pkg.ShortName(mi.boot.Package()))
+		pkg.ShortName(mi.boot.App()))
 }
 
 func (mi *MfgImage) AppImgPath(imageIdx int) string {

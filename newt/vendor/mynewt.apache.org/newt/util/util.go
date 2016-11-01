@@ -373,7 +373,8 @@ func CopyFile(srcFile string, dstFile string) error {
 		return ChildNewtError(err)
 	}
 
-	out, err := os.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY, info.Mode())
+	out, err := os.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		info.Mode())
 	if err != nil {
 		return ChildNewtError(err)
 	}
@@ -381,13 +382,6 @@ func CopyFile(srcFile string, dstFile string) error {
 
 	if _, err = io.Copy(out, in); err != nil {
 		return ChildNewtError(err)
-	}
-
-	if err := in.Close(); err != nil {
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
 	}
 
 	return nil
