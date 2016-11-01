@@ -36,6 +36,10 @@ var CharDisc = make(chan bool)
 
 var newtmgrServiceId = gatt.MustParseUUID("8D53DC1D-1DB7-4CD3-868B-8A527460AA84")
 var newtmgrServiceCharId = gatt.MustParseUUID("DA2E7828-FBCE-4E01-AE9E-261174997C48")
+
+var newtmgrCoapServiceId = gatt.MustParseUUID("e3f9f9c4-8a83-4055-b647-728b769745d6")
+var newtmgrCoapServiceCharId = gatt.MustParseUUID("e467fee6-d6bb-4956-94df-0090350631f5")
+
 var deviceName string
 var deviceAddress []byte
 var deviceAddressType uint8
@@ -110,15 +114,25 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		return
 	}
 
+	var isCoap bool = false
+
 	for _, service := range services {
 
-		if service.UUID().Equal(newtmgrServiceId) {
+		if service.UUID().Equal(newtmgrServiceId) ||
+		   service.UUID().Equal(newtmgrCoapServiceId) {
 			log.Debugf("Newtmgr Service Found %s", service.Name())
+
+			if service.UUID().Equal(newtmgrCoapServiceId) {
+				isCoap = true
+			}
 
 			cs, _ := p.DiscoverCharacteristics(nil, service)
 
 			for _, c := range cs {
-				if c.UUID().Equal(newtmgrServiceCharId) {
+				if (isCoap == false &&
+				    c.UUID().Equal(newtmgrServiceCharId)) ||
+				   (isCoap == true &&
+				    c.UUID().Equal(newtmgrCoapServiceCharId)) {
 					log.Debugf("Newtmgr Characteristic Found")
 					p.SetNotifyValue(c, newtmgrNotifyCB)
 					deviceChar = c
