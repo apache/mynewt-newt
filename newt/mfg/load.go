@@ -28,12 +28,13 @@ import (
 
 	"github.com/spf13/cast"
 
-	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
+
+const MFG_YAML_FILENAME string = "mfg.yml"
 
 type partSorter struct {
 	parts []mfgPart
@@ -129,21 +130,6 @@ func (mi *MfgImage) loadRawEntry(
 	return raw, nil
 }
 
-func (mi *MfgImage) areaNameToPart(areaName string) (mfgPart, bool) {
-	part := mfgPart{}
-
-	area, ok := mi.bsp.FlashMap.Areas[areaName]
-	if !ok {
-		return part, false
-	}
-
-	part.offset = area.Offset
-	part.data = make([]byte, area.Size)
-	part.name = area.Name
-
-	return part, true
-}
-
 func (mi *MfgImage) detectInvalidDevices() error {
 	sectionIds := mi.sectionIds()
 	deviceIds := mi.bsp.FlashMap.DeviceIds()
@@ -183,45 +169,33 @@ func (mi *MfgImage) detectOverlaps() error {
 		part1 mfgPart
 	}
 
-	parts := []mfgPart{}
-
-	// If an image slot is used, the entire flash area is unwritable.  This
-	// restriction comes from the boot loader's need to write status at the end
-	// of an area.
-	if mi.boot != nil {
-		part, ok := mi.areaNameToPart(flash.FLASH_AREA_NAME_BOOTLOADER)
-		if ok {
-			parts = append(parts, part)
-		}
-	}
-	if len(mi.images) >= 1 {
-		part, ok := mi.areaNameToPart(flash.FLASH_AREA_NAME_IMAGE_0)
-		if ok {
-			parts = append(parts, part)
-		}
-	}
-	if len(mi.images) >= 2 {
-		part, ok := mi.areaNameToPart(flash.FLASH_AREA_NAME_IMAGE_1)
-		if ok {
-			parts = append(parts, part)
-		}
-	}
-
-	parts = append(parts, mi.rawEntryParts()...)
-	sortParts(parts)
-
 	overlaps := []overlap{}
 
-	for i, part0 := range parts[:len(parts)-1] {
-		part0End := part0.offset + len(part0.data)
-		for _, part1 := range parts[i+1:] {
-			// Parts are sorted by offset, so only one comparison is necessary
-			// to detect overlap.
-			if part1.offset < part0End {
-				overlaps = append(overlaps, overlap{
-					part0: part0,
-					part1: part1,
-				})
+	dpMap, err := mi.devicePartMap()
+	if err != nil {
+		return err
+	}
+
+	// Iterate flash devices in order.
+	devices := make([]int, 0, len(dpMap))
+	for device, _ := range dpMap {
+		devices = append(devices, device)
+	}
+	sort.Ints(devices)
+
+	for _, device := range devices {
+		parts := dpMap[device]
+		for i, part0 := range parts[:len(parts)-1] {
+			part0End := part0.offset + len(part0.data)
+			for _, part1 := range parts[i+1:] {
+				// Parts are sorted by offset, so only one comparison is
+				// necessary to detect overlap.
+				if part1.offset < part0End {
+					overlaps = append(overlaps, overlap{
+						part0: part0,
+						part1: part1,
+					})
+				}
 			}
 		}
 	}
@@ -232,7 +206,8 @@ func (mi *MfgImage) detectOverlaps() error {
 
 			part0End := overlap.part0.offset + len(overlap.part0.data)
 			part1End := overlap.part1.offset + len(overlap.part1.data)
-			str += fmt.Sprintf("\n    * [%s] (%d - %d) <=> [%s] (%d - %d)",
+			str += fmt.Sprintf("\n    * s%d [%s] (%d - %d) <=> [%s] (%d - %d)",
+				overlap.part0.device,
 				overlap.part0.name, overlap.part0.offset, part0End,
 				overlap.part1.name, overlap.part1.offset, part1End)
 		}

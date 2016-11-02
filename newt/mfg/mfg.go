@@ -26,8 +26,6 @@ import (
 	"mynewt.apache.org/newt/newt/target"
 )
 
-const MFG_YAML_FILENAME string = "mfg.yml"
-
 type MfgRawEntry struct {
 	device   int
 	offset   int
@@ -38,6 +36,7 @@ type MfgRawEntry struct {
 // A chunk of data in the manufacturing image.  Can be a firmware image or a
 // raw entry (contents of a data file).
 type mfgPart struct {
+	device int
 	offset int
 	data   []byte
 	name   string

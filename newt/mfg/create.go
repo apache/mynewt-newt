@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"mynewt.apache.org/newt/newt/builder"
@@ -52,7 +53,10 @@ func insertPartIntoBlob(blob []byte, part mfgPart) {
 func (mi *MfgImage) partFromImage(
 	imgPath string, flashAreaName string) (mfgPart, error) {
 
-	part := mfgPart{}
+	part := mfgPart{
+		// Boot loader and images always go in device 0.
+		device: 0,
+	}
 
 	area, ok := mi.bsp.FlashMap.Areas[flashAreaName]
 	if !ok {
@@ -79,75 +83,155 @@ func (mi *MfgImage) partFromImage(
 			imgPath, flashAreaName, len(part.data), area.Size, overflow)
 	}
 
+	// If an image slot is used, the entire flash area is unwritable.  This
+	// restriction comes from the boot loader's need to write status at the end
+	// of an area.  Pad out part with unwriten flash (0xff).  This probably
+	// isn't terribly efficient...
+	for i := 0; i < -overflow; i++ {
+		part.data = append(part.data, 0xff)
+	}
+
 	return part, nil
 }
 
-func (mi *MfgImage) section0Size() int {
+func partFromRawEntry(entry MfgRawEntry, entryIdx int) mfgPart {
+	return mfgPart{
+		name:   fmt.Sprintf("entry-%d (%s)", entryIdx, entry.filename),
+		offset: entry.offset,
+		data:   entry.data,
+	}
+}
+
+func (mi *MfgImage) targetParts() ([]mfgPart, error) {
+	parts := []mfgPart{}
+
+	bootPath := mi.dstBootBinPath()
+	if bootPath != "" {
+		bootPart, err := mi.partFromImage(
+			bootPath, flash.FLASH_AREA_NAME_BOOTLOADER)
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, bootPart)
+	}
+
+	for i := 0; i < 2; i++ {
+		imgPath := mi.dstImgPath(i)
+		if imgPath != "" {
+			areaName, err := areaNameFromImgIdx(i)
+			if err != nil {
+				return nil, err
+			}
+
+			part, err := mi.partFromImage(imgPath, areaName)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, part)
+		}
+	}
+
+	return parts, nil
+}
+
+func sectionSize(parts []mfgPart) int {
 	greatest := 0
 
-	bootArea := mi.bsp.FlashMap.Areas[flash.FLASH_AREA_NAME_BOOTLOADER]
-	image0Area := mi.bsp.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0]
-	image1Area := mi.bsp.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_1]
-
-	if mi.boot != nil {
-		greatest = util.IntMax(greatest, bootArea.Offset+bootArea.Size)
-	}
-	if len(mi.images) >= 1 {
-		greatest = util.IntMax(greatest, image0Area.Offset+image0Area.Size)
-	}
-	if len(mi.images) >= 2 {
-		greatest = util.IntMax(greatest, image1Area.Offset+image1Area.Size)
-	}
-
-	for _, entry := range mi.rawEntries {
-		greatest = util.IntMax(greatest, entry.offset+len(entry.data))
+	for _, part := range parts {
+		end := part.offset + len(part.data)
+		greatest = util.IntMax(greatest, end)
 	}
 
 	return greatest
 }
 
-// @return						section-0-blob, hash-offset, error
-func (mi *MfgImage) section0Data(parts []mfgPart) ([]byte, int, error) {
-	blobSize := mi.section0Size()
-	blob := make([]byte, blobSize)
+func sectionFromParts(parts []mfgPart) []byte {
+	sectionSize := sectionSize(parts)
+	section := make([]byte, sectionSize)
 
 	// Initialize section 0's data as unwritten flash (0xff).
-	for i, _ := range blob {
-		blob[i] = 0xff
+	for i, _ := range section {
+		section[i] = 0xff
 	}
 
 	for _, part := range parts {
-		insertPartIntoBlob(blob, part)
+		insertPartIntoBlob(section, part)
 	}
 
-	hashOffset, err := insertMeta(blob, mi.bsp.FlashMap)
+	return section
+}
+
+func (mi *MfgImage) devicePartMap() (map[int][]mfgPart, error) {
+	dpMap := map[int][]mfgPart{}
+
+	// Create parts from the raw entries.
+	for i, entry := range mi.rawEntries {
+		part := partFromRawEntry(entry, i)
+		dpMap[entry.device] = append(dpMap[entry.device], part)
+	}
+
+	// Insert the boot loader and image parts into section 0.
+	targetParts, err := mi.targetParts()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
+	}
+	dpMap[0] = append(dpMap[0], targetParts...)
+
+	// Sort each part slice by offset.
+	for device, _ := range dpMap {
+		sortParts(dpMap[device])
 	}
 
-	return blob, hashOffset, nil
+	return dpMap, nil
+}
 
+func (mi *MfgImage) deviceSectionMap() (map[int][]byte, error) {
+	dpMap, err := mi.devicePartMap()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert each part slice into a section (byte slice).
+	dsMap := map[int][]byte{}
+	for device, parts := range dpMap {
+		dsMap[device] = sectionFromParts(parts)
+	}
+
+	return dsMap, nil
 }
 
 // @return						[section0blob, section1blob,...], hash, err
-func (mi *MfgImage) createSections(parts []mfgPart) (
-	[][]byte, []byte, error) {
-
-	section0Data, hashOff, err := mi.section0Data(parts)
+func (mi *MfgImage) createSections() (map[int][]byte, []byte, error) {
+	dsMap, err := mi.deviceSectionMap()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// XXX: Append additional sections.
+	if dsMap[0] == nil {
+		panic("Invalid state; no section 0")
+	}
 
-	// Calculate manufacturing has.
-	sections := [][]byte{section0Data}
+	hashOffset, err := insertMeta(dsMap[0], mi.bsp.FlashMap)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Calculate manufacturing hash.
+	devices := make([]int, 0, len(dsMap))
+	for device, _ := range dsMap {
+		devices = append(devices, device)
+	}
+	sort.Ints(devices)
+
+	sections := make([][]byte, len(devices))
+	for i, device := range devices {
+		sections[i] = dsMap[device]
+	}
 	hash := calcMetaHash(sections)
+	copy(dsMap[0][hashOffset:hashOffset+META_HASH_SZ], hash)
 
-	// Write hash to meta region in section 0.
-	copy(section0Data[hashOff:hashOff+META_HASH_SZ], hash)
-
-	return sections, hash, nil
+	return dsMap, hash, nil
 }
 
 func areaNameFromImgIdx(imgIdx int) (string, error) {
@@ -159,17 +243,6 @@ func areaNameFromImgIdx(imgIdx int) (string, error) {
 	default:
 		return "", util.FmtNewtError("invalid image index: %d", imgIdx)
 	}
-}
-
-func (mi *MfgImage) rawEntryParts() []mfgPart {
-	parts := make([]mfgPart, len(mi.rawEntries))
-	for i, entry := range mi.rawEntries {
-		parts[i].name = fmt.Sprintf("entry-%d (%s)", i, entry.filename)
-		parts[i].offset = entry.offset
-		parts[i].data = entry.data
-	}
-
-	return parts
 }
 
 func bootLoaderFromPaths(t *target.Target) []string {
@@ -308,39 +381,6 @@ func (mi *MfgImage) dstImgPath(slotIdx int) string {
 		MfgImageBinDir(mi.basePkg.Name(), imgIdx), pkg.ShortName(pack))
 }
 
-func (mi *MfgImage) targetParts() ([]mfgPart, error) {
-	parts := []mfgPart{}
-
-	bootPath := mi.dstBootBinPath()
-	if bootPath != "" {
-		bootPart, err := mi.partFromImage(
-			bootPath, flash.FLASH_AREA_NAME_BOOTLOADER)
-		if err != nil {
-			return nil, err
-		}
-
-		parts = append(parts, bootPart)
-	}
-
-	for i := 0; i < 2; i++ {
-		imgPath := mi.dstImgPath(i)
-		if imgPath != "" {
-			areaName, err := areaNameFromImgIdx(i)
-			if err != nil {
-				return nil, err
-			}
-
-			part, err := mi.partFromImage(imgPath, areaName)
-			if err != nil {
-				return nil, err
-			}
-			parts = append(parts, part)
-		}
-	}
-
-	return parts, nil
-}
-
 // Returns a slice containing the path of each file required to build the
 // manufacturing image.
 func (mi *MfgImage) FromPaths() []string {
@@ -364,22 +404,12 @@ func (mi *MfgImage) FromPaths() []string {
 }
 
 // @return						[section0blob, section1blob,...], hash, err
-func (mi *MfgImage) build() ([][]byte, []byte, error) {
+func (mi *MfgImage) build() (map[int][]byte, []byte, error) {
 	if err := mi.copyBinFiles(); err != nil {
 		return nil, nil, err
 	}
 
-	targetParts, err := mi.targetParts()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rawParts := mi.rawEntryParts()
-
-	parts := append(targetParts, rawParts...)
-	sortParts(parts)
-
-	sections, hash, err := mi.createSections(parts)
+	sections, hash, err := mi.createSections()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -442,8 +472,8 @@ func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 		return nil, util.ChildNewtError(err)
 	}
 
-	for i, section := range sections {
-		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), i)
+	for device, section := range sections {
+		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), device)
 		if err := ioutil.WriteFile(sectionPath, section, 0644); err != nil {
 			return nil, util.ChildNewtError(err)
 		}
