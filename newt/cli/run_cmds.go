@@ -73,7 +73,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	if err := b.Load(extraJtagCmd); err != nil {
 		NewtUsage(nil, err)
 	}
-	if err := b.Debug(extraJtagCmd, true); err != nil {
+	if err := b.Debug(extraJtagCmd, true, noGDB_flag); err != nil {
 		NewtUsage(nil, err)
 	}
 }
@@ -99,4 +99,7 @@ func AddRunCommands(cmd *cobra.Command) {
 
 	runCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
 		"extra commands to send to JTAG software")
+	runCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
+		"don't start GDB from command line")
+
 }

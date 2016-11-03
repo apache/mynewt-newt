@@ -99,6 +99,7 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 }
 
 var extraJtagCmd string
+var noGDB_flag bool
 
 func buildRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
@@ -365,7 +366,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	if err := b.Debug(extraJtagCmd, false); err != nil {
+	if err := b.Debug(extraJtagCmd, false, noGDB_flag); err != nil {
 		NewtUsage(cmd, err)
 	}
 }
@@ -448,6 +449,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 	cmd.AddCommand(debugCmd)
 	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
 		"extra commands to send to JTAG software")
+	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
+		"don't start GDB from command line")
 
 	sizeHelpText := "Calculate the size of target components specified by " +
 		"<target-name>."

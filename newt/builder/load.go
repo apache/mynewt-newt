@@ -72,6 +72,8 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 		envSettings += fmt.Sprintf("%s=\"%s\" ", key, extraEnvSettings[key])
 	}
 
+	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
+	envSettings += fmt.Sprintf("CORE_PATH=\"%s\" ", coreRepo.Path())
 	envSettings += fmt.Sprintf("BSP_PATH=\"%s\" ", bspPath)
 	envSettings += fmt.Sprintf("BIN_BASENAME=\"%s\" ", binBaseName)
 
@@ -82,9 +84,8 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		downloadCmd)
-	rsp, err := util.ShellCommand(downloadCmd)
+	_, err := util.ShellCommand(downloadCmd)
 	if err != nil {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", rsp)
 		return err
 	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
@@ -110,16 +111,32 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 	if extraJtagCmd != "" {
 		envSettings["EXTRA_JTAG_CMD"] = extraJtagCmd
 	}
-
 	features := b.cfg.Features()
 
+	var flashTargetArea string
 	if _, ok := features["BOOT_LOADER"]; ok {
+		envSettings["BOOT_LOADER"] = "1"
+
+		flashTargetArea = "FLASH_AREA_BOOTLOADER"
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Loading bootloader\n")
 	} else {
+		if imageSlot == 0 {
+			flashTargetArea = "FLASH_AREA_IMAGE_0"
+		} else if imageSlot == 1 {
+			flashTargetArea = "FLASH_AREA_IMAGE_1"
+		}
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Loading %s image into slot %d\n", b.buildName, imageSlot+1)
 	}
+
+	bspPkg := b.targetBuilder.bspPkg
+	tgtArea := bspPkg.FlashMap.Areas[flashTargetArea]
+	if tgtArea.Name == "" {
+		return util.NewNewtError(fmt.Sprintf("No flash target area %s\n",
+			flashTargetArea))
+	}
+	envSettings["FLASH_OFFSET"] = "0x" + strconv.FormatInt(int64(tgtArea.Offset), 16)
 
 	if err := Load(b.AppBinBasePath(), b.targetBuilder.bspPkg,
 		envSettings); err != nil {
@@ -132,7 +149,7 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 	return nil
 }
 
-func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool) error {
+func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 	//var additional_libs []string
 	err := t.PrepBuild()
 
@@ -141,12 +158,12 @@ func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool) error {
 	}
 
 	if t.LoaderBuilder == nil {
-		return t.AppBuilder.Debug(extraJtagCmd, reset)
+		return t.AppBuilder.Debug(extraJtagCmd, reset, noGDB)
 	}
-	return t.LoaderBuilder.Debug(extraJtagCmd, reset)
+	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB)
 }
 
-func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
+func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified")
 	}
@@ -163,7 +180,9 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 	binBaseName := b.AppBinBasePath()
 	featureString := b.FeatureString()
 
+	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
 	envSettings := []string{
+		fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()),
 		fmt.Sprintf("BSP_PATH=%s", bspPath),
 		fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
 		fmt.Sprintf("FEATURES=\"%s\"", featureString),
@@ -175,6 +194,10 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool) error {
 	if reset == true {
 		envSettings = append(envSettings, fmt.Sprintf("RESET=true"))
 	}
+	if noGDB == true {
+		envSettings = append(envSettings, fmt.Sprintf("NO_GDB=1"))
+	}
+
 	debugScript := filepath.Join(bspPath, b.targetBuilder.bspPkg.DebugScript)
 
 	os.Chdir(project.GetProject().Path())
