@@ -32,7 +32,6 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
@@ -85,9 +84,7 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 	targetNames := []string{}
 	if len(args) == 0 {
 		for name, _ := range target.GetTargets() {
@@ -196,9 +193,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				"(target-name & k=v) to set"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	// Parse target name.
 	t, err := resolveExistingTargetArg(args[0])
@@ -278,10 +273,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	proj, err := project.TryGetProject()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
+	proj := InitProject()
 
 	pkgName, err := ResolveNewTargetName(args[0])
 	if err != nil {
@@ -339,9 +331,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 			"target to delete"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	targets, err := ResolveTargets(args...)
 	if err != nil {
@@ -361,10 +351,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 			"source target and one destination target"))
 	}
 
-	proj, err := project.TryGetProject()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
+	proj := InitProject()
 
 	srcTarget, err := resolveExistingTargetArg(args[0])
 	if err != nil {
@@ -471,9 +458,7 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	t, err := resolveExistingTargetArg(args[0])
 	if err != nil {

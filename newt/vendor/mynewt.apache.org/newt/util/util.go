@@ -105,11 +105,13 @@ func ChildNewtError(parent error) *NewtError {
 }
 
 // Print Silent, Quiet and Verbose aware status messages to stdout.
-func StatusMessage(level int, message string, args ...interface{}) {
+func WriteMessage(f *os.File, level int, message string,
+	args ...interface{}) {
+
 	if Verbosity >= level {
 		str := fmt.Sprintf(message, args...)
-		os.Stdout.WriteString(str)
-		os.Stdout.Sync()
+		f.WriteString(str)
+		f.Sync()
 
 		if logFile != nil {
 			logFile.WriteString(str)
@@ -117,11 +119,14 @@ func StatusMessage(level int, message string, args ...interface{}) {
 	}
 }
 
+// Print Silent, Quiet and Verbose aware status messages to stdout.
+func StatusMessage(level int, message string, args ...interface{}) {
+	WriteMessage(os.Stdout, level, message, args...)
+}
+
 // Print Silent, Quiet and Verbose aware status messages to stderr.
 func ErrorMessage(level int, message string, args ...interface{}) {
-	if Verbosity >= level {
-		fmt.Fprintf(os.Stderr, message, args...)
-	}
+	WriteMessage(os.Stderr, level, message, args...)
 }
 
 func NodeExist(path string) bool {

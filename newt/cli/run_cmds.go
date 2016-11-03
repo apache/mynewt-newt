@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -33,9 +32,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {

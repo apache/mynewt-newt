@@ -401,11 +401,13 @@ func LocalPackageSpecialName(dirName string) bool {
 
 func ReadLocalPackageRecursive(repo *repo.Repo,
 	pkgList map[string]interfaces.PackageInterface, basePath string,
-	pkgName string) error {
+	pkgName string) ([]string, error) {
+
+	var warnings []string
 
 	dirList, err := repo.FilteredSearchList(pkgName)
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return warnings, util.NewNewtError(err.Error())
 	}
 
 	for _, name := range dirList {
@@ -413,41 +415,52 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 			continue
 		}
 
-		if err := ReadLocalPackageRecursive(repo, pkgList, basePath,
-			filepath.Join(pkgName, name)); err != nil {
-			return err
+		subWarnings, err := ReadLocalPackageRecursive(repo, pkgList,
+			basePath, filepath.Join(pkgName, name))
+		warnings = append(warnings, subWarnings...)
+		if err != nil {
+			return warnings, err
 		}
 	}
 
-	if util.NodeNotExist(filepath.Join(basePath, pkgName, PACKAGE_FILE_NAME)) {
-		return nil
+	if util.NodeNotExist(filepath.Join(basePath, pkgName,
+		PACKAGE_FILE_NAME)) {
+
+		return warnings, nil
 	}
 
 	pkg, err := LoadLocalPackage(repo, filepath.Join(basePath, pkgName))
 	if err != nil {
-		return err
+		warnings = append(warnings, err.Error())
+		return warnings, nil
 	}
 
 	if oldPkg, ok := pkgList[pkg.Name()]; ok {
 		oldlPkg := oldPkg.(*LocalPackage)
-		return util.FmtNewtError("Multiple packages with same pkg.name=%s "+
-			"in repo %s; path1=%s path2=%s", oldlPkg.Name(), repo.Name(),
-			oldlPkg.BasePath(), pkg.BasePath())
+		warnings = append(warnings,
+			fmt.Sprintf("Multiple packages with same pkg.name=%s "+
+				"in repo %s; path1=%s path2=%s", oldlPkg.Name(), repo.Name(),
+				oldlPkg.BasePath(), pkg.BasePath()))
+
+		return warnings, nil
 	}
 
 	pkgList[pkg.Name()] = pkg
 
-	return nil
+	return warnings, nil
 }
 
-func ReadLocalPackages(repo *repo.Repo,
-	basePath string) (*map[string]interfaces.PackageInterface, error) {
+func ReadLocalPackages(repo *repo.Repo, basePath string) (
+	pkgMap *map[string]interfaces.PackageInterface,
+	warnings []string,
+	err error) {
 
-	pkgList := map[string]interfaces.PackageInterface{}
+	pkgMap = &map[string]interfaces.PackageInterface{}
+	warnings = []string{}
 
 	searchPaths, err := repo.FilteredSearchList("")
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	for _, path := range searchPaths {
@@ -457,18 +470,21 @@ func ReadLocalPackages(repo *repo.Repo,
 			continue
 		}
 
-		dirList, err := repo.FilteredSearchList(path)
-		if err != nil {
-			return nil, util.NewNewtError(err.Error())
+		var dirList []string
+		if dirList, err = repo.FilteredSearchList(path); err != nil {
+			return
 		}
 
 		for _, subDir := range dirList {
-			if err := ReadLocalPackageRecursive(repo, pkgList, basePath,
-				filepath.Join(path, subDir)); err != nil {
-				return nil, err
+			var subWarnings []string
+			subWarnings, err = ReadLocalPackageRecursive(repo, *pkgMap,
+				basePath, filepath.Join(path, subDir))
+			warnings = append(warnings, subWarnings...)
+			if err != nil {
+				return
 			}
 		}
 	}
 
-	return &pkgList, nil
+	return
 }

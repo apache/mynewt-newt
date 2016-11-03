@@ -197,3 +197,18 @@ func ResetGlobalState() error {
 
 	return nil
 }
+
+func InitProject() *project.Project {
+	var p *project.Project
+	var err error
+
+	if p, err = project.TryGetProject(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	for _, w := range p.Warnings() {
+		util.ErrorMessage(util.VERBOSITY_QUIET, "* Warning: %s\n", w)
+	}
+
+	return p
+}

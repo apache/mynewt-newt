@@ -24,15 +24,11 @@ import (
 
 	"mynewt.apache.org/newt/newt/mfg"
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
 func ResolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
-	proj, err := project.TryGetProject()
-	if err != nil {
-		return nil, err
-	}
+	proj := InitProject()
 
 	lpkg, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
 	if err != nil {

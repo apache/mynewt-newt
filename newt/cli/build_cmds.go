@@ -106,9 +106,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, nil)
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	// Verify and resolve each specified package.
 	targets, all, err := ResolveTargetsOrAll(args...)
@@ -175,9 +173,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	cleanAll := false
 	targets := []*target.Target{}
@@ -217,10 +213,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, nil)
 	}
 
-	proj, err := project.TryGetProject()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
+	proj := InitProject()
 
 	// Verify and resolve each specified package.
 	testAll := false
@@ -328,9 +321,7 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -352,9 +343,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -376,9 +365,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	if _, err := project.TryGetProject(); err != nil {
-		NewtUsage(nil, err)
-	}
+	InitProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {

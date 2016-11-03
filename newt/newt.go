@@ -116,10 +116,6 @@ func newtCmd() *cobra.Command {
 func main() {
 	cmd := newtCmd()
 
-	/* some of the setup code logs which messes with autocomplete */
-	hold_lvl := log.GetLevel()
-	log.SetLevel(log.FatalLevel)
-
 	cli.AddBuildCommands(cmd)
 	cli.AddCompleteCommands(cmd)
 	cli.AddImageCommands(cmd)
@@ -147,6 +143,5 @@ func main() {
 		cmd.SilenceUsage = false
 	}
 
-	log.SetLevel(hold_lvl)
 	cmd.Execute()
 }

@@ -25,13 +25,15 @@ import (
 	"sort"
 	"strings"
 
-	. "mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
-func varsFromPackageType(pt PackageType, fullPath bool) ([]string, error) {
+func varsFromPackageType(
+	pt interfaces.PackageType, fullPath bool) ([]string, error) {
+
 	values := []string{}
 
 	packs := project.GetProject().PackagesOfType(pt)

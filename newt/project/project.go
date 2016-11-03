@@ -58,7 +58,8 @@ type Project struct {
 	projState *ProjectState
 
 	// Repositories configured on this project
-	repos map[string]*repo.Repo
+	repos    map[string]*repo.Repo
+	warnings []string
 
 	localRepo *repo.Repo
 
@@ -154,6 +155,10 @@ func (proj *Project) FindRepo(rname string) *repo.Repo {
 
 func (proj *Project) LocalRepo() *repo.Repo {
 	return proj.localRepo
+}
+
+func (proj *Project) Warnings() []string {
+	return proj.warnings
 }
 
 func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
@@ -578,12 +583,14 @@ func (proj *Project) loadPackageList() error {
 	// packages / store them in the project package list.
 	repos := proj.Repos()
 	for name, repo := range repos {
-		list, err := pkg.ReadLocalPackages(repo, repo.Path())
+		list, warnings, err := pkg.ReadLocalPackages(repo, repo.Path())
 		if err != nil {
 			return err
+		} else {
+			proj.packages[name] = list
 		}
 
-		proj.packages[name] = list
+		proj.warnings = append(proj.warnings, warnings...)
 	}
 
 	return nil
