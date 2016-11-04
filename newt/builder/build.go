@@ -351,6 +351,8 @@ func (b *Builder) PrepBuild() error {
 
 	b.logDepInfo()
 
+	b.CleanArtifacts()
+
 	// Populate the base set of compiler flags.  Flags from the following
 	// packages get applied to every source file:
 	//     * target
@@ -666,4 +668,22 @@ func (b *Builder) CreateImage(version string,
 		"App image succesfully generated: %s\n", img.TargetImg)
 
 	return img, nil
+}
+
+// Deletes files that should never be reused for a subsequent build.  This
+// list includes:
+//     <app>.img
+//     <app>.elf.bin
+//     manifest.json
+func (b *Builder) CleanArtifacts() {
+	paths := []string{
+		b.AppImgPath(),
+		b.AppBinPath(),
+		b.ManifestPath(),
+	}
+
+	// Attempt to delete each artifact, ignoring errors.
+	for _, p := range paths {
+		os.Remove(p)
+	}
 }
