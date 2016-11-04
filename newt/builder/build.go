@@ -351,8 +351,6 @@ func (b *Builder) PrepBuild() error {
 
 	b.logDepInfo()
 
-	b.CleanArtifacts()
-
 	// Populate the base set of compiler flags.  Flags from the following
 	// packages get applied to every source file:
 	//     * target
@@ -442,6 +440,8 @@ func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
 }
 
 func (b *Builder) Build() error {
+	b.CleanArtifacts()
+
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
 
