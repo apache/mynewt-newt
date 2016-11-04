@@ -251,7 +251,7 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	rexmits := 0
 
 	if profile.Type() == "ble" {
-		mtu = uint32((transport.BleMTU - 33) * 3 / 4)
+		mtu = uint32((transport.BleMTU - 64) * 3 / 4)
 	} else {
 		/* since this possibly gets base 64 encoded, we want
 		 * to ensure that the payload leaving this layer is 91
