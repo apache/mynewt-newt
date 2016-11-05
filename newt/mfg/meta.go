@@ -28,6 +28,44 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+// The "manufacturing meta region" is located at the end of the boot loader
+// flash area.  This region has the following structure.
+//
+//  0                   1                   2                   3
+//  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |Version (0x01) |                  0xff padding                 |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |   TLV type    |   TLV size    | TLV data ("TLV size" bytes)   ~
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               ~
+// ~                                                               ~
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |   TLV type    |   TLV size    | TLV data ("TLV size" bytes)   ~
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               ~
+// ~                                                               ~
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |   Region size                 |         0xff padding          |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |                       Magic (0x3bb2a269)                      |
+// +-+-+-+-+-+--+-+-+-+-end of boot loader area+-+-+-+-+-+-+-+-+-+-+
+//
+// The number of TLVs is variable; two are shown above for illustrative
+// purposes.
+//
+// Fields:
+// <Header>
+// 1. Version: Manufacturing meta version number; always 0x01.
+//
+// <TLVs>
+// 2. TLV type: Indicates the type of data to follow.
+// 3. TLV size: The number of bytes of data to follow.
+// 4. TLV data: TLV-size bytes of data.
+//
+// <Footer>
+// 5. Region size: The size, in bytes, of the entire manufacturing meta region;
+//    includes header, TLVs, and footer.
+// 6. Magic: indicates the presence of the manufacturing meta region.
+
 const META_MAGIC = 0x3bb2a269
 const META_VERSION = 1
 const META_TLV_CODE_HASH = 0x01
@@ -39,29 +77,29 @@ const META_TLV_HASH_SZ = META_HASH_SZ
 const META_TLV_FLASH_AREA_SZ = 12
 
 type metaHeader struct {
-	version uint8
-	pad8    uint8
-	pad16   uint16
+	version uint8  // 1
+	pad8    uint8  // 0xff
+	pad16   uint16 // 0xffff
 }
 
 type metaFooter struct {
 	size  uint16 // Includes header, TLVs, and footer.
-	pad16 uint16
-	magic uint32
+	pad16 uint16 // 0xffff
+	magic uint32 // META_MAGIC
 }
 
 type metaTlvHeader struct {
-	code uint8
-	size uint8
+	typ  uint8 // Indicates the type of data to follow.
+	size uint8 // The number of bytes of data to follow.
 }
 
 type metaTlvFlashArea struct {
 	header   metaTlvHeader
-	areaId   uint8
-	deviceId uint8
-	pad16    uint16
-	offset   uint32
-	size     uint32
+	areaId   uint8  // Unique value identifying this flash area.
+	deviceId uint8  // Indicates host flash device (aka section number).
+	pad16    uint16 // 0xffff
+	offset   uint32 // The byte offset within the flash device.
+	size     uint32 // Size, in bytes, of entire flash area.
 }
 
 type metaTlvHash struct {
@@ -70,7 +108,7 @@ type metaTlvHash struct {
 }
 
 func writeElem(elem interface{}, buf *bytes.Buffer) error {
-	/* XXX: Assume little endian for now. */
+	/* XXX: Assume target platform uses little endian. */
 	if err := binary.Write(buf, binary.LittleEndian, elem); err != nil {
 		return util.ChildNewtError(err)
 	}
@@ -95,18 +133,19 @@ func writeFooter(buf *bytes.Buffer) error {
 	return writeElem(ftr, buf)
 }
 
-func writeTlvHeader(code uint8, size uint8, buf *bytes.Buffer) error {
+func writeTlvHeader(typ uint8, size uint8, buf *bytes.Buffer) error {
 	tlvHdr := metaTlvHeader{
-		code: code,
+		typ:  typ,
 		size: size,
 	}
 	return writeElem(tlvHdr, buf)
 }
 
-func writeFlashArea(area flash.FlashArea, buf *bytes.Buffer) error {
+// Writes a single entry of the flash map TLV.
+func writeFlashMapEntry(area flash.FlashArea, buf *bytes.Buffer) error {
 	tlv := metaTlvFlashArea{
 		header: metaTlvHeader{
-			code: META_TLV_CODE_FLASH_AREA,
+			typ:  META_TLV_CODE_FLASH_AREA,
 			size: META_TLV_FLASH_AREA_SZ,
 		},
 		areaId:   uint8(area.Id),
@@ -118,10 +157,13 @@ func writeFlashArea(area flash.FlashArea, buf *bytes.Buffer) error {
 	return writeElem(tlv, buf)
 }
 
+// Writes a zeroed-out hash TLV.  The hash's original value must be zero for
+// the actual hash to be calculated later.  After the actual value is
+// calculated, it replaces the zeros in the TLV.
 func writeZeroHash(buf *bytes.Buffer) error {
 	tlv := metaTlvHash{
 		header: metaTlvHeader{
-			code: META_TLV_CODE_HASH,
+			typ:  META_TLV_CODE_HASH,
 			size: META_TLV_HASH_SZ,
 		},
 		hash: [META_HASH_SZ]byte{},
@@ -183,6 +225,14 @@ func insertMeta(section0Data []byte, flashMap flash.FlashMap) (
 	return metaOff, metaOff + hashSubOff, nil
 }
 
+// Calculates the SHA256 hash, using the full manufacturing image as input.
+// Hash-calculation algorithm is as follows:
+// 1. Concatenate sections in ascending order of index.
+// 2. Zero out the 32 bytes that will contain the hash.
+// 3. Apply SHA256 to the result.
+//
+// This function assumes that the 32 bytes of hash data have already been
+// zeroed.
 func calcMetaHash(sections [][]byte) []byte {
 	// Concatenate all sections.
 	blob := []byte{}

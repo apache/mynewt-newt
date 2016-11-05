@@ -130,7 +130,7 @@ func parseFlashArea(
 			}
 			userId, err := util.AtoiNoOct(v)
 			if err != nil {
-				return area, flashAreaErr(name, "invalid id: %s", v)
+				return area, flashAreaErr(name, "invalid user id: %s", v)
 			}
 			area.Id = userId + AREA_USER_ID_MIN
 			idPresent = true
