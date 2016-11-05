@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/newt/flash"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
@@ -38,13 +39,28 @@ type BspPackage struct {
 	Part2LinkerScript string /* script to link app to second partition */
 	DownloadScript    string
 	DebugScript       string
-	WriteScript       string
 	FlashMap          flash.FlashMap
 	BspV              *viper.Viper
 }
 
+func (bsp *BspPackage) resolvePathSetting(
+	features map[string]bool, key string) (string, error) {
+
+	outVal := newtutil.GetStringFeatures(bsp.BspV, features, key)
+
+	proj := interfaces.GetProject()
+	path, err := proj.ResolvePath(bsp.BasePath(), outVal)
+	if err != nil {
+		return "", util.PreNewtError(err,
+			"BSP \"%s\" specifies invalid %s setting",
+			bsp.Name(), key)
+	}
+	return path, nil
+}
+
 func (bsp *BspPackage) Reload(features map[string]bool) error {
 	var err error
+
 	bsp.BspV, err = util.ReadConfig(bsp.BasePath(),
 		strings.TrimSuffix(BSP_YAML_FILENAME, ".yml"))
 	if err != nil {
@@ -54,18 +70,33 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 
 	bsp.CompilerName = newtutil.GetStringFeatures(bsp.BspV,
 		features, "bsp.compiler")
+
 	bsp.Arch = newtutil.GetStringFeatures(bsp.BspV,
 		features, "bsp.arch")
-	bsp.LinkerScript = newtutil.GetStringFeatures(bsp.BspV,
+
+	bsp.LinkerScript, err = bsp.resolvePathSetting(
 		features, "bsp.linkerscript")
-	bsp.Part2LinkerScript = newtutil.GetStringFeatures(bsp.BspV,
+	if err != nil {
+		return err
+	}
+
+	bsp.Part2LinkerScript, err = bsp.resolvePathSetting(
 		features, "bsp.part2linkerscript")
-	bsp.DownloadScript = newtutil.GetStringFeatures(bsp.BspV,
+	if err != nil {
+		return err
+	}
+
+	bsp.DownloadScript, err = bsp.resolvePathSetting(
 		features, "bsp.downloadscript")
-	bsp.DebugScript = newtutil.GetStringFeatures(bsp.BspV,
+	if err != nil {
+		return err
+	}
+
+	bsp.DebugScript, err = bsp.resolvePathSetting(
 		features, "bsp.debugscript")
-	bsp.WriteScript = newtutil.GetStringFeatures(bsp.BspV,
-		features, "bsp.writescript")
+	if err != nil {
+		return err
+	}
 
 	if bsp.CompilerName == "" {
 		return util.NewNewtError("BSP does not specify a compiler " +

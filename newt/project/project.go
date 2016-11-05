@@ -523,7 +523,6 @@ func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) inter
 
 func (proj *Project) ResolvePackage(
 	dfltRepo interfaces.RepoInterface, name string) (*pkg.LocalPackage, error) {
-
 	// Trim trailing slash from name.  This is necessary when tab
 	// completion is used to specify the name.
 	name = strings.TrimSuffix(name, "/")
@@ -555,6 +554,28 @@ func (proj *Project) ResolvePackage(
 	}
 
 	return pack.(*pkg.LocalPackage), nil
+}
+
+// Resolves a path with an optional repo prefix (e.g., "@apache-mynewt-core").
+func (proj *Project) ResolvePath(
+	basePath string, name string) (string, error) {
+
+	repoName, subPath, err := newtutil.ParsePackageString(name)
+	if err != nil {
+		return "", util.FmtNewtError("invalid path: %s (%s)", name,
+			err.Error())
+	}
+
+	if repoName == "" {
+		return basePath + "/" + subPath, nil
+	} else {
+		repo := proj.repos[repoName]
+		if repo == nil {
+			return "", util.FmtNewtError("Unknown repository: %s", repoName)
+		}
+
+		return repo.Path() + "/" + subPath, nil
+	}
 }
 
 func findProjectDir(dir string) (string, error) {

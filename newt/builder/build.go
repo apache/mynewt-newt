@@ -328,7 +328,7 @@ func (b *Builder) link(elfName string, linkerScript string,
 	}
 
 	if linkerScript != "" {
-		c.LinkerScript = b.bspPkg.BasePath() + "/" + linkerScript
+		c.LinkerScript = linkerScript
 	}
 	err = c.CompileElf(elfName, pkgNames, keepSymbols, b.linkElf)
 	if err != nil {

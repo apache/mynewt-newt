@@ -22,7 +22,6 @@ package builder
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -59,7 +58,6 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	}
 
 	bspPath := bspPkg.BasePath()
-	downloadScript := filepath.Join(bspPath, bspPkg.DownloadScript)
 
 	sortedKeys := make([]string, 0, len(extraEnvSettings))
 	for k, _ := range extraEnvSettings {
@@ -79,8 +77,8 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
-	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings, downloadScript,
-		bspPath, binBaseName)
+	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings,
+		bspPkg.DownloadScript, bspPath, binBaseName)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		downloadCmd)
@@ -198,13 +196,13 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 		envSettings = append(envSettings, fmt.Sprintf("NO_GDB=1"))
 	}
 
-	debugScript := filepath.Join(bspPath, b.targetBuilder.bspPkg.DebugScript)
-
 	os.Chdir(project.GetProject().Path())
 
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
-	cmdLine := []string{debugScript, bspPath, binBaseName}
+	cmdLine := []string{
+		b.targetBuilder.bspPkg.DebugScript, bspPath, binBaseName,
+	}
 
 	fmt.Printf("%s\n", cmdLine)
 	return util.ShellInteractiveCommand(cmdLine, envSettings)
