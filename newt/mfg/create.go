@@ -36,8 +36,18 @@ import (
 )
 
 type mfgManifest struct {
-	BuildTime string `json:"build_time"`
-	MfgHash   string `json:"mfg_hash"`
+	BuildTime   string `json:"build_time"`
+	MfgHash     string `json:"mfg_hash"`
+	MetaSection int    `json:"meta_section"`
+	MetaOffset  int    `json:"meta_offset"`
+}
+
+type createState struct {
+	// {0:[section0blob], 1:[section1blob], ...}
+	dsMap      map[int][]byte
+	metaOffset int
+	hashOffset int
+	hash       []byte
 }
 
 func insertPartIntoBlob(blob []byte, part mfgPart) {
@@ -201,37 +211,41 @@ func (mi *MfgImage) deviceSectionMap() (map[int][]byte, error) {
 	return dsMap, nil
 }
 
-// @return						[section0blob, section1blob,...], hash, err
-func (mi *MfgImage) createSections() (map[int][]byte, []byte, error) {
-	dsMap, err := mi.deviceSectionMap()
+func (mi *MfgImage) createSections() (createState, error) {
+	cs := createState{}
+
+	var err error
+
+	cs.dsMap, err = mi.deviceSectionMap()
 	if err != nil {
-		return nil, nil, err
+		return cs, err
 	}
 
-	if dsMap[0] == nil {
+	if cs.dsMap[0] == nil {
 		panic("Invalid state; no section 0")
 	}
 
-	hashOffset, err := insertMeta(dsMap[0], mi.bsp.FlashMap)
+	cs.metaOffset, cs.hashOffset, err = insertMeta(cs.dsMap[0],
+		mi.bsp.FlashMap)
 	if err != nil {
-		return nil, nil, err
+		return cs, err
 	}
 
 	// Calculate manufacturing hash.
-	devices := make([]int, 0, len(dsMap))
-	for device, _ := range dsMap {
+	devices := make([]int, 0, len(cs.dsMap))
+	for device, _ := range cs.dsMap {
 		devices = append(devices, device)
 	}
 	sort.Ints(devices)
 
 	sections := make([][]byte, len(devices))
 	for i, device := range devices {
-		sections[i] = dsMap[device]
+		sections[i] = cs.dsMap[device]
 	}
-	hash := calcMetaHash(sections)
-	copy(dsMap[0][hashOffset:hashOffset+META_HASH_SZ], hash)
+	cs.hash = calcMetaHash(sections)
+	copy(cs.dsMap[0][cs.hashOffset:cs.hashOffset+META_HASH_SZ], cs.hash)
 
-	return dsMap, hash, nil
+	return cs, nil
 }
 
 func areaNameFromImgIdx(imgIdx int) (string, error) {
@@ -403,24 +417,25 @@ func (mi *MfgImage) FromPaths() []string {
 	return paths
 }
 
-// @return						[section0blob, section1blob,...], hash, err
-func (mi *MfgImage) build() (map[int][]byte, []byte, error) {
+func (mi *MfgImage) build() (createState, error) {
 	if err := mi.copyBinFiles(); err != nil {
-		return nil, nil, err
+		return createState{}, err
 	}
 
-	sections, hash, err := mi.createSections()
+	cs, err := mi.createSections()
 	if err != nil {
-		return nil, nil, err
+		return cs, err
 	}
 
-	return sections, hash, nil
+	return cs, nil
 }
 
-func (mi *MfgImage) createManifest(hash []byte) ([]byte, error) {
+func (mi *MfgImage) createManifest(cs createState) ([]byte, error) {
 	manifest := mfgManifest{
-		BuildTime: time.Now().Format(time.RFC3339),
-		MfgHash:   fmt.Sprintf("%x", hash),
+		BuildTime:   time.Now().Format(time.RFC3339),
+		MfgHash:     fmt.Sprintf("%x", cs.hash),
+		MetaSection: 0,
+		MetaOffset:  cs.metaOffset,
 	}
 	buffer, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -462,7 +477,7 @@ func (mi *MfgImage) ToPaths() []string {
 
 // @return                      [paths-of-artifacts], error
 func (mi *MfgImage) CreateMfgImage() ([]string, error) {
-	sections, hash, err := mi.build()
+	cs, err := mi.build()
 	if err != nil {
 		return nil, err
 	}
@@ -472,14 +487,14 @@ func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 		return nil, util.ChildNewtError(err)
 	}
 
-	for device, section := range sections {
+	for device, section := range cs.dsMap {
 		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), device)
 		if err := ioutil.WriteFile(sectionPath, section, 0644); err != nil {
 			return nil, util.ChildNewtError(err)
 		}
 	}
 
-	manifest, err := mi.createManifest(hash)
+	manifest, err := mi.createManifest(cs)
 	if err != nil {
 		return nil, err
 	}

@@ -129,37 +129,40 @@ func writeZeroHash(buf *bytes.Buffer) error {
 	return writeElem(tlv, buf)
 }
 
-// @return						Hash offset, error
-func insertMeta(section0Data []byte, flashMap flash.FlashMap) (int, error) {
+// @return						meta-offset, hash-offset, error
+func insertMeta(section0Data []byte, flashMap flash.FlashMap) (
+	int, int, error) {
+
 	buf := &bytes.Buffer{}
 
 	if err := writeHeader(buf); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	for _, area := range flashMap.SortedAreas() {
 		if err := writeFlashArea(area, buf); err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 	}
 
 	if err := writeZeroHash(buf); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	hashSubOff := buf.Len() - META_HASH_SZ
 
 	if err := writeFooter(buf); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	// The meta region gets placed at the very end of the boot loader slot.
 	bootArea, ok := flashMap.Areas[flash.FLASH_AREA_NAME_BOOTLOADER]
 	if !ok {
-		return 0, util.NewNewtError("Required boot loader flash area missing")
+		return 0, 0,
+			util.NewNewtError("Required boot loader flash area missing")
 	}
 
 	if bootArea.Size < buf.Len() {
-		return 0, util.FmtNewtError(
+		return 0, 0, util.FmtNewtError(
 			"Boot loader flash area too small to accommodate meta region; "+
 				"boot=%d meta=%d", bootArea.Size, buf.Len())
 	}
@@ -167,7 +170,7 @@ func insertMeta(section0Data []byte, flashMap flash.FlashMap) (int, error) {
 	metaOff := bootArea.Offset + bootArea.Size - buf.Len()
 	for i := metaOff; i < bootArea.Size; i++ {
 		if section0Data[i] != 0xff {
-			return 0, util.FmtNewtError(
+			return 0, 0, util.FmtNewtError(
 				"Boot loader extends into meta region; "+
 					"meta region starts at offset %d", metaOff)
 		}
@@ -177,7 +180,7 @@ func insertMeta(section0Data []byte, flashMap flash.FlashMap) (int, error) {
 	// still zeroed.
 	copy(section0Data[metaOff:], buf.Bytes())
 
-	return metaOff + hashSubOff, nil
+	return metaOff, metaOff + hashSubOff, nil
 }
 
 func calcMetaHash(sections [][]byte) []byte {
