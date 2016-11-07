@@ -47,7 +47,9 @@ func (bsp *BspPackage) resolvePathSetting(
 	features map[string]bool, key string) (string, error) {
 
 	outVal := newtutil.GetStringFeatures(bsp.BspV, features, key)
-
+	if outVal == "" {
+		return "", nil
+	}
 	proj := interfaces.GetProject()
 	path, err := proj.ResolvePath(bsp.BasePath(), outVal)
 	if err != nil {
