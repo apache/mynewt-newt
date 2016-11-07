@@ -33,31 +33,69 @@ const BSP_YAML_FILENAME = "bsp.yml"
 
 type BspPackage struct {
 	*LocalPackage
-	CompilerName      string
-	Arch              string
-	LinkerScript      string
-	Part2LinkerScript string /* script to link app to second partition */
-	DownloadScript    string
-	DebugScript       string
-	FlashMap          flash.FlashMap
-	BspV              *viper.Viper
+	CompilerName       string
+	Arch               string
+	LinkerScripts      []string
+	Part2LinkerScripts []string /* scripts to link app to second partition */
+	DownloadScript     string
+	DebugScript        string
+	FlashMap           flash.FlashMap
+	BspV               *viper.Viper
 }
 
 func (bsp *BspPackage) resolvePathSetting(
 	features map[string]bool, key string) (string, error) {
 
-	outVal := newtutil.GetStringFeatures(bsp.BspV, features, key)
-	if outVal == "" {
+	proj := interfaces.GetProject()
+
+	val := newtutil.GetStringFeatures(bsp.BspV, features, key)
+	if val == "" {
 		return "", nil
 	}
-	proj := interfaces.GetProject()
-	path, err := proj.ResolvePath(bsp.BasePath(), outVal)
+	path, err := proj.ResolvePath(bsp.BasePath(), val)
 	if err != nil {
 		return "", util.PreNewtError(err,
 			"BSP \"%s\" specifies invalid %s setting",
 			bsp.Name(), key)
 	}
 	return path, nil
+}
+
+// Interprets a setting as either a single linker script or a list of linker
+// scripts.
+func (bsp *BspPackage) resolveLinkerScriptSetting(
+	features map[string]bool, key string) ([]string, error) {
+
+	paths := []string{}
+
+	// Assume config file specifies a list of scripts.
+	vals := newtutil.GetStringSliceFeatures(bsp.BspV, features, key)
+	if vals == nil {
+		// Couldn't read a list of scripts; try to interpret setting as a
+		// single script.
+		path, err := bsp.resolvePathSetting(features, key)
+		if err != nil {
+			return nil, err
+		}
+
+		paths = append(paths, path)
+	} else {
+		proj := interfaces.GetProject()
+
+		// Read each linker script from the list.
+		for _, val := range vals {
+			path, err := proj.ResolvePath(bsp.BasePath(), val)
+			if err != nil {
+				return nil, util.PreNewtError(err,
+					"BSP \"%s\" specifies invalid %s setting",
+					bsp.Name(), key)
+			}
+
+			paths = append(paths, path)
+		}
+	}
+
+	return paths, nil
 }
 
 func (bsp *BspPackage) Reload(features map[string]bool) error {
@@ -76,13 +114,13 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 	bsp.Arch = newtutil.GetStringFeatures(bsp.BspV,
 		features, "bsp.arch")
 
-	bsp.LinkerScript, err = bsp.resolvePathSetting(
+	bsp.LinkerScripts, err = bsp.resolveLinkerScriptSetting(
 		features, "bsp.linkerscript")
 	if err != nil {
 		return err
 	}
 
-	bsp.Part2LinkerScript, err = bsp.resolvePathSetting(
+	bsp.Part2LinkerScripts, err = bsp.resolveLinkerScriptSetting(
 		features, "bsp.part2linkerscript")
 	if err != nil {
 		return err
@@ -126,7 +164,6 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 func NewBspPackage(lpkg *LocalPackage) (*BspPackage, error) {
 	bsp := &BspPackage{
 		CompilerName:   "",
-		LinkerScript:   "",
 		DownloadScript: "",
 		DebugScript:    "",
 		BspV:           viper.New(),

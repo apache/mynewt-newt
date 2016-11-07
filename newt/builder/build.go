@@ -48,7 +48,7 @@ type Builder struct {
 	compilerInfo     *toolchain.CompilerInfo
 	targetBuilder    *TargetBuilder
 	cfg              syscfg.Cfg
-	linkerScript     string
+	linkerScripts    []string
 	buildName        string
 	linkElf          string
 	injectedSettings map[string]string
@@ -310,7 +310,7 @@ func (b *Builder) ExtractSymbolInfo() (error, *symbol.SymbolMap) {
 	return nil, syms
 }
 
-func (b *Builder) link(elfName string, linkerScript string,
+func (b *Builder) link(elfName string, linkerScripts []string,
 	keepSymbols []string) error {
 
 	c, err := b.newCompiler(b.appPkg, b.FileBinDir(elfName))
@@ -327,9 +327,7 @@ func (b *Builder) link(elfName string, linkerScript string,
 		}
 	}
 
-	if linkerScript != "" {
-		c.LinkerScript = linkerScript
-	}
+	c.LinkerScripts = linkerScripts
 	err = c.CompileElf(elfName, pkgNames, keepSymbols, b.linkElf)
 	if err != nil {
 		return err
@@ -454,14 +452,16 @@ func (b *Builder) Build() error {
 	return nil
 }
 
-func (b *Builder) Link(linkerScript string) error {
-	if err := b.link(b.AppElfPath(), linkerScript, nil); err != nil {
+func (b *Builder) Link(linkerScripts []string) error {
+	if err := b.link(b.AppElfPath(), linkerScripts, nil); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (b *Builder) KeepLink(linkerScript string, keepMap *symbol.SymbolMap) error {
+func (b *Builder) KeepLink(
+	linkerScripts []string, keepMap *symbol.SymbolMap) error {
+
 	keepSymbols := make([]string, 0)
 
 	if keepMap != nil {
@@ -469,14 +469,14 @@ func (b *Builder) KeepLink(linkerScript string, keepMap *symbol.SymbolMap) error
 			keepSymbols = append(keepSymbols, info.Name)
 		}
 	}
-	if err := b.link(b.AppElfPath(), linkerScript, keepSymbols); err != nil {
+	if err := b.link(b.AppElfPath(), linkerScripts, keepSymbols); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (b *Builder) TestLink(linkerScript string) error {
-	if err := b.link(b.AppTempElfPath(), linkerScript, nil); err != nil {
+func (b *Builder) TestLink(linkerScripts []string) error {
+	if err := b.link(b.AppTempElfPath(), linkerScripts, nil); err != nil {
 		return err
 	}
 	return nil
@@ -525,7 +525,7 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 
 	testBpkg := b.PkgMap[p]
 	testFilename := b.TestExePath(testBpkg)
-	if err := b.link(testFilename, "", nil); err != nil {
+	if err := b.link(testFilename, nil, nil); err != nil {
 		return err
 	}
 

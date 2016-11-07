@@ -57,8 +57,8 @@ type CompilerInfo struct {
 }
 
 type Compiler struct {
-	ObjPathList  map[string]bool
-	LinkerScript string
+	ObjPathList   map[string]bool
+	LinkerScripts []string
 
 	depTracker            DepTracker
 	ccPath                string
@@ -711,8 +711,8 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 	/* so we don't get multiple global definitions of the same vartiable */
 	//cmd += " -Wl,--warn-common "
 
-	if c.LinkerScript != "" {
-		cmd += " -T " + c.LinkerScript
+	for _, ls := range c.LinkerScripts {
+		cmd += " -T " + ls
 	}
 	if options["mapFile"] {
 		cmd += " -Wl,-Map=" + dstFile + ".map"

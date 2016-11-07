@@ -363,8 +363,8 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 	}
 
 	// Check timestamp of the linker script and all input libraries.
-	if tracker.compiler.LinkerScript != "" {
-		objFiles = append(objFiles, tracker.compiler.LinkerScript)
+	for _, ls := range tracker.compiler.LinkerScripts {
+		objFiles = append(objFiles, ls)
 	}
 	for _, obj := range objFiles {
 		objModTime, err := util.FileModificationTime(obj)

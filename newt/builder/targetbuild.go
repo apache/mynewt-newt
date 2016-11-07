@@ -293,7 +293,7 @@ func (t *TargetBuilder) PrepBuild() error {
 
 func (t *TargetBuilder) buildLoader() error {
 	/* Link the app as a test (using the normal single image linker script) */
-	if err := t.AppBuilder.TestLink(t.bspPkg.LinkerScript); err != nil {
+	if err := t.AppBuilder.TestLink(t.bspPkg.LinkerScripts); err != nil {
 		return err
 	}
 
@@ -309,7 +309,7 @@ func (t *TargetBuilder) buildLoader() error {
 	}
 
 	/* perform a test link of the loader */
-	if err := t.LoaderBuilder.TestLink(t.bspPkg.LinkerScript); err != nil {
+	if err := t.LoaderBuilder.TestLink(t.bspPkg.LinkerScripts); err != nil {
 		return err
 	}
 
@@ -353,18 +353,18 @@ func (t *TargetBuilder) Build() error {
 		return err
 	}
 
-	linkerScript := ""
+	var linkerScripts []string
 	if t.LoaderBuilder == nil {
-		linkerScript = t.bspPkg.LinkerScript
+		linkerScripts = t.bspPkg.LinkerScripts
 	} else {
 		if err := t.buildLoader(); err != nil {
 			return err
 		}
-		linkerScript = t.bspPkg.Part2LinkerScript
+		linkerScripts = t.bspPkg.Part2LinkerScripts
 	}
 
 	/* Link the app. */
-	if err := t.AppBuilder.Link(linkerScript); err != nil {
+	if err := t.AppBuilder.Link(linkerScripts); err != nil {
 		return err
 	}
 
@@ -506,7 +506,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Migrating %d unused symbols into Loader\n", len(*preserveElf))
 
-	err = t.LoaderBuilder.KeepLink(t.bspPkg.LinkerScript, preserveElf)
+	err = t.LoaderBuilder.KeepLink(t.bspPkg.LinkerScripts, preserveElf)
 
 	if err != nil {
 		return err, nil, nil
