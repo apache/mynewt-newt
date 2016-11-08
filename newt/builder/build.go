@@ -589,7 +589,7 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 		}
 	}
 
-	bld, err := d.RomElfBuldRequired(b.AppLinkerElfPath(),
+	bld, err := d.RomElfBuildRequired(b.AppLinkerElfPath(),
 		b.AppElfPath(), archNames)
 	if err != nil {
 		return err

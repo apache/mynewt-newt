@@ -385,11 +385,11 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 /* Building a ROM elf is used for shared application linking.
  * A ROM elf requires a rebuild if any of archives (.a files) are newer
  * than the rom elf, or if the elf file is newer than the rom_elf */
-func (tracker *DepTracker) RomElfBuldRequired(dstFile string, elfFile string,
+func (tracker *DepTracker) RomElfBuildRequired(dstFile string, elfFile string,
 	archFiles []string) (bool, error) {
 
-	// If the rom_elf file doesn't exist or is older than any input file, a rebuild
-	// is required.
+	// If the rom_elf file doesn't exist or is older than any input file, a
+	// rebuild is required.
 	dstModTime, err := util.FileModificationTime(dstFile)
 	if err != nil {
 		return false, err

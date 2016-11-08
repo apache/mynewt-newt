@@ -477,7 +477,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 
 	if len(badpkgs) > 0 {
 		errStr := fmt.Sprintf(
-			"Common packages with different implementaiton\n %s \n",
+			"Common packages with different implementation\n %s\n",
 			strings.Join(badpkgs, "\n "))
 		errStr += symbolStr
 		return util.NewNewtError(errStr), nil, nil
