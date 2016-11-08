@@ -182,7 +182,7 @@ func insertMeta(section0Data []byte, flashMap flash.FlashMap) (
 	}
 
 	for _, area := range flashMap.SortedAreas() {
-		if err := writeFlashArea(area, buf); err != nil {
+		if err := writeFlashMapEntry(area, buf); err != nil {
 			return 0, 0, err
 		}
 	}
