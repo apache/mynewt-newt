@@ -301,9 +301,5 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 		return nil, err
 	}
 
-	if err := mi.detectOverlaps(); err != nil {
-		return nil, err
-	}
-
 	return mi, nil
 }

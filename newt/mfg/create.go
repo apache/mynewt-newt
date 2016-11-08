@@ -216,6 +216,10 @@ func (mi *MfgImage) createSections() (createState, error) {
 
 	var err error
 
+	if err := mi.detectOverlaps(); err != nil {
+		return cs, err
+	}
+
 	cs.dsMap, err = mi.deviceSectionMap()
 	if err != nil {
 		return cs, err
