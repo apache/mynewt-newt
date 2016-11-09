@@ -149,8 +149,12 @@ func (proj *Project) Repos() map[string]*repo.Repo {
 }
 
 func (proj *Project) FindRepo(rname string) *repo.Repo {
-	r, _ := proj.repos[rname]
-	return r
+	if rname == repo.REPO_NAME_LOCAL {
+		return proj.LocalRepo()
+	} else {
+		r, _ := proj.repos[rname]
+		return r
+	}
 }
 
 func (proj *Project) LocalRepo() *repo.Repo {
@@ -459,7 +463,7 @@ func (proj *Project) loadConfig() error {
 		return err
 	}
 
-	proj.repos[r.Name()] = r
+	proj.repos[proj.name] = r
 	proj.localRepo = r
 	for _, ignDir := range ignoreSearchDirs {
 		r.AddIgnoreDir(ignDir)

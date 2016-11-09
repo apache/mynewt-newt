@@ -52,7 +52,7 @@ func (bsp *BspPackage) resolvePathSetting(
 	if val == "" {
 		return "", nil
 	}
-	path, err := proj.ResolvePath(bsp.BasePath(), val)
+	path, err := proj.ResolvePath(bsp.Repo().Path(), val)
 	if err != nil {
 		return "", util.PreNewtError(err,
 			"BSP \"%s\" specifies invalid %s setting",
@@ -84,7 +84,7 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 
 		// Read each linker script from the list.
 		for _, val := range vals {
-			path, err := proj.ResolvePath(bsp.BasePath(), val)
+			path, err := proj.ResolvePath(bsp.Repo().Path(), val)
 			if err != nil {
 				return nil, util.PreNewtError(err,
 					"BSP \"%s\" specifies invalid %s setting",

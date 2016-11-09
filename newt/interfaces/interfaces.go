@@ -31,6 +31,7 @@ type PackageType int
 type RepoInterface interface {
 	Name() string
 	IsLocal() bool
+	Path() string
 }
 
 type VersionReqInterface interface {
