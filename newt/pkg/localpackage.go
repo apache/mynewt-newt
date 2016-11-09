@@ -383,6 +383,7 @@ func (pkg *LocalPackage) Clone(newRepo *repo.Repo,
 	// Insert the clone into the global package map.
 	proj := interfaces.GetProject()
 	pMap := proj.PackageList()
+
 	(*pMap[newRepo.Name()])[newPkg.name] = &newPkg
 
 	return &newPkg

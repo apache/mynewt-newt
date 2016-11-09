@@ -49,6 +49,7 @@ type Repo struct {
 	deps       []*RepoDependency
 	ignDirs    []string
 	updated    bool
+	local      bool
 }
 
 type RepoDesc struct {
@@ -90,7 +91,8 @@ func (r *Repo) ignoreDir(dir string) bool {
 func (repo *Repo) FilteredSearchList(curPath string) ([]string, error) {
 	list := []string{}
 
-	dirList, err := ioutil.ReadDir(filepath.Join(repo.Path(), curPath))
+	path := filepath.Join(repo.Path(), curPath)
+	dirList, err := ioutil.ReadDir(path)
 	if err != nil {
 		return list, util.FmtNewtError("failed to read repo \"%s\": %s",
 			repo.Name(), err.Error())
@@ -539,7 +541,7 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 
 	path := interfaces.GetProject().Path()
 
-	if r.name == REPO_NAME_LOCAL {
+	if r.local {
 		r.localPath = filepath.Clean(path)
 	} else {
 		r.localPath = filepath.Clean(path + "/" + REPOS_DIR + "/" + r.name)
@@ -549,7 +551,9 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 }
 
 func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, error) {
-	r := &Repo{}
+	r := &Repo{
+		local: false,
+	}
 
 	if err := r.Init(repoName, rversreq, d); err != nil {
 		return nil, err
@@ -558,10 +562,12 @@ func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, 
 	return r, nil
 }
 
-func NewLocalRepo() (*Repo, error) {
-	r := &Repo{}
+func NewLocalRepo(repoName string) (*Repo, error) {
+	r := &Repo{
+		local: true,
+	}
 
-	if err := r.Init(REPO_NAME_LOCAL, "", nil); err != nil {
+	if err := r.Init(repoName, "", nil); err != nil {
 		return nil, err
 	}
 

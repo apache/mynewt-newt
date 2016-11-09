@@ -458,7 +458,7 @@ func (proj *Project) loadConfig() error {
 	proj.name = v.GetString("project.name")
 
 	// Local repository always included in initialization
-	r, err := repo.NewLocalRepo()
+	r, err := repo.NewLocalRepo(proj.name)
 	if err != nil {
 		return err
 	}
