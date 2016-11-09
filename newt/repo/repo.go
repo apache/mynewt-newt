@@ -294,7 +294,7 @@ func (r *Repo) Path() string {
 }
 
 func (r *Repo) IsLocal() bool {
-	return r.name == REPO_NAME_LOCAL
+	return r.local
 }
 
 func (r *Repo) VersionRequirements() []interfaces.VersionReqInterface {

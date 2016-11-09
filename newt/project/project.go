@@ -292,8 +292,8 @@ func (proj *Project) checkDeps(r *repo.Repo) error {
 
 func (proj *Project) UpdateRepos() error {
 	repoList := proj.Repos()
-	for rname, r := range repoList {
-		if rname == repo.REPO_NAME_LOCAL {
+	for _, r := range repoList {
+		if r.IsLocal() {
 			continue
 		}
 
@@ -327,7 +327,7 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 	}
 
 	for rname, r := range proj.Repos() {
-		if rname == repo.REPO_NAME_LOCAL {
+		if r.IsLocal() {
 			continue
 		}
 		// Check the version requirements on this repository, and see
