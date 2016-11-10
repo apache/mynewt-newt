@@ -176,6 +176,12 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		return err
 	}
 
+	// Copy in pre-compiled library files
+	if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ARCHIVE,
+		append(ignDirs, "arch")); err != nil {
+		return err
+	}
+
 	archDir := srcDir + "/arch/" + arch + "/"
 	if util.NodeExist(archDir) {
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -202,6 +208,12 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ASM,
 			ignDirs); err != nil {
 
+			return err
+		}
+
+		// Copy in pre-compiled library files
+		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ARCHIVE,
+			ignDirs); err != nil {
 			return err
 		}
 	}
@@ -322,9 +334,8 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 	pkgNames := []string{}
 
 	for _, bpkg := range b.PkgMap {
-		if util.NodeExist(b.ArchivePath(bpkg)) {
-			pkgNames = append(pkgNames, b.ArchivePath(bpkg))
-		}
+		archiveNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
+		pkgNames = append(pkgNames, archiveNames...)
 	}
 
 	c.LinkerScripts = linkerScripts
@@ -583,10 +594,8 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 
 	/* build the set of archive file names */
 	for _, bpkg := range b.PkgMap {
-		archivePath := b.ArchivePath(bpkg)
-		if util.NodeExist(archivePath) {
-			archNames = append(archNames, archivePath)
-		}
+		archiveNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
+		archNames = append(archNames, archiveNames...)
 	}
 
 	bld, err := d.RomElfBuildRequired(b.AppLinkerElfPath(),

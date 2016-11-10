@@ -42,9 +42,10 @@ import (
 const COMPILER_FILENAME string = "compiler.yml"
 
 const (
-	COMPILER_TYPE_C   = 0
-	COMPILER_TYPE_ASM = 1
-	COMPILER_TYPE_CPP = 2
+	COMPILER_TYPE_C       = 0
+	COMPILER_TYPE_ASM     = 1
+	COMPILER_TYPE_CPP     = 2
+	COMPILER_TYPE_ARCHIVE = 3
 )
 
 type CompilerInfo struct {
@@ -595,6 +596,46 @@ func (c *Compiler) CompileAs() error {
 	return nil
 }
 
+// Copies all archive files matching the specified file glob.
+//
+// @param match                 The file glob specifying which assembly files
+//                                  to compile.
+func (c *Compiler) CopyArchive() error {
+	files, _ := filepath.Glob("*.a")
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Copying archive if outdated (%s/*.a) %s", wd,
+		strings.Join(files, " "))
+	for _, file := range files {
+		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
+			log.Infof("Ignoring %s because package dictates it.", file)
+			continue
+		}
+
+		tgtFile := c.DstDir() + "/" +
+			strings.TrimSuffix(file, filepath.Ext(file)) + ".a"
+		copyRequired, err := c.depTracker.CopyRequired(file)
+		if err != nil {
+			return err
+		}
+		if copyRequired {
+			err = util.CopyFile(file, tgtFile)
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "copying %s\n",
+				filepath.ToSlash(tgtFile))
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 	ignDirs []string) error {
 
@@ -657,6 +698,8 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 		return c.CompileAs()
 	case COMPILER_TYPE_CPP:
 		return c.CompileCpp()
+	case COMPILER_TYPE_ARCHIVE:
+		return c.CopyArchive()
 	default:
 		return util.NewNewtError("Wrong compiler type specified to " +
 			"RecursiveCompile")
@@ -978,14 +1021,18 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return util.NewNewtError(err.Error())
 	}
 
+	// Delete the old archive, if it exists.
+	err = os.Remove(archiveFile)
+
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s\n",
 		path.Base(archiveFile))
 	objList := c.getObjFiles([]string{})
+	if objList == "" {
+		return nil
+	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Archiving %s with object "+
 		"files %s\n", archiveFile, objList)
 
-	// Delete the old archive, if it exists.
-	err = os.Remove(archiveFile)
 	if err != nil && !os.IsNotExist(err) {
 		return util.NewNewtError(err.Error())
 	}

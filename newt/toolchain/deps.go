@@ -418,3 +418,30 @@ func (tracker *DepTracker) RomElfBuildRequired(dstFile string, elfFile string,
 	}
 	return false, nil
 }
+
+// Determines if the specified static library needs to be copied.  The
+// library needs to be archived if any of the following is true:
+//     * The destination library file does not exist.
+//     * Source object files has a newer modification time than the
+//       target file.
+func (tracker *DepTracker) CopyRequired(srcFile string) (bool, error) {
+
+	tgtFile := tracker.compiler.DstDir() + "/" + filepath.Base(srcFile)
+
+	// If the target doesn't exist or is older than source file, a copy
+	// is required.
+	srcModTime, err := util.FileModificationTime(srcFile)
+	if err != nil {
+		return false, err
+	}
+	tgtModTime, err := util.FileModificationTime(tgtFile)
+	if err != nil {
+		return false, err
+	}
+	if srcModTime.After(tgtModTime) {
+		return true, nil
+	}
+
+	// The target is up to date.
+	return false, nil
+}
