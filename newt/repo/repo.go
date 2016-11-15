@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
@@ -469,17 +470,14 @@ func (r *Repo) readDepRepos(v *viper.Viper) ([]*Repo, error) {
 
 	repoList := v.GetStringMap(repoTag)
 	for repoName, repoItf := range repoList {
-		repoVars := repoItf.(map[interface{}]interface{})
+		repoVars := cast.ToStringMapString(repoItf)
 
-		if repoVars["type"] != "github" {
-			return nil, util.NewNewtError("Only github repositories are currently supported.")
+		dl, err := downloader.LoadDownloader(repoName, repoVars)
+		if err != nil {
+			return nil, err
 		}
 
-		rversreq := repoVars["vers"].(string)
-		dl := downloader.NewGithubDownloader()
-		dl.User = repoVars["user"].(string)
-		dl.Repo = repoVars["repo"].(string)
-
+		rversreq := repoVars["vers"]
 		newRepo, err := NewRepo(repoName, rversreq, dl)
 		if err != nil {
 			return nil, err
@@ -495,7 +493,6 @@ func (r *Repo) readDepRepos(v *viper.Viper) ([]*Repo, error) {
 
 		repos = append(repos, newRepo)
 	}
-
 	return repos, nil
 }
 

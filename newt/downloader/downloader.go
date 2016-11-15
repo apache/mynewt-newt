@@ -30,6 +30,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -55,6 +56,13 @@ type GithubDownloader struct {
 	// Basic authentication login and password for private repositories.
 	Login    string
 	Password string
+}
+
+type LocalDownloader struct {
+	GenericDownloader
+
+	// Path to parent directory of repository.yml file.
+	Path string
 }
 
 func (gd *GenericDownloader) Branch() string {
@@ -193,4 +201,81 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 
 func NewGithubDownloader() *GithubDownloader {
 	return &GithubDownloader{}
+}
+
+func (ld *LocalDownloader) FetchFile(name string, dest string) error {
+	srcPath := ld.Path + "/" + name
+
+	log.Debugf("Fetching file %s to %s", srcPath, dest)
+	if err := util.CopyFile(srcPath, dest); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ld *LocalDownloader) DownloadRepo(commit string) (string, error) {
+	// Get a temporary directory, and copy the repository into that directory.
+	tmpdir, err := ioutil.TempDir("", "newt-repo")
+	if err != nil {
+		return "", err
+	}
+
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Downloading local repository %s\n", ld.Path)
+
+	if err := util.CopyDir(ld.Path, tmpdir); err != nil {
+		return "", err
+	}
+
+	return tmpdir, nil
+}
+
+func NewLocalDownloader() *LocalDownloader {
+	return &LocalDownloader{}
+}
+
+func LoadDownloader(repoName string, repoVars map[string]string) (
+	Downloader, error) {
+
+	switch repoVars["type"] {
+	case "github":
+		gd := NewGithubDownloader()
+
+		gd.User = repoVars["user"]
+		gd.Repo = repoVars["repo"]
+
+		// The project.yml file can contain github access tokens and
+		// authentication credentials, but this file is probably world-readable
+		// and therefore not a great place for this.
+		gd.Token = repoVars["token"]
+		gd.Login = repoVars["login"]
+		gd.Password = repoVars["password"]
+
+		// Alternatively, the user can put security material in
+		// $HOME/.newt/repos.yml.
+		newtrc := newtutil.Newtrc()
+		privRepo := newtrc.GetStringMapString("repository." + repoName)
+		if privRepo != nil {
+			if gd.Token == "" {
+				gd.Token = privRepo["token"]
+			}
+			if gd.Login == "" {
+				gd.Login = privRepo["login"]
+			}
+			if gd.Password == "" {
+				gd.Password = privRepo["password"]
+			}
+		}
+		return gd, nil
+
+	case "local":
+		ld := NewLocalDownloader()
+		ld.Path = repoVars["path"]
+		return ld, nil
+
+	default:
+		return nil, util.FmtNewtError("Invalid repository type: %s",
+			repoVars["type"])
+	}
 }
