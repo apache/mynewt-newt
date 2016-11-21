@@ -54,10 +54,6 @@ const (
 	NMGR_ERR_ENOENT   = 5
 )
 
-const (
-        NMGR_F_JSON_RSP_COMPLETE = 0x0001
-)
-
 func NewNmgrReq() (*NmgrReq, error) {
 	nmr := &NmgrReq{}
 	nmr.Data = []byte{}
@@ -81,12 +77,6 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 	nmr.Id = uint8(data[7])
 
 	data = data[8:]
-	if int(nmr.Len) != len(data) {
-		return nil, util.NewNewtError(
-			fmt.Sprintf("Newtmgr request length doesn't match data length."+
-				"  Newtmgr length = %d, Data length = %d\n", nmr.Len,
-				len(data)))
-	}
 	nmr.Data = data
 
 	log.Debugf("Deserialized response %+v", nmr)

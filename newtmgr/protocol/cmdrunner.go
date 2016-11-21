@@ -33,6 +33,11 @@ type CmdRunner struct {
 
 func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 	var nmr NmgrReq
+	var nmrfrag *NmgrReq
+	var nonmgrhdr bool
+
+	nonmgrhdr = false
+
 	for {
 		pkt, err := cr.Conn.ReadPacket()
 		if err != nil {
@@ -42,23 +47,31 @@ func (cr *CmdRunner) ReadResp() (*NmgrReq, error) {
 		bytes := pkt.GetBytes()
 		log.Debugf("Rx packet dump:\n%s", hex.Dump(bytes))
 
-		var nmrfrag *NmgrReq
-		if cr.Conn.GetOICEncoded() == true {
-			nmrfrag, err = DeserializeOmgrReq(bytes)
-		} else {
-			nmrfrag, err = DeserializeNmgrReq(bytes)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if nmrfrag == nil {
-			continue
+		if nonmgrhdr == false {
+			if cr.Conn.GetOICEncoded() == true {
+				nmrfrag, err = DeserializeOmgrReq(bytes)
+			} else {
+				nmrfrag, err = DeserializeNmgrReq(bytes)
+			}
+			if err != nil {
+				return nil, err
+			}
+			if nmrfrag == nil {
+				continue
+			}
 		}
 		if nmrfrag.Op == NMGR_OP_READ_RSP || nmrfrag.Op == NMGR_OP_WRITE_RSP {
-			nmr.Data = append(nmr.Data, nmrfrag.Data...)
-			nmr.Len += nmrfrag.Len
-			if nmrfrag.Flags&NMGR_F_JSON_RSP_COMPLETE == NMGR_F_JSON_RSP_COMPLETE {
+			if nonmgrhdr == false {
+				nmr.Data = append(nmr.Data, nmrfrag.Data...)
+				nmr.Len += uint16(len(nmrfrag.Data))
+			} else {
+				nmr.Data = append(nmr.Data, bytes...)
+				nmr.Len += uint16(len(bytes))
+			}
+			if nmr.Len >= nmrfrag.Len {
 				return &nmr, nil
+			} else {
+				nonmgrhdr = true
 			}
 		}
 	}

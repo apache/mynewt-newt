@@ -83,7 +83,7 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 	}
 
 	nmr.Len = uint16(len(ndata))
-	nmr.Flags = NMGR_F_JSON_RSP_COMPLETE
+	nmr.Flags = 0
 	nmr.Group = 0
 	nmr.Seq = 0
 	nmr.Id = 0
