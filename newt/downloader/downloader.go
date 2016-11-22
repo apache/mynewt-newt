@@ -65,6 +65,43 @@ type LocalDownloader struct {
 	Path string
 }
 
+func checkout(repoDir string, commit string) error {
+	// Retrieve the current directory so that we can get back to where we
+	// started after the download completes.
+	pwd, err := os.Getwd()
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
+			err.Error()))
+	}
+
+	if err := os.Chdir(repoDir); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	// Checkout the specified commit.
+	cmds := []string{
+		gitPath,
+		"checkout",
+		commit,
+	}
+
+	if o, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+		return util.NewNewtError(string(o))
+	}
+
+	// Go back to original directory.
+	if err := os.Chdir(pwd); err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
+	return nil
+}
+
 func (gd *GenericDownloader) Branch() string {
 	return gd.branch
 }
@@ -128,13 +165,6 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 }
 
 func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
-	// Retrieve the current directory so that we can get back to where we
-	// started after the download completes.
-	pwd, err := os.Getwd()
-	if err != nil {
-		return "", util.NewNewtError(err.Error())
-	}
-
 	// Get a temporary directory, and copy the repository into that directory.
 	tmpdir, err := ioutil.TempDir("", "newt-repo")
 	if err != nil {
@@ -177,23 +207,9 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 		}
 	}
 
-	if err := os.Chdir(tmpdir); err != nil {
-		return "", util.NewNewtError(err.Error())
-	}
-
 	// Checkout the specified commit.
-	cmds = []string{
-		gitPath,
-		"checkout",
-		commit,
-	}
-
-	if o, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
-		return "", util.NewNewtError(string(o))
-	}
-
-	if err := os.Chdir(pwd); err != nil {
-		return "", util.NewNewtError(err.Error())
+	if err := checkout(tmpdir, commit); err != nil {
+		return "", err
 	}
 
 	return tmpdir, nil
@@ -225,6 +241,11 @@ func (ld *LocalDownloader) DownloadRepo(commit string) (string, error) {
 		"Downloading local repository %s\n", ld.Path)
 
 	if err := util.CopyDir(ld.Path, tmpdir); err != nil {
+		return "", err
+	}
+
+	// Checkout the specified commit.
+	if err := checkout(tmpdir, commit); err != nil {
 		return "", err
 	}
 
