@@ -5,8 +5,12 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.10.0-38-g3ec0642",
-			"Rev": "3ec0642a7fb6488f65b06f9040adc67e3990296a"
+			"Comment": "v0.11.0-10-ga437dfd",
+			"Rev": "a437dfd2463eaedbec3dfe443e477d3b0a810b3f"
+		},
+		{
+			"ImportPath": "github.com/dustin/go-coap",
+			"Rev": "75229d0ed26e3f08048d9220408dff03ef604f75"
 		},
 		{
 			"ImportPath": "github.com/inconshreveable/mousetrap",
@@ -31,7 +35,7 @@
 		},
 		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
-			"Rev": "a6ef2f080c66d0a2e94e97cf74f80f772855da63"
+			"Rev": "f3009df150dadf309fdee4a54ed65c124afad715"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt",
@@ -67,11 +71,11 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/cast",
-			"Rev": "2580bc98dc0e62908119e4737030cc2fdfc45e4c"
+			"Rev": "24b6558033ffe202bf42f0f3b870dcc798dd2ba8"
 		},
 		{
 			"ImportPath": "github.com/spf13/cobra",
-			"Rev": "ec2fe7859914a5106dcab4e7901633d959bfc2f4"
+			"Rev": "9495bc009a56819bdb0ddbc1a373e29c140bc674"
 		},
 		{
 			"ImportPath": "github.com/spf13/jwalterweatherman",
@@ -79,7 +83,7 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "bf8481a6aebc13a8aab52e699ffe2e79771f5a3f"
+			"Rev": "5ccb023bc27df288a957c5e994cd44fd19619465"
 		},
 		{
 			"ImportPath": "github.com/tarm/serial",
@@ -91,7 +95,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "9bb9f0998d48b31547d975974935ae9b48c7a03c"
+			"Rev": "b699b7032584f0953262cb2788a0ca19bb494703"
 		},
 		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
@@ -100,18 +104,18 @@
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "pre_sterly_refactor-55-g1e49885",
-			"Rev": "1e49885a484a8975f6269d098d1469e0c31be19e"
+			"Comment": "pre_sterly_refactor-137-gfcecea4",
+			"Rev": "fcecea4b13ab467168e936a51ef01695833644d8"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "pre_sterly_refactor-55-g1e49885",
-			"Rev": "1e49885a484a8975f6269d098d1469e0c31be19e"
+			"Comment": "pre_sterly_refactor-137-gfcecea4",
+			"Rev": "fcecea4b13ab467168e936a51ef01695833644d8"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "pre_sterly_refactor-55-g1e49885",
-			"Rev": "1e49885a484a8975f6269d098d1469e0c31be19e"
+			"Comment": "pre_sterly_refactor-137-gfcecea4",
+			"Rev": "fcecea4b13ab467168e936a51ef01695833644d8"
 		}
 	]
 }

@@ -5,8 +5,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.10.0-38-g3ec0642",
-			"Rev": "3ec0642a7fb6488f65b06f9040adc67e3990296a"
+			"Comment": "v0.11.0-10-ga437dfd",
+			"Rev": "a437dfd2463eaedbec3dfe443e477d3b0a810b3f"
 		},
 		{
 			"ImportPath": "github.com/inconshreveable/mousetrap",
@@ -23,15 +23,15 @@
 		},
 		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
-			"Rev": "a6ef2f080c66d0a2e94e97cf74f80f772855da63"
+			"Rev": "f3009df150dadf309fdee4a54ed65c124afad715"
 		},
 		{
 			"ImportPath": "github.com/spf13/cast",
-			"Rev": "2580bc98dc0e62908119e4737030cc2fdfc45e4c"
+			"Rev": "24b6558033ffe202bf42f0f3b870dcc798dd2ba8"
 		},
 		{
 			"ImportPath": "github.com/spf13/cobra",
-			"Rev": "ec2fe7859914a5106dcab4e7901633d959bfc2f4"
+			"Rev": "9495bc009a56819bdb0ddbc1a373e29c140bc674"
 		},
 		{
 			"ImportPath": "github.com/spf13/jwalterweatherman",
@@ -39,11 +39,11 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "bf8481a6aebc13a8aab52e699ffe2e79771f5a3f"
+			"Rev": "5ccb023bc27df288a957c5e994cd44fd19619465"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "9bb9f0998d48b31547d975974935ae9b48c7a03c"
+			"Rev": "b699b7032584f0953262cb2788a0ca19bb494703"
 		},
 		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
@@ -52,18 +52,18 @@
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/util",
-			"Comment": "pre_sterly_refactor-77-gff4ef02",
-			"Rev": "ff4ef02818cd4fe0387f7314f3ba6a33cc247d5f"
+			"Comment": "pre_sterly_refactor-136-gb93ff7f",
+			"Rev": "b93ff7f6f8715f92d37ce68c66978f2b9bf20692"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/viper",
-			"Comment": "pre_sterly_refactor-77-gff4ef02",
-			"Rev": "ff4ef02818cd4fe0387f7314f3ba6a33cc247d5f"
+			"Comment": "pre_sterly_refactor-136-gb93ff7f",
+			"Rev": "b93ff7f6f8715f92d37ce68c66978f2b9bf20692"
 		},
 		{
 			"ImportPath": "mynewt.apache.org/newt/yaml",
-			"Comment": "pre_sterly_refactor-77-gff4ef02",
-			"Rev": "ff4ef02818cd4fe0387f7314f3ba6a33cc247d5f"
+			"Comment": "pre_sterly_refactor-136-gb93ff7f",
+			"Rev": "b93ff7f6f8715f92d37ce68c66978f2b9bf20692"
 		}
 	]
 }

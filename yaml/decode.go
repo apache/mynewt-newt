@@ -110,7 +110,7 @@ func genValue(strVal string) interface{} {
 func stringValue(value interface{}) string {
 	switch value.(type) {
 	case int:
-		return strconv.FormatInt(value.(int64), 10)
+		return strconv.FormatInt(int64(value.(int)), 10)
 
 	case bool:
 		return strconv.FormatBool(value.(bool))
