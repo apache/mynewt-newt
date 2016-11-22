@@ -21,9 +21,9 @@
 
 # Newt
 
-Apache Newt is a smart build and package management tool, designed for C and C++ 
-applications in embedded contexts.  Newt was developed as a part of the 
-Apache Mynewt Operating System, more information on Apache Mynewt can be found 
+Apache Newt is a smart build and package management tool, designed for C and C++
+applications in embedded contexts.  Newt was developed as a part of the
+Apache Mynewt Operating System, more information on Apache Mynewt can be found
 at https://mynewt.apache.org/.
 
 # Features
@@ -34,18 +34,18 @@ Newt is a build system that can read a directory tree, build a dependency tree, 
 * Generate full flash images
 * Download debug images to a target board using a debugger
 * Conditionally compile libraries & code based upon build settings
+* Generate and download manufacturing flash images
 
 Newt is also a source management system that allows you to do the following:
 
-* Create reusable source distributions (called repo) from a collection of code.
+* Create reusable source distributions (called repos) from a collection of code.
 * Use third-party components with licenses that are not comptatible with the ASF (Apache Software Foundation) license
 * Upgrade repos
 
 
 # How it Works
- 
-When Newt sees a directory tree that contains a "project.yml" file, it recognizes it as the base directory of a project, and automatically builds a package tree. It can also recognize two important package directories in the package tree - "apps" and "targets", and use them to recursively resolve dependencies and build correct images for specified targets. 
 
+When Newt sees a directory tree that contains a "project.yml" file, it recognizes it as the base directory of a project, and automatically builds a package tree.
 More information can be found in the "Newt Tool Manual" under Docs at https://mynewt.apache.org/.
 
 
@@ -55,23 +55,23 @@ To build Apache Newt, simply run the included build.sh script.  For more
 information on building and installng Apache Newt, please read
 [INSTALLING](/INSTALLING.md) or the documentation on https://mynewt.apache.org/
 
-Once you've installed newt, you can get started by creating a new project: 
+Once you've installed newt, you can get started by creating a new project:
 
 ```no-highlight
   $ newt new your_project
 ```
 
-For more information, and a tutorial for getting started, please take a look at 
+For more information, and a tutorial for getting started, please take a look at
 the [Apache Mynewt documentation](https://mynewt.apache.org/os/get_started/introduction/).
 
 
 
-# Contributing 
+# Contributing
 
 ## Introduction
 
-Anybody who works with Apache Mynewt can be a contributing member of the 
-community that develops and deploys it.  The process of releasing an operating 
+Anybody who works with Apache Mynewt can be a contributing member of the
+community that develops and deploys it.  The process of releasing an operating
 system for microcontrollers is never done: and we welcome your contributions
 to that effort.
 
@@ -82,44 +82,44 @@ but depending on the topic, can also be relayed to the official Apache Mynewt
 developer mailing list dev@mynewt.incubator.apache.org.
 
 If you are suggesting a new feature, please email the developer list directly,
-with a description of the feature you are planning to work on.  
+with a description of the feature you are planning to work on.
 
-We do not merge pull requests directly on Github, all PRs will be pulled and 
+We do not merge pull requests directly on Github, all PRs will be pulled and
 pushed through https://git.apache.org/.
 
 ## Filing Bugs
 
-Bugs can be filed on the 
+Bugs can be filed on the
 [Apache Mynewt Bug Tracker](https://issues.apache.org/jira/browse/MYNEWT).
 
 Where possible, please include a self-contained reproduction case!
 
 ## Feature Requests
 
-Feature requests should also be filed on the 
-[Apache Mynewt Bug Tracker](https://issues.apache.org/jira/browse/MYNEWT).  
-Please introduce it as a ticket type "Wish." 
+Feature requests should also be filed on the
+[Apache Mynewt Bug Tracker](https://issues.apache.org/jira/browse/MYNEWT).
+Please introduce it as a ticket type "Wish."
 
 ## Writing Tests
 
 We love getting newt tests!  Apache Mynewt is a huge undertaking, and improving
-code coverage is a win for every Apache Mynewt user.  
+code coverage is a win for every Apache Mynewt user.
 
 ## Writing Documentation
 
-Contributing to documentation (in addition to writing tests), is a great way 
+Contributing to documentation (in addition to writing tests), is a great way
 to get involved with the Apache Mynewt project.
 
-Pull requests to the apache-mynewt-site repository on Github are the best 
-way to submit documentation.  For more information on contributing to the 
-documentation, the [FAQ](https://mynewt.apache.org/faq/answers/) has some 
+Pull requests to the apache-mynewt-site repository on Github are the best
+way to submit documentation.  For more information on contributing to the
+documentation, the [FAQ](https://mynewt.apache.org/faq/answers/) has some
 more information.
 
 ## Getting Help
 
-If you are having trouble contributing to Apache Mynewt, or just want to talk 
-to a human about what you're working on, you can contact us via the 
-[developers mailing list](mailto:dev@mynewt.incubator.apache.org).  
+If you are having trouble contributing to Apache Mynewt, or just want to talk
+to a human about what you're working on, you can contact us via the
+[developers mailing list](mailto:dev@mynewt.incubator.apache.org).
 
 Although not a formal channel, you can also find a number of core developers
 on the #mynewt channel on Freenode.
