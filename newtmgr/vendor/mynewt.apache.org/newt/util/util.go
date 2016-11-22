@@ -105,11 +105,13 @@ func ChildNewtError(parent error) *NewtError {
 }
 
 // Print Silent, Quiet and Verbose aware status messages to stdout.
-func StatusMessage(level int, message string, args ...interface{}) {
+func WriteMessage(f *os.File, level int, message string,
+	args ...interface{}) {
+
 	if Verbosity >= level {
 		str := fmt.Sprintf(message, args...)
-		os.Stdout.WriteString(str)
-		os.Stdout.Sync()
+		f.WriteString(str)
+		f.Sync()
 
 		if logFile != nil {
 			logFile.WriteString(str)
@@ -117,11 +119,14 @@ func StatusMessage(level int, message string, args ...interface{}) {
 	}
 }
 
+// Print Silent, Quiet and Verbose aware status messages to stdout.
+func StatusMessage(level int, message string, args ...interface{}) {
+	WriteMessage(os.Stdout, level, message, args...)
+}
+
 // Print Silent, Quiet and Verbose aware status messages to stderr.
 func ErrorMessage(level int, message string, args ...interface{}) {
-	if Verbosity >= level {
-		fmt.Fprintf(os.Stderr, message, args...)
-	}
+	WriteMessage(os.Stderr, level, message, args...)
 }
 
 func NodeExist(path string) bool {
@@ -373,7 +378,8 @@ func CopyFile(srcFile string, dstFile string) error {
 		return ChildNewtError(err)
 	}
 
-	out, err := os.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY, info.Mode())
+	out, err := os.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		info.Mode())
 	if err != nil {
 		return ChildNewtError(err)
 	}
@@ -381,13 +387,6 @@ func CopyFile(srcFile string, dstFile string) error {
 
 	if _, err = io.Copy(out, in); err != nil {
 		return ChildNewtError(err)
-	}
-
-	if err := in.Close(); err != nil {
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
 	}
 
 	return nil
@@ -558,4 +557,28 @@ func FileContentsChanged(path string, newContents []byte) (bool, error) {
 
 	rc := bytes.Compare(oldContents, newContents)
 	return rc != 0, nil
+}
+
+func CIdentifier(s string) string {
+	s = strings.Replace(s, "/", "_", -1)
+	s = strings.Replace(s, "-", "_", -1)
+	s = strings.Replace(s, " ", "_", -1)
+
+	return s
+}
+
+func IntMax(a, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
+func IntMin(a, b int) int {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
