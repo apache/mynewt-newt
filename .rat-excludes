@@ -65,3 +65,6 @@ tarm
 
 # Codec (used for CBOR) - MIT license.
 ugorji
+
+# go-coap - MIT license.
+go-coap
