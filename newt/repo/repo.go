@@ -89,7 +89,9 @@ func (r *Repo) ignoreDir(dir string) bool {
 	return false
 }
 
-func (repo *Repo) FilteredSearchList(curPath string) ([]string, error) {
+func (repo *Repo) FilteredSearchList(
+	curPath string, searchedMap map[string]struct{}) ([]string, error) {
+
 	list := []string{}
 
 	path := filepath.Join(repo.Path(), curPath)
@@ -98,11 +100,35 @@ func (repo *Repo) FilteredSearchList(curPath string) ([]string, error) {
 		return list, util.FmtNewtError("failed to read repo \"%s\": %s",
 			repo.Name(), err.Error())
 	}
+
 	for _, dirEnt := range dirList {
-		if !dirEnt.IsDir() {
+		// Resolve symbolic links.
+		entPath := filepath.Join(path, dirEnt.Name())
+		entry, err := os.Stat(entPath)
+		if err != nil {
+			return nil, util.ChildNewtError(err)
+		}
+
+		name := entry.Name()
+		if err != nil {
 			continue
 		}
-		name := dirEnt.Name()
+
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Don't search the same directory twice.  This check is necessary in
+		// case of symlink cycles.
+		absPath, err := filepath.EvalSymlinks(entPath)
+		if err != nil {
+			return nil, util.ChildNewtError(err)
+		}
+		if _, ok := searchedMap[absPath]; ok {
+			continue
+		}
+		searchedMap[absPath] = struct{}{}
+
 		if strings.HasPrefix(name, ".") {
 			continue
 		}
