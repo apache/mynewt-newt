@@ -277,3 +277,31 @@ details, see:
     * newt/vendor/mynewt.apache.org/newt/viper/LICENSE
     * newtmgr/vendor/mynewt.apache.org/newt/viper/LICENSE
     * viper/LICENSE
+
+This product bundles go-crc16, which is available under the MIT license.  For
+details, see:
+    * newtmgr/vendor/github.com/joaojeronimo/go-crc16/README.md
+
+This product bundles GATT, which is available under the "3-clause BSD" license.
+For details, see:
+    * newtmgr/vendor/github.com/runtimeinc/gatt
+
+This product bundles xpc, which is available under the MIT license.  For
+details, see:
+    * newtmgr/vendor/github.com/runtimeinc/gatt/xpc/LICENSE
+
+This product bundles gioctl, which is available under the MIT license.  For
+details, see:
+    * newtmgr/vendor/github.com/runtimeinc/gatt/linux/gioctl/LICENSE.md
+
+This product bundles tarm/serial, which is available under the "3-clause BSD"
+license.  For details, see:
+    * newtmgr/vendor/github.com/tarm/serial/LICENSE
+
+This product bundles ugorji/go/codec, which is available under the MIT license.
+For details, see:
+    * newtmgr/vendor/github.com/ugorji/go/LICENSE
+
+This product bundles go-coap which is available under the MIT license.
+For details, see:
+    * newtmgr/vendor/github.com/dustin/go-coap/LICENSE
