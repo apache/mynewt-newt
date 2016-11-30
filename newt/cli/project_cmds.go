@@ -159,9 +159,9 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	for rName, repo := range repos {
+	for _, repo := range repos {
 		var exists bool
-		if rName == "local" {
+		if repo.IsLocal() {
 			continue
 		}
 		vers := ps.GetInstalledVersion(repo.Name())
