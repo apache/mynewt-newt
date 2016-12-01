@@ -418,15 +418,19 @@ func (c *Compiler) GenDepsForFile(file string) error {
 
 	o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
 	if err != nil {
-		return util.NewNewtError(string(o))
+		return err
 	}
 
 	// Write the compiler output to a dependency file.
 	f, err := os.OpenFile(depFile, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return util.ChildNewtError(err)
 	}
 	defer f.Close()
+
+	if _, err := f.Write(o); err != nil {
+		return util.ChildNewtError(err)
+	}
 
 	// Append the extra dependencies (.yml files) to the .d file.
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
