@@ -547,7 +547,8 @@ func (b *Builder) Test(p *pkg.LocalPackage) error {
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing test: %s\n",
 		testFilename)
-	if _, err := util.ShellCommand(testFilename); err != nil {
+	cmd := []string{testFilename}
+	if _, err := util.ShellCommand(cmd, nil); err != nil {
 		newtError := err.(*util.NewtError)
 		newtError.Text = fmt.Sprintf("Test failure (%s):\n%s", p.Name(),
 			newtError.Text)

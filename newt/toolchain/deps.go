@@ -57,8 +57,7 @@ func parseDepsLine(line string) (string, []string, error) {
 
 	dFileTok := tokens[0]
 	if dFileTok[len(dFileTok)-1:] != ":" {
-		return "", nil, util.NewNewtError("Invalid Makefile dependency file; " +
-			"line missing ':'")
+		return "", nil, util.NewNewtError("line missing ':'")
 	}
 
 	dFileName := dFileTok[:len(dFileTok)-1]
@@ -91,7 +90,9 @@ func ParseDepsFile(filename string) ([]string, error) {
 	for _, line := range lines {
 		src, deps, err := parseDepsLine(line)
 		if err != nil {
-			return nil, err
+			return nil, util.FmtNewtError(
+				"Invalid Makefile dependency file \"%s\"; %s",
+				filename, err.Error())
 		}
 
 		if dFile == "" {
@@ -133,14 +134,16 @@ func (tracker *DepTracker) ProcessFileTime(file string) error {
 // @return                      true if the command has changed or if the
 //                                  destination file was never built;
 //                              false otherwise.
-func commandHasChanged(dstFile string, cmd string) bool {
+func commandHasChanged(dstFile string, cmd []string) bool {
 	cmdFile := dstFile + ".cmd"
 	prevCmd, err := ioutil.ReadFile(cmdFile)
 	if err != nil {
 		return true
 	}
 
-	return bytes.Compare(prevCmd, []byte(cmd)) != 0
+	curCmd := serializeCommand(cmd)
+
+	return bytes.Compare(prevCmd, curCmd) != 0
 }
 
 // Determines if the specified C or assembly file needs to be built.  A compile

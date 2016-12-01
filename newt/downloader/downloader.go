@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -84,13 +83,13 @@ func checkout(repoDir string, commit string) error {
 	}
 
 	// Checkout the specified commit.
-	cmds := []string{
+	cmd := []string{
 		gitPath,
 		"checkout",
 		commit,
 	}
 
-	if o, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+	if o, err := util.ShellCommand(cmd, nil); err != nil {
 		return util.NewNewtError(string(o))
 	}
 
@@ -187,7 +186,7 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	}
 
 	// Clone the repository.
-	cmds := []string{
+	cmd := []string{
 		gitPath,
 		"clone",
 		"-b",
@@ -197,12 +196,12 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
-		if err := util.ShellInteractiveCommand(cmds, nil); err != nil {
+		if err := util.ShellInteractiveCommand(cmd, nil); err != nil {
 			os.RemoveAll(tmpdir)
 			return "", err
 		}
 	} else {
-		if _, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+		if _, err := util.ShellCommand(cmd, nil); err != nil {
 			return "", err
 		}
 	}

@@ -481,15 +481,36 @@ func (r *RepoManager) GetImageManifestPkg(
 		Name: ip.Repo,
 	}
 
-	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse HEAD",
-		path))
+	// Make sure we restore the current working dir to whatever it was when
+	// this function was called
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Debugf("Unable to determine current working directory: %v", err)
+		return ip
+	}
+	defer os.Chdir(cwd)
+
+	if err := os.Chdir(path); err != nil {
+		return ip
+	}
+
+	var res []byte
+
+	res, err = util.ShellCommand([]string{
+		"git",
+		"rev-parse",
+		"HEAD",
+	}, nil)
 	if err != nil {
 		log.Debugf("Unable to determine commit hash for %s: %v", path, err)
 		repo.Commit = "UNKNOWN"
 	} else {
 		repo.Commit = strings.TrimSpace(string(res))
-		res, err := util.ShellCommand(fmt.Sprintf(
-			"cd %s && git status --porcelain", path))
+		res, err = util.ShellCommand([]string{
+			"git",
+			"status",
+			"--porcelain",
+		}, nil)
 		if err != nil {
 			log.Debugf("Unable to determine dirty state for %s: %v", path, err)
 		} else {
@@ -497,8 +518,12 @@ func (r *RepoManager) GetImageManifestPkg(
 				repo.Dirty = true
 			}
 		}
-		res, err = util.ShellCommand(fmt.Sprintf(
-			"cd %s && git config --get remote.origin.url", path))
+		res, err = util.ShellCommand([]string{
+			"git",
+			"config",
+			"--get",
+			"remote.origin.url",
+		}, nil)
 		if err != nil {
 			log.Debugf("Unable to determine URL for %s: %v", path, err)
 		} else {

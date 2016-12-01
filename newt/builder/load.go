@@ -24,6 +24,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -65,25 +66,27 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	}
 	sort.Strings(sortedKeys)
 
-	envSettings := ""
+	env := []string{}
 	for _, key := range sortedKeys {
-		envSettings += fmt.Sprintf("%s=\"%s\" ", key, extraEnvSettings[key])
+		env = append(env, fmt.Sprintf("%s=%s", key, extraEnvSettings[key]))
 	}
 
 	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
-	envSettings += fmt.Sprintf("CORE_PATH=\"%s\" ", coreRepo.Path())
-	envSettings += fmt.Sprintf("BSP_PATH=\"%s\" ", bspPath)
-	envSettings += fmt.Sprintf("BIN_BASENAME=\"%s\" ", binBaseName)
+	env = append(env, fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()))
+	env = append(env, fmt.Sprintf("BSP_PATH=%s", bspPath))
+	env = append(env, fmt.Sprintf("BIN_BASENAME=%s", binBaseName))
 
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
-	downloadCmd := fmt.Sprintf("%s %s %s %s", envSettings,
-		bspPkg.DownloadScript, bspPath, binBaseName)
+	cmd := []string{
+		bspPkg.DownloadScript,
+		bspPath,
+		binBaseName,
+	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
-		downloadCmd)
-	_, err := util.ShellCommand(downloadCmd)
-	if err != nil {
+		strings.Join(cmd, " "))
+	if _, err := util.ShellCommand(cmd, env); err != nil {
 		return err
 	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
@@ -183,7 +186,7 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 		fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()),
 		fmt.Sprintf("BSP_PATH=%s", bspPath),
 		fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
-		fmt.Sprintf("FEATURES=\"%s\"", featureString),
+		fmt.Sprintf("FEATURES=%s", featureString),
 	}
 	if extraJtagCmd != "" {
 		envSettings = append(envSettings,

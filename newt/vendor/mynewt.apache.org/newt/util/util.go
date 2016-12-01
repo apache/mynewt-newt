@@ -268,18 +268,65 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	}
 }
 
-// Execute the command specified by cmdStr on the shell and return results
-func ShellCommand(cmdStr string) ([]byte, error) {
-	log.Debug(cmdStr)
-	cmd := exec.Command("sh", "-c", cmdStr)
+// Execute the specified process and block until it completes.  Additionally,
+// the amount of combined stdout+stderr output to be logged to the debug log
+// can be restricted to a maximum number of characters.
+//
+// @param cmdStrs               The "argv" strings of the command to execute.
+// @param env                   Additional key=value pairs to inject into the
+//                                  child process's environment.  Specify null
+//                                  to just inherit the parent environment.
+// @param maxDbgOutputChrs      The maximum number of combined stdout+stderr
+//                                  characters to write to the debug log.
+//                                  Specify -1 for no limit; 0 for no output.
+//
+// @return []byte               Combined stdout and stderr output of process.
+// @return error                NewtError on failure.
+func ShellCommandLimitDbgOutput(
+	cmdStrs []string, env []string, maxDbgOutputChrs int) ([]byte, error) {
+
+	envLogStr := ""
+	if env != nil {
+		envLogStr = strings.Join(env, " ") + " "
+	}
+	log.Debugf("%s%s", envLogStr, strings.Join(cmdStrs, " "))
+
+	name := cmdStrs[0]
+	args := cmdStrs[1:]
+	cmd := exec.Command(name, args...)
+
+	if env != nil {
+		cmd.Env = append(env, os.Environ()...)
+	}
 
 	o, err := cmd.CombinedOutput()
-	log.Debugf("o=%s", string(o))
+
+	if maxDbgOutputChrs < 0 || len(o) <= maxDbgOutputChrs {
+		dbgStr := string(o)
+		log.Debugf("o=%s", dbgStr)
+	} else if maxDbgOutputChrs != 0 {
+		dbgStr := string(o[:maxDbgOutputChrs]) + "[...]"
+		log.Debugf("o=%s", dbgStr)
+	}
+
 	if err != nil {
 		return o, NewNewtError(string(o))
 	} else {
 		return o, nil
 	}
+}
+
+// Execute the specified process and block until it completes.
+//
+// @param cmdStrs               The "argv" strings of the command to execute.
+// @param env                   Additional key=value pairs to inject into the
+//                                  child process's environment.  Specify null
+//                                  to just inherit the parent environment.
+//
+// @return []byte               Combined stdout and stderr output of process.
+// @return error                NewtError on failure.
+func ShellCommand(cmdStrs []string, env []string) ([]byte, error) {
+	return ShellCommandLimitDbgOutput(cmdStrs, env, -1)
 }
 
 // Run interactive shell command
@@ -297,7 +344,10 @@ func ShellInteractiveCommand(cmdStr []string, env []string) error {
 		<-c
 	}()
 
-	env = append(env, os.Environ()...)
+	if env != nil {
+		env = append(env, os.Environ()...)
+	}
+
 	// Transfer stdin, stdout, and stderr to the new process
 	// and also set target directory for the shell to start in.
 	// and set the additional environment variables
