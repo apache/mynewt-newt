@@ -711,9 +711,19 @@ func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 		}
 	}
 
-	// if not, recurse into the directory
+	// If not, recurse into the directory.  Make the output directory
+	// structure mirror that of the source tree.
+	prevDstDir := c.dstDir
+	c.dstDir += "/" + node.Name()
+
 	os.Chdir(wd + "/" + node.Name())
-	return c.RecursiveCompile(cType, ignDirs)
+	err := c.RecursiveCompile(cType, ignDirs)
+
+	// Restore the compiler destination directory now that the child directory
+	// has been fully built.
+	c.dstDir = prevDstDir
+
+	return err
 }
 
 func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {

@@ -232,6 +232,9 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 			// the dependency file is out of date, so it needs to be deleted.
 			// We cannot regenerate it now because the source file might be
 			// including a nonexistent header.
+			util.StatusMessage(util.VERBOSITY_VERBOSE,
+				"%s - rebuild required; dependency \"%s\" has been deleted\n",
+				srcFile, dep)
 			os.Remove(depFile)
 			return true, nil
 		} else {
