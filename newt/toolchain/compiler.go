@@ -422,7 +422,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	}
 
 	// Write the compiler output to a dependency file.
-	f, err := os.OpenFile(depFile, os.O_CREATE|os.O_WRONLY, 0666)
+	f, err := os.OpenFile(depFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return util.ChildNewtError(err)
 	}
@@ -912,7 +912,8 @@ func (c *Compiler) generateExtras(elfFilename string,
 
 	if options["listFile"] {
 		listFile := elfFilename + ".lst"
-		f, err := os.OpenFile(listFile, os.O_CREATE|os.O_WRONLY, 0666)
+		f, err := os.OpenFile(listFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+			0666)
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
@@ -1085,7 +1086,8 @@ func createSplitArchiveLinkerFile(archiveFile string,
 	ar_script_name := linkerScriptFileName(archiveFile)
 
 	// open the file and write out the script
-	f, err := os.OpenFile(ar_script_name, os.O_CREATE|os.O_WRONLY, 0666)
+	f, err := os.OpenFile(ar_script_name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0666)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
