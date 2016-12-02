@@ -469,14 +469,41 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 
 	InitProject()
 
-	t, err := resolveExistingTargetArg(args[0])
-	if err != nil {
-		NewtUsage(cmd, err)
-	}
+	var b *builder.TargetBuilder
 
-	b, err := builder.NewTargetBuilder(t)
-	if err != nil {
-		NewtUsage(nil, err)
+	// Argument can specify either a target or a unittest package.  Determine
+	// which type the package is and construct a target builder appropriately.
+	t, err := resolveExistingTargetArg(args[0])
+	if err == nil {
+		b, err = builder.NewTargetBuilder(t)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+	} else {
+		proj := InitProject()
+
+		pack, err := proj.ResolvePackage(proj.LocalRepo(), args[0])
+		if err != nil {
+			NewtUsage(cmd, util.FmtNewtError(
+				"Could not resolve target or unittest \"%s\"", args[0]))
+		}
+
+		if pack.Type() != pkg.PACKAGE_TYPE_UNITTEST {
+			NewtUsage(cmd, util.FmtNewtError(
+				"Package \"%s\" is of type %s; "+
+					"must be target or unittest", args[0],
+				pkg.PackageTypeNames[pack.Type()]))
+		}
+
+		t, err = ResolveUnittestTarget(pack.Name())
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+
+		b, err = builder.NewTargetTester(t, pack)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
 	}
 
 	cfgResolution, err := b.ExportCfg()
@@ -593,7 +620,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Short:     "View target system configuration",
 		Long:      configHelpText,
 		Run:       targetConfigCmd,
-		ValidArgs: targetList(),
+		ValidArgs: append(targetList(), unittestList()...),
 	}
 
 	targetCmd.AddCommand(configCmd)

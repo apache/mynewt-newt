@@ -259,31 +259,9 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 
-		// Each unit test package gets its own target.  This target is a copy
-		// of the base unit test package, just with an appropriate name.  The
-		// reason each test needs a unique target is: syscfg and sysinit are
-		// target-specific.  If each test package shares a target, they will
-		// overwrite these generated headers each time they are run.  Worse, if
-		// two tests are run back-to-back, the timestamps may indicate that the
-		// headers have not changed between tests, causing build failures.
-		baseTarget := ResolveTarget(TARGET_TEST_NAME)
-		if baseTarget == nil {
-			NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
-				TARGET_TEST_NAME))
-		}
-
-		targetName := fmt.Sprintf("%s/%s/%s",
-			TARGET_DEFAULT_DIR, TARGET_TEST_NAME,
-			builder.TestTargetName(pack.Name()))
-
-		t := ResolveTarget(targetName)
-		if t == nil {
-			targetName, err := ResolveNewTargetName(targetName)
-			if err != nil {
-				NewtUsage(nil, err)
-			}
-
-			t = baseTarget.Clone(proj.LocalRepo(), targetName)
+		t, err := ResolveUnittestTarget(pack.Name())
+		if err != nil {
+			NewtUsage(nil, err)
 		}
 
 		b, err := builder.NewTargetTester(t, pack)
@@ -406,7 +384,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Short: "Executes unit tests for one or more packages",
 		Run:   testRunCmd,
 	}
-	testCmd.ValidArgs = append(packageList(), "all")
+	testCmd.ValidArgs = append(testablePkgList(), "all")
 	cmd.AddCommand(testCmd)
 
 	loadHelpText := "Load app image to target for <target-name>."

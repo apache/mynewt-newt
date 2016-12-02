@@ -28,36 +28,46 @@ import (
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
-	"mynewt.apache.org/newt/newt/target"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
-func targetList() []string {
-	targetNames := []string{}
+func pkgNameList(filterCb func(*pkg.LocalPackage) bool) []string {
+	names := []string{}
 
-	if _, err := project.TryGetProject(); err != nil {
-		return targetNames
+	proj, err := project.TryGetProject()
+	if err != nil {
+		return names
 	}
 
-	for name, _ := range target.GetTargets() {
-		// Don't display the special unittest target; this is used
-		// internally by newt, so the user doesn't need to know about it.
-		// XXX: This is a hack; come up with a better solution for unit
-		// testing.
-		if !strings.HasSuffix(name, "/unittest") {
-			targetNames = append(targetNames,
-				strings.TrimPrefix(name, "targets/"))
+	for _, pack := range proj.PackagesOfType(-1) {
+		if filterCb(pack.(*pkg.LocalPackage)) {
+			names = append(names, pack.FullName())
 		}
 	}
 
-	sort.Strings(targetNames)
+	sort.Strings(names)
+	return names
+}
+
+func targetList() []string {
+	targetNames := pkgNameList(func(pack *pkg.LocalPackage) bool {
+		return pack.Type() == pkg.PACKAGE_TYPE_TARGET &&
+			!strings.HasSuffix(pack.Name(), "/unittest")
+	})
+
+	// Remove "targets/" prefix.
+	for i, _ := range targetNames {
+		targetNames[i] = strings.TrimPrefix(
+			targetNames[i], TARGET_DEFAULT_DIR+"/")
+	}
+
 	return targetNames
 }
 
 /* @return                      A slice of all testable package names. */
-func packageList() []string {
+func testablePkgList() []string {
 	packs := testablePkgs()
 	names := make([]string, 0, len(packs))
 	for pack, _ := range packs {
@@ -69,20 +79,24 @@ func packageList() []string {
 	return names
 }
 
+func unittestList() []string {
+	return pkgNameList(func(pack *pkg.LocalPackage) bool {
+		return pack.Type() == pkg.PACKAGE_TYPE_UNITTEST
+	})
+}
+
 func mfgList() []string {
-	names := []string{}
+	targetNames := pkgNameList(func(pack *pkg.LocalPackage) bool {
+		return pack.Type() == pkg.PACKAGE_TYPE_MFG
+	})
 
-	proj, err := project.TryGetProject()
-	if err != nil {
-		return names
+	// Remove "targets/" prefix.
+	for i, _ := range targetNames {
+		targetNames[i] = strings.TrimPrefix(
+			targetNames[i], MFG_DEFAULT_DIR+"/")
 	}
 
-	for _, pack := range proj.PackagesOfType(pkg.PACKAGE_TYPE_MFG) {
-		names = append(names, strings.TrimPrefix(pack.Name(), "mfgs/"))
-	}
-
-	sort.Strings(names)
-	return names
+	return targetNames
 }
 
 func completeRunCmd(cmd *cobra.Command, args []string) {

@@ -30,6 +30,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -211,4 +212,35 @@ func InitProject() *project.Project {
 	}
 
 	return p
+}
+
+func ResolveUnittestTarget(pkgName string) (*target.Target, error) {
+	// Each unit test package gets its own target.  This target is a copy
+	// of the base unit test package, just with an appropriate name.  The
+	// reason each test needs a unique target is: syscfg and sysinit are
+	// target-specific.  If each test package shares a target, they will
+	// overwrite these generated headers each time they are run.  Worse, if
+	// two tests are run back-to-back, the timestamps may indicate that the
+	// headers have not changed between tests, causing build failures.
+	baseTarget := ResolveTarget(TARGET_TEST_NAME)
+	if baseTarget == nil {
+		return nil, util.FmtNewtError("Can't find unit test target: %s",
+			TARGET_TEST_NAME)
+	}
+
+	targetName := fmt.Sprintf("%s/%s/%s",
+		TARGET_DEFAULT_DIR, TARGET_TEST_NAME,
+		builder.TestTargetName(pkgName))
+
+	t := ResolveTarget(targetName)
+	if t == nil {
+		targetName, err := ResolveNewTargetName(targetName)
+		if err != nil {
+			return nil, err
+		}
+
+		t = baseTarget.Clone(InitProject().LocalRepo(), targetName)
+	}
+
+	return t, nil
 }
