@@ -585,7 +585,10 @@ func (proj *Project) loadPackageList() error {
 	for name, repo := range repos {
 		list, warnings, err := pkg.ReadLocalPackages(repo, repo.Path())
 		if err != nil {
-			return err
+			/* Failed to read the repo's package list.  Report the failure as a
+			 * warning and move on to the next repo.
+			 */
+			util.StatusMessage(util.VERBOSITY_QUIET, err.Error())
 		} else {
 			proj.packages[name] = list
 		}
