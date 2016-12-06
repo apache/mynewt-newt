@@ -31,6 +31,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
 )
@@ -51,6 +52,10 @@ type Repo struct {
 	ignDirs    []string
 	updated    bool
 	local      bool
+
+	// The minimim git commit the repo must have to interoperate with this
+	// version of newt.
+	minCommit *newtutil.RepoCommitEntry
 }
 
 type RepoDesc struct {
@@ -551,6 +556,44 @@ func (r *Repo) ReadDesc() (*RepoDesc, []*Repo, error) {
 	return rdesc, repos, nil
 }
 
+// Checks if the specified repo is compatible with this version of newt.  This
+// function only verifies that the repo is new enough; it doesn't check that
+// newt is new enough.
+func (r *Repo) HasMinCommit() (bool, error) {
+	if r.minCommit == nil {
+		return true, nil
+	}
+
+	// Change back to the initial directory when this function returns.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false, util.ChildNewtError(err)
+	}
+	defer os.Chdir(cwd)
+
+	if err := os.Chdir(r.localPath); err != nil {
+		return false, util.ChildNewtError(err)
+	}
+
+	cmd := []string{
+		"git",
+		"rev-list",
+		r.minCommit.Hash + "..HEAD",
+	}
+
+	o, err := util.ShellCommand(cmd, nil)
+	if err != nil {
+		return false, util.ChildNewtError(err)
+	}
+
+	if len(o) == 0 {
+		// No output means the commit does not exist in the current branch.
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) error {
 	var err error
 
@@ -568,6 +611,22 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 		r.localPath = filepath.Clean(path)
 	} else {
 		r.localPath = filepath.Clean(path + "/" + REPOS_DIR + "/" + r.name)
+		r.minCommit = newtutil.RepoMinCommits[repoName]
+
+		upToDate, err := r.HasMinCommit()
+		if err != nil {
+			return err
+		}
+
+		if !upToDate {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"Warning: repo \"%s\" is out of date for this version of "+
+					"newt.  Please upgrade the repo to meet these "+
+					"requirements:\n"+
+					"    * Version: %s\n"+
+					"    * Commit: %s\n",
+				r.name, r.minCommit.Version, r.minCommit.Hash)
+		}
 	}
 
 	return nil

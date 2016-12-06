@@ -39,6 +39,23 @@ var NewtBlinkyTag string = "develop"
 const NEWTRC_DIR string = ".newt"
 const REPOS_FILENAME string = "repos.yml"
 
+const CORE_REPO_NAME string = "apache-mynewt-core"
+
+type RepoCommitEntry struct {
+	Version string
+	Hash    string
+}
+
+// A warning is displayed if newt requires a newer version of a repo.
+var RepoMinCommits = map[string]*RepoCommitEntry{
+	// Newt no longer invokes the shell for external commands.  Some YAML files
+	// in core had to be fixed to accommodate this change.
+	CORE_REPO_NAME: &RepoCommitEntry{
+		Version: "develop",
+		Hash:    "5c5a987ef72ae9b3eb682f19d7d0bdc85f7e500c",
+	},
+}
+
 // Contains general newt settings read from $HOME/.newt
 var newtrc *viper.Viper
 
