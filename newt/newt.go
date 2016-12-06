@@ -135,6 +135,7 @@ func main() {
 		os.Args = tmpArgs[0:2]
 
 		if err == nil && bc.Name() == "complete" {
+			cli.GenerateTabCompleteValues()
 			bc.Execute()
 			return
 		}

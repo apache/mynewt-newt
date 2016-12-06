@@ -548,8 +548,8 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: showHelpEx,
 		Run:     targetShowCmd,
 	}
-	showCmd.ValidArgs = targetList()
 	targetCmd.AddCommand(showCmd)
+	AddTabCompleteFn(showCmd, targetList)
 
 	setHelpText := "Set a target variable (<var-name>) on target " +
 		"<target-name> to value <value>."
@@ -565,8 +565,8 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: setHelpEx,
 		Run:     targetSetCmd,
 	}
-	setCmd.ValidArgs = targetList()
 	targetCmd.AddCommand(setCmd)
+	AddTabCompleteFn(setCmd, targetList)
 
 	createHelpText := "Create a target specified by <target-name>."
 	createHelpEx := "  newt target create <target-name>\n"
@@ -603,25 +603,27 @@ func AddTargetCommands(cmd *cobra.Command) {
 	copyHelpEx += "  newt target copy blinky_sim my_target"
 
 	copyCmd := &cobra.Command{
-		Use:       "copy",
-		Short:     "Copy target",
-		Long:      copyHelpText,
-		Example:   copyHelpEx,
-		Run:       targetCopyCmd,
-		ValidArgs: targetList(),
+		Use:     "copy",
+		Short:   "Copy target",
+		Long:    copyHelpText,
+		Example: copyHelpEx,
+		Run:     targetCopyCmd,
 	}
 
 	targetCmd.AddCommand(copyCmd)
+	AddTabCompleteFn(copyCmd, targetList)
 
 	configHelpText := "View a target's system configuration."
 
 	configCmd := &cobra.Command{
-		Use:       "config",
-		Short:     "View target system configuration",
-		Long:      configHelpText,
-		Run:       targetConfigCmd,
-		ValidArgs: append(targetList(), unittestList()...),
+		Use:   "config",
+		Short: "View target system configuration",
+		Long:  configHelpText,
+		Run:   targetConfigCmd,
 	}
 
 	targetCmd.AddCommand(configCmd)
+	AddTabCompleteFn(configCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
 }

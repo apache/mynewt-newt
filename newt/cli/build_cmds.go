@@ -367,8 +367,10 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   buildRunCmd,
 	}
 
-	buildCmd.ValidArgs = targetList()
 	cmd.AddCommand(buildCmd)
+	AddTabCompleteFn(buildCmd, func() []string {
+		return append(targetList(), "all")
+	})
 
 	cleanCmd := &cobra.Command{
 		Use:   "clean <target-name> [target-names...] | all",
@@ -376,16 +378,20 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   cleanRunCmd,
 	}
 
-	cleanCmd.ValidArgs = append(targetList(), "all")
 	cmd.AddCommand(cleanCmd)
+	AddTabCompleteFn(cleanCmd, func() []string {
+		return append(targetList(), "all")
+	})
 
 	testCmd := &cobra.Command{
 		Use:   "test <package-name> [package-names...] | all",
 		Short: "Executes unit tests for one or more packages",
 		Run:   testRunCmd,
 	}
-	testCmd.ValidArgs = append(testablePkgList(), "all")
 	cmd.AddCommand(testCmd)
+	AddTabCompleteFn(testCmd, func() []string {
+		return append(testablePkgList(), "all")
+	})
 
 	loadHelpText := "Load app image to target for <target-name>."
 
@@ -396,8 +402,9 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   loadRunCmd,
 	}
 
-	loadCmd.ValidArgs = targetList()
 	cmd.AddCommand(loadCmd)
+	AddTabCompleteFn(loadCmd, targetList)
+
 	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
 		"extra commands to send to JTAG software")
 
@@ -410,12 +417,13 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   debugRunCmd,
 	}
 
-	debugCmd.ValidArgs = targetList()
-	cmd.AddCommand(debugCmd)
 	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
 		"extra commands to send to JTAG software")
 	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
 		"don't start GDB from command line")
+
+	cmd.AddCommand(debugCmd)
+	AddTabCompleteFn(debugCmd, targetList)
 
 	sizeHelpText := "Calculate the size of target components specified by " +
 		"<target-name>."
@@ -427,7 +435,6 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   sizeRunCmd,
 	}
 
-	sizeCmd.ValidArgs = targetList()
 	cmd.AddCommand(sizeCmd)
-
+	AddTabCompleteFn(sizeCmd, targetList)
 }

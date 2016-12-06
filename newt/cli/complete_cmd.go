@@ -33,6 +33,25 @@ import (
 	"github.com/spf13/pflag"
 )
 
+type TabCompleteFn func() []string
+
+var tabCompleteEntries = map[*cobra.Command]TabCompleteFn{}
+
+func AddTabCompleteFn(cmd *cobra.Command, cb TabCompleteFn) {
+	if cmd.ValidArgs != nil || tabCompleteEntries[cmd] != nil {
+		panic("tab completion values generated twice for command " +
+			cmd.Name())
+	}
+
+	tabCompleteEntries[cmd] = cb
+}
+
+func GenerateTabCompleteValues() {
+	for cmd, cb := range tabCompleteEntries {
+		cmd.ValidArgs = cb()
+	}
+}
+
 func pkgNameList(filterCb func(*pkg.LocalPackage) bool) []string {
 	names := []string{}
 

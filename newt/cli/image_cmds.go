@@ -85,6 +85,6 @@ func AddImageCommands(cmd *cobra.Command) {
 		Run:     createImageRunCmd,
 	}
 
-	createImageCmd.ValidArgs = targetList()
 	cmd.AddCommand(createImageCmd)
+	AddTabCompleteFn(createImageCmd, targetList)
 }

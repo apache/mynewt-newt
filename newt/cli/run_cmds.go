@@ -91,8 +91,8 @@ func AddRunCommands(cmd *cobra.Command) {
 		Example: runHelpEx,
 		Run:     runRunCmd,
 	}
-	runCmd.ValidArgs = targetList()
 	cmd.AddCommand(runCmd)
+	AddTabCompleteFn(runCmd, targetList)
 
 	runCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
 		"extra commands to send to JTAG software")

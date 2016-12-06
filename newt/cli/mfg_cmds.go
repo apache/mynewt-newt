@@ -156,26 +156,26 @@ func AddMfgCommands(cmd *cobra.Command) {
 	cmd.AddCommand(mfgCmd)
 
 	mfgCreateCmd := &cobra.Command{
-		Use:       "create <mfg-package-name>",
-		Short:     "Create a manufacturing flash image",
-		Run:       mfgCreateRunCmd,
-		ValidArgs: mfgList(),
+		Use:   "create <mfg-package-name>",
+		Short: "Create a manufacturing flash image",
+		Run:   mfgCreateRunCmd,
 	}
 	mfgCmd.AddCommand(mfgCreateCmd)
+	AddTabCompleteFn(mfgCreateCmd, mfgList)
 
 	mfgLoadCmd := &cobra.Command{
-		Use:       "load <mfg-package-name>",
-		Short:     "Load a manufacturing flash image onto a device",
-		Run:       mfgLoadRunCmd,
-		ValidArgs: mfgList(),
+		Use:   "load <mfg-package-name>",
+		Short: "Load a manufacturing flash image onto a device",
+		Run:   mfgLoadRunCmd,
 	}
 	mfgCmd.AddCommand(mfgLoadCmd)
+	AddTabCompleteFn(mfgLoadCmd, mfgList)
 
 	mfgDeployCmd := &cobra.Command{
-		Use:       "deploy <mfg-package-name>",
-		Short:     "Builds and uploads a manufacturing image (build + load)",
-		Run:       mfgDeployRunCmd,
-		ValidArgs: mfgList(),
+		Use:   "deploy <mfg-package-name>",
+		Short: "Builds and uploads a manufacturing image (build + load)",
+		Run:   mfgDeployRunCmd,
 	}
 	mfgCmd.AddCommand(mfgDeployCmd)
+	AddTabCompleteFn(mfgDeployCmd, mfgList)
 }
