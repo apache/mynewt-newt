@@ -615,7 +615,13 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 
 		upToDate, err := r.HasMinCommit()
 		if err != nil {
-			return err
+			// If there is an error checking the repo's commit log, just abort
+			// the check.  An error could have many possible causes: repo not
+			// installed, network issue, etc.  In none of these cases does it
+			// makes sense to warn about an out of date repo.  If the issue is
+			// a real one, it will be handled when it prevents forward
+			// progress.
+			return nil
 		}
 
 		if !upToDate {
