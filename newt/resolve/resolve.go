@@ -86,8 +86,8 @@ func (r *Resolver) lpkgSlice() []*pkg.LocalPackage {
 	lpkgs := make([]*pkg.LocalPackage, len(r.pkgMap))
 
 	i := 0
-	for lpkg, _ := range r.pkgMap {
-		lpkgs[i] = lpkg
+	for _, rpkg := range r.pkgMap {
+		lpkgs[i] = rpkg.LocalPackage
 		i++
 	}
 
@@ -106,10 +106,13 @@ func (r *Resolver) apiSlice() []string {
 	return apis
 }
 
-func (r *Resolver) addPkg(lpkg *pkg.LocalPackage) *ResolvePackage {
-	rpkg := newResolvePkg(lpkg)
-	r.pkgMap[lpkg] = rpkg
-	return rpkg
+func (r *Resolver) addPkg(lpkg *pkg.LocalPackage) bool {
+	if rpkg := r.pkgMap[lpkg]; rpkg != nil {
+		return false
+	}
+
+	r.pkgMap[lpkg] = newResolvePkg(lpkg)
+	return true
 }
 
 // @return bool                 true if this is a new API.
@@ -214,9 +217,12 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 					"%s; depender: %s", newDep.String(), rpkg.Name())
 		}
 
-		if r.pkgMap[lpkg] == nil {
+		if r.addPkg(lpkg) {
 			changed = true
-			r.addPkg(lpkg)
+		}
+
+		if rpkg.AddDep(newDep) {
+			changed = true
 		}
 	}
 
@@ -415,16 +421,15 @@ func ResolvePkgs(cfgResolution CfgResolution,
 			}
 
 			r.addPkg(apiPkg)
+
+			rpkg.AddDep(&pkg.Dependency{
+				Name: apiPkg.Name(),
+				Repo: apiPkg.Repo().Name(),
+			})
 		}
 	}
 
-	lpkgs := make([]*pkg.LocalPackage, len(r.pkgMap))
-	i := 0
-	for lpkg, _ := range r.pkgMap {
-		lpkgs[i] = lpkg
-		i++
-	}
-
+	lpkgs := r.lpkgSlice()
 	return lpkgs, nil
 }
 
@@ -499,11 +504,11 @@ func ResolveCfg(seedPkgs []*pkg.LocalPackage,
 	}
 
 	if anyUnsatisfied {
-		for lpkg, rpkg := range r.pkgMap {
+		for _, rpkg := range r.pkgMap {
 			for api, satisfied := range rpkg.reqApiMap {
 				if !satisfied {
 					slice := resolution.UnsatisfiedApis[api]
-					slice = append(slice, lpkg)
+					slice = append(slice, rpkg.LocalPackage)
 					resolution.UnsatisfiedApis[api] = slice
 				}
 			}

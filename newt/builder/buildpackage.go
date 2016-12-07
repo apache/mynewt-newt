@@ -24,8 +24,6 @@ import (
 	"path/filepath"
 	"regexp"
 
-	log "github.com/Sirupsen/logrus"
-
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -39,6 +37,14 @@ type BuildPackage struct {
 
 	ci                *toolchain.CompilerInfo
 	SourceDirectories []string
+}
+
+func NewBuildPackage(pkg *pkg.LocalPackage) *BuildPackage {
+	bpkg := &BuildPackage{
+		LocalPackage: pkg,
+	}
+
+	return bpkg
 }
 
 // Recursively iterates through an pkg's dependencies, adding each pkg
@@ -176,24 +182,6 @@ func (bpkg *BuildPackage) CompilerInfo(
 	return bpkg.ci, nil
 }
 
-// Searches for a package which can satisfy bpkg's API requirement.  If such a
-// package is found, bpkg's API requirement is marked as satisfied, and the
-// package is added to bpkg's dependency list.
-func (bpkg *BuildPackage) satisfyReqApi(
-	reqApi string, apiPkg *BuildPackage) error {
-
-	dep := &pkg.Dependency{
-		Name: apiPkg.Name(),
-		Repo: apiPkg.Repo().Name(),
-	}
-	bpkg.AddDep(dep)
-
-	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s)",
-		bpkg.Name(), reqApi, dep.String())
-
-	return nil
-}
-
 func (bpkg *BuildPackage) findSdkIncludes() []string {
 	sdkDir := bpkg.BasePath() + "/src/ext/"
 
@@ -262,50 +250,4 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	}
 
 	return incls
-}
-
-// Resolves all of a build package's dependencies and API requirements.
-func (bpkg *BuildPackage) resolveDeps(
-	cfg syscfg.Cfg, apiMap map[string]*BuildPackage) error {
-
-	features := cfg.FeaturesForLpkg(bpkg.LocalPackage)
-
-	// Match each required API with the package which implements it.
-	reqApis := newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
-		"pkg.req_apis")
-	for _, reqApi := range reqApis {
-		if err := bpkg.satisfyReqApi(reqApi, apiMap[reqApi]); err != nil {
-			return err
-		}
-	}
-
-	proj := project.GetProject()
-	newDeps := newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
-		"pkg.deps")
-	for _, newDepStr := range newDeps {
-		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
-		if err != nil {
-			return err
-		}
-
-		_, ok := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
-		if !ok {
-			return util.NewNewtError("Could not resolve package dependency " +
-				newDep.String())
-		}
-
-		if !bpkg.HasDep(newDep) {
-			bpkg.AddDep(newDep)
-		}
-	}
-
-	return nil
-}
-
-func NewBuildPackage(pkg *pkg.LocalPackage) *BuildPackage {
-	bpkg := &BuildPackage{
-		LocalPackage: pkg,
-	}
-
-	return bpkg
 }

@@ -351,13 +351,6 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
 func (b *Builder) PrepBuild() error {
-	// Populate the full set of packages to be built.
-	for _, bpkg := range b.PkgMap {
-		if err := bpkg.resolveDeps(b.cfg, b.apiMap); err != nil {
-			return err
-		}
-	}
-
 	b.logDepInfo()
 
 	// Populate the base set of compiler flags.  Flags from the following
@@ -375,7 +368,6 @@ func (b *Builder) PrepBuild() error {
 	//     * bsp
 	//     * <library package>
 	//     * compiler
-
 	baseCi := toolchain.NewCompilerInfo()
 
 	// Target flags.

@@ -59,6 +59,10 @@ type TargetBuilder struct {
 	LoaderList    interfaces.PackageList
 
 	injectedSettings map[string]string
+
+	loaderPkgs    []*pkg.LocalPackage
+	appPkgs       []*pkg.LocalPackage
+	cfgResolution *resolve.CfgResolution
 }
 
 func NewTargetTester(target *target.Target,
@@ -103,7 +107,11 @@ func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) 
 	return c, err
 }
 
-func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
+func (t *TargetBuilder) ExportCfg() (*resolve.CfgResolution, error) {
+	if t.cfgResolution != nil {
+		return t.cfgResolution, nil
+	}
+
 	seeds := []*pkg.LocalPackage{
 		t.bspPkg.LocalPackage,
 		t.compilerPkg,
@@ -148,14 +156,18 @@ func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
 	cfgResolution, err := resolve.ResolveCfg(seeds, t.injectedSettings,
 		t.bspPkg.FlashMap)
 	if err != nil {
-		return cfgResolution, err
+		return nil, err
 	}
 
-	return cfgResolution, nil
+	t.cfgResolution = &cfgResolution
+	return t.cfgResolution, nil
 }
 
-func (t *TargetBuilder) validateAndWriteCfg(
-	cfgResolution resolve.CfgResolution) error {
+func (t *TargetBuilder) validateAndWriteCfg() error {
+	cfgResolution, err := t.ExportCfg()
+	if err != nil {
+		return err
+	}
 
 	if errText := cfgResolution.ErrorText(); errText != "" {
 		return util.NewNewtError(errText)
@@ -170,28 +182,39 @@ func (t *TargetBuilder) validateAndWriteCfg(
 	return nil
 }
 
-func (t *TargetBuilder) resolvePkgs(cfgResolution resolve.CfgResolution) (
+func (t *TargetBuilder) resolvePkgs() (
 	[]*pkg.LocalPackage, []*pkg.LocalPackage, error) {
 
-	var appPkg *pkg.LocalPackage
-	if t.appPkg != nil {
-		appPkg = t.appPkg
-	} else {
-		appPkg = t.testPkg
+	if t.loaderPkgs == nil && t.appPkgs == nil {
+		cfgResolution, err := t.ExportCfg()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var appPkg *pkg.LocalPackage
+		if t.appPkg != nil {
+			appPkg = t.appPkg
+		} else {
+			appPkg = t.testPkg
+		}
+
+		t.loaderPkgs, t.appPkgs, err =
+			resolve.ResolveSplitPkgs(*cfgResolution,
+				t.loaderPkg,
+				appPkg,
+				t.bspPkg.LocalPackage,
+				t.compilerPkg,
+				t.target.Package())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
-	return resolve.ResolveSplitPkgs(cfgResolution,
-		t.loaderPkg,
-		appPkg,
-		t.bspPkg.LocalPackage,
-		t.compilerPkg,
-		t.target.Package())
+	return t.loaderPkgs, t.appPkgs, nil
 }
 
-func (t *TargetBuilder) generateSysinit(
-	cfgResolution resolve.CfgResolution) error {
-
-	loaderPkgs, appPkgs, err := t.resolvePkgs(cfgResolution)
+func (t *TargetBuilder) generateSysinit() error {
+	loaderPkgs, appPkgs, err := t.resolvePkgs()
 	if err != nil {
 		return err
 	}
@@ -216,10 +239,8 @@ func (t *TargetBuilder) generateFlashMap() error {
 		pkg.ShortName(t.target.Package()))
 }
 
-func (t *TargetBuilder) generateCode(
-	cfgResolution resolve.CfgResolution) error {
-
-	if err := t.generateSysinit(cfgResolution); err != nil {
+func (t *TargetBuilder) generateCode() error {
+	if err := t.generateSysinit(); err != nil {
 		return err
 	}
 
@@ -241,11 +262,11 @@ func (t *TargetBuilder) PrepBuild() error {
 		return util.NewNewtError(flashErrText)
 	}
 
-	if err := t.validateAndWriteCfg(cfgResolution); err != nil {
+	if err := t.validateAndWriteCfg(); err != nil {
 		return err
 	}
 
-	loaderPkgs, appPkgs, err := t.resolvePkgs(cfgResolution)
+	loaderPkgs, appPkgs, err := t.resolvePkgs()
 	if err != nil {
 		return err
 	}
@@ -284,7 +305,7 @@ func (t *TargetBuilder) PrepBuild() error {
 
 	t.AppList = project.ResetDeps(nil)
 
-	if err := t.generateCode(cfgResolution); err != nil {
+	if err := t.generateCode(); err != nil {
 		return err
 	}
 
@@ -520,11 +541,11 @@ func (t *TargetBuilder) Test() error {
 		return err
 	}
 
-	if err := t.validateAndWriteCfg(cfgResolution); err != nil {
+	if err := t.validateAndWriteCfg(); err != nil {
 		return err
 	}
 
-	_, appPkgs, err := t.resolvePkgs(cfgResolution)
+	_, appPkgs, err := t.resolvePkgs()
 	if err != nil {
 		return err
 	}
@@ -538,7 +559,7 @@ func (t *TargetBuilder) Test() error {
 		return err
 	}
 
-	if err := t.generateCode(cfgResolution); err != nil {
+	if err := t.generateCode(); err != nil {
 		return err
 	}
 

@@ -59,8 +59,9 @@ type LocalPackage struct {
 
 	// General information about the package
 	desc *PackageDesc
+
 	// Dependencies for this package
-	deps []*Dependency
+	deps map[string]*Dependency
 
 	// Package init function name and stage.  These are used to generate the
 	// sysinit C file.
@@ -88,6 +89,7 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		SyscfgV:          viper.New(),
 		repo:             r,
 		basePath:         filepath.Clean(pkgDir) + "/", // XXX: Remove slash.
+		deps:             map[string]*Dependency{},
 		injectedSettings: map[string]string{},
 	}
 	return pkg
@@ -189,20 +191,31 @@ func (pkg *LocalPackage) AddCfgFilename(cfgFilename string) {
 }
 
 func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
-	for _, dep := range pkg.deps {
-		if dep.String() == searchDep.String() {
-			return true
-		}
-	}
-	return false
+	return pkg.deps[searchDep.String()] != nil
 }
 
-func (pkg *LocalPackage) AddDep(dep *Dependency) {
-	pkg.deps = append(pkg.deps, dep)
+func (pkg *LocalPackage) AddDep(dep *Dependency) bool {
+	if pkg.deps[dep.String()] != nil {
+		return false
+	}
+
+	pkg.deps[dep.String()] = dep
+	return true
 }
 
 func (pkg *LocalPackage) Deps() []*Dependency {
-	return pkg.deps
+	names := make([]string, 0, len(pkg.deps))
+	for name, _ := range pkg.deps {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	deps := make([]*Dependency, len(names))
+	for i, name := range names {
+		deps[i] = pkg.deps[name]
+	}
+
+	return deps
 }
 
 func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
