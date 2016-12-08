@@ -535,7 +535,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	return err, commonPkgs, smMatch
 }
 
-func (t *TargetBuilder) Test() error {
+func (t *TargetBuilder) PrepTest() error {
 	cfgResolution, err := t.ExportCfg()
 	if err != nil {
 		return err
@@ -563,6 +563,26 @@ func (t *TargetBuilder) Test() error {
 		return err
 	}
 
+	return nil
+}
+
+func (t *TargetBuilder) BuildTest() error {
+	if err := t.PrepTest(); err != nil {
+		return err
+	}
+
+	if _, err := t.AppBuilder.BuildTest(t.testPkg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *TargetBuilder) Test() error {
+	if err := t.BuildTest(); err != nil {
+		return err
+	}
+
 	if err := t.AppBuilder.Test(t.testPkg); err != nil {
 		return err
 	}
@@ -572,6 +592,14 @@ func (t *TargetBuilder) Test() error {
 
 func (t *TargetBuilder) GetTarget() *target.Target {
 	return t.target
+}
+
+func (t *TargetBuilder) GetTestPkg() *pkg.LocalPackage {
+	return t.testPkg
+}
+
+func (t *TargetBuilder) InjectSetting(key string, value string) {
+	t.injectedSettings[key] = value
 }
 
 func readManifest(path string) (*image.ImageManifest, error) {

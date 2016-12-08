@@ -417,8 +417,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   debugRunCmd,
 	}
 
-	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
-		"extra commands to send to JTAG software")
+	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j",
+		"", "extra commands to send to JTAG software")
 	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
 		"don't start GDB from command line")
 

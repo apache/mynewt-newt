@@ -244,3 +244,45 @@ func ResolveUnittestTarget(pkgName string) (*target.Target, error) {
 
 	return t, nil
 }
+
+func TargetBuilderForTargetOrUnittest(pkgName string) (
+	*builder.TargetBuilder, error) {
+
+	// Argument can specify either a target or a unittest package.  Determine
+	// which type the package is and construct a target builder appropriately.
+	t, err := resolveExistingTargetArg(pkgName)
+	if err == nil {
+		b, err := builder.NewTargetBuilder(t)
+		if err != nil {
+			return nil, err
+		}
+
+		return b, nil
+	}
+
+	// Package wasn't a target.  Try for a unittest.
+	proj := InitProject()
+	pack, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
+	if err != nil {
+		return nil, util.FmtNewtError(
+			"Could not resolve target or unittest \"%s\"", pkgName)
+	}
+
+	if pack.Type() != pkg.PACKAGE_TYPE_UNITTEST {
+		return nil, util.FmtNewtError(
+			"Package \"%s\" is of type %s; "+
+				"must be target or unittest", pkgName,
+			pkg.PackageTypeNames[pack.Type()])
+	}
+
+	t, err = ResolveUnittestTarget(pack.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := builder.NewTargetTester(t, pack)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}

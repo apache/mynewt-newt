@@ -517,29 +517,39 @@ func (b *Builder) testOwner(p *BuildPackage) *BuildPackage {
 	}
 }
 
-func (b *Builder) Test(p *pkg.LocalPackage) error {
+// @return string               Path of generated test executable.
+func (b *Builder) BuildTest(p *pkg.LocalPackage) (string, error) {
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
 	for _, bpkg := range bpkgs {
 		if err := b.buildPackage(bpkg); err != nil {
-			return err
+			return "", err
 		}
 	}
 
 	testBpkg := b.PkgMap[p]
-	testFilename := b.TestExePath(testBpkg)
-	if err := b.link(testFilename, nil, nil); err != nil {
+	testPath := b.TestExePath(testBpkg)
+	if err := b.link(testPath, nil, nil); err != nil {
+		return "", err
+	}
+
+	return testPath, nil
+}
+
+func (b *Builder) Test(p *pkg.LocalPackage) error {
+	testPath, err := b.BuildTest(p)
+	if err != nil {
 		return err
 	}
 
 	// Run the tests.
-	if err := os.Chdir(filepath.Dir(testFilename)); err != nil {
+	if err := os.Chdir(filepath.Dir(testPath)); err != nil {
 		return err
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing test: %s\n",
-		testFilename)
-	cmd := []string{testFilename}
+		testPath)
+	cmd := []string{testPath}
 	if _, err := util.ShellCommand(cmd, nil); err != nil {
 		newtError := err.(*util.NewtError)
 		newtError.Text = fmt.Sprintf("Test failure (%s):\n%s", p.Name(),

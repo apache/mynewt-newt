@@ -140,6 +140,10 @@ func (b *Builder) AppPath() string {
 	return b.PkgBinDir(b.appPkg) + "/"
 }
 
+func (b *Builder) TestExePath(bpkg *BuildPackage) string {
+	return b.PkgBinDir(bpkg) + "/" + TestTargetName(bpkg.Name()) + ".elf"
+}
+
 func (b *Builder) ManifestPath() string {
 	return ManifestPath(b.targetPkg.Name(), b.buildName, b.appPkg.Name())
 }

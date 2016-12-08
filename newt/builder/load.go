@@ -151,7 +151,6 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 }
 
 func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
-	//var additional_libs []string
 	err := t.PrepBuild()
 
 	if err != nil {
@@ -164,11 +163,16 @@ func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error
 	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB)
 }
 
-func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
-	if b.appPkg == nil {
-		return util.NewNewtError("app package not specified")
+func (t *TargetBuilder) DebugTest() error {
+	if err := t.PrepTest(); err != nil {
+		return err
 	}
 
+	return t.AppBuilder.DebugTest(t.GetTestPkg())
+}
+
+func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
+	noGDB bool) error {
 	/*
 	 * Populate the package list and feature sets.
 	 */
@@ -178,7 +182,7 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 	}
 
 	bspPath := b.bspPkg.BasePath()
-	binBaseName := b.AppBinBasePath()
+	binBaseName := binPath
 	featureString := b.FeatureString()
 
 	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
@@ -209,4 +213,22 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 
 	fmt.Printf("%s\n", cmdLine)
 	return util.ShellInteractiveCommand(cmdLine, envSettings)
+}
+
+func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
+	if b.appPkg == nil {
+		return util.NewNewtError("app package not specified")
+	}
+
+	return b.debugBin(b.AppBinBasePath(), extraJtagCmd, reset, noGDB)
+}
+
+func (b *Builder) DebugTest(lpkg *pkg.LocalPackage) error {
+	bpkg := b.PkgMap[lpkg]
+	if bpkg == nil {
+		panic("internal error: local package \"" + lpkg.FullName() +
+			"\" not built")
+	}
+	return b.debugBin(strings.TrimSuffix(b.TestExePath(bpkg), ".elf"),
+		"", false, false)
 }

@@ -182,6 +182,10 @@ func (point CfgPoint) Name() string {
 	}
 }
 
+func (point CfgPoint) IsInjected() bool {
+	return point.Source == nil
+}
+
 func (entry *CfgEntry) IsTrue() bool {
 	return ValueIsTrue(entry.Value)
 }
@@ -326,9 +330,17 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 					lpkg.Name(), err.Error())
 			}
 
-			if _, exists := cfg.Settings[k]; exists {
-				// XXX: Better error message.
-				return util.FmtNewtError("setting %s redefined", k)
+			if oldEntry, exists := cfg.Settings[k]; exists {
+				// Setting already defined.  Allow this only if the setting is
+				// injected, in which case the injected value takes precedence.
+				point := mostRecentPoint(oldEntry)
+				if !point.IsInjected() {
+					// XXX: Better error message.
+					return util.FmtNewtError("setting %s redefined", k)
+				}
+
+				entry.History = append(entry.History, oldEntry.History...)
+				entry.Value = oldEntry.Value
 			}
 			cfg.Settings[k] = entry
 		}

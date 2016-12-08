@@ -33,10 +33,6 @@ func TestTargetName(testPkgName string) string {
 	return strings.Replace(testPkgName, "/", "_", -1)
 }
 
-func (b *Builder) TestExePath(bpkg *BuildPackage) string {
-	return b.PkgBinDir(bpkg) + "/" + TestTargetName(bpkg.Name())
-}
-
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
