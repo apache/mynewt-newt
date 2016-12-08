@@ -64,7 +64,8 @@ func testablePkgs() map[*pkg.LocalPackage]struct{} {
 	}
 
 	// Next add first ancestor of each test package.
-	for testPkg, _ := range testablePkgMap {
+	for _, testPkgItf := range testPkgs {
+		testPkg := testPkgItf.(*pkg.LocalPackage)
 		for cur := filepath.Dir(testPkg.BasePath()); cur != proj.BasePath; cur = filepath.Dir(cur) {
 			lpkg := pathLpkgMap[cur]
 			if lpkg != nil && lpkg.Type() != pkg.PACKAGE_TYPE_UNITTEST {
