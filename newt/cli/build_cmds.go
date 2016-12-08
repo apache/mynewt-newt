@@ -182,9 +182,9 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		if arg == TARGET_KEYWORD_ALL {
 			cleanAll = true
 		} else {
-			t := ResolveTarget(arg)
-			if t == nil {
-				NewtUsage(cmd, util.NewNewtError("invalid target name: "+arg))
+			t, err := ResolveTargetOrUnittest(arg)
+			if err != nil {
+				NewtUsage(cmd, err)
 			}
 			targets = append(targets, t)
 		}
@@ -260,7 +260,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 
-		t, err := ResolveUnittestTarget(pack.Name())
+		t, err := ResolveUnittest(pack.Name())
 		if err != nil {
 			NewtUsage(nil, err)
 		}
@@ -381,7 +381,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(cleanCmd)
 	AddTabCompleteFn(cleanCmd, func() []string {
-		return append(targetList(), "all")
+		return append(append(targetList(), unittestList()...), "all")
 	})
 
 	testCmd := &cobra.Command{

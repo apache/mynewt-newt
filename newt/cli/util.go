@@ -214,7 +214,7 @@ func InitProject() *project.Project {
 	return p
 }
 
-func ResolveUnittestTarget(pkgName string) (*target.Target, error) {
+func ResolveUnittest(pkgName string) (*target.Target, error) {
 	// Each unit test package gets its own target.  This target is a copy
 	// of the base unit test package, just with an appropriate name.  The
 	// reason each test needs a unique target is: syscfg and sysinit are
@@ -245,19 +245,11 @@ func ResolveUnittestTarget(pkgName string) (*target.Target, error) {
 	return t, nil
 }
 
-func TargetBuilderForTargetOrUnittest(pkgName string) (
-	*builder.TargetBuilder, error) {
-
+func ResolveTargetOrUnittest(pkgName string) (*target.Target, error) {
 	// Argument can specify either a target or a unittest package.  Determine
 	// which type the package is and construct a target builder appropriately.
-	t, err := resolveExistingTargetArg(pkgName)
-	if err == nil {
-		b, err := builder.NewTargetBuilder(t)
-		if err != nil {
-			return nil, err
-		}
-
-		return b, nil
+	if t, err := resolveExistingTargetArg(pkgName); err == nil {
+		return t, nil
 	}
 
 	// Package wasn't a target.  Try for a unittest.
@@ -275,14 +267,25 @@ func TargetBuilderForTargetOrUnittest(pkgName string) (
 			pkg.PackageTypeNames[pack.Type()])
 	}
 
-	t, err = ResolveUnittestTarget(pack.Name())
+	t, err := ResolveUnittest(pack.Name())
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := builder.NewTargetTester(t, pack)
+	return t, nil
+}
+
+func TargetBuilderForTargetOrUnittest(pkgName string) (
+	*builder.TargetBuilder, error) {
+
+	t, err := ResolveTargetOrUnittest(pkgName)
 	if err != nil {
 		return nil, err
 	}
-	return b, nil
+
+	if t.Package().Type() == pkg.PACKAGE_TYPE_TARGET {
+		return builder.NewTargetBuilder(t)
+	} else {
+		return builder.NewTargetTester(t, t.Package())
+	}
 }
