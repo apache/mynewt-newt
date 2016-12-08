@@ -182,7 +182,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		if arg == TARGET_KEYWORD_ALL {
 			cleanAll = true
 		} else {
-			t, err := ResolveTargetOrUnittest(arg)
+			t, _, err := ResolveTargetOrUnittest(arg)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
