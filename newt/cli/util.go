@@ -280,6 +280,21 @@ func ResolveTargetOrUnittest(pkgName string) (
 	return t, pack, nil
 }
 
+func ResolvePackages(pkgNames []string) ([]*pkg.LocalPackage, error) {
+	proj := InitProject()
+
+	lpkgs := []*pkg.LocalPackage{}
+	for _, pkgName := range pkgNames {
+		pack, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
+		if err != nil {
+			return nil, err
+		}
+		lpkgs = append(lpkgs, pack)
+	}
+
+	return lpkgs, nil
+}
+
 func TargetBuilderForTargetOrUnittest(pkgName string) (
 	*builder.TargetBuilder, error) {
 

@@ -100,6 +100,19 @@ func NewTargetBuilder(target *target.Target) (*TargetBuilder, error) {
 	return NewTargetTester(target, nil)
 }
 
+func (t *TargetBuilder) Builders() []*Builder {
+	builders := []*Builder{}
+
+	if t.LoaderBuilder != nil {
+		builders = append(builders, t.LoaderBuilder)
+	}
+	if t.AppBuilder != nil {
+		builders = append(builders, t.AppBuilder)
+	}
+
+	return builders
+}
+
 func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) {
 	c, err := toolchain.NewCompiler(t.compilerPkg.BasePath(), dstDir,
 		t.target.BuildProfile)
@@ -305,6 +318,7 @@ func (t *TargetBuilder) PrepBuild() error {
 
 	t.AppList = project.ResetDeps(nil)
 
+	logDepInfo(t.Builders())
 	if err := t.generateCode(); err != nil {
 		return err
 	}
@@ -747,4 +761,12 @@ func (t *TargetBuilder) CreateImages(version string,
 	}
 
 	return appImg, loaderImg, nil
+}
+
+func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
+	return joinedDepGraph(t.Builders())
+}
+
+func (t *TargetBuilder) CreateRevdepGraph() (DepGraph, error) {
+	return joinedRevdepGraph(t.Builders())
 }

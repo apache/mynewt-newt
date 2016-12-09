@@ -351,8 +351,6 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
 func (b *Builder) PrepBuild() error {
-	b.logDepInfo()
-
 	// Populate the base set of compiler flags.  Flags from the following
 	// packages get applied to every source file:
 	//     * target

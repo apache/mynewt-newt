@@ -30,6 +30,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
@@ -488,6 +489,93 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 	printCfg(b.GetTarget().Name(), cfgResolution.Cfg)
 }
 
+func targetDepCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	InitProject()
+
+	b, err := TargetBuilderForTargetOrUnittest(args[0])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if err := b.PrepBuild(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	dg, err := b.CreateDepGraph()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	// If user specified any package names, only include specified packages.
+	if len(args) > 1 {
+		lpkgs, err := ResolvePackages(args[1:])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		var missingLpkgs []*pkg.LocalPackage
+		dg, missingLpkgs = builder.FilterDepGraph(dg, lpkgs)
+		for _, lpkg := range missingLpkgs {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"Warning: Package \"%s\" not included in target \"%s\"\n",
+				lpkg.FullName(), b.GetTarget().FullName())
+		}
+	}
+
+	if len(dg) > 0 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			builder.DepGraphText(dg)+"\n")
+	}
+}
+
+func targetRevdepCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
+	}
+
+	InitProject()
+
+	b, err := TargetBuilderForTargetOrUnittest(args[0])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if err := b.PrepBuild(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	dg, err := b.CreateRevdepGraph()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	// If user specified any package names, only include specified packages.
+	if len(args) > 1 {
+		lpkgs, err := ResolvePackages(args[1:])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		var missingLpkgs []*pkg.LocalPackage
+		dg, missingLpkgs = builder.FilterDepGraph(dg, lpkgs)
+		for _, lpkg := range missingLpkgs {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"Warning: Package \"%s\" not included in target \"%s\"\n",
+				lpkg.FullName(), b.GetTarget().FullName())
+		}
+	}
+
+	if len(dg) > 0 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			builder.RevdepGraphText(dg)+"\n")
+	}
+}
+
 func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpText := ""
 	targetHelpEx := ""
@@ -591,6 +679,34 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	targetCmd.AddCommand(configCmd)
 	AddTabCompleteFn(configCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	depHelpText := "View a target's dependency graph."
+
+	depCmd := &cobra.Command{
+		Use:   "dep <target> [pkg-1] [pkg-2] [...]",
+		Short: "View target's dependency graph",
+		Long:  depHelpText,
+		Run:   targetDepCmd,
+	}
+
+	targetCmd.AddCommand(depCmd)
+	AddTabCompleteFn(depCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	revdepHelpText := "View a target's reverse-dependency graph."
+
+	revdepCmd := &cobra.Command{
+		Use:   "revdep <target> [pkg-1] [pkg-2] [...]",
+		Short: "View target's reverse-dependency graph",
+		Long:  revdepHelpText,
+		Run:   targetRevdepCmd,
+	}
+
+	targetCmd.AddCommand(revdepCmd)
+	AddTabCompleteFn(revdepCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 }

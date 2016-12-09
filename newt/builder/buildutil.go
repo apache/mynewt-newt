@@ -91,43 +91,41 @@ func (b *Builder) sortedLocalPackages() []*pkg.LocalPackage {
 	return lpkgs
 }
 
-func (b *Builder) logDepInfo() {
-	// Log feature set.
-	log.Debugf("Feature set: [" + b.FeatureString() + "]")
-
+func logDepInfo(builders []*Builder) {
 	// Log API set.
-	apis := make([]string, 0, len(b.apiMap))
-	for api, _ := range b.apiMap {
-		apis = append(apis, api)
+	apis := []string{}
+	apiMap := map[string]*BuildPackage{}
+	for _, b := range builders {
+		if b != nil {
+			for api, bpkg := range b.apiMap {
+				apiMap[api] = bpkg
+				apis = append(apis, api)
+			}
+		}
 	}
 	sort.Strings(apis)
 
 	log.Debugf("API set:")
 	for _, api := range apis {
-		bpkg := b.apiMap[api]
+		bpkg := apiMap[api]
 		log.Debugf("    * " + api + " (" + bpkg.FullName() + ")")
 	}
 
 	// Log dependency graph.
-	bpkgSorter := bpkgSorter{
-		bpkgs: make([]*BuildPackage, 0, len(b.PkgMap)),
+	dg, err := joinedDepGraph(builders)
+	if err != nil {
+		log.Debugf("Error while constructing dependency graph: %s\n",
+			err.Error())
+	} else {
+		log.Debugf("%s", DepGraphText(dg))
 	}
-	for _, bpkg := range b.PkgMap {
-		bpkgSorter.bpkgs = append(bpkgSorter.bpkgs, bpkg)
-	}
-	sort.Sort(bpkgSorter)
 
-	log.Debugf("Dependency graph:")
-	var buffer bytes.Buffer
-	for _, bpkg := range bpkgSorter.bpkgs {
-		buffer.Reset()
-		for i, dep := range bpkg.Deps() {
-			if i != 0 {
-				buffer.WriteString(" ")
-			}
-			buffer.WriteString(dep.String())
-		}
-		log.Debugf("    * " + bpkg.Name() + " [" +
-			buffer.String() + "]")
+	// Log reverse dependency graph.
+	rdg, err := joinedRevdepGraph(builders)
+	if err != nil {
+		log.Debugf("Error while constructing reverse dependency graph: %s\n",
+			err.Error())
+	} else {
+		log.Debugf("%s", RevdepGraphText(rdg))
 	}
 }
