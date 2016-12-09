@@ -474,19 +474,19 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	cfgResolution, err := b.ExportCfg()
+	res, err := b.Resolve()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	warningText := strings.TrimSpace(cfgResolution.WarningText())
+	warningText := strings.TrimSpace(res.WarningText())
 	if warningText != "" {
 		for _, line := range strings.Split(warningText, "\n") {
 			log.Warn(line)
 		}
 	}
 
-	printCfg(b.GetTarget().Name(), cfgResolution.Cfg)
+	printCfg(b.GetTarget().Name(), res.Cfg)
 }
 
 func targetDepCmd(cmd *cobra.Command, args []string) {

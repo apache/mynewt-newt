@@ -60,9 +60,7 @@ type TargetBuilder struct {
 
 	injectedSettings map[string]string
 
-	loaderPkgs    []*pkg.LocalPackage
-	appPkgs       []*pkg.LocalPackage
-	cfgResolution *resolve.CfgResolution
+	res *resolve.Resolution
 }
 
 func NewTargetTester(target *target.Target,
@@ -120,18 +118,20 @@ func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) 
 	return c, err
 }
 
-func (t *TargetBuilder) ExportCfg() (*resolve.CfgResolution, error) {
-	if t.cfgResolution != nil {
-		return t.cfgResolution, nil
+func (t *TargetBuilder) ensureResolved() error {
+	if t.res != nil {
+		return nil
 	}
 
-	seeds := []*pkg.LocalPackage{
-		t.bspPkg.LocalPackage,
-		t.compilerPkg,
-		t.target.Package(),
-	}
-
+	var loaderSeeds []*pkg.LocalPackage
 	if t.loaderPkg != nil {
+		loaderSeeds = []*pkg.LocalPackage{
+			t.loaderPkg,
+			t.bspPkg.LocalPackage,
+			t.compilerPkg,
+			t.target.Package(),
+		}
+
 		// For split images, inject the SPLIT_[...] settings into the
 		// corresponding app packages.  This ensures that:
 		//     * The app packages know they are part of a split image during
@@ -146,12 +146,16 @@ func (t *TargetBuilder) ExportCfg() (*resolve.CfgResolution, error) {
 		// Inject the SPLIT_IMAGE setting into the entire target.  All packages
 		// now know that they are part of a split image build.
 		t.injectedSettings["SPLIT_IMAGE"] = "1"
+	}
 
-		seeds = append(seeds, t.loaderPkg)
+	appSeeds := []*pkg.LocalPackage{
+		t.bspPkg.LocalPackage,
+		t.compilerPkg,
+		t.target.Package(),
 	}
 
 	if t.appPkg != nil {
-		seeds = append(seeds, t.appPkg)
+		appSeeds = append(appSeeds, t.appPkg)
 	}
 
 	if t.testPkg != nil {
@@ -163,30 +167,37 @@ func (t *TargetBuilder) ExportCfg() (*resolve.CfgResolution, error) {
 		t.injectedSettings["TEST"] = "1"
 		t.injectedSettings["SELFTEST"] = "1"
 
-		seeds = append(seeds, t.testPkg)
+		appSeeds = append(appSeeds, t.testPkg)
 	}
 
-	cfgResolution, err := resolve.ResolveCfg(seeds, t.injectedSettings,
-		t.bspPkg.FlashMap)
-	if err != nil {
-		return nil, err
-	}
-
-	t.cfgResolution = &cfgResolution
-	return t.cfgResolution, nil
-}
-
-func (t *TargetBuilder) validateAndWriteCfg() error {
-	cfgResolution, err := t.ExportCfg()
+	var err error
+	t.res, err = resolve.ResolveFull(
+		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap)
 	if err != nil {
 		return err
 	}
 
-	if errText := cfgResolution.ErrorText(); errText != "" {
+	return nil
+}
+
+func (t *TargetBuilder) Resolve() (*resolve.Resolution, error) {
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
+
+	return t.res, nil
+}
+
+func (t *TargetBuilder) validateAndWriteCfg() error {
+	if err := t.ensureResolved(); err != nil {
+		return err
+	}
+
+	if errText := t.res.ErrorText(); errText != "" {
 		return util.NewNewtError(errText)
 	}
 
-	if err := syscfg.EnsureWritten(cfgResolution.Cfg,
+	if err := syscfg.EnsureWritten(t.res.Cfg,
 		GeneratedIncludeDir(t.target.Name())); err != nil {
 
 		return err
@@ -195,51 +206,19 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	return nil
 }
 
-func (t *TargetBuilder) resolvePkgs() (
-	[]*pkg.LocalPackage, []*pkg.LocalPackage, error) {
-
-	if t.loaderPkgs == nil && t.appPkgs == nil {
-		cfgResolution, err := t.ExportCfg()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var appPkg *pkg.LocalPackage
-		if t.appPkg != nil {
-			appPkg = t.appPkg
-		} else {
-			appPkg = t.testPkg
-		}
-
-		t.loaderPkgs, t.appPkgs, err =
-			resolve.ResolveSplitPkgs(*cfgResolution,
-				t.loaderPkg,
-				appPkg,
-				t.bspPkg.LocalPackage,
-				t.compilerPkg,
-				t.target.Package())
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	return t.loaderPkgs, t.appPkgs, nil
-}
-
 func (t *TargetBuilder) generateSysinit() error {
-	loaderPkgs, appPkgs, err := t.resolvePkgs()
-	if err != nil {
+	if err := t.ensureResolved(); err != nil {
 		return err
 	}
 
 	srcDir := GeneratedSrcDir(t.target.Name())
 
-	if loaderPkgs != nil {
-		sysinit.EnsureWritten(loaderPkgs, srcDir,
+	if t.res.LoaderPkgs != nil {
+		sysinit.EnsureWritten(t.res.LoaderPkgs, srcDir,
 			pkg.ShortName(t.target.Package()), true)
 	}
 
-	sysinit.EnsureWritten(appPkgs, srcDir,
+	sysinit.EnsureWritten(t.res.AppPkgs, srcDir,
 		pkg.ShortName(t.target.Package()), false)
 
 	return nil
@@ -265,8 +244,7 @@ func (t *TargetBuilder) generateCode() error {
 }
 
 func (t *TargetBuilder) PrepBuild() error {
-	cfgResolution, err := t.ExportCfg()
-	if err != nil {
+	if err := t.ensureResolved(); err != nil {
 		return err
 	}
 
@@ -279,14 +257,10 @@ func (t *TargetBuilder) PrepBuild() error {
 		return err
 	}
 
-	loaderPkgs, appPkgs, err := t.resolvePkgs()
-	if err != nil {
-		return err
-	}
-
-	if loaderPkgs != nil {
-		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER, loaderPkgs,
-			cfgResolution.ApiMap, cfgResolution.Cfg)
+	var err error
+	if t.res.LoaderPkgs != nil {
+		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER,
+			t.res.LoaderPkgs, t.res.ApiMap, t.res.Cfg)
 		if err != nil {
 			return err
 		}
@@ -301,8 +275,8 @@ func (t *TargetBuilder) PrepBuild() error {
 		t.LoaderList = project.ResetDeps(nil)
 	}
 
-	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, appPkgs,
-		cfgResolution.ApiMap, cfgResolution.Cfg)
+	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, t.res.AppPkgs,
+		t.res.ApiMap, t.res.Cfg)
 	if err != nil {
 		return err
 	}
@@ -310,7 +284,7 @@ func (t *TargetBuilder) PrepBuild() error {
 		return err
 	}
 
-	if loaderPkgs != nil {
+	if t.res.LoaderPkgs != nil {
 		appFlags := toolchain.NewCompilerInfo()
 		appFlags.Cflags = append(appFlags.Cflags, "-DSPLIT_APPLICATION")
 		t.AppBuilder.AddCompilerInfo(appFlags)
@@ -319,6 +293,7 @@ func (t *TargetBuilder) PrepBuild() error {
 	t.AppList = project.ResetDeps(nil)
 
 	logDepInfo(t.Builders())
+
 	if err := t.generateCode(); err != nil {
 		return err
 	}
@@ -549,39 +524,8 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	return err, commonPkgs, smMatch
 }
 
-func (t *TargetBuilder) PrepTest() error {
-	cfgResolution, err := t.ExportCfg()
-	if err != nil {
-		return err
-	}
-
-	if err := t.validateAndWriteCfg(); err != nil {
-		return err
-	}
-
-	_, appPkgs, err := t.resolvePkgs()
-	if err != nil {
-		return err
-	}
-
-	t.AppBuilder, err = NewBuilder(t, "test", appPkgs,
-		cfgResolution.ApiMap, cfgResolution.Cfg)
-	if err != nil {
-		return err
-	}
-	if err := t.AppBuilder.PrepBuild(); err != nil {
-		return err
-	}
-
-	if err := t.generateCode(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (t *TargetBuilder) BuildTest() error {
-	if err := t.PrepTest(); err != nil {
+	if err := t.PrepBuild(); err != nil {
 		return err
 	}
 

@@ -151,9 +151,7 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 }
 
 func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
-	err := t.PrepBuild()
-
-	if err != nil {
+	if err := t.PrepBuild(); err != nil {
 		return err
 	}
 
@@ -164,7 +162,7 @@ func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error
 }
 
 func (t *TargetBuilder) DebugTest() error {
-	if err := t.PrepTest(); err != nil {
+	if err := t.PrepBuild(); err != nil {
 		return err
 	}
 
