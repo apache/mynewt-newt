@@ -60,13 +60,14 @@ func mempoolStatsRunCmd(cmd *cobra.Command, args []string) {
 
 	fmt.Printf("Return Code = %d\n", msrsp.ReturnCode)
 	if msrsp.ReturnCode == 0 {
+		fmt.Printf("%32s %5s %4s %4s %4s\n", "name", "blksz",
+			"cnt", "free", "min")
 		for k, info := range msrsp.MPools {
-			fmt.Printf("  %s ", k)
-			fmt.Printf("(blksize=%d nblocks=%d nfree=%d)",
+			fmt.Printf("%32s %5d %4d %4d %4d\n", k,
 				int(info["blksiz"].(uint64)),
 				int(info["nblks"].(uint64)),
-				int(info["nfree"].(uint64)))
-			fmt.Printf("\n")
+				int(info["nfree"].(uint64)),
+				int(info["min"].(uint64)))
 		}
 	}
 }
