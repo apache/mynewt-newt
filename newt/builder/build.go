@@ -475,8 +475,8 @@ func (b *Builder) KeepLink(
 	return nil
 }
 
-func (b *Builder) TestLink(linkerScripts []string) error {
-	if err := b.link(b.AppTempElfPath(), linkerScripts, nil); err != nil {
+func (b *Builder) TentativeLink(linkerScripts []string) error {
+	if err := b.link(b.AppTentativeElfPath(), linkerScripts, nil); err != nil {
 		return err
 	}
 	return nil

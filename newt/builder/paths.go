@@ -127,7 +127,7 @@ func (b *Builder) ArchivePath(bpkg *BuildPackage) string {
 	return b.PkgBinDir(bpkg) + "/" + filepath.Base(bpkg.Name()) + ".a"
 }
 
-func (b *Builder) AppTempElfPath() string {
+func (b *Builder) AppTentativeElfPath() string {
 	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
 		"_tmp.elf"
 }

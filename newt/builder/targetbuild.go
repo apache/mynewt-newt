@@ -302,8 +302,8 @@ func (t *TargetBuilder) PrepBuild() error {
 }
 
 func (t *TargetBuilder) buildLoader() error {
-	/* Link the app as a test (using the normal single image linker script) */
-	if err := t.AppBuilder.TestLink(t.bspPkg.LinkerScripts); err != nil {
+	/* Tentatively link the app (using the normal single image linker script) */
+	if err := t.AppBuilder.TentativeLink(t.bspPkg.LinkerScripts); err != nil {
 		return err
 	}
 
@@ -318,8 +318,8 @@ func (t *TargetBuilder) buildLoader() error {
 		return err
 	}
 
-	/* perform a test link of the loader */
-	if err := t.LoaderBuilder.TestLink(t.bspPkg.LinkerScripts); err != nil {
+	/* Tentatively link the loader */
+	if err := t.LoaderBuilder.TentativeLink(t.bspPkg.LinkerScripts); err != nil {
 		return err
 	}
 
@@ -409,7 +409,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	}
 
 	/* fetch the symbol list from the app temporary elf */
-	err, appElfSym := t.AppBuilder.ParseObjectElf(t.AppBuilder.AppTempElfPath())
+	err, appElfSym := t.AppBuilder.ParseObjectElf(t.AppBuilder.AppTentativeElfPath())
 	if err != nil {
 		return err, nil, nil
 	}
@@ -421,7 +421,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	}
 
 	err, loaderElfSym := t.LoaderBuilder.ParseObjectElf(
-		t.LoaderBuilder.AppTempElfPath())
+		t.LoaderBuilder.AppTentativeElfPath())
 	if err != nil {
 		return err, nil, nil
 	}
