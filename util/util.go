@@ -200,7 +200,7 @@ func (f *logFormatter) Format(entry *log.Entry) ([]byte, error) {
 
 	b := &bytes.Buffer{}
 
-	b.WriteString(entry.Time.Format("2006/01/02 15:04:05 "))
+	b.WriteString(entry.Time.Format("2006/01/02 15:04:05.000 "))
 	b.WriteString("[" + strings.ToUpper(entry.Level.String()) + "] ")
 	b.WriteString(entry.Message)
 	b.WriteByte('\n')
