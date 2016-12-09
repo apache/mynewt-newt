@@ -28,7 +28,6 @@ import (
 
 	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/syscfg"
@@ -493,71 +492,6 @@ func (b *Builder) pkgWithPath(path string) *BuildPackage {
 	return nil
 }
 
-func (b *Builder) testOwner(p *BuildPackage) *BuildPackage {
-	if p.Type() != pkg.PACKAGE_TYPE_UNITTEST {
-		panic("Expected unittest package; got: " + p.Name())
-	}
-
-	curPath := p.BasePath()
-
-	for {
-		parentPath := filepath.Dir(curPath)
-		if parentPath == project.GetProject().BasePath || parentPath == "." {
-			return nil
-		}
-
-		parentPkg := b.pkgWithPath(parentPath)
-		if parentPkg != nil && parentPkg.Type() != pkg.PACKAGE_TYPE_UNITTEST {
-			return parentPkg
-		}
-
-		curPath = parentPath
-	}
-}
-
-// @return string               Path of generated test executable.
-func (b *Builder) BuildTest(p *pkg.LocalPackage) (string, error) {
-	// Build the packages alphabetically to ensure a consistent order.
-	bpkgs := b.sortedBuildPackages()
-	for _, bpkg := range bpkgs {
-		if err := b.buildPackage(bpkg); err != nil {
-			return "", err
-		}
-	}
-
-	testBpkg := b.PkgMap[p]
-	testPath := b.TestExePath(testBpkg)
-	if err := b.link(testPath, nil, nil); err != nil {
-		return "", err
-	}
-
-	return testPath, nil
-}
-
-func (b *Builder) Test(p *pkg.LocalPackage) error {
-	testPath, err := b.BuildTest(p)
-	if err != nil {
-		return err
-	}
-
-	// Run the tests.
-	if err := os.Chdir(filepath.Dir(testPath)); err != nil {
-		return err
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing test: %s\n",
-		testPath)
-	cmd := []string{testPath}
-	if _, err := util.ShellCommand(cmd, nil); err != nil {
-		newtError := err.(*util.NewtError)
-		newtError.Text = fmt.Sprintf("Test failure (%s):\n%s", p.Name(),
-			newtError.Text)
-		return newtError
-	}
-
-	return nil
-}
-
 func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
 	loader_sm := symbol.NewSymbolMap()
 
@@ -686,6 +620,10 @@ func (b *Builder) CreateImage(version string,
 //     <app>.elf.bin
 //     manifest.json
 func (b *Builder) CleanArtifacts() {
+	if b.appPkg == nil {
+		return
+	}
+
 	paths := []string{
 		b.AppImgPath(),
 		b.AppBinPath(),

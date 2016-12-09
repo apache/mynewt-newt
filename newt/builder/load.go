@@ -161,14 +161,6 @@ func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error
 	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB)
 }
 
-func (t *TargetBuilder) DebugTest() error {
-	if err := t.PrepBuild(); err != nil {
-		return err
-	}
-
-	return t.AppBuilder.DebugTest(t.GetTestPkg())
-}
-
 func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	noGDB bool) error {
 	/*
@@ -219,14 +211,4 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 	}
 
 	return b.debugBin(b.AppBinBasePath(), extraJtagCmd, reset, noGDB)
-}
-
-func (b *Builder) DebugTest(lpkg *pkg.LocalPackage) error {
-	bpkg := b.PkgMap[lpkg]
-	if bpkg == nil {
-		panic("internal error: local package \"" + lpkg.FullName() +
-			"\" not built")
-	}
-	return b.debugBin(strings.TrimSuffix(b.TestExePath(bpkg), ".elf"),
-		"", false, false)
 }

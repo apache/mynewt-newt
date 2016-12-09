@@ -41,10 +41,10 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	testPkg := b.GetTestPkg()
 	if testPkg != nil {
 		b.InjectSetting("TESTUTIL_SYSTEM_ASSERT", "1")
-		if err := b.BuildTest(); err != nil {
+		if err := b.SelfTestCreateExe(); err != nil {
 			NewtUsage(nil, err)
 		}
-		if err := b.DebugTest(); err != nil {
+		if err := b.SelfTestDebug(); err != nil {
 			NewtUsage(nil, err)
 		}
 	} else {

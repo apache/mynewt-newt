@@ -22,6 +22,7 @@ package builder
 import (
 	"path/filepath"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 )
@@ -65,6 +66,17 @@ func FileBinDir(targetName string, buildName string, pkgName string) string {
 	return BinDir(targetName, buildName) + "/" + pkgName
 }
 
+func PkgBinDir(targetName string, buildName string, pkgName string,
+	pkgType interfaces.PackageType) string {
+
+	switch pkgType {
+	case pkg.PACKAGE_TYPE_GENERATED:
+		return GeneratedBinDir(targetName)
+	default:
+		return FileBinDir(targetName, buildName, pkgName)
+	}
+}
+
 func AppElfPath(targetName string, buildName string, appName string) string {
 	return FileBinDir(targetName, buildName, appName) + "/" +
 		filepath.Base(appName) + ".elf"
@@ -72,6 +84,13 @@ func AppElfPath(targetName string, buildName string, appName string) string {
 
 func AppBinPath(targetName string, buildName string, appName string) string {
 	return AppElfPath(targetName, buildName, appName) + ".bin"
+}
+
+func TestExePath(targetName string, buildName string, pkgName string,
+	pkgType interfaces.PackageType) string {
+
+	return PkgBinDir(targetName, buildName, pkgName, pkgType) + "/" +
+		TestTargetName(pkgName) + ".elf"
 }
 
 func ManifestPath(targetName string, buildName string, pkgName string) string {
@@ -100,12 +119,7 @@ func (b *Builder) FileBinDir(pkgName string) string {
 }
 
 func (b *Builder) PkgBinDir(bpkg *BuildPackage) string {
-	switch bpkg.Type() {
-	case pkg.PACKAGE_TYPE_GENERATED:
-		return GeneratedBinDir(b.targetPkg.Name())
-	default:
-		return b.FileBinDir(bpkg.Name())
-	}
+	return PkgBinDir(b.targetPkg.Name(), b.buildName, bpkg.Name(), bpkg.Type())
 }
 
 // Generates the path+filename of the specified package's .a file.
@@ -141,7 +155,8 @@ func (b *Builder) AppPath() string {
 }
 
 func (b *Builder) TestExePath(bpkg *BuildPackage) string {
-	return b.PkgBinDir(bpkg) + "/" + TestTargetName(bpkg.Name()) + ".elf"
+	return TestExePath(b.targetPkg.Name(), b.buildName, bpkg.Name(),
+		bpkg.Type())
 }
 
 func (b *Builder) ManifestPath() string {

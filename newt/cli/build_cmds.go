@@ -273,7 +273,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
 			pack.FullName())
 
-		err = b.Test()
+		err = b.SelfTestExecute()
 		if err == nil {
 			passedPkgs = append(passedPkgs, pack)
 		} else {

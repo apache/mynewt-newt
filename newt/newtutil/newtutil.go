@@ -93,7 +93,7 @@ func GetSliceFeatures(v *viper.Viper, features map[string]bool,
 
 	// Process the features in alphabetical order to ensure consistent
 	// results across repeated runs.
-	var featureKeys []string
+	featureKeys := make([]string, 0, len(features))
 	for feature, _ := range features {
 		featureKeys = append(featureKeys, feature)
 	}
