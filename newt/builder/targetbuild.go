@@ -111,8 +111,12 @@ func (t *TargetBuilder) Builders() []*Builder {
 	return builders
 }
 
-func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) {
-	c, err := toolchain.NewCompiler(t.compilerPkg.BasePath(), dstDir,
+func (t *TargetBuilder) NewCompiler(dstDir string) (
+	*toolchain.Compiler, error) {
+
+	c, err := toolchain.NewCompiler(
+		t.compilerPkg.BasePath(),
+		dstDir,
 		t.target.BuildProfile)
 
 	return c, err

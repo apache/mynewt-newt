@@ -112,6 +112,11 @@ func (pkg *LocalPackage) BasePath() string {
 	return filepath.Clean(pkg.basePath)
 }
 
+func (pkg *LocalPackage) RelativePath() string {
+	proj := interfaces.GetProject()
+	return strings.TrimPrefix(pkg.BasePath(), proj.Path())
+}
+
 func (pkg *LocalPackage) Type() interfaces.PackageType {
 	return pkg.packageType
 }

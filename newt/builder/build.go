@@ -156,9 +156,7 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		"Compiling src in base directory: %s\n", srcDir)
 
 	// Start from the source directory.
-	if err := os.Chdir(srcDir); err != nil {
-		return util.NewNewtError(err.Error())
-	}
+	c.SetSrcDir(srcDir)
 
 	// Ignore architecture-specific source files for now.  Use a temporary
 	// string slice here so that the "arch" directory is not ignored in the
@@ -186,9 +184,7 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
 			"Compiling architecture specific src pkgs in directory: %s\n",
 			archDir)
-		if err := os.Chdir(archDir); err != nil {
-			return util.NewNewtError(err.Error())
-		}
+		c.SetSrcDir(archDir)
 
 		// Compile C source.
 		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_C,
@@ -271,13 +267,6 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 		srcDirs = append(srcDirs, srcDir)
 	}
 
-	// Make sure we restore the current working dir to whatever it was when this function was called
-	cwd, err := os.Getwd()
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Unable to determine current working directory: %v", err))
-	}
-	defer os.Chdir(cwd)
-
 	for _, dir := range srcDirs {
 		if err = buildDir(dir, c, b.targetBuilder.bspPkg.Arch, nil); err != nil {
 			return err
@@ -285,9 +274,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 	}
 
 	// Create a static library ("archive").
-	if err := os.Chdir(bpkg.BasePath() + "/"); err != nil {
-		return util.NewNewtError(err.Error())
-	}
+	c.SetSrcDir(bpkg.RelativePath())
 	archiveFile := b.ArchivePath(bpkg)
 	if err = c.CompileArchive(archiveFile); err != nil {
 		return err
@@ -515,10 +502,9 @@ func (b *Builder) GetTarget() *target.Target {
 }
 
 func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
-
-	/* check dependencies on the ROM ELF.  This is really dependent on
-	 * all of the .a files, but since we already depend on the loader
-	 * .as to build the initial elf, we only need to check the app .a */
+	// check dependencies on the ROM ELF.  This is really dependent on
+	// all of the .a files, but since we already depend on the loader
+	// .as to build the initial elf, we only need to check the app .a
 	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
 	d := toolchain.NewDepTracker(c)
 	if err != nil {
@@ -527,7 +513,7 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 
 	archNames := []string{}
 
-	/* build the set of archive file names */
+	// build the set of archive file names
 	for _, bpkg := range b.PkgMap {
 		archiveNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
 		archNames = append(archNames, archiveNames...)

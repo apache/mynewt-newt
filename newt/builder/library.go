@@ -206,7 +206,6 @@ func (b *Builder) ParseObjectLibraryFile(bp *BuildPackage,
 }
 
 func (b *Builder) CopySymbols(sm *symbol.SymbolMap) error {
-
 	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
 
 	if err != nil {

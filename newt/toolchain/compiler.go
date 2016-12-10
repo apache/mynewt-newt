@@ -20,6 +20,7 @@
 package toolchain
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -34,6 +35,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
@@ -72,6 +74,8 @@ type Compiler struct {
 	ldResolveCircularDeps bool
 	ldMapFile             bool
 	ldBinFile             bool
+	baseDir               string
+	srcDir                string
 	dstDir                string
 
 	// The info to be applied during compilation.
@@ -174,6 +178,8 @@ func NewCompiler(compilerDir string, dstDir string,
 
 	c := &Compiler{
 		ObjPathList: map[string]bool{},
+		baseDir:     project.GetProject().BasePath,
+		srcDir:      "",
 		dstDir:      filepath.Clean(dstDir),
 		extraDeps:   []string{},
 	}
@@ -181,7 +187,8 @@ func NewCompiler(compilerDir string, dstDir string,
 	c.depTracker = NewDepTracker(c)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"Loading compiler %s, def %s\n", compilerDir, buildProfile)
+		"Loading compiler %s, buildProfile %s\n", compilerDir,
+		buildProfile)
 	err := c.load(compilerDir, buildProfile)
 	if err != nil {
 		return nil, err
@@ -269,6 +276,10 @@ func (c *Compiler) DstDir() string {
 	return c.dstDir
 }
 
+func (c *Compiler) SetSrcDir(srcDir string) {
+	c.srcDir = srcDir
+}
+
 func (c *Compiler) AddDeps(depFilenames ...string) {
 	c.extraDeps = append(c.extraDeps, depFilenames...)
 }
@@ -280,14 +291,13 @@ func (c *Compiler) AddDeps(depFilenames ...string) {
 // still be remembered so that it gets linked in to the final library or
 // executable.
 func (c *Compiler) SkipSourceFile(srcFile string) error {
-	objFile := c.dstDir + "/" +
-		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".o"
-	c.ObjPathList[filepath.ToSlash(objFile)] = true
+	objPath := c.dstFilePath(srcFile) + ".o"
+	c.ObjPathList[filepath.ToSlash(objPath)] = true
 
 	// Update the dependency tracker with the object file's modification time.
 	// This is necessary later for determining if the library / executable
 	// needs to be rebuilt.
-	err := c.depTracker.ProcessFileTime(objFile)
+	err := c.depTracker.ProcessFileTime(objPath)
 	if err != nil {
 		return err
 	}
@@ -353,6 +363,13 @@ func (c *Compiler) depsString() string {
 	return strings.Join(extraDeps, " ") + "\n"
 }
 
+func (c *Compiler) dstFilePath(srcPath string) string {
+	relSrcPath := strings.TrimPrefix(srcPath, c.srcDir)
+	relDstPath := strings.TrimSuffix(relSrcPath, filepath.Ext(srcPath))
+	dstPath := fmt.Sprintf("%s/%s", c.dstDir, relDstPath)
+	return dstPath
+}
+
 // Calculates the command-line invocation necessary to compile the specified C
 // or assembly file.
 //
@@ -360,11 +377,10 @@ func (c *Compiler) depsString() string {
 // @param compilerType          One of the COMPILER_TYPE_[...] constants.
 //
 // @return                      (success) The command arguments.
-func (c *Compiler) CompileFileCmd(file string,
-	compilerType int) ([]string, error) {
+func (c *Compiler) CompileFileCmd(file string, compilerType int) (
+	[]string, error) {
 
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	objPath := filepath.ToSlash(c.dstDir + "/" + objFile)
+	objPath := c.dstFilePath(file) + ".o"
 
 	var cmdName string
 	var flags []string
@@ -403,13 +419,11 @@ func (c *Compiler) CompileFileCmd(file string,
 //
 // @param file                  The name of the source file.
 func (c *Compiler) GenDepsForFile(file string) error {
-	if util.NodeNotExist(c.dstDir) {
-		os.MkdirAll(c.dstDir, 0755)
+	depPath := c.dstFilePath(file) + ".d"
+	depDir := filepath.Dir(depPath)
+	if util.NodeNotExist(depDir) {
+		os.MkdirAll(depDir, 0755)
 	}
-
-	depFile := c.dstDir + "/" +
-		strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
-	depFile = filepath.ToSlash(depFile)
 
 	cmd := []string{c.ccPath}
 	cmd = append(cmd, c.cflagsStrings()...)
@@ -422,7 +436,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	}
 
 	// Write the compiler output to a dependency file.
-	f, err := os.OpenFile(depFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	f, err := os.OpenFile(depPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return util.ChildNewtError(err)
 	}
@@ -481,13 +495,12 @@ func (c *Compiler) ensureLclInfoAdded() {
 // @param file                  The filename of the source file to compile.
 // @param compilerType          One of the COMPILER_TYPE_[...] constants.
 func (c *Compiler) CompileFile(file string, compilerType int) error {
-	if util.NodeNotExist(c.dstDir) {
-		os.MkdirAll(c.dstDir, 0755)
+	objPath := c.dstFilePath(file) + ".o"
+	objDir := filepath.Dir(objPath)
+	if util.NodeNotExist(objDir) {
+		os.MkdirAll(objDir, 0755)
 	}
 
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-
-	objPath := c.dstDir + "/" + objFile
 	c.ObjPathList[filepath.ToSlash(objPath)] = true
 
 	cmd, err := c.CompileFileCmd(file, compilerType)
@@ -495,13 +508,14 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return err
 	}
 
+	relSrcPath := strings.TrimPrefix(file, c.baseDir+"/")
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", relSrcPath)
 	case COMPILER_TYPE_CPP:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", relSrcPath)
 	case COMPILER_TYPE_ASM:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", relSrcPath)
 	default:
 		return util.NewNewtError("Unknown compiler type")
 	}
@@ -533,16 +547,10 @@ func (c *Compiler) shouldIgnoreFile(file string) bool {
 }
 
 // Compiles all C files matching the specified file glob.
-//
 func (c *Compiler) CompileC() error {
-	files, _ := filepath.Glob("*.c")
+	files, _ := filepath.Glob(c.srcDir + "/*.c")
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Compiling C if outdated (%s/*.c) %s", wd,
+	log.Infof("Compiling C if outdated (%s/*.c) %s", c.srcDir,
 		strings.Join(files, " "))
 
 	for _, file := range files {
@@ -573,10 +581,10 @@ func (c *Compiler) CompileC() error {
 
 // Compiles all CPP files
 func (c *Compiler) CompileCpp() error {
-	files, _ := filepath.Glob("*.cc")
-	moreFiles, _ := filepath.Glob("*.cpp")
+	files, _ := filepath.Glob(c.srcDir + "/*.cc")
+	moreFiles, _ := filepath.Glob(c.srcDir + "/*.cpp")
 	files = append(files, moreFiles...)
-	moreFiles, _ = filepath.Glob("*.cxx")
+	moreFiles, _ = filepath.Glob(c.srcDir + "/*.cxx")
 	files = append(files, moreFiles...)
 
 	wd, err := os.Getwd()
@@ -619,8 +627,8 @@ func (c *Compiler) CompileCpp() error {
 // @param match                 The file glob specifying which assembly files
 //                                  to compile.
 func (c *Compiler) CompileAs() error {
-	files, _ := filepath.Glob("*.s")
-	Sfiles, _ := filepath.Glob("*.S")
+	files, _ := filepath.Glob(c.srcDir + "/*.s")
+	Sfiles, _ := filepath.Glob(c.srcDir + "/*.S")
 	files = append(files, Sfiles...)
 
 	wd, err := os.Getwd()
@@ -659,14 +667,9 @@ func (c *Compiler) CompileAs() error {
 // @param match                 The file glob specifying which assembly files
 //                                  to compile.
 func (c *Compiler) CopyArchive() error {
-	files, _ := filepath.Glob("*.a")
+	files, _ := filepath.Glob(c.srcDir + "/*.a")
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Copying archive if outdated (%s/*.a) %s", wd,
+	log.Infof("Copying archive if outdated (%s/*.a) %s", c.srcDir,
 		strings.Join(files, " "))
 	for _, file := range files {
 		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
@@ -674,8 +677,7 @@ func (c *Compiler) CopyArchive() error {
 			continue
 		}
 
-		tgtFile := c.DstDir() + "/" +
-			strings.TrimSuffix(file, filepath.Ext(file)) + ".a"
+		tgtFile := c.dstFilePath(file) + ".a"
 		copyRequired, err := c.depTracker.CopyRequired(file)
 		if err != nil {
 			return err
@@ -694,7 +696,7 @@ func (c *Compiler) CopyArchive() error {
 	return nil
 }
 
-func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
+func (c *Compiler) processEntry(node os.FileInfo, cType int,
 	ignDirs []string) error {
 
 	// check to see if we ignore this element
@@ -713,14 +715,17 @@ func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
 
 	// If not, recurse into the directory.  Make the output directory
 	// structure mirror that of the source tree.
+	prevSrcDir := c.srcDir
 	prevDstDir := c.dstDir
+
+	c.srcDir += "/" + node.Name()
 	c.dstDir += "/" + node.Name()
 
-	os.Chdir(wd + "/" + node.Name())
 	err := c.RecursiveCompile(cType, ignDirs)
 
 	// Restore the compiler destination directory now that the child directory
 	// has been fully built.
+	c.srcDir = prevSrcDir
 	c.dstDir = prevDstDir
 
 	return err
@@ -730,33 +735,26 @@ func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
 
+	if err := os.Chdir(c.baseDir); err != nil {
+		return util.ChildNewtError(err)
+	}
+
 	// Get a list of files in the current directory, and if they are a
 	// directory, and that directory is not in the ignDirs variable, then
 	// recurse into that directory and compile the files in there
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return util.NewNewtError(err.Error())
-	}
-	wd = filepath.ToSlash(wd)
-
-	dirList, err := ioutil.ReadDir(wd)
+	dirList, err := ioutil.ReadDir(c.srcDir)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
 	for _, node := range dirList {
 		if node.IsDir() {
-			err = c.processEntry(wd, node, cType, ignDirs)
+			err = c.processEntry(node, cType, ignDirs)
 			if err != nil {
 				return err
 			}
 		}
-	}
-
-	err = os.Chdir(wd)
-	if err != nil {
-		return err
 	}
 
 	switch cType {
