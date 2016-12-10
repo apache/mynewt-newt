@@ -29,6 +29,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
 )
@@ -212,6 +213,36 @@ func ParsePackageString(pkgStr string) (string, string, error) {
 	} else {
 		return "", pkgStr, nil
 	}
+}
+
+func FindRepoDesignator(s string) (int, int) {
+	start := strings.Index(s, "@")
+	if start == -1 {
+		return -1, -1
+	}
+
+	len := strings.Index(s[start:], "/")
+	if len == -1 {
+		return -1, -1
+	}
+
+	return start, len
+}
+
+func ReplaceRepoDesignators(s string) (string, bool) {
+	start, len := FindRepoDesignator(s)
+	if start == -1 {
+		return s, false
+	}
+	repoName := s[start+1 : start+len]
+
+	proj := interfaces.GetProject()
+	repoPath := proj.FindRepoPath(repoName)
+	if repoPath == "" {
+		return s, false
+	}
+
+	return s[:start] + repoPath + s[start+len:], true
 }
 
 func BuildPackageString(repoName string, pkgName string) string {

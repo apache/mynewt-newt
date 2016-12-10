@@ -120,6 +120,16 @@ func (bpkg *BuildPackage) recursiveIncludePaths(
 	return incls, nil
 }
 
+// Replaces instances of "@<repo-name>" with repo paths.
+func expandFlags(flags []string) {
+	for i, f := range flags {
+		newFlag, changed := newtutil.ReplaceRepoDesignators(f)
+		if changed {
+			flags[i] = newFlag
+		}
+	}
+}
+
 func (bpkg *BuildPackage) CompilerInfo(
 	b *Builder) (*toolchain.CompilerInfo, error) {
 
@@ -131,12 +141,20 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	ci := toolchain.NewCompilerInfo()
 	features := b.cfg.FeaturesForLpkg(bpkg.LocalPackage)
+
+	// Read each set of flags and expand repo designators ("@<repo-nme>") into
+	// paths.
 	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
 		"pkg.cflags")
+	expandFlags(ci.Cflags)
+
 	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
 		"pkg.lflags")
+	expandFlags(ci.Lflags)
+
 	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
 		"pkg.aflags")
+	expandFlags(ci.Aflags)
 
 	// Package-specific injected settings get specified as C flags on the
 	// command line.

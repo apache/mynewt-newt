@@ -157,6 +157,15 @@ func (proj *Project) FindRepo(rname string) *repo.Repo {
 	}
 }
 
+func (proj *Project) FindRepoPath(rname string) string {
+	r := proj.FindRepo(rname)
+	if r == nil {
+		return ""
+	}
+
+	return r.Path()
+}
+
 func (proj *Project) LocalRepo() *repo.Repo {
 	return proj.localRepo
 }

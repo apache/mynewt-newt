@@ -63,6 +63,7 @@ type ProjectInterface interface {
 	ResolveDependency(dep DependencyInterface) PackageInterface
 	ResolvePath(basePath string, name string) (string, error)
 	PackageList() PackageList
+	FindRepoPath(rname string) string
 }
 
 var globalProject ProjectInterface
