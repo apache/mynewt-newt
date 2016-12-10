@@ -25,6 +25,7 @@ import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/util"
 )
 
 const BUILD_NAME_APP = "app"
@@ -77,6 +78,13 @@ func PkgBinDir(targetName string, buildName string, pkgName string,
 	}
 }
 
+func ArchivePath(targetName string, buildName string, pkgName string,
+	pkgType interfaces.PackageType) string {
+
+	filename := util.FilenameFromPath(pkgName) + ".a"
+	return PkgBinDir(targetName, buildName, pkgName, pkgType) + "/" + filename
+}
+
 func AppElfPath(targetName string, buildName string, appName string) string {
 	return FileBinDir(targetName, buildName, appName) + "/" +
 		filepath.Base(appName) + ".elf"
@@ -124,7 +132,8 @@ func (b *Builder) PkgBinDir(bpkg *BuildPackage) string {
 
 // Generates the path+filename of the specified package's .a file.
 func (b *Builder) ArchivePath(bpkg *BuildPackage) string {
-	return b.PkgBinDir(bpkg) + "/" + filepath.Base(bpkg.Name()) + ".a"
+	return ArchivePath(b.targetPkg.Name(), b.buildName, bpkg.Name(),
+		bpkg.Type())
 }
 
 func (b *Builder) AppTentativeElfPath() string {

@@ -579,6 +579,15 @@ func CIdentifier(s string) string {
 	return s
 }
 
+func FilenameFromPath(s string) string {
+	s = strings.Replace(s, "/", "_", -1)
+	s = strings.Replace(s, " ", "_", -1)
+	s = strings.Replace(s, "\t", "_", -1)
+	s = strings.Replace(s, "\n", "_", -1)
+
+	return s
+}
+
 func IntMax(a, b int) int {
 	if a > b {
 		return a
