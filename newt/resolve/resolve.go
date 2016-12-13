@@ -219,7 +219,7 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 		if !ok {
 			return false,
 				util.FmtNewtError("Could not resolve package dependency: "+
-					"%s; depender: %s", newDep.String(), rpkg.Name())
+					"%s; depender: %s", newDep.String(), rpkg.FullName())
 		}
 
 		if r.addPkg(lpkg) {
