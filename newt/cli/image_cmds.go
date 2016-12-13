@@ -35,7 +35,7 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	targetName := args[0]
 	t := ResolveTarget(targetName)

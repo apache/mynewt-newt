@@ -84,7 +84,7 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
-	InitProject()
+	TryGetProject()
 	targetNames := []string{}
 	if len(args) == 0 {
 		for name, _ := range target.GetTargets() {
@@ -198,7 +198,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				"(target-name & k=v) to set"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	// Parse target name.
 	t, err := resolveExistingTargetArg(args[0])
@@ -282,7 +282,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	proj := InitProject()
+	proj := TryGetProject()
 
 	pkgName, err := ResolveNewTargetName(args[0])
 	if err != nil {
@@ -340,7 +340,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 			"target to delete"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	targets, err := ResolveTargets(args...)
 	if err != nil {
@@ -360,7 +360,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 			"source target and one destination target"))
 	}
 
-	proj := InitProject()
+	proj := TryGetProject()
 
 	srcTarget, err := resolveExistingTargetArg(args[0])
 	if err != nil {
@@ -467,7 +467,7 @@ func targetConfigCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	b, err := TargetBuilderForTargetOrUnittest(args[0])
 	if err != nil {
@@ -495,7 +495,7 @@ func targetDepCmd(cmd *cobra.Command, args []string) {
 			util.NewNewtError("Must specify target or unittest name"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	b, err := TargetBuilderForTargetOrUnittest(args[0])
 	if err != nil {
@@ -538,7 +538,7 @@ func targetRevdepCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	b, err := TargetBuilderForTargetOrUnittest(args[0])
 	if err != nil {

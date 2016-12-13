@@ -66,8 +66,9 @@ type Project struct {
 	v *viper.Viper
 }
 
-func InitProject(dir string) error {
+func initProject(dir string) error {
 	var err error
+
 	globalProject, err = LoadProject(dir)
 	if err != nil {
 		return err
@@ -85,7 +86,7 @@ func initialize() error {
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		if err := InitProject(wd); err != nil {
+		if err := initProject(wd); err != nil {
 			return err
 		}
 	}
@@ -93,10 +94,8 @@ func initialize() error {
 }
 
 func TryGetProject() (*Project, error) {
-	if globalProject == nil {
-		if err := initialize(); err != nil {
-			return nil, err
-		}
+	if err := initialize(); err != nil {
+		return nil, err
 	}
 	return globalProject, nil
 }

@@ -107,7 +107,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, nil)
 	}
 
-	InitProject()
+	TryGetProject()
 
 	// Verify and resolve each specified package.
 	targets, all, err := ResolveTargetsOrAll(args...)
@@ -130,8 +130,10 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		// Reset the global state for the next build.
 		// XXX: It is not good that this is necessary.  This is certainly going
 		// to bite us...
-		if err := ResetGlobalState(); err != nil {
-			NewtUsage(nil, err)
+		if i > 0 {
+			if err := ResetGlobalState(); err != nil {
+				NewtUsage(nil, err)
+			}
 		}
 
 		// Look up the target by name.  This has to be done a second time here
@@ -174,7 +176,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	cleanAll := false
 	targets := []*target.Target{}
@@ -214,7 +216,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, nil)
 	}
 
-	proj := InitProject()
+	proj := TryGetProject()
 
 	// Verify and resolve each specified package.
 	testAll := false
@@ -300,7 +302,7 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -322,7 +324,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -344,7 +346,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {

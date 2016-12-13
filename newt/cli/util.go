@@ -199,7 +199,7 @@ func ResetGlobalState() error {
 	return nil
 }
 
-func InitProject() *project.Project {
+func TryGetProject() *project.Project {
 	var p *project.Project
 	var err error
 
@@ -239,7 +239,7 @@ func ResolveUnittest(pkgName string) (*target.Target, error) {
 			return nil, err
 		}
 
-		t = baseTarget.Clone(InitProject().LocalRepo(), targetName)
+		t = baseTarget.Clone(TryGetProject().LocalRepo(), targetName)
 	}
 
 	return t, nil
@@ -258,7 +258,7 @@ func ResolveTargetOrUnittest(pkgName string) (
 	}
 
 	// Package wasn't a target.  Try for a unittest.
-	proj := InitProject()
+	proj := TryGetProject()
 	pack, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
 	if err != nil {
 		return nil, nil, util.FmtNewtError(
@@ -281,7 +281,7 @@ func ResolveTargetOrUnittest(pkgName string) (
 }
 
 func ResolvePackages(pkgNames []string) ([]*pkg.LocalPackage, error) {
-	proj := InitProject()
+	proj := TryGetProject()
 
 	lpkgs := []*pkg.LocalPackage{}
 	for _, pkgName := range pkgNames {

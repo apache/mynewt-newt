@@ -31,7 +31,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	b, err := TargetBuilderForTargetOrUnittest(args[0])
 	if err != nil {

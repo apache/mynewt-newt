@@ -28,7 +28,7 @@ import (
 )
 
 func ResolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
-	proj := InitProject()
+	proj := TryGetProject()
 
 	lpkg, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
 	if err != nil {
