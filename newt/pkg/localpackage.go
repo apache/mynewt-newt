@@ -470,47 +470,17 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 }
 
 func ReadLocalPackages(repo *repo.Repo, basePath string) (
-	pkgMap *map[string]interfaces.PackageInterface,
-	warnings []string,
-	err error) {
+	*map[string]interfaces.PackageInterface, []string, error) {
 
-	pkgMap = &map[string]interfaces.PackageInterface{}
-	warnings = []string{}
+	pkgMap := &map[string]interfaces.PackageInterface{}
 
 	// Keep track of which directories we have traversed.  Prevent infinite
 	// loops caused by symlink cycles by not inspecting the same directory
 	// twice.
 	searchedMap := map[string]struct{}{}
 
-	searchPaths, err := repo.FilteredSearchList("", searchedMap)
-	if err != nil {
-		return
-	}
+	warnings, err := ReadLocalPackageRecursive(repo, *pkgMap,
+		basePath, "", searchedMap)
 
-	for _, path := range searchPaths {
-		pkgDir := basePath + "/" + path
-
-		if util.NodeNotExist(pkgDir) {
-			continue
-		}
-
-		var dirList []string
-		if dirList, err = repo.FilteredSearchList(
-			path, searchedMap); err != nil {
-
-			return
-		}
-
-		for _, subDir := range dirList {
-			var subWarnings []string
-			subWarnings, err = ReadLocalPackageRecursive(repo, *pkgMap,
-				basePath, filepath.Join(path, subDir), searchedMap)
-			warnings = append(warnings, subWarnings...)
-			if err != nil {
-				return
-			}
-		}
-	}
-
-	return
+	return pkgMap, warnings, err
 }
