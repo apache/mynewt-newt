@@ -242,7 +242,10 @@ func ReplaceRepoDesignators(s string) (string, bool) {
 		return s, false
 	}
 
-	return s[:start] + repoPath + s[start+len:], true
+	// Trim common project base from repo path.
+	relRepoPath := strings.TrimPrefix(repoPath, proj.Path()+"/")
+
+	return s[:start] + relRepoPath + s[start+len:], true
 }
 
 func BuildPackageString(repoName string, pkgName string) string {

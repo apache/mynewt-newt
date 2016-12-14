@@ -327,6 +327,7 @@ func (c *Compiler) includesStrings() []string {
 
 	tokens := make([]string, len(includes))
 	for i, s := range includes {
+		s = strings.TrimPrefix(s, c.baseDir+"/")
 		tokens[i] = "-I" + s
 	}
 
@@ -402,6 +403,7 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 		return nil, util.NewNewtError("Unknown compiler type")
 	}
 
+	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
 	cmd := []string{cmdName}
 	cmd = append(cmd, flags...)
 	cmd = append(cmd, c.includesStrings()...)
@@ -409,7 +411,7 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 		"-c",
 		"-o",
 		objPath,
-		file,
+		srcPath,
 	}...)
 
 	return cmd, nil
@@ -425,10 +427,11 @@ func (c *Compiler) GenDepsForFile(file string) error {
 		os.MkdirAll(depDir, 0755)
 	}
 
+	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
 	cmd := []string{c.ccPath}
 	cmd = append(cmd, c.cflagsStrings()...)
 	cmd = append(cmd, c.includesStrings()...)
-	cmd = append(cmd, []string{"-MM", "-MG", file}...)
+	cmd = append(cmd, []string{"-MM", "-MG", srcPath}...)
 
 	o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
 	if err != nil {
@@ -508,14 +511,14 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return err
 	}
 
-	relSrcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", relSrcPath)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
 	case COMPILER_TYPE_CPP:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", relSrcPath)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
 	case COMPILER_TYPE_ASM:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", relSrcPath)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", srcPath)
 	default:
 		return util.NewNewtError("Unknown compiler type")
 	}
