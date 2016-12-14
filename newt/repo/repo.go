@@ -577,21 +577,32 @@ func (r *Repo) HasMinCommit() (bool, error) {
 
 	cmd := []string{
 		"git",
-		"rev-list",
-		r.minCommit.Hash + "..HEAD",
+		"merge-base",
+		r.minCommit.Hash,
+		"HEAD",
 	}
-
-	o, err := util.ShellCommand(cmd, nil)
+	mergeBase, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return false, util.ChildNewtError(err)
 	}
-
-	if len(o) == 0 {
+	if len(mergeBase) == 0 {
 		// No output means the commit does not exist in the current branch.
 		return false, nil
 	}
 
-	return true, nil
+	cmd = []string{
+		"git",
+		"rev-parse",
+		"--verify",
+		r.minCommit.Hash,
+	}
+	revParse, err := util.ShellCommand(cmd, nil)
+	if err != nil {
+		return false, util.ChildNewtError(err)
+	}
+
+	// The commit exists in HEAD if the two commands produced identical output.
+	return string(mergeBase) == string(revParse), nil
 }
 
 func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) error {
