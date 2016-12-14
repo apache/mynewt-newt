@@ -41,6 +41,7 @@ const NEWTRC_DIR string = ".newt"
 const REPOS_FILENAME string = "repos.yml"
 
 const CORE_REPO_NAME string = "apache-mynewt-core"
+const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"
 
 type RepoCommitEntry struct {
 	Version string
@@ -49,11 +50,16 @@ type RepoCommitEntry struct {
 
 // A warning is displayed if newt requires a newer version of a repo.
 var RepoMinCommits = map[string]*RepoCommitEntry{
-	// Newt no longer invokes the shell for external commands.  Some YAML files
-	// in core had to be fixed to accommodate this change.
+	// Newt no longer cd's to a source directory when it compiles its contents.
+	// Consequently, package include flags need to be relative to the project
+	// directory, not the package source directory.
 	CORE_REPO_NAME: &RepoCommitEntry{
 		Version: "develop",
-		Hash:    "5c5a987ef72ae9b3eb682f19d7d0bdc85f7e500c",
+		Hash:    "cd99344df197d5b9e372b93142184a39ec078f69",
+	},
+	ARDUINO_ZERO_REPO_NAME: &RepoCommitEntry{
+		Version: "develop",
+		Hash:    "a6348961fef56dbfe09a1b9418d3add3ad22eaf2",
 	},
 }
 
