@@ -307,17 +307,6 @@ func (c *Compiler) SkipSourceFile(srcFile string) error {
 
 // Generates a string consisting of all the necessary include path (-I)
 // options.  The result is sorted and contains no duplicate paths.
-func (c *Compiler) includesString() string {
-	if len(c.info.Includes) == 0 {
-		return ""
-	}
-
-	includes := util.SortFields(c.info.Includes...)
-	return "-I" + strings.Join(includes, " -I")
-}
-
-// Generates a string consisting of all the necessary include path (-I)
-// options.  The result is sorted and contains no duplicate paths.
 func (c *Compiler) includesStrings() []string {
 	if len(c.info.Includes) == 0 {
 		return nil
@@ -334,11 +323,6 @@ func (c *Compiler) includesStrings() []string {
 	return tokens
 }
 
-func (c *Compiler) cflagsString() string {
-	cflags := util.SortFields(c.info.Cflags...)
-	return strings.Join(cflags, " ")
-}
-
 func (c *Compiler) cflagsStrings() []string {
 	cflags := util.SortFields(c.info.Cflags...)
 	return cflags
@@ -347,11 +331,6 @@ func (c *Compiler) cflagsStrings() []string {
 func (c *Compiler) aflagsStrings() []string {
 	aflags := util.SortFields(c.info.Aflags...)
 	return aflags
-}
-
-func (c *Compiler) lflagsString() string {
-	lflags := util.SortFields(c.info.Lflags...)
-	return strings.Join(lflags, " ")
 }
 
 func (c *Compiler) lflagsStrings() []string {
