@@ -59,6 +59,10 @@ func SysinitArchivePath(targetName string) string {
 	return GeneratedBinDir(targetName) + "/sysinit.a"
 }
 
+func PkgSyscfgPath(pkgPath string) string {
+	return pkgPath + "/" + pkg.SYSCFG_YAML_FILENAME
+}
+
 func BinDir(targetName string, buildName string) string {
 	return BinRoot() + "/" + targetName + "/" + buildName
 }

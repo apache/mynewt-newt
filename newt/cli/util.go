@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -308,4 +309,22 @@ func TargetBuilderForTargetOrUnittest(pkgName string) (
 	} else {
 		return builder.NewTargetTester(t, testPkg)
 	}
+}
+
+func PromptYesNo(dflt bool) bool {
+	scanner := bufio.NewScanner(os.Stdin)
+	rc := scanner.Scan()
+	if !rc {
+		return dflt
+	}
+
+	if strings.ToLower(scanner.Text()) == "y" {
+		return true
+	}
+
+	if strings.ToLower(scanner.Text()) == "n" {
+		return false
+	}
+
+	return dflt
 }
