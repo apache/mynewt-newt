@@ -67,7 +67,7 @@ func Commands() *cobra.Command {
 	nmCmd.AddCommand(dTimeCmd())
 	nmCmd.AddCommand(resetCmd())
 	nmCmd.AddCommand(crashCmd())
-	nmCmd.AddCommand(runtestCmd())
+	nmCmd.AddCommand(runCmd())
 
 	return nmCmd
 }

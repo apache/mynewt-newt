@@ -21,72 +21,125 @@ package cli
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
-	"mynewt.apache.org/newt/newtmgr/transport"
 )
 
-func runtestRunCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
-	if err != nil {
-		nmUsage(cmd, err)
+func runCmd() *cobra.Command {
+	runCmd := &cobra.Command{
+		Use:     "run",
+		Short:   "Run procedures on remote device",
+		Run: func(cmd *cobra.Command, args []string) {
+                cmd.HelpFunc()(cmd, args)
+        },
 	}
 
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
+    runtestEx :="  newtmgr -c conn run test all 201612161220"
 
-	conn, err := transport.NewConnWithTimeout(profile, time.Second*1)
-	if err != nil {
-		nmUsage(cmd, err)
+	runTestCmd := &cobra.Command{
+		Use:     "test [all | testname] [token]",
+        Short:   "Run commands on remote device - \"token\" output on log messages",
+        Example: runtestEx,
+		Run:     runTestCmd,
 	}
-	defer conn.Close()
+    runCmd.AddCommand(runTestCmd)
 
-	runner, err := protocol.NewCmdRunner(conn)
-	if err != nil {
-		nmUsage(cmd, err)
+	runListCmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List registered commands on remote device",
+		Run:     runListCmd,
 	}
+    runCmd.AddCommand(runListCmd)
 
-	runtest, err := protocol.RunTest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	nmr, err := runtest.EncodeWriteRequest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	if err := runner.WriteReq(nmr); err != nil {
-		nmUsage(cmd, err)
-	}
-
-	rsp, err := runner.ReadResp()
-	if err == nil {
-		cRsp, err := protocol.DecodeRunTestResponse(rsp.Data)
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-		if cRsp.Err != 0 {
-			fmt.Printf("Failed, error:%d\n", cRsp.Err)
-		}
-	}
-	fmt.Println("Done")
+	return runCmd
 }
 
-func runtestCmd() *cobra.Command {
-	runtestEx := "   runtest "
+func runTestCmd(cmd *cobra.Command, args []string) {
+    runner, err := getTargetCmdRunner()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+    defer runner.Conn.Close()
 
-	runtestCmd := &cobra.Command{
-		Use:     "runtest ",
-		Short:   "Initiate named test on remote endpoint using newtmgr (named test not yet supported)",
-		Example: runtestEx,
-		Run:     runtestRunCmd,
-	}
+    req, err := protocol.NewRunTestReq()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
 
-	return runtestCmd
+    if len(args) > 0 {
+        req.Testname = args[0]
+        if len(args) > 1 {
+            req.Token = args[1]
+        } else {
+            req.Token = ""
+        }
+    } else {
+        /*
+         * If nothing specified, turn on "all" by default
+         * There is no default token.
+         */
+        req.Testname = "all"
+        req.Token = ""
+    }
+
+    nmr, err := req.Encode()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    if err := runner.WriteReq(nmr); err != nil {
+        nmUsage(cmd, err)
+    }
+
+    rsp, err := runner.ReadResp()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    decodedResponse, err := protocol.DecodeRunTestResponse(rsp.Data)
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    if decodedResponse.ReturnCode != 0 {
+        fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+    }
+}
+
+func runListCmd(cmd *cobra.Command, args []string) {
+    runner, err := getTargetCmdRunner()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    defer runner.Conn.Close()
+    req, err := protocol.NewRunListReq()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    nmr, err := req.Encode()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    if err := runner.WriteReq(nmr); err != nil {
+        nmUsage(cmd, err)
+    }
+
+    rsp, err := runner.ReadResp()
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    decodedResponse, err := protocol.DecodeRunListResponse(rsp.Data)
+    if err != nil {
+        nmUsage(cmd, err)
+    }
+
+    fmt.Println(decodedResponse.List)
+    if decodedResponse.ReturnCode != 0 {
+        fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+    }
 }
