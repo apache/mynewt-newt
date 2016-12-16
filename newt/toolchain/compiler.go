@@ -1125,16 +1125,24 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	}
 
 	// Delete the old archive, if it exists.
-	err = os.Remove(archiveFile)
+	os.Remove(archiveFile)
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s\n",
-		path.Base(archiveFile))
 	objList := c.getObjFiles([]string{})
 	if objList == nil {
 		return nil
 	}
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Archiving %s with object "+
-		"files %s\n", archiveFile, strings.Join(objList, " "))
+
+	if len(objList) == 0 {
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
+			"Not archiving %s; no object files\n", archiveFile)
+		return nil
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
+		path.Base(archiveFile))
+	util.StatusMessage(util.VERBOSITY_VERBOSE, " with object files %s",
+		archiveFile, strings.Join(objList, " "))
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
 	if err != nil && !os.IsNotExist(err) {
 		return util.NewNewtError(err.Error())
