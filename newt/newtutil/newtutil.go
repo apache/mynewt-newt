@@ -44,8 +44,9 @@ const CORE_REPO_NAME string = "apache-mynewt-core"
 const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"
 
 type RepoCommitEntry struct {
-	Version string
-	Hash    string
+	Version     string
+	Hash        string
+	Description string
 }
 
 // A warning is displayed if newt requires a newer version of a repo.
@@ -54,12 +55,14 @@ var RepoMinCommits = map[string]*RepoCommitEntry{
 	// Consequently, package include flags need to be relative to the project
 	// directory, not the package source directory.
 	CORE_REPO_NAME: &RepoCommitEntry{
-		Version: "develop",
-		Hash:    "cd99344df197d5b9e372b93142184a39ec078f69",
+		Version:     "develop",
+		Hash:        "cd99344df197d5b9e372b93142184a39ec078f69",
+		Description: "Include paths now relative to project base.",
 	},
 	ARDUINO_ZERO_REPO_NAME: &RepoCommitEntry{
-		Version: "develop",
-		Hash:    "a6348961fef56dbfe09a1b9418d3add3ad22eaf2",
+		Version:     "develop",
+		Hash:        "a6348961fef56dbfe09a1b9418d3add3ad22eaf2",
+		Description: "Include paths now relative to project base.",
 	},
 }
 

@@ -636,13 +636,15 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 		}
 
 		if !upToDate {
-			util.StatusMessage(util.VERBOSITY_QUIET,
+			util.ErrorMessage(util.VERBOSITY_QUIET,
 				"Warning: repo \"%s\" is out of date for this version of "+
 					"newt.  Please upgrade the repo to meet these "+
 					"requirements:\n"+
 					"    * Version: %s\n"+
-					"    * Commit: %s\n",
-				r.name, r.minCommit.Version, r.minCommit.Hash)
+					"    * Commit: %s\n"+
+					"    * Change: %s\n",
+				r.name, r.minCommit.Version, r.minCommit.Hash,
+				r.minCommit.Description)
 		}
 	}
 
