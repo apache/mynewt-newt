@@ -583,7 +583,11 @@ func (r *Repo) HasMinCommit() (bool, error) {
 	}
 	mergeBase, err := util.ShellCommand(cmd, nil)
 	if err != nil {
-		return false, util.ChildNewtError(err)
+		if strings.Contains(err.Error(), "Not a valid commit name") {
+			return false, nil
+		} else {
+			return false, util.ChildNewtError(err)
+		}
 	}
 	if len(mergeBase) == 0 {
 		// No output means the commit does not exist in the current branch.
