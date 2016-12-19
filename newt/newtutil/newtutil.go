@@ -51,15 +51,18 @@ type RepoCommitEntry struct {
 
 // A warning is displayed if newt requires a newer version of a repo.
 var RepoMinCommits = map[string]*RepoCommitEntry{
+	// Newt no longer cd's to a source directory when it compiles its contents.
+	// Consequently, package include flags need to be relative to the project
+	// directory, not the package source directory.
 	CORE_REPO_NAME: &RepoCommitEntry{
 		Version:     "develop",
-		Hash:        "43a5ef8860cbf4bc5bf43fde8a29fe74361536fa",
-		Description: "Sysinit section in linker scripts.",
+		Hash:        "cd99344df197d5b9e372b93142184a39ec078f69",
+		Description: "Include paths now relative to project base.",
 	},
 	ARDUINO_ZERO_REPO_NAME: &RepoCommitEntry{
 		Version:     "develop",
-		Hash:        "5ba55a5201fd99c23688518d30f13356ce3a34c9",
-		Description: "Sysinit section in linker scripts.",
+		Hash:        "a6348961fef56dbfe09a1b9418d3add3ad22eaf2",
+		Description: "Include paths now relative to project base.",
 	},
 }
 

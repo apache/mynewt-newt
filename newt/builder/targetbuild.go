@@ -38,6 +38,7 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/syscfg"
+	"mynewt.apache.org/newt/newt/sysinit"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -209,6 +210,24 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	return nil
 }
 
+func (t *TargetBuilder) generateSysinit() error {
+	if err := t.ensureResolved(); err != nil {
+		return err
+	}
+
+	srcDir := GeneratedSrcDir(t.target.Name())
+
+	if t.res.LoaderPkgs != nil {
+		sysinit.EnsureWritten(t.res.LoaderPkgs, srcDir,
+			pkg.ShortName(t.target.Package()), true)
+	}
+
+	sysinit.EnsureWritten(t.res.AppPkgs, srcDir,
+		pkg.ShortName(t.target.Package()), false)
+
+	return nil
+}
+
 func (t *TargetBuilder) generateFlashMap() error {
 	return t.bspPkg.FlashMap.EnsureWritten(
 		GeneratedSrcDir(t.target.Name()),
@@ -217,6 +236,10 @@ func (t *TargetBuilder) generateFlashMap() error {
 }
 
 func (t *TargetBuilder) generateCode() error {
+	if err := t.generateSysinit(); err != nil {
+		return err
+	}
+
 	if err := t.generateFlashMap(); err != nil {
 		return err
 	}
