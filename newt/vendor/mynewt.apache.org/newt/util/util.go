@@ -92,7 +92,7 @@ func PreNewtError(err error, format string, args ...interface{}) *NewtError {
 func ChildNewtError(parent error) *NewtError {
 	for {
 		newtErr, ok := parent.(*NewtError)
-		if !ok {
+		if !ok || newtErr == nil || newtErr.Parent == nil {
 			break
 		}
 		parent = newtErr.Parent
