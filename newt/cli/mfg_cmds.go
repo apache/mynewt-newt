@@ -173,7 +173,7 @@ func AddMfgCommands(cmd *cobra.Command) {
 
 	mfgDeployCmd := &cobra.Command{
 		Use:   "deploy <mfg-package-name>",
-		Short: "Builds and uploads a manufacturing image (build + load)",
+		Short: "Builds and uploads a manufacturing image (create + load)",
 		Run:   mfgDeployRunCmd,
 	}
 	mfgCmd.AddCommand(mfgDeployCmd)
