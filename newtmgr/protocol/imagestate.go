@@ -34,6 +34,7 @@ type ImageStateEntry struct {
 	Pending   bool   `codec:"pending"`
 	Confirmed bool   `codec:"confirmed"`
 	Active    bool   `codec:"active"`
+	Permanent bool   `codec:"permanent"`
 }
 
 type ImageStateRsp struct {

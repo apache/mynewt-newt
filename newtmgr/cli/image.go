@@ -56,6 +56,9 @@ func imageFlagsStr(image protocol.ImageStateEntry) string {
 	if image.Pending {
 		strs = append(strs, "pending")
 	}
+	if image.Permanent {
+		strs = append(strs, "permanent")
+	}
 
 	return strings.Join(strs, " ")
 }
