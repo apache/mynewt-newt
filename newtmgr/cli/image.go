@@ -168,6 +168,10 @@ func imageStateConfirmCmd(cmd *cobra.Command, args []string) {
 		nmUsage(nil, err)
 	}
 
+	if len(args) >= 1 {
+		hexBytes, _ := hex.DecodeString(args[0])
+		req.Hash = hexBytes
+	}
 	req.Confirm = true
 
 	nmr, err := req.Encode()
@@ -691,9 +695,12 @@ func imageCmd() *cobra.Command {
 	imageCmd.AddCommand(testCmd)
 
 	confirmCmd := &cobra.Command{
-		Use:   "confirm",
-		Short: "Confirm current image setup",
-		Run:   imageStateConfirmCmd,
+		Use:   "confirm [hex-image-hash]",
+		Short: "Permanently run image",
+		Long: "If a hash is specified, permanently switch to the " +
+			"corresponding image.  If no hash is specified, the current " +
+			"image setup is made permanent.",
+		Run: imageStateConfirmCmd,
 	}
 	imageCmd.AddCommand(confirmCmd)
 
