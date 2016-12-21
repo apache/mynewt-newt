@@ -127,13 +127,18 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
+
 	if len(args) > 0 {
 		req.Name = args[0]
 		if len(args) > 1 {
-			req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
-			if len(args) > 2 {
-				req.Index, err = strconv.ParseUint(args[2], 0, 64)
-			}
+            if args[1] == "last" {
+                req.Timestamp = -1
+            } else {
+                req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
+                if len(args) > 2 {
+                    req.Index, err = strconv.ParseUint(args[2], 0, 64)
+                }
+            }
 		}
 
 		if err != nil {
