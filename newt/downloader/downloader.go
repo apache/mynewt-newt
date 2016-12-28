@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -77,6 +78,7 @@ func checkout(repoDir string, commit string) error {
 		return util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
 			err.Error()))
 	}
+	gitPath = filepath.ToSlash(gitPath)
 
 	if err := os.Chdir(repoDir); err != nil {
 		return util.NewNewtError(err.Error())
@@ -184,6 +186,7 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 		return "", util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
 			err.Error()))
 	}
+	gitPath = filepath.ToSlash(gitPath)
 
 	// Clone the repository.
 	cmd := []string{
