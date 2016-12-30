@@ -388,20 +388,21 @@ func (r *Resolver) resolveDepsAndCfg() error {
 
 // Transforms each package's required APIs to hard dependencies.  That is, this
 // function determines which package supplies each required API, and adds the
-// corresponding dependecy to each pacakge whic requires the API.
+// corresponding dependecy to each package which requires the API.
 func (r *Resolver) resolveApiDeps() error {
 	for _, rpkg := range r.pkgMap {
 		for api, _ := range rpkg.reqApiMap {
 			apiPkg := r.apis[api]
 			if apiPkg == nil {
-				return util.FmtNewtError(
-					"Unsatisfied API at unexpected time: %s", api)
-			}
+				//return util.FmtNewtError(
+				//"Unsatisfied API at unexpected time: %s", api)
+			} else {
 
-			rpkg.AddDep(&pkg.Dependency{
-				Name: apiPkg.Name(),
-				Repo: apiPkg.Repo().Name(),
-			})
+				rpkg.AddDep(&pkg.Dependency{
+					Name: apiPkg.Name(),
+					Repo: apiPkg.Repo().Name(),
+				})
+			}
 		}
 	}
 
@@ -463,6 +464,11 @@ func ResolveFull(
 		return nil, err
 	}
 
+	// Determine which package satisfies each API and which APIs are
+	// unsatisfied.
+	apiMap := map[string]*pkg.LocalPackage{}
+	apiMap, res.UnsatisfiedApis = r.apiResolution()
+
 	// If there is no loader, then the set of all packages is just the app
 	// packages.  We already resolved the necessary dependency information when
 	// syscfg was calculated above.
@@ -477,6 +483,13 @@ func ResolveFull(
 	//
 	// These need to be resolved separately so that it is possible later to
 	// determine which packages need to be shared between loader and app.
+
+	// It is OK if the app requires an API that is supplied by the loader.
+	// Ensure each set of packages has access to the API-providers.
+	for _, lpkg := range apiMap {
+		loaderSeeds = append(loaderSeeds, lpkg)
+		appSeeds = append(appSeeds, lpkg)
+	}
 
 	// Resolve loader dependencies.
 	r = newResolver(loaderSeeds, injectedSettings, flashMap)
