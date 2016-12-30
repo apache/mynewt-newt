@@ -321,6 +321,9 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 
 	for _, bpkg := range b.PkgMap {
 		archiveNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
+		for i, archiveName := range archiveNames {
+			archiveNames[i] = filepath.ToSlash(archiveName)
+		}
 		pkgNames = append(pkgNames, archiveNames...)
 	}
 

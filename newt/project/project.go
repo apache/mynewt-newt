@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -481,7 +482,7 @@ func (proj *Project) loadConfig() error {
 }
 
 func (proj *Project) Init(dir string) error {
-	proj.BasePath = dir
+	proj.BasePath = filepath.ToSlash(filepath.Clean(dir))
 
 	// Only one project per system, when created, set it as the global project
 	interfaces.SetProject(proj)

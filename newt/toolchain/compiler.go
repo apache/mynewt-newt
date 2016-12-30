@@ -180,7 +180,7 @@ func NewCompiler(compilerDir string, dstDir string,
 		ObjPathList: map[string]bool{},
 		baseDir:     project.GetProject().BasePath,
 		srcDir:      "",
-		dstDir:      filepath.Clean(dstDir),
+		dstDir:      dstDir,
 		extraDeps:   []string{},
 	}
 
@@ -277,7 +277,7 @@ func (c *Compiler) DstDir() string {
 }
 
 func (c *Compiler) SetSrcDir(srcDir string) {
-	c.srcDir = srcDir
+	c.srcDir = filepath.ToSlash(filepath.Clean(srcDir))
 }
 
 func (c *Compiler) AddDeps(depFilenames ...string) {
@@ -316,7 +316,7 @@ func (c *Compiler) includesStrings() []string {
 
 	tokens := make([]string, len(includes))
 	for i, s := range includes {
-		s = strings.TrimPrefix(s, c.baseDir+"/")
+		s = strings.TrimPrefix(filepath.ToSlash(filepath.Clean(s)), c.baseDir + "/")
 		tokens[i] = "-I" + s
 	}
 
@@ -344,7 +344,7 @@ func (c *Compiler) depsString() string {
 }
 
 func (c *Compiler) dstFilePath(srcPath string) string {
-	relSrcPath := strings.TrimPrefix(srcPath, c.srcDir)
+	relSrcPath := strings.TrimPrefix(filepath.ToSlash(srcPath), c.srcDir + "/")
 	relDstPath := strings.TrimSuffix(relSrcPath, filepath.Ext(srcPath))
 	dstPath := fmt.Sprintf("%s/%s", c.dstDir, relDstPath)
 	return dstPath
@@ -382,7 +382,7 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 		return nil, util.NewNewtError("Unknown compiler type")
 	}
 
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	srcPath := strings.TrimPrefix(file, c.baseDir + "/")
 	cmd := []string{cmdName}
 	cmd = append(cmd, flags...)
 	cmd = append(cmd, c.includesStrings()...)
@@ -406,7 +406,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 		os.MkdirAll(depDir, 0755)
 	}
 
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	srcPath := strings.TrimPrefix(file, c.baseDir + "/")
 	cmd := []string{c.ccPath}
 	cmd = append(cmd, c.cflagsStrings()...)
 	cmd = append(cmd, c.includesStrings()...)
@@ -490,7 +490,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return err
 	}
 
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	srcPath := strings.TrimPrefix(file, c.baseDir + "/")
 	switch compilerType {
 	case COMPILER_TYPE_C:
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
@@ -573,6 +573,8 @@ func (c *Compiler) CompileCpp() error {
 	if err != nil {
 		return err
 	}
+	wd = filepath.ToSlash(filepath.Clean(wd))
+	log.Infof("Working in dir (%s)", wd)
 
 	log.Infof("Compiling CC if outdated (%s/*.cc) %s", wd,
 		strings.Join(files, " "))
@@ -610,17 +612,21 @@ func (c *Compiler) CompileCpp() error {
 //                                  to compile.
 func (c *Compiler) CompileAs() error {
 	files, _ := filepath.Glob(c.srcDir + "/*.s")
-	Sfiles, _ := filepath.Glob(c.srcDir + "/*.S")
-	files = append(files, Sfiles...)
+	moreFiles, _ := filepath.Glob(c.srcDir + "/*.S")
+	files = append(files, moreFiles...)
 
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
+	wd = filepath.ToSlash(filepath.Clean(wd))
+	log.Infof("Working in dir (%s)", wd)
 
 	log.Infof("Compiling assembly if outdated (%s/*.s) %s", wd,
 		strings.Join(files, " "))
 	for _, file := range files {
+		file = filepath.ToSlash(file)
+
 		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
 			log.Infof("Ignoring %s because package dictates it.", file)
 			continue
@@ -654,6 +660,8 @@ func (c *Compiler) CopyArchive() error {
 	log.Infof("Copying archive if outdated (%s/*.a) %s", c.srcDir,
 		strings.Join(files, " "))
 	for _, file := range files {
+		file = filepath.ToSlash(file)
+
 		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
 			log.Infof("Ignoring %s because package dictates it.", file)
 			continue
@@ -1141,7 +1149,7 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
 		path.Base(archiveFile))
 	util.StatusMessage(util.VERBOSITY_VERBOSE, " with object files %s",
-		archiveFile, strings.Join(objList, " "))
+		strings.Join(objList, " "))
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
 	if err != nil && !os.IsNotExist(err) {

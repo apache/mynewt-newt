@@ -88,7 +88,7 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		PkgV:             viper.New(),
 		SyscfgV:          viper.New(),
 		repo:             r,
-		basePath:         filepath.Clean(pkgDir) + "/", // XXX: Remove slash.
+		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
 		deps:             map[string]*Dependency{},
 		injectedSettings: map[string]string{},
 	}
@@ -109,7 +109,7 @@ func (pkg *LocalPackage) FullName() string {
 }
 
 func (pkg *LocalPackage) BasePath() string {
-	return filepath.Clean(pkg.basePath)
+	return pkg.basePath
 }
 
 func (pkg *LocalPackage) RelativePath() string {
@@ -136,7 +136,7 @@ func (pkg *LocalPackage) SetName(name string) {
 }
 
 func (pkg *LocalPackage) SetBasePath(basePath string) {
-	pkg.basePath = basePath
+	pkg.basePath = filepath.ToSlash(filepath.Clean(basePath))
 }
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
@@ -339,7 +339,7 @@ func (pkg *LocalPackage) Load() error {
 	if err != nil {
 		return err
 	}
-	pkg.AddCfgFilename(pkg.basePath + PACKAGE_FILE_NAME)
+	pkg.AddCfgFilename(pkg.basePath + "/" + PACKAGE_FILE_NAME)
 
 	// Set package name from the package
 	pkg.name = pkg.PkgV.GetString("pkg.name")
@@ -369,7 +369,7 @@ func (pkg *LocalPackage) Load() error {
 		if err != nil {
 			return err
 		}
-		pkg.AddCfgFilename(pkg.basePath + SYSCFG_YAML_FILENAME)
+		pkg.AddCfgFilename(pkg.basePath + "/" + SYSCFG_YAML_FILENAME)
 	}
 
 	return nil

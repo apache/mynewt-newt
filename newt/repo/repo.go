@@ -623,9 +623,9 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 	path := interfaces.GetProject().Path()
 
 	if r.local {
-		r.localPath = filepath.Clean(path)
+		r.localPath = filepath.ToSlash(filepath.Clean(path))
 	} else {
-		r.localPath = filepath.Clean(path + "/" + REPOS_DIR + "/" + r.name)
+		r.localPath = filepath.ToSlash(filepath.Clean(path + "/" + REPOS_DIR + "/" + r.name))
 		r.minCommit = newtutil.RepoMinCommits[repoName]
 
 		upToDate, err := r.HasMinCommit()
