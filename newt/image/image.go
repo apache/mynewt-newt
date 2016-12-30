@@ -99,6 +99,7 @@ const (
 	IMAGE_F_PKCS15_RSA2048_SHA256 = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
 	IMAGE_F_ECDSA224_SHA256       = 0x00000008 /* ECDSA224 over SHA256 */
 	IMAGE_F_NON_BOOTABLE          = 0x00000010 /* non bootable image */
+	IMAGE_F_ECDSA256_SHA256       = 0x00000020 /* ECDSA256 over SHA256 */
 )
 
 /*
@@ -108,6 +109,7 @@ const (
 	IMAGE_TLV_SHA256   = 1
 	IMAGE_TLV_RSA2048  = 2
 	IMAGE_TLV_ECDSA224 = 3
+	IMAGE_TLV_ECDSA256 = 4
 )
 
 /*
@@ -247,6 +249,57 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 	return nil
 }
 
+func (image *Image) sigHdrType() (uint32, error) {
+	if image.SigningRSA != nil {
+		return IMAGE_F_PKCS15_RSA2048_SHA256, nil
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return IMAGE_F_ECDSA224_SHA256, nil
+		case "P-256":
+			return IMAGE_F_ECDSA256_SHA256, nil
+		default:
+			return 0, util.NewNewtError("Unsupported ECC curve")
+		}
+	} else {
+		return 0, nil
+	}
+}
+
+func (image *Image) sigLen() uint16 {
+	if image.SigningRSA != nil {
+		return 256
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return 68
+		case "P-256":
+			return 72
+		default:
+			return 0
+		}
+	} else {
+		return 0
+	}
+}
+
+func (image *Image) sigTlvType() uint8 {
+	if image.SigningRSA != nil {
+		return IMAGE_TLV_RSA2048
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return IMAGE_TLV_ECDSA224
+		case "P-256":
+			return IMAGE_TLV_ECDSA256
+		default:
+			return 0
+		}
+	} else {
+		return 0
+	}
+}
+
 func (image *Image) Generate(loader *Image) error {
 	binFile, err := os.Open(image.SourceBin)
 	if err != nil {
@@ -298,13 +351,15 @@ func (image *Image) Generate(loader *Image) error {
 		Pad3:  0,
 	}
 
-	if image.SigningRSA != nil {
-		hdr.TlvSz = 4 + 256
-		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
-		hdr.KeyId = image.KeyId
-	} else if image.SigningEC != nil {
-		hdr.TlvSz = 4 + 68
-		hdr.Flags = IMAGE_F_ECDSA224_SHA256
+	hdr.Flags, err = image.sigHdrType()
+	if err != nil {
+		return err
+	}
+	if hdr.Flags != 0 {
+		/*
+		 * Signature present
+		 */
+		hdr.TlvSz = 4 + image.sigLen()
 		hdr.KeyId = image.KeyId
 	}
 
@@ -406,6 +461,8 @@ func (image *Image) Generate(loader *Image) error {
 				"Failed to compute signature: %s", err))
 		}
 
+		sigLen := image.sigLen()
+
 		var ECDSA ECDSASig
 		ECDSA.R = r
 		ECDSA.S = s
@@ -414,14 +471,14 @@ func (image *Image) Generate(loader *Image) error {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to construct signature: %s", err))
 		}
-		if len(signature) > 68 {
+		if len(signature) > int(sigLen) {
 			return util.NewNewtError(fmt.Sprintf(
 				"Something is really wrong\n"))
 		}
 		tlv := &ImageTrailerTlv{
-			Type: IMAGE_TLV_ECDSA224,
+			Type: image.sigTlvType(),
 			Pad:  0,
-			Len:  68,
+			Len:  sigLen,
 		}
 		err = binary.Write(imgFile, binary.LittleEndian, tlv)
 		if err != nil {
@@ -433,7 +490,7 @@ func (image *Image) Generate(loader *Image) error {
 			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
 				err.Error()))
 		}
-		pad := make([]byte, 68-len(signature))
+		pad := make([]byte, int(sigLen)-len(signature))
 		_, err = imgFile.Write(pad)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
