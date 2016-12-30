@@ -100,7 +100,9 @@ func mergeDepGraphs(graphs ...DepGraph) DepGraph {
 
 	for _, graph := range graphs {
 		for parent, children := range graph {
-			gm[parent] = map[*pkg.LocalPackage]struct{}{}
+			if gm[parent] == nil {
+				gm[parent] = map[*pkg.LocalPackage]struct{}{}
+			}
 
 			for _, child := range children {
 				graphMapAdd(gm, parent, child)
@@ -109,6 +111,7 @@ func mergeDepGraphs(graphs ...DepGraph) DepGraph {
 	}
 
 	dg := graphMapToDepGraph(gm)
+
 	return dg
 }
 
