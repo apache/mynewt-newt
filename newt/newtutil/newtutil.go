@@ -36,6 +36,7 @@ import (
 
 var NewtVersionStr string = "Apache Newt (incubating) version: 1.0.0-dev"
 var NewtBlinkyTag string = "develop"
+var NewtNumJobs int
 
 const NEWTRC_DIR string = ".newt"
 const REPOS_FILENAME string = "repos.yml"

@@ -36,6 +36,7 @@ var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
 var newtLogFile string
+var newtNumJobs int
 
 func newtCmd() *cobra.Command {
 	newtHelpText := cli.FormatHelp(`Newt allows you to create your own embedded 
@@ -79,6 +80,8 @@ func newtCmd() *cobra.Command {
 			if err != nil {
 				cli.NewtUsage(nil, err)
 			}
+
+			newtutil.NewtNumJobs = newtNumJobs
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -95,6 +98,8 @@ func newtCmd() *cobra.Command {
 		"WARN", "Log level")
 	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
 		"", "Filename to tee output to")
+	newtCmd.PersistentFlags().IntVarP(&newtNumJobs, "jobs", "j",
+		1, "Number of concurrent build jobs")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"

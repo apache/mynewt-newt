@@ -27,6 +27,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/symbol"
@@ -144,12 +145,12 @@ func pkgTypeConflictErr(p1 *BuildPackage, p2 *BuildPackage) error {
 
 // Recursively compiles all the .c and .s files in the specified directory.
 // Architecture-specific files are also compiled.
-func buildDir(srcDir string, c *toolchain.Compiler, arch string,
-	ignDirs []string) error {
+func collectCompileEntriesDir(srcDir string, c *toolchain.Compiler,
+	arch string, ignDirs []string) ([]toolchain.CompilerJob, error) {
 
 	// Quietly succeed if the source directory doesn't exist.
 	if util.NodeNotExist(srcDir) {
-		return nil
+		return nil, nil
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -161,23 +162,32 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 	// Ignore architecture-specific source files for now.  Use a temporary
 	// string slice here so that the "arch" directory is not ignored in the
 	// subsequent architecture-specific compile phase.
-	if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_C,
-		append(ignDirs, "arch")); err != nil {
+	ignDirsArch := append(ignDirs, "arch")
 
-		return err
+	entries := []toolchain.CompilerJob{}
+
+	subEntries, err := c.RecursiveCollectEntries(toolchain.COMPILER_TYPE_C,
+		ignDirsArch)
+	if err != nil {
+		return nil, err
 	}
+	entries = append(entries, subEntries...)
 
 	// Compile CPP files
-	if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_CPP,
-		append(ignDirs, "arch")); err != nil {
-		return err
+	subEntries, err = c.RecursiveCollectEntries(toolchain.COMPILER_TYPE_CPP,
+		ignDirsArch)
+	if err != nil {
+		return nil, err
 	}
+	entries = append(entries, subEntries...)
 
 	// Copy in pre-compiled library files
-	if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ARCHIVE,
-		append(ignDirs, "arch")); err != nil {
-		return err
+	subEntries, err = c.RecursiveCollectEntries(
+		toolchain.COMPILER_TYPE_ARCHIVE, ignDirsArch)
+	if err != nil {
+		return nil, err
 	}
+	entries = append(entries, subEntries...)
 
 	archDir := srcDir + "/arch/" + arch + "/"
 	if util.NodeExist(archDir) {
@@ -187,33 +197,39 @@ func buildDir(srcDir string, c *toolchain.Compiler, arch string,
 		c.SetSrcDir(archDir)
 
 		// Compile C source.
-		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_C,
-			ignDirs); err != nil {
-
-			return err
+		subEntries, err = c.RecursiveCollectEntries(
+			toolchain.COMPILER_TYPE_C, ignDirs)
+		if err != nil {
+			return nil, err
 		}
+		entries = append(entries, subEntries...)
 
 		// Compile CPP source
-		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_CPP,
-			ignDirs); err != nil {
-			return err
+		subEntries, err = c.RecursiveCollectEntries(
+			toolchain.COMPILER_TYPE_CPP, ignDirs)
+		if err != nil {
+			return nil, err
 		}
+		entries = append(entries, subEntries...)
 
 		// Compile assembly source (only architecture-specific).
-		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ASM,
-			ignDirs); err != nil {
-
-			return err
+		subEntries, err = c.RecursiveCollectEntries(
+			toolchain.COMPILER_TYPE_ASM, ignDirs)
+		if err != nil {
+			return nil, err
 		}
+		entries = append(entries, subEntries...)
 
 		// Copy in pre-compiled library files
-		if err := c.RecursiveCompile(toolchain.COMPILER_TYPE_ARCHIVE,
-			ignDirs); err != nil {
-			return err
+		subEntries, err = c.RecursiveCollectEntries(
+			toolchain.COMPILER_TYPE_ARCHIVE, ignDirs)
+		if err != nil {
+			return nil, err
 		}
+		entries = append(entries, subEntries...)
 	}
 
-	return nil
+	return entries, nil
 }
 
 func (b *Builder) newCompiler(bpkg *BuildPackage,
@@ -238,11 +254,12 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 	return c, nil
 }
 
-// Compiles and archives a package.
-func (b *Builder) buildPackage(bpkg *BuildPackage) error {
+func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
+	[]toolchain.CompilerJob, error) {
+
 	c, err := b.newCompiler(bpkg, b.PkgBinDir(bpkg))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	srcDirs := []string{}
@@ -251,7 +268,7 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 		for _, relDir := range bpkg.SourceDirectories {
 			dir := bpkg.BasePath() + "/" + relDir
 			if util.NodeNotExist(dir) {
-				return util.NewNewtError(fmt.Sprintf(
+				return nil, util.NewNewtError(fmt.Sprintf(
 					"Specified source directory %s, does not exist.",
 					dir))
 			}
@@ -261,22 +278,33 @@ func (b *Builder) buildPackage(bpkg *BuildPackage) error {
 		srcDir := bpkg.BasePath() + "/src"
 		if util.NodeNotExist(srcDir) {
 			// Nothing to compile.
-			return nil
+			return nil, nil
 		}
 
 		srcDirs = append(srcDirs, srcDir)
 	}
 
+	entries := []toolchain.CompilerJob{}
 	for _, dir := range srcDirs {
-		if err = buildDir(dir, c, b.targetBuilder.bspPkg.Arch, nil); err != nil {
-			return err
+		subEntries, err := collectCompileEntriesDir(dir, c,
+			b.targetBuilder.bspPkg.Arch, nil)
+		if err != nil {
+			return nil, err
 		}
+
+		entries = append(entries, subEntries...)
 	}
+
+	return entries, nil
+}
+
+func (b *Builder) createArchive(c *toolchain.Compiler,
+	bpkg *BuildPackage) error {
 
 	// Create a static library ("archive").
 	c.SetSrcDir(bpkg.RelativePath())
 	archiveFile := b.ArchivePath(bpkg)
-	if err = c.CompileArchive(archiveFile); err != nil {
+	if err := c.CompileArchive(archiveFile); err != nil {
 		return err
 	}
 
@@ -427,15 +455,102 @@ func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
 	return b.addPackage(lpkg)
 }
 
+// Runs build jobs while any remain.  On failure, signals the other workers to
+// stop via the stop channel.  On error, the error object is signaled via the
+// results channel.  On successful completion, nil is signaled via the results
+// channel.
+func buildWorker(
+	id int,
+	jobs <-chan toolchain.CompilerJob,
+	stop chan struct{},
+	results chan error) {
+
+	// Execute each job until failure or until a stop is signalled.
+	for {
+		select {
+		case s := <-stop:
+			// Re-enqueue the stop signal for the other routines.
+			stop <- s
+
+			// Terminate this go routine.
+			results <- nil
+			return
+
+		case j := <-jobs:
+			if err := toolchain.RunJob(j); err != nil {
+				// Stop the other routines.
+				stop <- struct{}{}
+
+				// Report the error back to the master thread and terminate.
+				results <- err
+				return
+			}
+
+		default:
+			// Terminate this go routine.
+			results <- nil
+			return
+		}
+	}
+}
+
 func (b *Builder) Build() error {
 	b.CleanArtifacts()
 
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
 
+	// Calculate the list of jobs.  Each record represents a single file that
+	// needs to be compiled.
+	entries := []toolchain.CompilerJob{}
+	bpkgCompilerMap := map[*BuildPackage]*toolchain.Compiler{}
 	for _, bpkg := range bpkgs {
-		if err := b.buildPackage(bpkg); err != nil {
+		subEntries, err := b.collectCompileEntriesBpkg(bpkg)
+		if err != nil {
 			return err
+		}
+		entries = append(entries, subEntries...)
+
+		if len(subEntries) > 0 {
+			bpkgCompilerMap[bpkg] = subEntries[0].Compiler
+		}
+	}
+
+	// Build each file in parallel.
+	jobs := make(chan toolchain.CompilerJob, len(entries))
+	defer close(jobs)
+
+	stop := make(chan struct{}, 1)
+	defer close(stop)
+
+	errors := make(chan error, newtutil.NewtNumJobs)
+	defer close(errors)
+
+	for _, entry := range entries {
+		jobs <- entry
+	}
+
+	for i := 0; i < newtutil.NewtNumJobs; i++ {
+		go buildWorker(i, jobs, stop, errors)
+	}
+
+	var err error
+	for i := 0; i < newtutil.NewtNumJobs; i++ {
+		subErr := <-errors
+		if err == nil && subErr != nil {
+			err = subErr
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	for _, bpkg := range bpkgs {
+		c := bpkgCompilerMap[bpkg]
+		if c != nil {
+			if err := b.createArchive(c, bpkg); err != nil {
+				return err
+			}
 		}
 	}
 
