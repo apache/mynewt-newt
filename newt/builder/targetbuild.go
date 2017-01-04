@@ -558,6 +558,7 @@ func readManifest(path string) (*image.ImageManifest, error) {
 func (t *TargetBuilder) createManifest() error {
 	manifest := &image.ImageManifest{
 		Date: time.Now().Format(time.RFC3339),
+		Name: t.GetTarget().FullName(),
 	}
 
 	rm := image.NewRepoManager()

@@ -116,6 +116,7 @@ const (
  * Data that's going to go to build manifest file
  */
 type ImageManifest struct {
+	Name       string              `json:"name"`
 	Date       string              `json:"build_time"`
 	Version    string              `json:"build_version"`
 	BuildID    string              `json:"id"`
