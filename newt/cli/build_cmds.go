@@ -408,7 +408,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 	cmd.AddCommand(loadCmd)
 	AddTabCompleteFn(loadCmd, targetList)
 
-	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
+	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "", "",
 		"extra commands to send to JTAG software")
 
 	debugHelpText := "Open debugger session for <target-name>."
@@ -420,7 +420,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   debugRunCmd,
 	}
 
-	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j",
+	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "",
 		"", "extra commands to send to JTAG software")
 	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
 		"don't start GDB from command line")
