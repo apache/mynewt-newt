@@ -417,17 +417,17 @@ func (b *Builder) PrepBuild() error {
 
 	archName := b.targetBuilder.bspPkg.Arch
 	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+util.CIdentifier(archName))
-	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_NAME=\""+archName+"\"")
+	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_NAME="+archName+"")
 
 	if b.appPkg != nil {
 		appName := filepath.Base(b.appPkg.Name())
 		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_"+util.CIdentifier(appName))
-		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_NAME=\""+appName+"\"")
+		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_NAME="+appName+"")
 	}
 
 	bspName := filepath.Base(b.bspPkg.Name())
 	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_"+util.CIdentifier(bspName))
-	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_NAME=\""+bspName+"\"")
+	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_NAME="+bspName+"")
 
 	baseCi.AddCompilerInfo(bspCi)
 
