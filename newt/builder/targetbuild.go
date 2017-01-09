@@ -622,9 +622,7 @@ func (t *TargetBuilder) augmentManifest(
 		return err
 	}
 
-	manifest.Version = fmt.Sprintf("%d.%d.%d.%d",
-		appImg.Version.Major, appImg.Version.Minor,
-		appImg.Version.Rev, appImg.Version.BuildNum)
+	manifest.Version = appImg.Version.String()
 	manifest.ImageHash = fmt.Sprintf("%x", appImg.Hash)
 	manifest.Image = filepath.Base(appImg.TargetImg)
 

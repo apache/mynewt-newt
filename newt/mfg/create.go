@@ -38,6 +38,7 @@ import (
 type mfgManifest struct {
 	BuildTime   string `json:"build_time"`
 	MfgHash     string `json:"mfg_hash"`
+	Version     string `json:"version"`
 	MetaSection int    `json:"meta_section"`
 	MetaOffset  int    `json:"meta_offset"`
 }
@@ -437,6 +438,7 @@ func (mi *MfgImage) build() (createState, error) {
 func (mi *MfgImage) createManifest(cs createState) ([]byte, error) {
 	manifest := mfgManifest{
 		BuildTime:   time.Now().Format(time.RFC3339),
+		Version:     mi.version.String(),
 		MfgHash:     fmt.Sprintf("%x", cs.hash),
 		MetaSection: 0,
 		MetaOffset:  cs.metaOffset,

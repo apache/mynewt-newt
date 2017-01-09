@@ -151,6 +151,50 @@ type ECDSASig struct {
 	S *big.Int
 }
 
+func ParseVersion(versStr string) (ImageVersion, error) {
+	var err error
+	var major uint64
+	var minor uint64
+	var rev uint64
+	var buildNum uint64
+	var ver ImageVersion
+
+	components := strings.Split(versStr, ".")
+	major, err = strconv.ParseUint(components[0], 10, 8)
+	if err != nil {
+		return ver, util.FmtNewtError("Invalid version string %s", versStr)
+	}
+	if len(components) > 1 {
+		minor, err = strconv.ParseUint(components[1], 10, 8)
+		if err != nil {
+			return ver, util.FmtNewtError("Invalid version string %s", versStr)
+		}
+	}
+	if len(components) > 2 {
+		rev, err = strconv.ParseUint(components[2], 10, 16)
+		if err != nil {
+			return ver, util.FmtNewtError("Invalid version string %s", versStr)
+		}
+	}
+	if len(components) > 3 {
+		buildNum, err = strconv.ParseUint(components[3], 10, 32)
+		if err != nil {
+			return ver, util.FmtNewtError("Invalid version string %s", versStr)
+		}
+	}
+
+	ver.Major = uint8(major)
+	ver.Minor = uint8(minor)
+	ver.Rev = uint16(rev)
+	ver.BuildNum = uint32(buildNum)
+	return ver, nil
+}
+
+func (ver ImageVersion) String() string {
+	return fmt.Sprintf("%d.%d.%d.%d",
+		ver.Major, ver.Minor, ver.Rev, ver.BuildNum)
+}
+
 func NewImage(srcBinPath string, dstImgPath string) (*Image, error) {
 	image := &Image{}
 
@@ -160,46 +204,15 @@ func NewImage(srcBinPath string, dstImgPath string) (*Image, error) {
 }
 
 func (image *Image) SetVersion(versStr string) error {
-	var err error
-	var major uint64
-	var minor uint64
-	var rev uint64
-	var buildNum uint64
-
-	components := strings.Split(versStr, ".")
-	major, err = strconv.ParseUint(components[0], 10, 8)
+	ver, err := ParseVersion(versStr)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-			versStr))
+		return err
 	}
-	if len(components) > 1 {
-		minor, err = strconv.ParseUint(components[1], 10, 8)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-				versStr))
-		}
-	}
-	if len(components) > 2 {
-		rev, err = strconv.ParseUint(components[2], 10, 16)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-				versStr))
-		}
-	}
-	if len(components) > 3 {
-		buildNum, err = strconv.ParseUint(components[3], 10, 32)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-				versStr))
-		}
-	}
-	image.Version.Major = uint8(major)
-	image.Version.Minor = uint8(minor)
-	image.Version.Rev = uint16(rev)
-	image.Version.BuildNum = uint32(buildNum)
+
 	log.Debugf("Assigning version number %d.%d.%d.%d\n",
-		image.Version.Major, image.Version.Minor,
-		image.Version.Rev, image.Version.BuildNum)
+		ver.Major, ver.Minor, ver.Rev, ver.BuildNum)
+
+	image.Version = ver
 
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.LittleEndian, image.Version)
