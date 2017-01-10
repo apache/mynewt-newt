@@ -453,15 +453,6 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 		"Putting %d symbols from %d packages into loader\n",
 		len(*smMatch), len(commonPkgs))
 
-	/* This is worth a special comment.  We are building both apps as
-	 * stand-alone apps against the normal linker file, so they will both
-	 * have a Reset_Handler symbol.  We need to ignore this here.  When
-	 * we build the split app, we use a special linker file which
-	 * uses a different entry point */
-	specialSm := symbol.NewSymbolMap()
-	specialSm.Add(*symbol.NewElfSymbol("Reset_Handler(app)"))
-	specialSm.Add(*symbol.NewElfSymbol("Reset_Handler(loader)"))
-
 	var badpkgs []string
 	var symbolStr string
 	for v, _ := range uncommonPkgs {
@@ -474,10 +465,8 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 
 			var found bool
 			for _, sym := range *trouble {
-				if _, ok := specialSm.Find(sym.Name); !ok {
-					if !sym.IsLocal() {
-						found = true
-					}
+				if !sym.IsLocal() {
+					found = true
 				}
 			}
 
