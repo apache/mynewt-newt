@@ -536,6 +536,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 }
 
 func (c *Compiler) shouldIgnoreFile(file string) bool {
+	file = strings.TrimPrefix(file, c.srcDir)
 	for _, re := range c.info.IgnoreFiles {
 		if match := re.MatchString(file); match {
 			return true
