@@ -520,7 +520,7 @@ func (b *Builder) Build() error {
 	jobs := make(chan toolchain.CompilerJob, len(entries))
 	defer close(jobs)
 
-	stop := make(chan struct{}, 1)
+	stop := make(chan struct{}, len(entries))
 	defer close(stop)
 
 	errors := make(chan error, newtutil.NewtNumJobs)
