@@ -479,7 +479,7 @@ func ResolveFull(
 
 	// Otherwise, we need to resolve dependencies separately for:
 	// 1. The set of loader pacakges, and
-	// 2. The set of app pacakges.
+	// 2. The set of app packages.
 	//
 	// These need to be resolved separately so that it is possible later to
 	// determine which packages need to be shared between loader and app.
@@ -502,7 +502,14 @@ func ResolveFull(
 		return nil, err
 	}
 
-	// Resolve app dependencies.
+	// Resolve app dependencies.  The app automtically gets all the packages
+	// from the loader except for the loader-app-package.
+	for _, lpkg := range res.LoaderPkgs {
+		if lpkg.Type() != pkg.PACKAGE_TYPE_APP {
+			appSeeds = append(appSeeds, lpkg)
+		}
+	}
+
 	r = newResolver(appSeeds, injectedSettings, flashMap)
 	r.cfg = res.Cfg
 
