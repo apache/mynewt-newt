@@ -22,6 +22,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -37,6 +38,20 @@ var newtQuiet bool
 var newtVerbose bool
 var newtLogFile string
 var newtNumJobs int
+
+func newtDfltNumJobs() int {
+	maxProcs := runtime.GOMAXPROCS(0)
+	numCpu := runtime.NumCPU()
+
+	var numJobs int
+	if maxProcs < numCpu {
+		numJobs = maxProcs
+	} else {
+		numJobs = numCpu
+	}
+
+	return numJobs
+}
 
 func newtCmd() *cobra.Command {
 	newtHelpText := cli.FormatHelp(`Newt allows you to create your own embedded 
@@ -99,7 +114,7 @@ func newtCmd() *cobra.Command {
 	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
 		"", "Filename to tee output to")
 	newtCmd.PersistentFlags().IntVarP(&newtNumJobs, "jobs", "j",
-		1, "Number of concurrent build jobs")
+		newtDfltNumJobs(), "Number of concurrent build jobs")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
 	versHelpEx := "  newt version"
