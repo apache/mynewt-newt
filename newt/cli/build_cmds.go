@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
@@ -211,7 +212,7 @@ func pkgnames(pkgs []*pkg.LocalPackage) string {
 	return s
 }
 
-func testRunCmd(cmd *cobra.Command, args []string) {
+func testRunCmd(cmd *cobra.Command, args []string, exclude string) {
 	if len(args) < 1 {
 		NewtUsage(cmd, nil)
 	}
@@ -248,6 +249,22 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		}
 
 		packs = pkg.SortLclPkgs(packs)
+	}
+
+	if len(exclude) > 0 {
+		// filter out excluded tests
+		orig := packs
+		packs = packs[:0]
+		excls := strings.Split(exclude, ",")
+	packLoop:
+		for _, pack := range orig {
+			for _, excl := range excls {
+				if pack.Name() == excl || strings.HasPrefix(pack.Name(), excl+"/") {
+					continue packLoop
+				}
+			}
+			packs = append(packs, pack)
+		}
 	}
 
 	if len(packs) == 0 {
@@ -386,14 +403,18 @@ func AddBuildCommands(cmd *cobra.Command) {
 		return append(append(targetList(), unittestList()...), "all")
 	})
 
+	var exclude string
 	testCmd := &cobra.Command{
 		Use:   "test <package-name> [package-names...] | all",
 		Short: "Executes unit tests for one or more packages",
-		Run:   testRunCmd,
+		Run: func(cmd *cobra.Command, args []string) {
+			testRunCmd(cmd, args, exclude)
+		},
 	}
+	testCmd.Flags().StringVarP(&exclude, "exclude", "e", "", "Comma separated list of packages to exclude")
 	cmd.AddCommand(testCmd)
 	AddTabCompleteFn(testCmd, func() []string {
-		return append(testablePkgList(), "all")
+		return append(testablePkgList(), "all", "allexcept")
 	})
 
 	loadHelpText := "Load app image to target for <target-name>."
