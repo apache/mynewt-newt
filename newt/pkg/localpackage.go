@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -65,8 +66,7 @@ type LocalPackage struct {
 
 	// Package init function name and stage.  These are used to generate the
 	// sysinit C file.
-	initFnName string
-	initStage  int
+	init map[string]int
 
 	// Extra package-specific settings that don't come from syscfg.  For
 	// example, SELFTEST gets set when the newt test command is used.
@@ -90,6 +90,7 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		repo:             r,
 		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
 		deps:             map[string]*Dependency{},
+		init:             map[string]int{},
 		injectedSettings: map[string]string{},
 	}
 	return pkg
@@ -353,8 +354,21 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
-	pkg.initFnName = pkg.PkgV.GetString("pkg.init_function")
-	pkg.initStage = pkg.PkgV.GetInt("pkg.init_stage")
+	init := pkg.PkgV.GetStringMapString("pkg.init")
+	for name, stageStr := range init {
+		stage, err := strconv.ParseInt(stageStr, 10, 64)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Parsing pkg %s config: %s",
+			                                     pkg.FullName(), err.Error()))
+		}
+		pkg.init[name] = int(stage)
+	}
+	initFnName := pkg.PkgV.GetString("pkg.init_function")
+	initStage := pkg.PkgV.GetInt("pkg.init_stage")
+
+	if initFnName != "" {
+		pkg.init[initFnName] = initStage
+	}
 
 	// Read the package description from the file
 	pkg.desc, err = pkg.readDesc(pkg.PkgV)
@@ -375,12 +389,8 @@ func (pkg *LocalPackage) Load() error {
 	return nil
 }
 
-func (pkg *LocalPackage) InitStage() int {
-	return pkg.initStage
-}
-
-func (pkg *LocalPackage) InitFnName() string {
-	return pkg.initFnName
+func (pkg *LocalPackage) Init() map[string]int {
+	return pkg.init
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {
