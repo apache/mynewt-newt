@@ -80,13 +80,14 @@ type CfgEntry struct {
 	Description  string
 	SettingType  CfgSettingType
 	Restrictions []CfgRestriction
-
-	History []CfgPoint
+	PackageDef   *pkg.LocalPackage
+	History      []CfgPoint
 }
 
-type CfgLateral struct {
-	PkgName     string
+type CfgPriority struct {
 	SettingName string
+	PackageDef  *pkg.LocalPackage // package that define the setting.
+	PackageSrc  *pkg.LocalPackage // package overriding setting value.
 }
 
 type CfgFlashConflictCode int
@@ -116,19 +117,19 @@ type Cfg struct {
 	Violations map[string][]CfgRestriction
 
 	// Attempted override by bottom-priority packages (libraries).
-	Laterals []CfgLateral
+	PriorityViolations []CfgPriority
 
 	FlashConflicts []CfgFlashConflict
 }
 
 func NewCfg() Cfg {
 	return Cfg{
-		Settings:       map[string]CfgEntry{},
-		Orphans:        map[string][]CfgPoint{},
-		Ambiguities:    map[string][]CfgPoint{},
-		Violations:     map[string][]CfgRestriction{},
-		Laterals:       []CfgLateral{},
-		FlashConflicts: []CfgFlashConflict{},
+		Settings:           map[string]CfgEntry{},
+		Orphans:            map[string][]CfgPoint{},
+		Ambiguities:        map[string][]CfgPoint{},
+		Violations:         map[string][]CfgRestriction{},
+		PriorityViolations: []CfgPriority{},
+		FlashConflicts:     []CfgFlashConflict{},
 	}
 }
 
@@ -284,6 +285,7 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	entry.Name = name
 	entry.Description = stringValue(vals["description"])
 	entry.Value = stringValue(vals["value"])
+	entry.PackageDef = lpkg
 	if vals["type"] == nil {
 		entry.SettingType = CFG_SETTING_TYPE_RAW
 	} else {
@@ -360,26 +362,28 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 
 	values := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.vals")
 	for k, v := range values {
-		if normalizePkgType(lpkg.Type()) == pkg.PACKAGE_TYPE_LIB {
-			// A library package is overriding a setting; this is disallowed.
-			// Overrides must come from a higher priority package.
-			lateral := CfgLateral{
-				PkgName:     lpkg.Name(),
-				SettingName: k,
-			}
-			cfg.Laterals = append(cfg.Laterals, lateral)
-		} else {
-			entry, ok := cfg.Settings[k]
-			if ok {
+		entry, ok := cfg.Settings[k]
+		if ok {
+			sourcetype := normalizePkgType(lpkg.Type())
+			deftype := normalizePkgType(entry.PackageDef.Type())
+			if sourcetype <= deftype {
+				// Overrides must come from a higher priority package.
+				priority := CfgPriority{
+					PackageDef:  entry.PackageDef,
+					PackageSrc:  lpkg,
+					SettingName: k,
+				}
+				cfg.PriorityViolations = append(cfg.PriorityViolations, priority)
+			} else {
 				entry.appendValue(lpkg, v)
 				cfg.Settings[k] = entry
-			} else {
-				orphan := CfgPoint{
-					Value:  stringValue(v),
-					Source: lpkg,
-				}
-				cfg.Orphans[k] = append(cfg.Orphans[k], orphan)
 			}
+		} else {
+			orphan := CfgPoint{
+				Value:  stringValue(v),
+				Source: lpkg,
+			}
+			cfg.Orphans[k] = append(cfg.Orphans[k], orphan)
 		}
 	}
 
@@ -551,15 +555,15 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
-	if len(cfg.Laterals) > 0 {
-		str += "Lateral overrides detected (bottom-priority packages " +
-			"cannot override settings):\n"
-		for _, lateral := range cfg.Laterals {
-			entry := cfg.Settings[lateral.SettingName]
-			historyMap[lateral.SettingName] = entry.History
+	if len(cfg.PriorityViolations) > 0 {
+		str += "Priority violations detected (Packages can only override " +
+			"settings defined by packages of lower priority):\n"
+		for _, priority := range cfg.PriorityViolations {
+			entry := cfg.Settings[priority.SettingName]
+			historyMap[priority.SettingName] = entry.History
 
-			str += fmt.Sprintf("    Package: %s, Setting: %s\n",
-				lateral.PkgName, lateral.SettingName)
+			str += fmt.Sprintf("    Package: %s overriding setting: %s defined by %s\n",
+				priority.PackageSrc.Name(), priority.SettingName, priority.PackageDef.Name())
 		}
 	}
 
@@ -660,7 +664,7 @@ func categorizePkgs(
 	return pmap
 }
 
-func (cfg *Cfg) readForPkgType(lpkgs []*pkg.LocalPackage,
+func (cfg *Cfg) readDefsForPkgType(lpkgs []*pkg.LocalPackage,
 	features map[string]bool) error {
 
 	for _, lpkg := range lpkgs {
@@ -668,6 +672,11 @@ func (cfg *Cfg) readForPkgType(lpkgs []*pkg.LocalPackage,
 			return err
 		}
 	}
+	return nil
+}
+func (cfg *Cfg) readValsForPkgType(lpkgs []*pkg.LocalPackage,
+	features map[string]bool) error {
+
 	for _, lpkg := range lpkgs {
 		if err := cfg.readValsOnce(lpkg, features); err != nil {
 			return err
@@ -724,7 +733,19 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		pkg.PACKAGE_TYPE_APP,
 		pkg.PACKAGE_TYPE_TARGET,
 	} {
-		if err := cfg.readForPkgType(lpkgMap[ptype], features); err != nil {
+		if err := cfg.readDefsForPkgType(lpkgMap[ptype], features); err != nil {
+			return cfg, err
+		}
+	}
+
+	for _, ptype := range []interfaces.PackageType{
+		pkg.PACKAGE_TYPE_LIB,
+		pkg.PACKAGE_TYPE_BSP,
+		pkg.PACKAGE_TYPE_UNITTEST,
+		pkg.PACKAGE_TYPE_APP,
+		pkg.PACKAGE_TYPE_TARGET,
+	} {
+		if err := cfg.readValsForPkgType(lpkgMap[ptype], features); err != nil {
 			return cfg, err
 		}
 	}
