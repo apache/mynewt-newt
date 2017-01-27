@@ -127,20 +127,24 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-
-	if len(args) > 0 {
+	if len(args) >= 1 {
 		req.Name = args[0]
-		if len(args) > 1 {
-            if args[1] == "last" {
-                req.Timestamp = -1
-            } else {
-                req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
-                if len(args) > 2 {
-                    req.Index, err = strconv.ParseUint(args[2], 0, 64)
-                }
-            }
-		}
+	}
 
+	if len(args) >= 2 {
+		if args[1] == "last" {
+			req.Index = 0
+			req.Timestamp = -1
+		} else {
+			req.Index, err = strconv.ParseUint(args[1], 0, 64)
+			if err != nil {
+				nmUsage(cmd, err)
+			}
+		}
+	}
+
+	if len(args) >= 3 && req.Timestamp != -1 {
+		req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
 		if err != nil {
 			nmUsage(cmd, err)
 		}
@@ -166,12 +170,11 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 	}
 
 	for j := 0; j < len(decodedResponse.Logs); j++ {
-
 		fmt.Println("Name:", decodedResponse.Logs[j].Name)
 		fmt.Println("Type:", LogTypeToString(decodedResponse.Logs[j].Type))
 
 		for i := 0; i < len(decodedResponse.Logs[j].Entries); i++ {
-			fmt.Println(fmt.Sprintf("%+v usecs, %+v > %s: %s: %s",
+			fmt.Println(fmt.Sprintf("%20d usecs %10d > %s: %s: %s",
 				decodedResponse.Logs[j].Entries[i].Timestamp,
 				decodedResponse.Logs[j].Entries[i].Index,
 				LogModuleToString(decodedResponse.Logs[j].Entries[i].Module),
@@ -331,7 +334,7 @@ func logsCmd() *cobra.Command {
 	}
 
 	showCmd := &cobra.Command{
-		Use:   "show",
+		Use:   "show [log-name] [min-index] [min-timestamp]",
 		Short: "Show logs on target",
 		Run:   logsShowCmd,
 	}
