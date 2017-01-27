@@ -326,7 +326,7 @@ func logsClearCmd(cmd *cobra.Command, args []string) {
 
 func logsCmd() *cobra.Command {
 	logsCmd := &cobra.Command{
-		Use:   "logs",
+		Use:   "log",
 		Short: "Handles logs on remote instance",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
@@ -363,7 +363,7 @@ func logsCmd() *cobra.Command {
 	logsCmd.AddCommand(levelListCmd)
 
 	ListCmd := &cobra.Command{
-		Use:   "log_list",
+		Use:   "list",
 		Short: "Log List Command",
 		Run:   logsListCmd,
 	}
