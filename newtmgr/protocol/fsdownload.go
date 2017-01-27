@@ -26,79 +26,77 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-type FileUpload struct {
-	Offset     uint32 `codec:"off"`
-	Name       string
-	Size       uint32
-	Data       []byte
-	ReturnCode int `codec:"rc"`
+type FileDownload struct {
+	Offset uint32
+	Size   uint32
+	Name   string
+	Data   []byte
 }
 
-func NewFileUpload() (*FileUpload, error) {
-	f := &FileUpload{}
+func NewFileDownload() (*FileDownload, error) {
+	f := &FileDownload{}
 	f.Offset = 0
+	f.Data = make([]byte, 0)
 
 	return f, nil
 }
 
-func (f *FileUpload) EncodeWriteRequest() (*NmgrReq, error) {
-	type UploadReq struct {
+func (f *FileDownload) EncodeWriteRequest() (*NmgrReq, error) {
+	type DownloadReq struct {
 		Off  uint32 `codec:"off"`
-		Data []byte `codec:"data"`
-	}
-	type UploadFirstReq struct {
-		Off  uint32 `codec:"off"`
-		Size uint32 `codec:"len"`
 		Name string `codec:"name"`
-		Data []byte `codec:"data"`
 	}
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
 	}
 
-	nmr.Op = NMGR_OP_WRITE
+	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
-	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_FILE
+	nmr.Group = NMGR_GROUP_ID_FS
+	nmr.Id = FS_NMGR_ID_FILE
 
-	data := []byte{}
-
-	if f.Offset == 0 {
-		uploadReq := &UploadFirstReq{
-			Off:  f.Offset,
-			Size: f.Size,
-			Name: f.Name,
-			Data: f.Data,
-		}
-		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
-		enc.Encode(uploadReq)
-	} else {
-		uploadReq := &UploadReq{
-			Off:  f.Offset,
-			Data: f.Data,
-		}
-		enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
-		enc.Encode(uploadReq)
+	downloadReq := &DownloadReq{
+		Off:  f.Offset,
+		Name: f.Name,
 	}
+
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
+	enc.Encode(downloadReq)
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
 
 	return nmr, nil
 }
 
-func DecodeFileUploadResponse(data []byte) (*FileUpload, error) {
-	f := &FileUpload{}
+func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
+	type DownloadResp struct {
+		Off        uint32 `json:"off"`
+		Size       uint32 `json:"len"`
+		Data       []byte `json:"data"`
+		ReturnCode int    `json:"rc"`
+	}
+	resp := &DownloadResp{}
 
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
-	err := dec.Decode(&f)
+	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
-	if f.ReturnCode != 0 {
+	if resp.ReturnCode != 0 {
 		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
-			f.ReturnCode))
+			resp.ReturnCode))
+	}
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+			err.Error()))
+	}
+	f := &FileDownload{
+		Offset: resp.Off,
+		Data:   resp.Data,
+		Size:   resp.Size,
 	}
 	return f, nil
 }

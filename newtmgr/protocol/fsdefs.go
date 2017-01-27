@@ -19,46 +19,6 @@
 
 package protocol
 
-import (
-	"fmt"
-
-	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+const (
+	FS_NMGR_ID_FILE = 0
 )
-
-type CoreErase struct {
-	ErrCode uint32 `codec:"rc"`
-}
-
-func NewCoreErase() (*CoreErase, error) {
-	ce := &CoreErase{}
-
-	return ce, nil
-}
-
-func (ce *CoreErase) EncodeWriteRequest() (*NmgrReq, error) {
-	nmr, err := NewNmgrReq()
-	if err != nil {
-		return nil, err
-	}
-
-	nmr.Op = NMGR_OP_WRITE
-	nmr.Flags = 0
-	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_ID_CORELOAD
-	nmr.Len = 0
-
-	return nmr, nil
-}
-
-func DecodeCoreEraseResponse(data []byte) (*CoreErase, error) {
-	ce := &CoreErase{}
-
-	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
-	err := dec.Decode(&ce)
-	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-			err.Error()))
-	}
-	return ce, nil
-}

@@ -56,18 +56,19 @@ func Commands() *cobra.Command {
 	nmCmd.PersistentFlags().BoolVarP(&nmutil.TraceLogEnabled, "trace", "t",
 		false, "print all bytes transmitted and received")
 
+	nmCmd.AddCommand(configCmd())
 	nmCmd.AddCommand(connProfileCmd())
+	nmCmd.AddCommand(crashCmd())
+	nmCmd.AddCommand(dTimeCmd())
+	nmCmd.AddCommand(fsCmd())
 	nmCmd.AddCommand(echoCmd())
 	nmCmd.AddCommand(imageCmd())
+	nmCmd.AddCommand(logsCmd())
+	nmCmd.AddCommand(mempoolStatsCmd())
+	nmCmd.AddCommand(resetCmd())
+	nmCmd.AddCommand(runCmd())
 	nmCmd.AddCommand(statsCmd())
 	nmCmd.AddCommand(taskStatsCmd())
-	nmCmd.AddCommand(mempoolStatsCmd())
-	nmCmd.AddCommand(configCmd())
-	nmCmd.AddCommand(logsCmd())
-	nmCmd.AddCommand(dTimeCmd())
-	nmCmd.AddCommand(resetCmd())
-	nmCmd.AddCommand(crashCmd())
-	nmCmd.AddCommand(runCmd())
 
 	return nmCmd
 }
