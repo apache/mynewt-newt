@@ -62,6 +62,7 @@ type Image struct {
 	KeyId      uint8
 	Hash       []byte
 	SrcSkip    uint // Number of bytes to skip from the source image.
+	HeaderSize uint // If non-zero pad out the header to this size.
 }
 
 type ImageHdr struct {
@@ -393,6 +394,19 @@ func (image *Image) Generate(loader *Image) error {
 		hdr.Flags |= IMAGE_F_NON_BOOTABLE
 	}
 
+	if image.HeaderSize != 0 {
+		/*
+		 * Pad the header out to the given size.  There will
+		 * just be zeros between the header and the start of
+		 * the image when it is padded.
+		 */
+		if image.HeaderSize < IMAGE_HEADER_SIZE {
+			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+		}
+
+		hdr.HdrSz = uint16(image.HeaderSize)
+	}
+
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
@@ -402,6 +416,26 @@ func (image *Image) Generate(loader *Image) error {
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
 			err.Error()))
+	}
+
+	if image.HeaderSize > IMAGE_HEADER_SIZE {
+		/*
+		 * Pad the image (and hash) with zero bytes to fill
+		 * out the buffer.
+		 */
+		buf := make([]byte, image.HeaderSize-IMAGE_HEADER_SIZE)
+
+		_, err = imgFile.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to write padding: %s",
+				err.Error()))
+		}
+
+		_, err = hash.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to hash padding: %s",
+				err.Error()))
+		}
 	}
 
 	/*
