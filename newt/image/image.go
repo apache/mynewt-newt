@@ -230,7 +230,15 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
 	}
 
-	block, _ := pem.Decode(data)
+	block, data := pem.Decode(data)
+	if block != nil && block.Type == "EC PARAMETERS" {
+		/*
+		 * Openssl prepends an EC PARAMETERS block before the
+		 * key itself.  If we see this first, just skip it,
+		 * and go on to the data block.
+		 */
+		block, _ = pem.Decode(data)
+	}
 	if block != nil && block.Type == "RSA PRIVATE KEY" {
 		/*
 		 * ParsePKCS1PrivateKey returns an RSA private key from its ASN.1
