@@ -283,9 +283,18 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	entry := CfgEntry{}
 
 	entry.Name = name
-	entry.Description = stringValue(vals["description"])
-	entry.Value = stringValue(vals["value"])
 	entry.PackageDef = lpkg
+	entry.Description = stringValue(vals["description"])
+
+	// The value field for setting definition is required.
+	value_val, value_exist := vals["value"]
+	if value_exist {
+		entry.Value = stringValue(value_val)
+	} else {
+		return entry, util.FmtNewtError(
+			"setting %s does not have required value field", name)
+	}
+
 	if vals["type"] == nil {
 		entry.SettingType = CFG_SETTING_TYPE_RAW
 	} else {
