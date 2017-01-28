@@ -61,6 +61,7 @@ type Image struct {
 	SigningEC  *ecdsa.PrivateKey
 	KeyId      uint8
 	Hash       []byte
+	SrcSkip    uint // Number of bytes to skip from the source image.
 }
 
 type ImageHdr struct {
@@ -367,7 +368,7 @@ func (image *Image) Generate(loader *Image) error {
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
 		Pad2:  0,
-		ImgSz: uint32(binInfo.Size()),
+		ImgSz: uint32(binInfo.Size()) - uint32(image.SrcSkip),
 		Flags: 0,
 		Vers:  image.Version,
 		Pad3:  0,
@@ -401,6 +402,30 @@ func (image *Image) Generate(loader *Image) error {
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
 			err.Error()))
+	}
+
+	/*
+	 * Skip requested initial part of image.
+	 */
+	if image.SrcSkip > 0 {
+		buf := make([]byte, image.SrcSkip)
+		_, err = binFile.Read(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
+				image.SourceBin, err.Error()))
+		}
+
+		nonZero := false
+		for _, b := range buf {
+			if b != 0 {
+				nonZero = true
+				break
+			}
+		}
+		if nonZero {
+			log.Warnf("Skip requested of iamge %s, but image not preceeded by %d bytes of all zeros",
+				image.SourceBin, image.SrcSkip)
+		}
 	}
 
 	/*
