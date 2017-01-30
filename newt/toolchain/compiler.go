@@ -359,7 +359,7 @@ func (c *Compiler) depsString() string {
 }
 
 func (c *Compiler) dstFilePath(srcPath string) string {
-	relSrcPath := strings.TrimPrefix(filepath.ToSlash(srcPath), c.srcDir+"/")
+	relSrcPath := strings.TrimPrefix(filepath.ToSlash(srcPath), c.baseDir+"/")
 	relDstPath := strings.TrimSuffix(relSrcPath, filepath.Ext(srcPath))
 	dstPath := fmt.Sprintf("%s/%s", c.dstDir, relDstPath)
 	return dstPath
