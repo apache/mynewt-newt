@@ -61,6 +61,8 @@ type Image struct {
 	SigningEC  *ecdsa.PrivateKey
 	KeyId      uint8
 	Hash       []byte
+	SrcSkip    uint // Number of bytes to skip from the source image.
+	HeaderSize uint // If non-zero pad out the header to this size.
 }
 
 type ImageHdr struct {
@@ -230,7 +232,15 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
 	}
 
-	block, _ := pem.Decode(data)
+	block, data := pem.Decode(data)
+	if block != nil && block.Type == "EC PARAMETERS" {
+		/*
+		 * Openssl prepends an EC PARAMETERS block before the
+		 * key itself.  If we see this first, just skip it,
+		 * and go on to the data block.
+		 */
+		block, _ = pem.Decode(data)
+	}
 	if block != nil && block.Type == "RSA PRIVATE KEY" {
 		/*
 		 * ParsePKCS1PrivateKey returns an RSA private key from its ASN.1
@@ -359,7 +369,7 @@ func (image *Image) Generate(loader *Image) error {
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
 		Pad2:  0,
-		ImgSz: uint32(binInfo.Size()),
+		ImgSz: uint32(binInfo.Size()) - uint32(image.SrcSkip),
 		Flags: 0,
 		Vers:  image.Version,
 		Pad3:  0,
@@ -384,6 +394,19 @@ func (image *Image) Generate(loader *Image) error {
 		hdr.Flags |= IMAGE_F_NON_BOOTABLE
 	}
 
+	if image.HeaderSize != 0 {
+		/*
+		 * Pad the header out to the given size.  There will
+		 * just be zeros between the header and the start of
+		 * the image when it is padded.
+		 */
+		if image.HeaderSize < IMAGE_HEADER_SIZE {
+			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+		}
+
+		hdr.HdrSz = uint16(image.HeaderSize)
+	}
+
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
@@ -393,6 +416,50 @@ func (image *Image) Generate(loader *Image) error {
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
 			err.Error()))
+	}
+
+	if image.HeaderSize > IMAGE_HEADER_SIZE {
+		/*
+		 * Pad the image (and hash) with zero bytes to fill
+		 * out the buffer.
+		 */
+		buf := make([]byte, image.HeaderSize-IMAGE_HEADER_SIZE)
+
+		_, err = imgFile.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to write padding: %s",
+				err.Error()))
+		}
+
+		_, err = hash.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to hash padding: %s",
+				err.Error()))
+		}
+	}
+
+	/*
+	 * Skip requested initial part of image.
+	 */
+	if image.SrcSkip > 0 {
+		buf := make([]byte, image.SrcSkip)
+		_, err = binFile.Read(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
+				image.SourceBin, err.Error()))
+		}
+
+		nonZero := false
+		for _, b := range buf {
+			if b != 0 {
+				nonZero = true
+				break
+			}
+		}
+		if nonZero {
+			log.Warnf("Skip requested of iamge %s, but image not preceeded by %d bytes of all zeros",
+				image.SourceBin, image.SrcSkip)
+		}
 	}
 
 	/*
