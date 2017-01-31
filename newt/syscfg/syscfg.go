@@ -287,9 +287,9 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	entry.Description = stringValue(vals["description"])
 
 	// The value field for setting definition is required.
-	value_val, value_exist := vals["value"]
-	if value_exist {
-		entry.Value = stringValue(value_val)
+	valueVal, valueExist := vals["value"]
+	if valueExist {
+		entry.Value = stringValue(valueVal)
 	} else {
 		return entry, util.FmtNewtError(
 			"setting %s does not have required value field", name)
