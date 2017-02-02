@@ -26,7 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/resolve"
 )
 
 func TestTargetName(testPkgName string) string {
@@ -64,7 +64,7 @@ func (b bpkgSorter) Swap(i, j int) {
 	b.bpkgs[i], b.bpkgs[j] = b.bpkgs[j], b.bpkgs[i]
 }
 func (b bpkgSorter) Less(i, j int) bool {
-	return b.bpkgs[i].Name() < b.bpkgs[j].Name()
+	return b.bpkgs[i].rpkg.Lpkg.Name() < b.bpkgs[j].rpkg.Lpkg.Name()
 }
 
 func (b *Builder) sortedBuildPackages() []*BuildPackage {
@@ -80,39 +80,33 @@ func (b *Builder) sortedBuildPackages() []*BuildPackage {
 	return sorter.bpkgs
 }
 
-func (b *Builder) sortedLocalPackages() []*pkg.LocalPackage {
+func (b *Builder) sortedRpkgs() []*resolve.ResolvePackage {
 	bpkgs := b.sortedBuildPackages()
 
-	lpkgs := make([]*pkg.LocalPackage, len(bpkgs), len(bpkgs))
+	rpkgs := make([]*resolve.ResolvePackage, len(bpkgs), len(bpkgs))
 	for i, bpkg := range bpkgs {
-		lpkgs[i] = bpkg.LocalPackage
+		rpkgs[i] = bpkg.rpkg
 	}
 
-	return lpkgs
+	return rpkgs
 }
 
-func logDepInfo(builders []*Builder) {
+func logDepInfo(res *resolve.Resolution) {
 	// Log API set.
 	apis := []string{}
-	apiMap := map[string]*BuildPackage{}
-	for _, b := range builders {
-		if b != nil {
-			for api, bpkg := range b.apiMap {
-				apiMap[api] = bpkg
-				apis = append(apis, api)
-			}
-		}
+	for api, _ := range res.ApiMap {
+		apis = append(apis, api)
 	}
 	sort.Strings(apis)
 
 	log.Debugf("API set:")
 	for _, api := range apis {
-		bpkg := apiMap[api]
-		log.Debugf("    * " + api + " (" + bpkg.FullName() + ")")
+		rpkg := res.ApiMap[api]
+		log.Debugf("    * " + api + " (" + rpkg.Lpkg.FullName() + ")")
 	}
 
 	// Log dependency graph.
-	dg, err := joinedDepGraph(builders)
+	dg, err := joinedDepGraph(res.Sets())
 	if err != nil {
 		log.Debugf("Error while constructing dependency graph: %s\n",
 			err.Error())
@@ -121,7 +115,7 @@ func logDepInfo(builders []*Builder) {
 	}
 
 	// Log reverse dependency graph.
-	rdg, err := joinedRevdepGraph(builders)
+	rdg, err := joinedRevdepGraph(res.Sets())
 	if err != nil {
 		log.Debugf("Error while constructing reverse dependency graph: %s\n",
 			err.Error())

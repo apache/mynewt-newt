@@ -171,7 +171,7 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 		return err
 	}
 
-	bspPath := b.bspPkg.BasePath()
+	bspPath := b.bspPkg.rpkg.Lpkg.BasePath()
 	binBaseName := binPath
 	featureString := b.FeatureString()
 

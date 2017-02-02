@@ -123,39 +123,41 @@ func MfgBootDir(mfgPkgName string) string {
 }
 
 func (b *Builder) BinDir() string {
-	return BinDir(b.targetPkg.Name(), b.buildName)
+	return BinDir(b.targetPkg.rpkg.Lpkg.Name(), b.buildName)
 }
 
 func (b *Builder) FileBinDir(pkgName string) string {
-	return FileBinDir(b.targetPkg.Name(), b.buildName, pkgName)
+	return FileBinDir(b.targetPkg.rpkg.Lpkg.Name(), b.buildName, pkgName)
 }
 
 func (b *Builder) PkgBinDir(bpkg *BuildPackage) string {
-	return PkgBinDir(b.targetPkg.Name(), b.buildName, bpkg.Name(), bpkg.Type())
+	return PkgBinDir(b.targetPkg.rpkg.Lpkg.Name(), b.buildName, bpkg.rpkg.Lpkg.Name(),
+		bpkg.rpkg.Lpkg.Type())
 }
 
 // Generates the path+filename of the specified package's .a file.
 func (b *Builder) ArchivePath(bpkg *BuildPackage) string {
-	return ArchivePath(b.targetPkg.Name(), b.buildName, bpkg.Name(),
-		bpkg.Type())
+	return ArchivePath(b.targetPkg.rpkg.Lpkg.Name(), b.buildName, bpkg.rpkg.Lpkg.Name(),
+		bpkg.rpkg.Lpkg.Type())
 }
 
 func (b *Builder) AppTentativeElfPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.rpkg.Lpkg.Name()) +
 		"_tmp.elf"
 }
 
 func (b *Builder) AppElfPath() string {
-	return AppElfPath(b.targetPkg.Name(), b.buildName, b.appPkg.Name())
+	return AppElfPath(b.targetPkg.rpkg.Lpkg.Name(), b.buildName,
+		b.appPkg.rpkg.Lpkg.Name())
 }
 
 func (b *Builder) AppLinkerElfPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.rpkg.Lpkg.Name()) +
 		"linker.elf"
 }
 
 func (b *Builder) AppImgPath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name()) +
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.rpkg.Lpkg.Name()) +
 		".img"
 }
 
@@ -168,14 +170,16 @@ func (b *Builder) AppPath() string {
 }
 
 func (b *Builder) TestExePath(bpkg *BuildPackage) string {
-	return TestExePath(b.targetPkg.Name(), b.buildName, bpkg.Name(),
-		bpkg.Type())
+	return TestExePath(b.targetPkg.rpkg.Lpkg.Name(), b.buildName,
+		bpkg.rpkg.Lpkg.Name(), bpkg.rpkg.Lpkg.Type())
 }
 
 func (b *Builder) ManifestPath() string {
-	return ManifestPath(b.targetPkg.Name(), b.buildName, b.appPkg.Name())
+	return ManifestPath(b.targetPkg.rpkg.Lpkg.Name(), b.buildName,
+		b.appPkg.rpkg.Lpkg.Name())
 }
 
 func (b *Builder) AppBinBasePath() string {
-	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.Name())
+	return b.PkgBinDir(b.appPkg) + "/" +
+		filepath.Base(b.appPkg.rpkg.Lpkg.Name())
 }

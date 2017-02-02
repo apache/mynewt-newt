@@ -98,19 +98,6 @@ func NewTargetBuilder(target *target.Target) (*TargetBuilder, error) {
 	return NewTargetTester(target, nil)
 }
 
-func (t *TargetBuilder) Builders() []*Builder {
-	builders := []*Builder{}
-
-	if t.LoaderBuilder != nil {
-		builders = append(builders, t.LoaderBuilder)
-	}
-	if t.AppBuilder != nil {
-		builders = append(builders, t.AppBuilder)
-	}
-
-	return builders
-}
-
 func (t *TargetBuilder) NewCompiler(dstDir string) (
 	*toolchain.Compiler, error) {
 
@@ -217,12 +204,14 @@ func (t *TargetBuilder) generateSysinit() error {
 
 	srcDir := GeneratedSrcDir(t.target.Name())
 
-	if t.res.LoaderPkgs != nil {
-		sysinit.EnsureWritten(t.res.LoaderPkgs, srcDir,
+	if t.res.LoaderSet != nil {
+		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
+		sysinit.EnsureWritten(lpkgs, srcDir,
 			pkg.ShortName(t.target.Package()), true)
 	}
 
-	sysinit.EnsureWritten(t.res.AppPkgs, srcDir,
+	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
+	sysinit.EnsureWritten(lpkgs, srcDir,
 		pkg.ShortName(t.target.Package()), false)
 
 	return nil
@@ -262,9 +251,9 @@ func (t *TargetBuilder) PrepBuild() error {
 	}
 
 	var err error
-	if t.res.LoaderPkgs != nil {
+	if t.res.LoaderSet != nil {
 		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER,
-			t.res.LoaderPkgs, t.res.ApiMap, t.res.Cfg)
+			t.res.LoaderSet.Rpkgs, t.res.ApiMap, t.res.Cfg)
 		if err != nil {
 			return err
 		}
@@ -279,7 +268,7 @@ func (t *TargetBuilder) PrepBuild() error {
 		t.LoaderList = project.ResetDeps(nil)
 	}
 
-	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, t.res.AppPkgs,
+	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, t.res.AppSet.Rpkgs,
 		t.res.ApiMap, t.res.Cfg)
 	if err != nil {
 		return err
@@ -288,7 +277,7 @@ func (t *TargetBuilder) PrepBuild() error {
 		return err
 	}
 
-	if t.res.LoaderPkgs != nil {
+	if t.res.LoaderSet != nil {
 		appFlags := toolchain.NewCompilerInfo()
 		appFlags.Cflags = append(appFlags.Cflags, "-DSPLIT_APPLICATION")
 		t.AppBuilder.AddCompilerInfo(appFlags)
@@ -296,7 +285,7 @@ func (t *TargetBuilder) PrepBuild() error {
 
 	t.AppList = project.ResetDeps(nil)
 
-	logDepInfo(t.Builders())
+	logDepInfo(t.res)
 
 	if err := t.generateCode(); err != nil {
 		return err
@@ -400,12 +389,12 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 
 	/* fetch symbols from the elf and from the libraries themselves */
 	log.Debugf("Loader packages:")
-	for _, lpkg := range t.LoaderBuilder.sortedLocalPackages() {
-		log.Debugf("    * %s", lpkg.Name())
+	for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
+		log.Debugf("    * %s", rpkg.Lpkg.Name())
 	}
 	log.Debugf("App packages:")
-	for _, lpkg := range t.AppBuilder.sortedLocalPackages() {
-		log.Debugf("    * %s", lpkg.Name())
+	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
+		log.Debugf("    * %s", rpkg.Lpkg.Name())
 	}
 	err, appLibSym := t.AppBuilder.ExtractSymbolInfo()
 	if err != nil {
@@ -439,14 +428,14 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	uncommonPkgs := smNomatch.Packages()
 
 	/* ensure that the loader and app packages are never shared */
-	delete(commonPkgs, t.AppBuilder.appPkg.Name())
-	uncommonPkgs[t.AppBuilder.appPkg.Name()] = true
-	ma := smMatch.FilterPkg(t.AppBuilder.appPkg.Name())
+	delete(commonPkgs, t.AppBuilder.appPkg.rpkg.Lpkg.Name())
+	uncommonPkgs[t.AppBuilder.appPkg.rpkg.Lpkg.Name()] = true
+	ma := smMatch.FilterPkg(t.AppBuilder.appPkg.rpkg.Lpkg.Name())
 	smMatch.RemoveMap(ma)
 
-	delete(commonPkgs, t.LoaderBuilder.appPkg.Name())
-	uncommonPkgs[t.LoaderBuilder.appPkg.Name()] = true
-	ml := smMatch.FilterPkg(t.LoaderBuilder.appPkg.Name())
+	delete(commonPkgs, t.LoaderBuilder.appPkg.rpkg.Lpkg.Name())
+	uncommonPkgs[t.LoaderBuilder.appPkg.rpkg.Lpkg.Name()] = true
+	ml := smMatch.FilterPkg(t.LoaderBuilder.appPkg.rpkg.Lpkg.Name())
 	smMatch.RemoveMap(ml)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -457,9 +446,9 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	var symbolStr string
 	for v, _ := range uncommonPkgs {
 		if t.AppBuilder.appPkg != nil &&
-			t.AppBuilder.appPkg.Name() != v &&
+			t.AppBuilder.appPkg.rpkg.Lpkg.Name() != v &&
 			t.LoaderBuilder.appPkg != nil &&
-			t.LoaderBuilder.appPkg.Name() != v {
+			t.LoaderBuilder.appPkg.rpkg.Lpkg.Name() != v {
 
 			trouble := smNomatch.FilterPkg(v)
 
@@ -551,15 +540,15 @@ func (t *TargetBuilder) createManifest() error {
 	}
 
 	rm := image.NewRepoManager()
-	for _, lpkg := range t.AppBuilder.sortedLocalPackages() {
+	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
 		manifest.Pkgs = append(manifest.Pkgs,
-			rm.GetImageManifestPkg(lpkg))
+			rm.GetImageManifestPkg(rpkg.Lpkg))
 	}
 
 	if t.LoaderBuilder != nil {
-		for _, lpkg := range t.LoaderBuilder.sortedLocalPackages() {
+		for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
 			manifest.LoaderPkgs = append(manifest.LoaderPkgs,
-				rm.GetImageManifestPkg(lpkg))
+				rm.GetImageManifestPkg(rpkg.Lpkg))
 		}
 	}
 
@@ -676,9 +665,17 @@ func (t *TargetBuilder) CreateImages(version string,
 }
 
 func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
-	return joinedDepGraph(t.Builders())
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
+
+	return joinedDepGraph(t.res.Sets())
 }
 
 func (t *TargetBuilder) CreateRevdepGraph() (DepGraph, error) {
-	return joinedRevdepGraph(t.Builders())
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
+
+	return joinedRevdepGraph(t.res.Sets())
 }

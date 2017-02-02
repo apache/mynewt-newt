@@ -615,7 +615,8 @@ func targetDepCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	if err := b.PrepBuild(); err != nil {
+	res, err := b.Resolve()
+	if err != nil {
 		NewtUsage(nil, err)
 	}
 
@@ -626,17 +627,17 @@ func targetDepCmd(cmd *cobra.Command, args []string) {
 
 	// If user specified any package names, only include specified packages.
 	if len(args) > 1 {
-		lpkgs, err := ResolvePackages(args[1:])
+		rpkgs, err := ResolveRpkgs(res, args[1:])
 		if err != nil {
 			NewtUsage(cmd, err)
 		}
 
-		var missingLpkgs []*pkg.LocalPackage
-		dg, missingLpkgs = builder.FilterDepGraph(dg, lpkgs)
-		for _, lpkg := range missingLpkgs {
+		var missingRpkgs []*resolve.ResolvePackage
+		dg, missingRpkgs = builder.FilterDepGraph(dg, rpkgs)
+		for _, rpkg := range missingRpkgs {
 			util.StatusMessage(util.VERBOSITY_QUIET,
 				"Warning: Package \"%s\" not included in target \"%s\"\n",
-				lpkg.FullName(), b.GetTarget().FullName())
+				rpkg.Lpkg.FullName(), b.GetTarget().FullName())
 		}
 	}
 
@@ -658,7 +659,8 @@ func targetRevdepCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	if err := b.PrepBuild(); err != nil {
+	res, err := b.Resolve()
+	if err != nil {
 		NewtUsage(nil, err)
 	}
 
@@ -669,17 +671,17 @@ func targetRevdepCmd(cmd *cobra.Command, args []string) {
 
 	// If user specified any package names, only include specified packages.
 	if len(args) > 1 {
-		lpkgs, err := ResolvePackages(args[1:])
+		rpkgs, err := ResolveRpkgs(res, args[1:])
 		if err != nil {
 			NewtUsage(cmd, err)
 		}
 
-		var missingLpkgs []*pkg.LocalPackage
-		dg, missingLpkgs = builder.FilterDepGraph(dg, lpkgs)
-		for _, lpkg := range missingLpkgs {
+		var missingRpkgs []*resolve.ResolvePackage
+		dg, missingRpkgs = builder.FilterDepGraph(dg, rpkgs)
+		for _, rpkg := range missingRpkgs {
 			util.StatusMessage(util.VERBOSITY_QUIET,
 				"Warning: Package \"%s\" not included in target \"%s\"\n",
-				lpkg.FullName(), b.GetTarget().FullName())
+				rpkg.Lpkg.FullName(), b.GetTarget().FullName())
 		}
 	}
 

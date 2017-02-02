@@ -75,8 +75,6 @@ type Package interface {
 	Hash() (string, error)
 	// Description of this package
 	Desc() *PackageDesc
-	// Dependency list for this package
-	Deps() []*Dependency
 	// APIs exported by this package
 	Apis() []string
 	// APIs required by this package

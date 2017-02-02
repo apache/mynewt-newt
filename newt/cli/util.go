@@ -35,6 +35,7 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
@@ -294,6 +295,28 @@ func ResolvePackages(pkgNames []string) ([]*pkg.LocalPackage, error) {
 	}
 
 	return lpkgs, nil
+}
+
+func ResolveRpkgs(res *resolve.Resolution, pkgNames []string) (
+	[]*resolve.ResolvePackage, error) {
+
+	lpkgs, err := ResolvePackages(pkgNames)
+	if err != nil {
+		return nil, err
+	}
+
+	rpkgs := []*resolve.ResolvePackage{}
+	for _, lpkg := range lpkgs {
+		rpkg := res.LpkgRpkgMap[lpkg]
+		if rpkg == nil {
+			return nil, util.FmtNewtError("Unexpected error; local package "+
+				"%s lacks a corresponding resolve package", lpkg.FullName())
+		}
+
+		rpkgs = append(rpkgs, rpkg)
+	}
+
+	return rpkgs, nil
 }
 
 func TargetBuilderForTargetOrUnittest(pkgName string) (
