@@ -34,8 +34,8 @@ import (
 	"mynewt.apache.org/newt/viper"
 )
 
-var NewtVersionStr string = "Apache Newt (incubating) version: 1.0.0.b2"
-var NewtBlinkyTag string = "mynewt_1_0_0_b2_rc1_tag"
+var NewtVersionStr string = "Apache Newt (incubating) version: 1.0.0-dev"
+var NewtBlinkyTag string = "develop"
 var NewtNumJobs int
 
 const NEWTRC_DIR string = ".newt"
