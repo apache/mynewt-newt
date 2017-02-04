@@ -188,6 +188,13 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		return util.NewNewtError(errText)
 	}
 
+	warningText := strings.TrimSpace(t.res.WarningText())
+	if warningText != "" {
+		for _, line := range strings.Split(warningText, "\n") {
+			log.Warn(line)
+		}
+	}
+
 	if err := syscfg.EnsureWritten(t.res.Cfg,
 		GeneratedIncludeDir(t.target.Name())); err != nil {
 
