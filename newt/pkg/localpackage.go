@@ -327,7 +327,7 @@ func (pkg *LocalPackage) Load() error {
 		stage, err := strconv.ParseInt(stageStr, 10, 64)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Parsing pkg %s config: %s",
-			                                     pkg.FullName(), err.Error()))
+				pkg.FullName(), err.Error()))
 		}
 		pkg.init[name] = int(stage)
 	}

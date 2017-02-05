@@ -48,8 +48,8 @@ func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*initFunc {
 		for name, stage := range p.Init() {
 			initFunc := &initFunc{
 				stage: stage,
-				name: name,
-				pkg: p,
+				name:  name,
+				pkg:   p,
 			}
 			sm[stage] = append(sm[stage], initFunc)
 		}
@@ -63,7 +63,7 @@ func writePrototypes(pkgs []*pkg.LocalPackage, w io.Writer) {
 	for _, p := range sorted {
 		init := p.Init()
 		for name, _ := range init {
-			fmt.Fprintf(w, "void %s(void);\n", name);
+			fmt.Fprintf(w, "void %s(void);\n", name)
 		}
 	}
 }
