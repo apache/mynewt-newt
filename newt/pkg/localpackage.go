@@ -289,7 +289,6 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString(pkg.sequenceString("pkg.aflags"))
 	file.WriteString(pkg.sequenceString("pkg.cflags"))
-	file.WriteString(pkg.sequenceString("pkg.features"))
 	file.WriteString(pkg.sequenceString("pkg.lflags"))
 
 	return nil
