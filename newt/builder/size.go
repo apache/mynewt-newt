@@ -106,8 +106,8 @@ func MakePkgSize(name string, memSections map[string]*MemSection) *PkgSize {
 /*
  * Go through GCC generated mapfile, and collect info about symbol sizes
  */
-func ParseMapFileSizes(fileName string) (map[string]*PkgSize, map[string]*MemSection,
-	error) {
+func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
+	map[string]*MemSection, error) {
 	var state int = 0
 
 	file, err := os.Open(fileName)
@@ -373,5 +373,35 @@ func (b *Builder) Size() error {
 	}
 	fmt.Printf("%s", output)
 
+	return nil
+}
+
+func (t *TargetBuilder) SizeReport(ram, flash bool) error {
+
+	err := t.PrepBuild()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Size of Application Image: %s\n", t.AppBuilder.buildName)
+	err = t.AppBuilder.SizeReport(ram, flash)
+
+	if err == nil {
+		if t.LoaderBuilder != nil {
+			fmt.Printf("Size of Loader Image: %s\n", t.LoaderBuilder.buildName)
+			err = t.LoaderBuilder.SizeReport(ram, flash)
+		}
+	}
+
+	return err
+}
+
+func (b *Builder) SizeReport(ram, flash bool) error {
+	srcBase := b.targetBuilder.GetTarget().App().Repo().Path() + "/"
+	err := SizeReport(b.AppElfPath(), srcBase, ram, flash)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
 	return nil
 }

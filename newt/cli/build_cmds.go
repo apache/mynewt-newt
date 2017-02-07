@@ -358,7 +358,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func sizeRunCmd(cmd *cobra.Command, args []string) {
+func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool) {
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
@@ -373,6 +373,13 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
+	}
+
+	if ram || flash {
+		if err := b.SizeReport(ram, flash); err != nil {
+			NewtUsage(cmd, err)
+		}
+		return
 	}
 
 	if err := b.Size(); err != nil {
@@ -452,12 +459,19 @@ func AddBuildCommands(cmd *cobra.Command) {
 	sizeHelpText := "Calculate the size of target components specified by " +
 		"<target-name>."
 
+	var ram, flash bool
 	sizeCmd := &cobra.Command{
 		Use:   "size <target-name>",
 		Short: "Size of target components",
 		Long:  sizeHelpText,
-		Run:   sizeRunCmd,
+		Run: func(cmd *cobra.Command, args []string) {
+			sizeRunCmd(cmd, args, ram, flash)
+		},
 	}
+
+	sizeCmd.Flags().BoolVarP(&ram, "ram", "R", false, "Print RAM statistics")
+	sizeCmd.Flags().BoolVarP(&flash, "flash", "F", false,
+		"Print FLASH statistics")
 
 	cmd.AddCommand(sizeCmd)
 	AddTabCompleteFn(sizeCmd, targetList)
