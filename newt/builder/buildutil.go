@@ -106,7 +106,7 @@ func logDepInfo(res *resolve.Resolution) {
 	}
 
 	// Log dependency graph.
-	dg, err := joinedDepGraph(res.Sets())
+	dg, err := depGraph(res.MasterSet)
 	if err != nil {
 		log.Debugf("Error while constructing dependency graph: %s\n",
 			err.Error())
@@ -115,7 +115,7 @@ func logDepInfo(res *resolve.Resolution) {
 	}
 
 	// Log reverse dependency graph.
-	rdg, err := joinedRevdepGraph(res.Sets())
+	rdg, err := revdepGraph(res.MasterSet)
 	if err != nil {
 		log.Debugf("Error while constructing reverse dependency graph: %s\n",
 			err.Error())

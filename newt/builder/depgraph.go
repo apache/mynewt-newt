@@ -89,54 +89,6 @@ func revdepGraph(rs *resolve.ResolveSet) (DepGraph, error) {
 	return graphMapToDepGraph(revGm), nil
 }
 
-func mergeDepGraphs(graphs ...DepGraph) DepGraph {
-	gm := graphMap{}
-
-	for _, graph := range graphs {
-		for parent, children := range graph {
-			if gm[parent] == nil {
-				gm[parent] = map[*resolve.ResolveDep]struct{}{}
-			}
-
-			for _, child := range children {
-				graphMapAdd(gm, parent, child)
-			}
-		}
-	}
-
-	dg := graphMapToDepGraph(gm)
-
-	return dg
-}
-
-func joinedDepGraph(rss []*resolve.ResolveSet) (DepGraph, error) {
-	finalGraph := DepGraph{}
-
-	for _, rs := range rss {
-		graph, err := depGraph(rs)
-		if err != nil {
-			return nil, err
-		}
-		finalGraph = mergeDepGraphs(finalGraph, graph)
-	}
-
-	return finalGraph, nil
-}
-
-func joinedRevdepGraph(rss []*resolve.ResolveSet) (DepGraph, error) {
-	finalGraph := DepGraph{}
-
-	for _, rs := range rss {
-		graph, err := revdepGraph(rs)
-		if err != nil {
-			return nil, err
-		}
-		finalGraph = mergeDepGraphs(finalGraph, graph)
-	}
-
-	return finalGraph, nil
-}
-
 func depString(dep *resolve.ResolveDep) string {
 	s := fmt.Sprintf("%s", dep.Rpkg.Lpkg.FullName())
 	if dep.Api != "" {

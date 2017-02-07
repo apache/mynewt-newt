@@ -669,7 +669,7 @@ func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
 		return nil, err
 	}
 
-	return joinedDepGraph(t.res.Sets())
+	return depGraph(t.res.MasterSet)
 }
 
 func (t *TargetBuilder) CreateRevdepGraph() (DepGraph, error) {
@@ -677,5 +677,5 @@ func (t *TargetBuilder) CreateRevdepGraph() (DepGraph, error) {
 		return nil, err
 	}
 
-	return joinedRevdepGraph(t.res.Sets())
+	return revdepGraph(t.res.MasterSet)
 }

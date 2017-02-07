@@ -78,8 +78,12 @@ type Resolution struct {
 	UnsatisfiedApis map[string][]*ResolvePackage
 
 	LpkgRpkgMap map[*pkg.LocalPackage]*ResolvePackage
-	LoaderSet   *ResolveSet
-	AppSet      *ResolveSet
+
+	// Contains all dependencies; union of loader and app.
+	MasterSet *ResolveSet
+
+	LoaderSet *ResolveSet
+	AppSet    *ResolveSet
 }
 
 func newResolver(
@@ -112,23 +116,11 @@ func newResolution() *Resolution {
 		UnsatisfiedApis: map[string][]*ResolvePackage{},
 	}
 
+	r.MasterSet = &ResolveSet{Res: r}
 	r.LoaderSet = &ResolveSet{Res: r}
 	r.AppSet = &ResolveSet{Res: r}
 
 	return r
-}
-
-func (res *Resolution) Sets() []*ResolveSet {
-	rss := []*ResolveSet{}
-
-	if res.LoaderSet != nil {
-		rss = append(rss, res.LoaderSet)
-	}
-	if res.AppSet != nil {
-		rss = append(rss, res.AppSet)
-	}
-
-	return rss
 }
 
 func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
@@ -541,6 +533,8 @@ func ResolveFull(
 	apiMap, res.UnsatisfiedApis = r.apiResolution()
 
 	res.LpkgRpkgMap = r.pkgMap
+
+	res.MasterSet.Rpkgs = r.rpkgSlice()
 
 	// If there is no loader, then the set of all packages is just the app
 	// packages.  We already resolved the necessary dependency information when
