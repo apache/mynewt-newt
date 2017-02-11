@@ -20,8 +20,10 @@
 package cli
 
 import (
+	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -121,6 +123,20 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	if err := util.MoveDir(srcPkg.BasePath(), dstPath); err != nil {
 		os.Chdir(wd)
 		NewtUsage(cmd, err)
+	}
+
+	/* Replace the package name in the pkg.yml file */
+	pkgData, err := ioutil.ReadFile(dstPath + "/pkg.yml")
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	re := regexp.MustCompile(regexp.QuoteMeta(srcName))
+	res := re.ReplaceAllString(string(pkgData), pkgName)
+
+	if err := ioutil.WriteFile(dstPath+"/pkg.yml", []byte(res), 0666); err != nil {
+		NewtUsage(cmd, util.ChildNewtError(err))
 	}
 
 	dstPkg, err := pkg.LoadLocalPackage(repo, pkgName)
