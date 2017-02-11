@@ -29,7 +29,6 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
-	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -138,15 +137,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	if err := ioutil.WriteFile(dstPath+"/pkg.yml", []byte(res), 0666); err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
-
-	dstPkg, err := pkg.LoadLocalPackage(repo, pkgName)
-	if err != nil {
-		os.Chdir(wd)
-		NewtUsage(cmd, err)
-	}
-
-	dstPkg.SetName(pkgName)
-	dstPkg.Save()
 
 	/* If the last element of the package path changes, rename the include
 	 * directory.
