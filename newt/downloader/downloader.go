@@ -47,8 +47,9 @@ type GenericDownloader struct {
 
 type GithubDownloader struct {
 	GenericDownloader
-	User string
-	Repo string
+	Server string
+	User   string
+	Repo   string
 
 	// Github access token for private repositories.
 	Token string
@@ -117,8 +118,12 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 }
 
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-		gd.User, gd.Repo, name, gd.Branch())
+	server := "github.com"
+	if gd.Server != "" {
+		server = gd.Server
+	}
+	url := fmt.Sprintf("https://api.%s/repos/%s/%s/contents/%s?ref=%s",
+		server, gd.User, gd.Repo, name, gd.Branch())
 
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", "application/vnd.github.v3.raw")
@@ -174,8 +179,12 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 
 	// Currently only the master branch is supported.
 	branch := "master"
+	server := "github.com"
 
-	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
+	if gd.Server != "" {
+		server = gd.Server
+	}
+	url := fmt.Sprintf("https://%s/%s/%s.git", server, gd.User, gd.Repo)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
 		commit, url)
@@ -265,6 +274,7 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 	case "github":
 		gd := NewGithubDownloader()
 
+		gd.Server = repoVars["server"]
 		gd.User = repoVars["user"]
 		gd.Repo = repoVars["repo"]
 
