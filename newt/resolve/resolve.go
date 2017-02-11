@@ -134,11 +134,11 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 func (r *Resolver) resolveDep(dep *pkg.Dependency) (*pkg.LocalPackage, error) {
 	proj := project.GetProject()
 
-	lpkg := proj.ResolveDependency(dep).(*pkg.LocalPackage)
-	if lpkg == nil {
+	if proj.ResolveDependency(dep) == nil {
 		return nil, util.FmtNewtError("Could not resolve package dependency: "+
 			"%s; depender: %s", dep.String(), dep.Name)
 	}
+	lpkg := proj.ResolveDependency(dep).(*pkg.LocalPackage)
 
 	return lpkg, nil
 }
