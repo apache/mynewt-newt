@@ -458,6 +458,18 @@ func MoveFile(srcFile string, destFile string) error {
 	return nil
 }
 
+func MoveDir(srcDir string, destDir string) error {
+	if err := CopyDir(srcDir, destDir); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(srcDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Reads each line from the specified text file into an array of strings.  If a
 // line ends with a backslash, it is concatenated with the following line.
 func ReadLines(path string) ([]string, error) {

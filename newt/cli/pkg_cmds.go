@@ -20,10 +20,16 @@
 package cli
 
 import (
+	"os"
+	"path"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/util"
 )
 
 var NewTypeStr = "pkg"
@@ -38,6 +44,103 @@ func pkgNewCmd(cmd *cobra.Command, args []string) {
 	if err := pw.WritePackage(); err != nil {
 		NewtUsage(cmd, err)
 	}
+}
+
+func pkgMoveCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		NewtUsage(cmd, util.NewNewtError("Exactly two arguments required to pkg move"))
+	}
+
+	srcLoc := args[0]
+	dstLoc := args[1]
+
+	proj := TryGetProject()
+	interfaces.SetProject(proj)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		NewtUsage(cmd, util.NewNewtError(err.Error()))
+	}
+
+	if err := os.Chdir(proj.Path() + "/"); err != nil {
+		NewtUsage(cmd, util.NewNewtError(err.Error()))
+	}
+
+	/* Find source package, defaulting search to the local project if no
+	 * repository descriptor is found.
+	 */
+	srcRepoName, srcName, err := newtutil.ParsePackageString(srcLoc)
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	srcRepo := proj.LocalRepo()
+	if srcRepoName != "" {
+		srcRepo = proj.FindRepo(srcRepoName)
+	}
+
+	srcPkg, err := proj.ResolvePackage(srcRepo, srcName)
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	/* Resolve the destination package to a physical location, and then
+	 * move the source package to that location.
+	 * dstLoc is assumed to be in the format "@repo/pkg/loc"
+	 */
+	repoName, pkgName, err := newtutil.ParsePackageString(dstLoc)
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	dstPath := proj.Path() + "/"
+	repo := proj.LocalRepo()
+	if repoName != "" {
+		dstPath += "repos/" + repoName + "/"
+		repo = proj.FindRepo(repoName)
+		if repo == nil {
+			os.Chdir(wd)
+			NewtUsage(cmd, util.NewNewtError("Destination repo "+
+				repoName+" does not exist"))
+		}
+	}
+	dstPath += pkgName + "/"
+
+	if util.NodeExist(dstPath) {
+		os.Chdir(wd)
+		NewtUsage(cmd, util.NewNewtError("Cannot overwrite existing package, "+
+			"use pkg delete first"))
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Moving package %s to %s\n",
+		srcLoc, dstLoc)
+
+	if err := util.MoveDir(srcPkg.BasePath(), dstPath); err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	dstPkg, err := pkg.LoadLocalPackage(repo, pkgName)
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	dstPkg.SetName(pkgName)
+	dstPkg.Save()
+
+	/* If the last element of the package path changes, rename the include
+	 * directory.
+	 */
+	if path.Base(pkgName) != path.Base(srcPkg.Name()) {
+		util.MoveDir(dstPath+"/include/"+path.Base(srcPkg.Name()),
+			dstPath+"/include/"+path.Base(pkgName))
+	}
+
+	os.Chdir(wd)
 }
 
 func AddPackageCommands(cmd *cobra.Command) {
@@ -75,4 +178,17 @@ func AddPackageCommands(cmd *cobra.Command) {
 		"pkg", "Type of package to create: pkg, bsp, sdk.  Default pkg.")
 
 	pkgCmd.AddCommand(newCmd)
+
+	moveCmdHelpText := ""
+	moveCmdHelpEx := ""
+
+	moveCmd := &cobra.Command{
+		Use:     "move",
+		Short:   "Move a package from one location to another",
+		Long:    moveCmdHelpText,
+		Example: moveCmdHelpEx,
+		Run:     pkgMoveCmd,
+	}
+
+	pkgCmd.AddCommand(moveCmd)
 }
