@@ -21,7 +21,6 @@ package cli
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -390,7 +389,7 @@ func coreConvertCmd(cmd *cobra.Command, args []string) {
 
 func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		nmUsage(cmd, errors.New("Need to specify target filename to download"))
+		nmUsage(cmd, util.NewNewtError("Need to specify filename for core"))
 		return
 	}
 
