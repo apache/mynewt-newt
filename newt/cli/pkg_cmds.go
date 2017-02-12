@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
@@ -60,11 +61,11 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 
 	wd, err := os.Getwd()
 	if err != nil {
-		NewtUsage(cmd, util.NewNewtError(err.Error()))
+		NewtUsage(cmd, util.ChildNewtError(err))
 	}
 
 	if err := os.Chdir(proj.Path() + "/"); err != nil {
-		NewtUsage(cmd, util.NewNewtError(err.Error()))
+		NewtUsage(cmd, util.ChildNewtError(err))
 	}
 
 	/* Find source package, defaulting search to the local project if no
@@ -149,12 +150,64 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	os.Chdir(wd)
 }
 
+func pkgRemoveCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify a package name to delete"))
+	}
+
+	proj := TryGetProject()
+	interfaces.SetProject(proj)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		NewtUsage(cmd, util.ChildNewtError(err))
+	}
+
+	if err := os.Chdir(proj.Path() + "/"); err != nil {
+		NewtUsage(cmd, util.ChildNewtError(err))
+	}
+	/* Resolve package, and get path from package to ensure we're being asked
+	 * to remove a valid path.
+	 */
+	repoName, pkgName, err := newtutil.ParsePackageString(args[0])
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	repo := proj.LocalRepo()
+	if repoName != "" {
+		repo = proj.FindRepo(repoName)
+		if repo == nil {
+			os.Chdir(wd)
+			NewtUsage(cmd, util.NewNewtError("Destination repo "+
+				repoName+" does not exist"))
+		}
+	}
+
+	pkg, err := pkg.LoadLocalPackage(repo, pkgName)
+	if err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, err)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Removing package %s\n",
+		args[0])
+
+	if err := os.RemoveAll(pkg.BasePath()); err != nil {
+		os.Chdir(wd)
+		NewtUsage(cmd, util.ChildNewtError(err))
+	}
+
+	os.Chdir(wd)
+}
+
 func AddPackageCommands(cmd *cobra.Command) {
 	/* Add the base package command, on top of which other commands are
 	 * keyed
 	 */
 	pkgHelpText := "Commands for creating and manipulating packages"
-	pkgHelpEx := "newt pkg new --type=pkg libs/mylib"
+	pkgHelpEx := "  newt pkg new --type=pkg libs/mylib"
 
 	pkgCmd := &cobra.Command{
 		Use:     "pkg",
@@ -197,4 +250,17 @@ func AddPackageCommands(cmd *cobra.Command) {
 	}
 
 	pkgCmd.AddCommand(moveCmd)
+
+	removeCmdHelpText := ""
+	removeCmdHelpEx := ""
+
+	removeCmd := &cobra.Command{
+		Use:     "remove",
+		Short:   "Remove a package",
+		Long:    removeCmdHelpText,
+		Example: removeCmdHelpEx,
+		Run:     pkgRemoveCmd,
+	}
+
+	pkgCmd.AddCommand(removeCmd)
 }
