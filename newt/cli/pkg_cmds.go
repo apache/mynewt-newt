@@ -63,6 +63,7 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
+	defer os.Chdir(wd)
 
 	if err := os.Chdir(proj.Path() + "/"); err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
@@ -73,7 +74,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	 */
 	srcRepoName, srcName, err := newtutil.ParsePackageString(srcLoc)
 	if err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
@@ -84,7 +84,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 
 	srcPkg, err := proj.ResolvePackage(srcRepo, srcName)
 	if err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
@@ -94,7 +93,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	 */
 	repoName, pkgName, err := newtutil.ParsePackageString(dstLoc)
 	if err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
@@ -104,7 +102,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 		dstPath += "repos/" + repoName + "/"
 		repo = proj.FindRepo(repoName)
 		if repo == nil {
-			os.Chdir(wd)
 			NewtUsage(cmd, util.NewNewtError("Destination repo "+
 				repoName+" does not exist"))
 		}
@@ -112,7 +109,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	dstPath += pkgName + "/"
 
 	if util.NodeExist(dstPath) {
-		os.Chdir(wd)
 		NewtUsage(cmd, util.NewNewtError("Cannot overwrite existing package, "+
 			"use pkg delete first"))
 	}
@@ -121,14 +117,12 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 		srcLoc, dstLoc)
 
 	if err := util.MoveDir(srcPkg.BasePath(), dstPath); err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
 	/* Replace the package name in the pkg.yml file */
 	pkgData, err := ioutil.ReadFile(dstPath + "/pkg.yml")
 	if err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
@@ -146,8 +140,6 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 		util.MoveDir(dstPath+"/include/"+path.Base(srcPkg.Name()),
 			dstPath+"/include/"+path.Base(pkgName))
 	}
-
-	os.Chdir(wd)
 }
 
 func pkgRemoveCmd(cmd *cobra.Command, args []string) {
@@ -162,6 +154,7 @@ func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
+	defer os.Chdir(wd)
 
 	if err := os.Chdir(proj.Path() + "/"); err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
