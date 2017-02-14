@@ -118,12 +118,14 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 }
 
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
-	server := "github.com"
+	server := "api.github.com"
+	prefix := "repos"
 	if gd.Server != "" {
 		server = gd.Server
+		prefix = "api/v3/repos"
 	}
-	url := fmt.Sprintf("https://api.%s/repos/%s/%s/contents/%s?ref=%s",
-		server, gd.User, gd.Repo, name, gd.Branch())
+	url := fmt.Sprintf("https://%s/%s/%s/%s/contents/%s?ref=%s",
+		server, prefix, gd.User, gd.Repo, name, gd.Branch())
 
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", "application/vnd.github.v3.raw")
