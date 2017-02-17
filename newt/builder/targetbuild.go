@@ -191,7 +191,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	warningText := strings.TrimSpace(t.res.WarningText())
 	if warningText != "" {
 		for _, line := range strings.Split(warningText, "\n") {
-			log.Warn(line)
+			log.Debugf(line)
 		}
 	}
 
