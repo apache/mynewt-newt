@@ -48,7 +48,17 @@ func pkgNewCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+type dirOperation func(string, string) error
+
+func pkgCloneCmd(cmd *cobra.Command, args []string) {
+	pkgCloneOrMoveCmd(cmd, args, util.CopyDir, "Cloning");
+}
+
 func pkgMoveCmd(cmd *cobra.Command, args []string) {
+	pkgCloneOrMoveCmd(cmd, args, util.MoveDir, "Moving");
+}
+
+func pkgCloneOrMoveCmd(cmd *cobra.Command, args []string, dirOpFn dirOperation, opStr string) {
 	if len(args) != 2 {
 		NewtUsage(cmd, util.NewNewtError("Exactly two arguments required to pkg move"))
 	}
@@ -63,11 +73,12 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
-	defer os.Chdir(wd)
 
 	if err := os.Chdir(proj.Path() + "/"); err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
+
+	defer os.Chdir(wd)
 
 	/* Find source package, defaulting search to the local project if no
 	 * repository descriptor is found.
@@ -113,10 +124,10 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 			"use pkg delete first"))
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Moving package %s to %s\n",
-		srcLoc, dstLoc)
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s package %s to %s\n",
+		opStr, srcLoc, dstLoc)
 
-	if err := util.MoveDir(srcPkg.BasePath(), dstPath); err != nil {
+	if err := dirOpFn(srcPkg.BasePath(), dstPath); err != nil {
 		NewtUsage(cmd, err)
 	}
 
@@ -137,7 +148,7 @@ func pkgMoveCmd(cmd *cobra.Command, args []string) {
 	 * directory.
 	 */
 	if path.Base(pkgName) != path.Base(srcPkg.Name()) {
-		util.MoveDir(dstPath+"/include/"+path.Base(srcPkg.Name()),
+		dirOpFn(dstPath+"/include/"+path.Base(srcPkg.Name()),
 			dstPath+"/include/"+path.Base(pkgName))
 	}
 }
@@ -154,17 +165,18 @@ func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
-	defer os.Chdir(wd)
 
 	if err := os.Chdir(proj.Path() + "/"); err != nil {
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
+
+	defer os.Chdir(wd)
+
 	/* Resolve package, and get path from package to ensure we're being asked
 	 * to remove a valid path.
 	 */
 	repoName, pkgName, err := newtutil.ParsePackageString(args[0])
 	if err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
@@ -172,7 +184,6 @@ func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 	if repoName != "" {
 		repo = proj.FindRepo(repoName)
 		if repo == nil {
-			os.Chdir(wd)
 			NewtUsage(cmd, util.NewNewtError("Destination repo "+
 				repoName+" does not exist"))
 		}
@@ -180,7 +191,6 @@ func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 
 	pkg, err := pkg.LoadLocalPackage(repo, pkgName)
 	if err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, err)
 	}
 
@@ -188,11 +198,8 @@ func pkgRemoveCmd(cmd *cobra.Command, args []string) {
 		args[0])
 
 	if err := os.RemoveAll(pkg.BasePath()); err != nil {
-		os.Chdir(wd)
 		NewtUsage(cmd, util.ChildNewtError(err))
 	}
-
-	os.Chdir(wd)
 }
 
 func AddPackageCommands(cmd *cobra.Command) {
@@ -231,11 +238,24 @@ func AddPackageCommands(cmd *cobra.Command) {
 
 	pkgCmd.AddCommand(newCmd)
 
+	cloneCmdHelpText := ""
+	cloneCmdHelpEx := ""
+
+	cloneCmd := &cobra.Command{
+		Use:     "clone <srcpkg> <dstpkg>",
+		Short:   "Clone an existing package into another",
+		Long:    cloneCmdHelpText,
+		Example: cloneCmdHelpEx,
+		Run:     pkgCloneCmd,
+	}
+
+	pkgCmd.AddCommand(cloneCmd)
+
 	moveCmdHelpText := ""
 	moveCmdHelpEx := ""
 
 	moveCmd := &cobra.Command{
-		Use:     "move",
+		Use:     "move <oldpkg> <newpkg>",
 		Short:   "Move a package from one location to another",
 		Long:    moveCmdHelpText,
 		Example: moveCmdHelpEx,
