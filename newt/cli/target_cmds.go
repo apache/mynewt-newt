@@ -36,7 +36,7 @@ import (
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
+	//	"mynewt.apache.org/newt/viper"
 )
 
 var targetForce bool = false
@@ -233,13 +233,37 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		// A few variables are special cases; they get set in the base package
 		// instead of the target.
 		if kv[0] == "target.syscfg" {
-			t.Package().SyscfgV = viper.New()
-			kv, err := targetSyscfgKVFromStr(kv[1])
-			if err != nil {
-				NewtUsage(cmd, err)
-			}
+			if kv[1] == "" {
+				// User specified empty value; delete variable.
+				t.Package().SyscfgV.Set("syscfg.vals", nil)
 
-			t.Package().SyscfgV.Set("syscfg.vals", kv)
+			} else {
+				// Get the current syscfg.vals setting
+				// name-values pairs and format into a string.
+
+				curSyscfgStr := targetSyscfgKVToStr(
+					t.Package().SyscfgV.GetStringMapString("syscfg.vals"))
+				if curSyscfgStr != "" {
+					// Append the syscfg KV string from the
+					// command to the current KV string so
+					// the old setting values are saved or
+					// set to the new value if the setting
+					// is specified in the command. 
+					// ":" delimits each setting.
+
+					curSyscfgStr = curSyscfgStr + ":" + kv[1]
+				} else {
+					// syscfg.val does not exists.
+					curSyscfgStr = kv[1]
+				}
+
+				kv, err := targetSyscfgKVFromStr(curSyscfgStr)
+				if err != nil {
+					NewtUsage(cmd, err)
+				}
+
+				t.Package().SyscfgV.Set("syscfg.vals", kv)
+			}
 		} else if kv[0] == "target.cflags" ||
 			kv[0] == "target.lflags" ||
 			kv[0] == "target.aflags" {
