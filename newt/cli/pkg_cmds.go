@@ -37,6 +37,15 @@ import (
 var NewTypeStr = "pkg"
 
 func pkgNewCmd(cmd *cobra.Command, args []string) {
+
+	if len(args) == 0 {
+		NewtUsage(cmd, util.NewNewtError("Must specify a package name"))
+	}
+
+	if len(args) != 1 {
+		NewtUsage(cmd, util.NewNewtError("Exactly one argument required"))
+	}
+
 	NewTypeStr = strings.ToUpper(NewTypeStr)
 
 	pw := project.NewPackageWriter()
@@ -51,11 +60,11 @@ func pkgNewCmd(cmd *cobra.Command, args []string) {
 type dirOperation func(string, string) error
 
 func pkgCloneCmd(cmd *cobra.Command, args []string) {
-	pkgCloneOrMoveCmd(cmd, args, util.CopyDir, "Cloning");
+	pkgCloneOrMoveCmd(cmd, args, util.CopyDir, "Cloning")
 }
 
 func pkgMoveCmd(cmd *cobra.Command, args []string) {
-	pkgCloneOrMoveCmd(cmd, args, util.MoveDir, "Moving");
+	pkgCloneOrMoveCmd(cmd, args, util.MoveDir, "Moving")
 }
 
 func pkgCloneOrMoveCmd(cmd *cobra.Command, args []string, dirOpFn dirOperation, opStr string) {
@@ -207,7 +216,7 @@ func AddPackageCommands(cmd *cobra.Command) {
 	 * keyed
 	 */
 	pkgHelpText := "Commands for creating and manipulating packages"
-	pkgHelpEx := "  newt pkg new --type=pkg libs/mylib"
+	pkgHelpEx := "  newt pkg new --type=pkg sys/mylib"
 
 	pkgCmd := &cobra.Command{
 		Use:     "pkg",
@@ -226,8 +235,8 @@ func AddPackageCommands(cmd *cobra.Command) {
 	newCmdHelpEx := ""
 
 	newCmd := &cobra.Command{
-		Use:     "new",
-		Short:   "Create a new package, from a template",
+		Use:     "new <package-name>",
+		Short:   "Create a new package in the current directory, from a template",
 		Long:    newCmdHelpText,
 		Example: newCmdHelpEx,
 		Run:     pkgNewCmd,
@@ -268,7 +277,7 @@ func AddPackageCommands(cmd *cobra.Command) {
 	removeCmdHelpEx := ""
 
 	removeCmd := &cobra.Command{
-		Use:     "remove",
+		Use:     "remove <package-name>",
 		Short:   "Remove a package",
 		Long:    removeCmdHelpText,
 		Example: removeCmdHelpEx,
