@@ -127,6 +127,8 @@ func (f *Folder) addSymbol(symbol *Symbol, path string) *Symbol {
 	return sym
 }
 
+var outputFormatting string = "%-59s %9d %8.2f%%\n"
+
 func (f *File) String(indent string, level int, total uint64) string {
 	var str string
 	if f.sumSize() <= 0 {
@@ -134,7 +136,7 @@ func (f *File) String(indent string, level int, total uint64) string {
 	}
 	size := f.sumSize()
 	percent := 100 * float64(size) / float64(total)
-	str += fmt.Sprintf("%-80s %20d %8.2f%%\n", strings.Repeat(indent, level)+
+	str += fmt.Sprintf(outputFormatting, strings.Repeat(indent, level)+
 		f.Name, size, percent)
 
 	var sorted []string
@@ -146,9 +148,8 @@ func (f *File) String(indent string, level int, total uint64) string {
 		size := f.Symbols[sym].Size
 		percent := 100 * float64(size) / float64(total)
 		if f.Symbols[sym].Size > 0 {
-			str += fmt.Sprintf("%-80s %20d %8.2f%%\n",
-				strings.Repeat(indent, level+1)+
-					f.Symbols[sym].Name,
+			str += fmt.Sprintf(outputFormatting,
+				strings.Repeat(indent, level+1)+ f.Symbols[sym].Name,
 				size, percent)
 		}
 	}
@@ -171,7 +172,7 @@ func (f *Folder) StringRec(indent string, level int, total uint64) string {
 		if folder, ok := f.Folders[name]; ok {
 			size := folder.sumSize()
 			percent := 100 * float64(size) / float64(total)
-			str += fmt.Sprintf("%-80s %20d %8.2f%%\n",
+			str += fmt.Sprintf(outputFormatting,
 				strings.Repeat(indent, level)+folder.Name, size, percent)
 			str += folder.StringRec(indent, level+1, total)
 		} else {
@@ -184,11 +185,11 @@ func (f *Folder) StringRec(indent string, level int, total uint64) string {
 func (f *Folder) ToString(total uint64) string {
 	indent := "  "
 	var str string
-	str += fmt.Sprintf("%-90s %10s %9s\n", "Path", "Size", "%")
-	str += strings.Repeat("=", 111) + "\n"
+	str += fmt.Sprintf("%-59s %9s %9s\n", "Path", "Size", "%")
+	str += strings.Repeat("=", 79) + "\n"
 	str += f.StringRec(indent, 0, total)
-	str += strings.Repeat("=", 111) + "\n"
-	str += fmt.Sprintf("%90s %10d\n",
-		"Total symbol size (i.e. excluding padding, etc.)", f.sumSize())
+	str += strings.Repeat("=", 79) + "\n"
+	str += fmt.Sprintf("%-59s %9d %9s\n",
+		"Total symbol size (i.e. excluding padding, etc.)", f.sumSize(), "")
 	return str
 }
