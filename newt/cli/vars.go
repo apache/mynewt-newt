@@ -130,9 +130,6 @@ var varsMap = map[string]func() ([]string, error){
 	"api": func() ([]string, error) {
 		return settingValues("pkg.apis")
 	},
-	"feature": func() ([]string, error) {
-		return settingValues("pkg.features")
-	},
 
 	// Target settings.
 	"build_profile": func() ([]string, error) {

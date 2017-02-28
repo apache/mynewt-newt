@@ -38,6 +38,7 @@ var newtQuiet bool
 var newtVerbose bool
 var newtLogFile string
 var newtNumJobs int
+var newtHelp bool
 
 func newtDfltNumJobs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
@@ -115,12 +116,14 @@ func newtCmd() *cobra.Command {
 		"", "Filename to tee output to")
 	newtCmd.PersistentFlags().IntVarP(&newtNumJobs, "jobs", "j",
 		newtDfltNumJobs(), "Number of concurrent build jobs")
+	newtCmd.PersistentFlags().BoolVarP(&newtHelp, "help", "h",
+		false, "Help for newt commands")
 
-	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
+	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
 	versCmd := &cobra.Command{
 		Use:     "version",
-		Short:   "Display the Newt version number.",
+		Short:   "Display the Newt version number",
 		Long:    versHelpText,
 		Example: versHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -137,7 +140,6 @@ func main() {
 	cmd := newtCmd()
 
 	cli.AddBuildCommands(cmd)
-	cli.AddCompleteCommands(cmd)
 	cli.AddImageCommands(cmd)
 	cli.AddPackageCommands(cmd)
 	cli.AddProjectCommands(cmd)

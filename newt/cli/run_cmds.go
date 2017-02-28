@@ -99,9 +99,9 @@ func AddRunCommands(cmd *cobra.Command) {
 	}
 
 	runCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "", "",
-		"extra commands to send to JTAG software")
+		"Extra commands to send to JTAG software")
 	runCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
-		"don't start GDB from command line")
+		"Do not start GDB from command line")
 
 	cmd.AddCommand(runCmd)
 	AddTabCompleteFn(runCmd, func() []string {
