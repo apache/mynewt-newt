@@ -696,7 +696,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpEx := ""
 	targetCmd := &cobra.Command{
 		Use:     "target",
-		Short:   "Command for manipulating targets",
+		Short:   "Commands to create, delete, configure, and query targets",
 		Long:    targetHelpText,
 		Example: targetHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -721,15 +721,19 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetCmd.AddCommand(showCmd)
 	AddTabCompleteFn(showCmd, targetList)
 
-	setHelpText := "Set a target variable (<var-name>) on target " +
-		"<target-name> to value <value>."
-	setHelpEx := "  newt target set <target-name> <var-name>=<value>\n"
-	setHelpEx += "  newt target set my_target1 var_name=value\n"
-	setHelpEx += "  newt target set my_target1 arch=cortex_m4\n"
-	setHelpEx += "  newt target set my_target1 var_name   (display valid values for <var_name>)"
+	setHelpText := "Set a target variable (<var-name>) on target "
+	setHelpText += "<target-name> to value <value>.\n\n"
+	setHelpText += "Warning: When setting the syscfg variable, a new syscfg.yml file\n"
+	setHelpText += "is created and the current settings are deleted. Only the settings\n"
+	setHelpText += "specified in the command are saved in the syscfg.yml file."
+	setHelpEx := "  newt target set my_target1 build_profile=optimized "
+	setHelpEx += "cflags=\"-DNDEBUG\"\n"
+	setHelpEx += "  newt target set my_target1 "
+	setHelpEx += "syscfg=LOG_NEWTMGR=1:CONFIG_NEWTMGR=0\n"
 
 	setCmd := &cobra.Command{
-		Use:     "set",
+		Use: "set <target-name> <var-name>=<value>" +
+			"[:<var-name>=<value>...]",
 		Short:   "Set target configuration variable",
 		Long:    setHelpText,
 		Example: setHelpEx,
@@ -768,12 +772,11 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	targetCmd.AddCommand(delCmd)
 
-	copyHelpText := "Create a new target by cloning <src-target>."
-	copyHelpEx := "  newt target copy <src-target> <dst-target>\n"
-	copyHelpEx += "  newt target copy blinky_sim my_target"
+	copyHelpText := "Create a new target <dst-target> by cloning <src-target>"
+	copyHelpEx := "  newt target copy blinky_sim my_target"
 
 	copyCmd := &cobra.Command{
-		Use:     "copy",
+		Use:     "copy <src-target> <dst-target>",
 		Short:   "Copy target",
 		Long:    copyHelpText,
 		Example: copyHelpEx,
@@ -783,7 +786,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetCmd.AddCommand(copyCmd)
 	AddTabCompleteFn(copyCmd, targetList)
 
-	configHelpText := "View and modify a target's system configuration."
+	configHelpText := "View or populate a target's system configuration"
 
 	configCmd := &cobra.Command{
 		Use:   "config",
@@ -799,7 +802,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	configShowCmd := &cobra.Command{
 		Use:   "show <target>",
 		Short: "View a target's system configuration",
-		Long:  "View a target's system configuration.",
+		Long:  "View a target's system configuration",
 		Run:   targetConfigShowCmd,
 	}
 

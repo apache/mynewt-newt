@@ -69,16 +69,16 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func AddImageCommands(cmd *cobra.Command) {
-	createImageHelpText := "Create image by adding image header to created " +
-		"binary file for <target-name>. Version number in the header is set " +
-		"to be <version>.\n\nTo sign the image give private key as <signing_key>."
-	createImageHelpEx := "  newt create-image <target-name> <version>\n"
-	createImageHelpEx += "  newt create-image my_target1 1.2.0\n"
+	createImageHelpText := "Create an image by adding an image header to the " +
+		"binary file created for <target-name>. Version number in the header is set " +
+		"to be <version>.\n\nTo sign the image give private key as <signing-key> and an optional key-id."
+	createImageHelpEx := "  newt create-image my_target1 1.2.0\n"
 	createImageHelpEx += "  newt create-image my_target1 1.2.0.3\n"
 	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem\n"
+	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem 5\n"
 
 	createImageCmd := &cobra.Command{
-		Use:     "create-image",
+		Use:     "create-image <target-name> <version> [signing-key [key-id]]",
 		Short:   "Add image header to target binary",
 		Long:    createImageHelpText,
 		Example: createImageHelpEx,

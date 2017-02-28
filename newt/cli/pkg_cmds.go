@@ -59,7 +59,7 @@ func pkgNewCmd(cmd *cobra.Command, args []string) {
 
 type dirOperation func(string, string) error
 
-func pkgCloneCmd(cmd *cobra.Command, args []string) {
+func pkgCopyCmd(cmd *cobra.Command, args []string) {
 	pkgCloneOrMoveCmd(cmd, args, util.CopyDir, "Cloning")
 }
 
@@ -243,25 +243,25 @@ func AddPackageCommands(cmd *cobra.Command) {
 	}
 
 	newCmd.PersistentFlags().StringVarP(&NewTypeStr, "type", "t",
-		"pkg", "Type of package to create: pkg, bsp, sdk.  Default pkg.")
+		"pkg", "Type of package to create: pkg, bsp, sdk.")
 
 	pkgCmd.AddCommand(newCmd)
 
-	cloneCmdHelpText := ""
-	cloneCmdHelpEx := ""
+	copyCmdHelpText := "Create a new package <dst-pkg> by cloning <src-pkg>"
+	copyCmdHelpEx := "  newt pkg copy apps/blinky apps/myapp"
 
-	cloneCmd := &cobra.Command{
-		Use:     "clone <srcpkg> <dstpkg>",
-		Short:   "Clone an existing package into another",
-		Long:    cloneCmdHelpText,
-		Example: cloneCmdHelpEx,
-		Run:     pkgCloneCmd,
+	copyCmd := &cobra.Command{
+		Use:     "copy <src-pkg> <dst-pkg>",
+		Short:   "Copy an existing package into another",
+		Long:    copyCmdHelpText,
+		Example: copyCmdHelpEx,
+		Run:     pkgCopyCmd,
 	}
 
-	pkgCmd.AddCommand(cloneCmd)
+	pkgCmd.AddCommand(copyCmd)
 
 	moveCmdHelpText := ""
-	moveCmdHelpEx := ""
+	moveCmdHelpEx := "  newt pkg move apps/blinky apps/myapp"
 
 	moveCmd := &cobra.Command{
 		Use:     "move <oldpkg> <newpkg>",

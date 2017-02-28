@@ -390,7 +390,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool) {
 func AddBuildCommands(cmd *cobra.Command) {
 	buildCmd := &cobra.Command{
 		Use:   "build <target-name> [target-names...]",
-		Short: "Builds one or more targets.",
+		Short: "Build one or more targets",
 		Run:   buildRunCmd,
 	}
 
@@ -401,7 +401,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	cleanCmd := &cobra.Command{
 		Use:   "clean <target-name> [target-names...] | all",
-		Short: "Deletes build artifacts for one or more targets.",
+		Short: "Delete build artifacts for one or more targets",
 		Run:   cleanRunCmd,
 	}
 
@@ -424,7 +424,7 @@ func AddBuildCommands(cmd *cobra.Command) {
 		return append(testablePkgList(), "all", "allexcept")
 	})
 
-	loadHelpText := "Load app image to target for <target-name>."
+	loadHelpText := "Load application image on to the board for <target-name>"
 
 	loadCmd := &cobra.Command{
 		Use:   "load <target-name>",
@@ -437,9 +437,9 @@ func AddBuildCommands(cmd *cobra.Command) {
 	AddTabCompleteFn(loadCmd, targetList)
 
 	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "", "",
-		"extra commands to send to JTAG software")
+		"Extra commands to send to JTAG software")
 
-	debugHelpText := "Open debugger session for <target-name>."
+	debugHelpText := "Open a debugger session for <target-name>"
 
 	debugCmd := &cobra.Command{
 		Use:   "debug <target-name>",
@@ -449,9 +449,9 @@ func AddBuildCommands(cmd *cobra.Command) {
 	}
 
 	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "",
-		"", "extra commands to send to JTAG software")
+		"", "Extra commands to send to JTAG software")
 	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
-		"don't start GDB from command line")
+		"Do not start GDB from command line")
 
 	cmd.AddCommand(debugCmd)
 	AddTabCompleteFn(debugCmd, targetList)
