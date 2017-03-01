@@ -36,6 +36,7 @@ const (
 	VERSION_STABILITY_STABLE = "stable"
 	VERSION_STABILITY_DEV    = "dev"
 	VERSION_STABILITY_LATEST = "latest"
+	VERSION_STABILITY_TAG    = "tag"
 )
 
 type VersionMatch struct {
@@ -48,6 +49,7 @@ type Version struct {
 	minor     int64
 	revision  int64
 	stability string
+	tag       string
 }
 
 func (vm *VersionMatch) CompareType() string {
@@ -76,6 +78,10 @@ func (v *Version) Revision() int64 {
 
 func (v *Version) Stability() string {
 	return v.stability
+}
+
+func (v *Version) Tag() string {
+	return v.tag
 }
 
 func (v *Version) CompareVersions(vers1 interfaces.VersionInterface,
@@ -134,6 +140,9 @@ func (v *Version) SatisfiesVersion(versMatches []interfaces.VersionReqInterface)
 }
 
 func (vers *Version) String() string {
+	if vers.tag != "" {
+		return fmt.Sprintf("tag:%s", vers.tag)
+	}
 	return fmt.Sprintf(VERSION_FORMAT, vers.Major(), vers.Minor(), vers.Revision(), vers.Stability())
 }
 
@@ -146,6 +155,8 @@ func LoadVersion(versStr string) (*Version, error) {
 	if len(sparts) > 1 {
 		stability = strings.Trim(sparts[1], " ")
 		switch stability {
+		case VERSION_STABILITY_TAG:
+			return NewTag(strings.Trim(sparts[0], " ")), nil
 		case VERSION_STABILITY_STABLE:
 			fallthrough
 		case VERSION_STABILITY_DEV:
@@ -156,7 +167,6 @@ func LoadVersion(versStr string) (*Version, error) {
 				fmt.Sprintf("Unknown stability (%s) in version ", stability) + versStr)
 		}
 	}
-
 	parts := strings.Split(sparts[0], ".")
 	if len(parts) > 3 {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid version string: %s", versStr))
@@ -193,6 +203,15 @@ func NewVersion(major int64, minor int64, rev int64) *Version {
 	vers.major = major
 	vers.minor = minor
 	vers.revision = rev
+	vers.tag = ""
+
+	return vers
+}
+
+func NewTag(tag string) *Version {
+	vers := &Version{}
+	vers.tag = tag
+	vers.stability = VERSION_STABILITY_NONE
 
 	return vers
 }

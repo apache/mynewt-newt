@@ -181,15 +181,22 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 		return false, err
 	}
 
-	branch, newVers, _ := rdesc.Match(r)
-	if newVers == nil {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"No matching version to upgrade to "+
+	var branch string
+	var newVers *repo.Version
+	if r.VersionIsTag() == "" {
+		branch, newVers, _ = rdesc.Match(r)
+		if newVers == nil {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"No matching version to upgrade to "+
 				"found for %s.  Please check your project requirements.",
-			r.Name())
-		return false, util.NewNewtError(fmt.Sprintf("Cannot find a "+
-			"version of repository %s that matches project requirements.",
-			r.Name()))
+				r.Name())
+			return false, util.NewNewtError(fmt.Sprintf("Cannot find a "+
+				"version of repository %s that matches project "+
+				"requirements.", r.Name()))
+		}
+	} else {
+		branch = r.VersionIsTag()
+		newVers = repo.NewTag(r.VersionIsTag())
 	}
 
 	// If the change between the old repository and the new repository would cause
@@ -399,7 +406,12 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 	}
 
 	rversreq := repoVars["vers"]
-	r, err := repo.NewRepo(rname, rversreq, dl)
+	rtagreq := repoVars["tag"]
+	if rversreq != "" && rtagreq != "" {
+		return util.NewNewtError(fmt.Sprintf("Repository can specify either " +
+			"vers or tag to use, but not both."))
+	}
+	r, err := repo.NewRepo(rname, rversreq, rtagreq, dl)
 	if err != nil {
 		return err
 	}
