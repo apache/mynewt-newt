@@ -993,3 +993,53 @@ func EnsureWritten(cfg Cfg, includeDir string) error {
 
 	return nil
 }
+
+func KeyValueFromStr(str string) (map[string]string, error) {
+	vals := map[string]string{}
+
+	if strings.TrimSpace(str) == "" {
+		return vals, nil
+	}
+
+	// Separate syscfg vals are delimited by ':'.
+	fields := strings.Split(str, ":")
+
+	// Key-value pairs are delimited by '='.  If no '=' is present, assume the
+	// string is the key name and the value is 1.
+	for _, f := range fields {
+		if _, err := util.AtoiNoOct(f); err == nil {
+			return nil, util.FmtNewtError(
+				"Invalid setting name \"%s\"; must not be a number", f)
+		}
+
+		kv := strings.SplitN(f, "=", 2)
+		switch len(kv) {
+		case 1:
+			vals[f] = "1"
+		case 2:
+			vals[kv[0]] = kv[1]
+		}
+	}
+
+	return vals, nil
+}
+
+func KeyValueToStr(syscfgKv map[string]string) string {
+	str := ""
+
+	names := make([]string, 0, len(syscfgKv))
+	for k, _ := range syscfgKv {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	for i, name := range names {
+		if i != 0 {
+			str += ":"
+		}
+
+		str += fmt.Sprintf("%s=%s", name, syscfgKv[name])
+	}
+
+	return str
+}
