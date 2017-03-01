@@ -570,6 +570,13 @@ func (t *TargetBuilder) createManifest() error {
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
+	syscfgKV := t.GetTarget().Package().SyscfgV.GetStringMapString("syscfg.vals")
+	if len(syscfgKV) > 0 {
+		tgtSyscfg := fmt.Sprintf("target.syscfg=%s",
+			syscfg.KeyValueToStr(syscfgKV))
+		manifest.TgtVars = append(manifest.TgtVars, tgtSyscfg)
+	}
+
 	file, err := os.Create(t.AppBuilder.ManifestPath())
 	if err != nil {
 		return util.FmtNewtError("Cannot create manifest file %s: %s",
