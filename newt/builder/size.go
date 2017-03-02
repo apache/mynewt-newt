@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -40,6 +41,8 @@ type MemSection struct {
 	EndOff uint64
 }
 type MemSectionArray []*MemSection
+
+var globalMemSections map[string]*MemSection
 
 func (array MemSectionArray) Len() int {
 	return len(array)
@@ -71,11 +74,23 @@ func (m *MemSection) PartOf(addr uint64) bool {
 }
 
 /*
+ * Info about specific symbol size
+ */
+type SymbolData struct {
+	Name    string
+	ObjName string            /* Which object file it came from */
+	Sizes   map[string]uint32 /* Sizes indexed by mem section name */
+}
+
+type SymbolDataArray []*SymbolData
+
+/*
  * We accumulate the size of libraries to elements in this.
  */
 type PkgSize struct {
 	Name  string
-	Sizes map[string]uint32 /* Sizes indexed by mem section name */
+	Sizes map[string]uint32      /* Sizes indexed by mem section name */
+	Syms  map[string]*SymbolData /* Symbols indexed by symbol name */
 }
 
 type PkgSizeArray []*PkgSize
@@ -92,33 +107,76 @@ func (array PkgSizeArray) Swap(i, j int) {
 	array[i], array[j] = array[j], array[i]
 }
 
-func MakePkgSize(name string, memSections map[string]*MemSection) *PkgSize {
+func (array SymbolDataArray) Len() int {
+	return len(array)
+}
+
+func (array SymbolDataArray) Less(i, j int) bool {
+	return array[i].Name < array[j].Name
+}
+
+func (array SymbolDataArray) Swap(i, j int) {
+	array[i], array[j] = array[j], array[i]
+}
+
+func MakeSymbolData(name string, objName string) *SymbolData {
+	sym := &SymbolData{
+		Name:    name,
+		ObjName: objName,
+	}
+	sym.Sizes = make(map[string]uint32)
+	for _, sec := range globalMemSections {
+		sym.Sizes[sec.Name] = 0
+	}
+	return sym
+}
+
+func MakePkgSize(name string) *PkgSize {
 	pkgSize := &PkgSize{
 		Name: name,
 	}
 	pkgSize.Sizes = make(map[string]uint32)
-	for secName, _ := range memSections {
-		pkgSize.Sizes[secName] = 0
+	for _, sec := range globalMemSections {
+		pkgSize.Sizes[sec.Name] = 0
 	}
+	pkgSize.Syms = make(map[string]*SymbolData)
 	return pkgSize
+}
+
+func (ps *PkgSize) addSymSize(symName string, objName string, size uint32, addr uint64) {
+	for _, section := range globalMemSections {
+		if section.PartOf(addr) {
+			name := section.Name
+			size32 := uint32(size)
+			if size32 > 0 {
+				sym := ps.Syms[symName]
+				if sym == nil {
+					sym = MakeSymbolData(symName, objName)
+					ps.Syms[symName] = sym
+				}
+				ps.Sizes[name] += size32
+				sym.Sizes[name] += size32
+			}
+			break
+		}
+	}
 }
 
 /*
  * Go through GCC generated mapfile, and collect info about symbol sizes
  */
-func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
-	map[string]*MemSection, error) {
+func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 	var state int = 0
 
 	file, err := os.Open(fileName)
 	if err != nil {
-		return nil, nil,
-			util.NewNewtError("Mapfile failed: " + err.Error())
+		return nil, util.NewNewtError("Mapfile failed: " + err.Error())
 	}
 
-	memSections := make(map[string]*MemSection)
-	pkgSizes := make(map[string]*PkgSize)
+	var symName string = ""
 
+	globalMemSections = make(map[string]*MemSection)
+	pkgSizes := make(map[string]*PkgSize)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		switch state {
@@ -138,13 +196,13 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
 			array := strings.Fields(scanner.Text())
 			offset, err := strconv.ParseUint(array[1], 0, 64)
 			if err != nil {
-				return nil, nil, util.NewNewtError("Can't parse mem info")
+				return nil, util.NewNewtError("Can't parse mem info")
 			}
 			size, err := strconv.ParseUint(array[2], 0, 64)
 			if err != nil {
-				return nil, nil, util.NewNewtError("Can't parse mem info")
+				return nil, util.NewNewtError("Can't parse mem info")
 			}
-			memSections[array[0]] = MakeMemSection(array[0], offset,
+			globalMemSections[array[0]] = MakeMemSection(array[0], offset,
 				size)
 		case 3:
 			if strings.Contains(scanner.Text(),
@@ -177,6 +235,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
 				 *
 				 * ignore these for now
 				 */
+				symName = array[0]
 				continue
 			case 2:
 				/*
@@ -214,6 +273,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
 					addrStr = array[1]
 					sizeStr = array[2]
 					srcFile = array[0]
+					symName = array[0]
 				} else {
 					addrStr = array[0]
 					sizeStr = array[1]
@@ -230,6 +290,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
 				 * crud, e.g.:
 				 * 0x8 (size before relaxing)
 				 */
+				symName = array[0]
 				addrStr = array[1]
 				sizeStr = array[2]
 				srcFile = array[3]
@@ -248,44 +309,49 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize,
 				continue
 			}
 			tmpStrArr := strings.Split(srcFile, "(")
-			srcLib := filepath.Base(tmpStrArr[0])
-			for name, section := range memSections {
-				if section.PartOf(addr) {
-					pkgSize := pkgSizes[srcLib]
-					if pkgSize == nil {
-						pkgSize =
-							MakePkgSize(srcLib, memSections)
-						pkgSizes[srcLib] = pkgSize
-					}
-					pkgSize.Sizes[name] += uint32(size)
-					break
+			srcLib := tmpStrArr[0]
+			objName := ""
+			if srcLib != "*fill*" {
+				tmpStrArr = strings.Split(tmpStrArr[1], ")")
+				objName = tmpStrArr[0]
+			}
+			tmpStrArr = strings.Split(symName, ".")
+			if len(tmpStrArr) > 2 {
+				if tmpStrArr[1] == "rodata" && tmpStrArr[2] == "str1" {
+					symName = ".rodata.str1"
+				} else {
+					symName = tmpStrArr[2]
 				}
 			}
+			pkgSize := pkgSizes[srcLib]
+			if pkgSize == nil {
+				pkgSize = MakePkgSize(srcLib)
+				pkgSizes[srcLib] = pkgSize
+			}
+			pkgSize.addSymSize(symName, objName, uint32(size), addr)
+			symName = ".unknown"
 		default:
 		}
 	}
 	file.Close()
-	for name, section := range memSections {
+	for name, section := range globalMemSections {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n",
 			name, section.Offset, section.EndOff)
 	}
 
-	return pkgSizes, memSections, nil
+	return pkgSizes, nil
 }
 
 /*
  * Return a printable string containing size data for the libraries
  */
-func PrintSizes(libs map[string]*PkgSize,
-	sectMap map[string]*MemSection) (string, error) {
-	ret := ""
-
+func PrintSizes(libs map[string]*PkgSize) error {
 	/*
 	 * Order sections by offset, and display lib sizes in that order.
 	 */
-	memSections := make(MemSectionArray, len(sectMap))
+	memSections := make(MemSectionArray, len(globalMemSections))
 	var i int = 0
-	for _, sec := range sectMap {
+	for _, sec := range globalMemSections {
 		memSections[i] = sec
 		i++
 	}
@@ -303,16 +369,17 @@ func PrintSizes(libs map[string]*PkgSize,
 	sort.Sort(pkgSizes)
 
 	for _, sec := range memSections {
-		ret += fmt.Sprintf("%7s ", sec.Name)
+		fmt.Printf("%7s ", sec.Name)
 	}
-	ret += "\n"
+	fmt.Printf("\n")
 	for _, es := range pkgSizes {
 		for i := 0; i < len(memSections); i++ {
-			ret += fmt.Sprintf("%7d ", es.Sizes[memSections[i].Name])
+			fmt.Printf("%7d ", es.Sizes[memSections[i].Name])
 		}
-		ret += fmt.Sprintf("%s\n", es.Name)
+		fmt.Printf("%s\n", filepath.Base(es.Name))
 	}
-	return ret, nil
+
+	return nil
 }
 
 func (t *TargetBuilder) Size() error {
@@ -336,6 +403,67 @@ func (t *TargetBuilder) Size() error {
 	return err
 }
 
+func (b *Builder) FindPkgNameByArName(arName string) string {
+	for rpkg, bpkg := range b.PkgMap {
+		if (b.ArchivePath(bpkg) == arName) {
+			return rpkg.Lpkg.FullName()
+		}
+	}
+	return filepath.Base(arName)
+}
+
+func (b *Builder) PkgSizes() (*image.ImageManifestSizeCollector, error) {
+	if b.appPkg == nil {
+		return nil, util.NewNewtError("app package not specified for this target")
+	}
+
+	if b.targetBuilder.bspPkg.Arch == "sim" {
+		return nil, util.NewNewtError("'newt size' not supported for sim targets")
+	}
+	mapFile := b.AppElfPath() + ".map"
+
+	libs, err := ParseMapFileSizes(mapFile)
+	if err != nil {
+		return nil, err
+	}
+
+	/*
+	 * Order libraries by name.
+	 */
+	pkgSizes := make(PkgSizeArray, len(libs))
+	i := 0
+	for _, es := range libs {
+		pkgSizes[i] = es
+		i++
+	}
+	sort.Sort(pkgSizes)
+
+	c := image.NewImageManifestSizeCollector()
+	for _, es := range pkgSizes {
+		p := c.AddPkg(b.FindPkgNameByArName(es.Name))
+
+		/*
+		 * Order symbols by name.
+		 */
+		symbols := make(SymbolDataArray, len(es.Syms))
+		i := 0
+		for _, sym := range es.Syms {
+			symbols[i] = sym
+			i++
+		}
+		sort.Sort(symbols)
+		for _, sym := range symbols {
+			for area, areaSz := range sym.Sizes {
+				if areaSz != 0 {
+					p.AddSymbol(sym.ObjName, sym.Name, area, areaSz)
+				}
+			}
+		}
+	}
+
+	return c, nil
+}
+
 func (b *Builder) Size() error {
 	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified for this target")
@@ -351,15 +479,14 @@ func (b *Builder) Size() error {
 	}
 	mapFile := b.AppElfPath() + ".map"
 
-	pkgSizes, memSections, err := ParseMapFileSizes(mapFile)
+	pkgSizes, err := ParseMapFileSizes(mapFile)
 	if err != nil {
 		return err
 	}
-	output, err := PrintSizes(pkgSizes, memSections)
+	err = PrintSizes(pkgSizes)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", output)
 
 	c, err := b.newCompiler(b.appPkg, b.FileBinDir(b.AppElfPath()))
 	if err != nil {
@@ -367,7 +494,7 @@ func (b *Builder) Size() error {
 	}
 
 	fmt.Printf("\nobjsize\n")
-	output, err = c.PrintSize(b.AppElfPath())
+	output, err := c.PrintSize(b.AppElfPath())
 	if err != nil {
 		return err
 	}

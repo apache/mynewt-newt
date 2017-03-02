@@ -577,6 +577,16 @@ func (t *TargetBuilder) createManifest() error {
 		manifest.TgtVars = append(manifest.TgtVars, tgtSyscfg)
 	}
 
+	c, err := t.AppBuilder.PkgSizes()
+	if err == nil {
+		manifest.PkgSizes = c.Pkgs
+	}
+	if t.LoaderBuilder != nil {
+		c, err = t.LoaderBuilder.PkgSizes()
+		if err == nil {
+			manifest.LoaderPkgSizes = c.Pkgs
+		}
+	}
 	file, err := os.Create(t.AppBuilder.ManifestPath())
 	if err != nil {
 		return util.FmtNewtError("Cannot create manifest file %s: %s",
