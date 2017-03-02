@@ -405,7 +405,7 @@ func (t *TargetBuilder) Size() error {
 
 func (b *Builder) FindPkgNameByArName(arName string) string {
 	for rpkg, bpkg := range b.PkgMap {
-		if (b.ArchivePath(bpkg) == arName) {
+		if b.ArchivePath(bpkg) == arName {
 			return rpkg.Lpkg.FullName()
 		}
 	}

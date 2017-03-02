@@ -721,7 +721,7 @@ func NewImageManifestSizeCollector() *ImageManifestSizeCollector {
 }
 
 func (c *ImageManifestSizeCollector) AddPkg(pkg string) *ImageManifestSizePkg {
-	p := &ImageManifestSizePkg {
+	p := &ImageManifestSizePkg{
 		Name: pkg,
 	}
 	c.Pkgs = append(c.Pkgs, p)
@@ -730,7 +730,7 @@ func (c *ImageManifestSizeCollector) AddPkg(pkg string) *ImageManifestSizePkg {
 }
 
 func (c *ImageManifestSizePkg) AddSymbol(file string, sym string, area string,
-					symSz uint32) {
+	symSz uint32) {
 	f := c.addFile(file)
 	s := f.addSym(sym)
 	s.addArea(area, symSz)
@@ -742,7 +742,7 @@ func (p *ImageManifestSizePkg) addFile(file string) *ImageManifestSizeFile {
 			return f
 		}
 	}
-	f := &ImageManifestSizeFile {
+	f := &ImageManifestSizeFile{
 		Name: file,
 	}
 	p.Files = append(p.Files, f)
@@ -751,7 +751,7 @@ func (p *ImageManifestSizePkg) addFile(file string) *ImageManifestSizeFile {
 }
 
 func (f *ImageManifestSizeFile) addSym(sym string) *ImageManifestSizeSym {
-	s := &ImageManifestSizeSym {
+	s := &ImageManifestSizeSym{
 		Name: sym,
 	}
 	f.Syms = append(f.Syms, s)
@@ -760,7 +760,7 @@ func (f *ImageManifestSizeFile) addSym(sym string) *ImageManifestSizeSym {
 }
 
 func (s *ImageManifestSizeSym) addArea(area string, areaSz uint32) {
-	a := &ImageManifestSizeArea {
+	a := &ImageManifestSizeArea{
 		Name: area,
 		Size: areaSz,
 	}
