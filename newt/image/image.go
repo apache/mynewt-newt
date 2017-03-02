@@ -118,8 +118,8 @@ const (
  * Data that's going to go to build manifest file
  */
 type ImageManifestSizeArea struct {
-	Name string
-	Size uint32
+	Name string `json:"name"`
+	Size uint32 `json:"size"`
 }
 
 type ImageManifestSizeSym struct {
