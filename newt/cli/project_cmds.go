@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -156,26 +157,32 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
+	var failedRepos []string
 	for _, repo := range repos {
 		var exists bool
+		var updated bool
 		if repo.IsLocal() {
 			continue
 		}
 		vers := ps.GetInstalledVersion(repo.Name())
 		if vers == nil {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"No installed version of %s found, skipping\n",
+				"No installed version of %s found, skipping\n\n",
 				repo.Name())
 		}
-		if err, exists = repo.Sync(vers, newtutil.NewtForce); err != nil {
-			NewtUsage(nil, err)
+		exists, updated, err = repo.Sync(vers, newtutil.NewtForce)
+		if exists && !updated {
+			failedRepos = append(failedRepos, repo.Name())
 		}
-
-		if exists && !newtutil.NewtForce {
-			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"Skipping resync of %s because directory exists.  To "+
-					"force resync, add the -f (force) option.\n", repo.Name())
+	}
+	if len(failedRepos) > 0 {
+		var forceMsg string
+		if !newtutil.NewtForce {
+			forceMsg = " To force resync, add the -f (force) option."
 		}
+		err = util.NewNewtError(fmt.Sprintf("Failed for repos: %v."+
+			forceMsg, failedRepos))
+		NewtUsage(nil, err)
 	}
 }
 
