@@ -237,17 +237,13 @@ func completeRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func AddCompleteCommands(cmd *cobra.Command) {
-	completeShortHelp := "Performs Bash Autocompletion (-C)"
-
-	completeLongHelp := completeShortHelp + ".\n\n" +
-		" this command reads environment variables COMP_LINE and COMP_POINT " +
-		" and will send completion options out stdout as one option per line  "
 
 	completeCmd := &cobra.Command{
-		Use:   "complete",
-		Short: completeShortHelp,
-		Long:  completeLongHelp,
-		Run:   completeRunCmd,
+		Use:    "complete",
+		Short:  "",
+		Long:   "",
+		Run:    completeRunCmd,
+		Hidden: true,
 	}
 
 	/* silence errors on the complete command because we have partial flags */

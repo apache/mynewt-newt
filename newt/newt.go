@@ -140,6 +140,7 @@ func main() {
 	cmd := newtCmd()
 
 	cli.AddBuildCommands(cmd)
+	cli.AddCompleteCommands(cmd)
 	cli.AddImageCommands(cmd)
 	cli.AddPackageCommands(cmd)
 	cli.AddProjectCommands(cmd)
