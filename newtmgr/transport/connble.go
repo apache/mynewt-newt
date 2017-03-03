@@ -22,7 +22,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"time"
 
-	"github.com/runtimeinc/gatt"
+	"github.com/runtimeco/gatt"
 
 	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/util"
@@ -119,7 +119,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 	for _, service := range services {
 
 		if service.UUID().Equal(newtmgrServiceId) ||
-		   service.UUID().Equal(newtmgrCoapServiceId) {
+			service.UUID().Equal(newtmgrCoapServiceId) {
 			log.Debugf("Newtmgr Service Found %s", service.Name())
 
 			if service.UUID().Equal(newtmgrCoapServiceId) {
@@ -130,9 +130,9 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 
 			for _, c := range cs {
 				if (isCoap == false &&
-				    c.UUID().Equal(newtmgrServiceCharId)) ||
-				   (isCoap == true &&
-				    c.UUID().Equal(newtmgrCoapServiceCharId)) {
+					c.UUID().Equal(newtmgrServiceCharId)) ||
+					(isCoap == true &&
+						c.UUID().Equal(newtmgrCoapServiceCharId)) {
 					log.Debugf("Newtmgr Characteristic Found")
 					p.SetNotifyValue(c, newtmgrNotifyCB)
 					deviceChar = c
