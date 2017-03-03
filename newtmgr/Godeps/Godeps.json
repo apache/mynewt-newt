@@ -38,8 +38,8 @@
 			"Rev": "f3009df150dadf309fdee4a54ed65c124afad715"
 		},
 		{
-			"ImportPath": "github.com/runtimeinc/gatt",
-			"Rev": "a8b4c64987af1491ef629e5ec45d3fc47df29eb9"
+			"ImportPath": "github.com/runtimeco/gatt",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
 		},
 		{
 			"ImportPath": "github.com/runtimeinc/gatt/linux",
@@ -116,6 +116,34 @@
 			"ImportPath": "mynewt.apache.org/newt/yaml",
 			"Comment": "pre_sterly_refactor-137-gfcecea4",
 			"Rev": "fcecea4b13ab467168e936a51ef01695833644d8"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/linux",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/linux/cmd",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/xpc",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/linux/evt",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/linux/gioctl",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/linux/socket",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
+		},
+		{
+			"ImportPath": "github.com/runtimeco/gatt/linux/util",
+			"Rev": "ceaca1e3d4b698ce4f610b8c71ebc5cde9ad40dd"
 		}
 	]
 }

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/runtimeinc/gatt/xpc"
+	"github.com/runtimeco/gatt/xpc"
 )
 
 const (
