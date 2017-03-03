@@ -23,6 +23,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -102,6 +104,9 @@ func AddRunCommands(cmd *cobra.Command) {
 		"Extra commands to send to JTAG software")
 	runCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
 		"Do not start GDB from command line")
+	runCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
+		"Ignore flash overflow errors during image creation")
 
 	cmd.AddCommand(runCmd)
 	AddTabCompleteFn(runCmd, func() []string {

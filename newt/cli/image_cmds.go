@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -63,7 +64,7 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if _, _, err := b.CreateImages(version, keystr, keyId); err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 		return
 	}
 }
@@ -84,6 +85,10 @@ func AddImageCommands(cmd *cobra.Command) {
 		Example: createImageHelpEx,
 		Run:     createImageRunCmd,
 	}
+
+	createImageCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
+		"Ignore flash overflow errors during image creation")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)

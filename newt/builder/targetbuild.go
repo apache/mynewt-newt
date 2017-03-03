@@ -31,8 +31,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/resolve"
@@ -645,6 +647,113 @@ func (t *TargetBuilder) augmentManifest(
 	return nil
 }
 
+// Calculates the size of a single boot trailer.  This is the amount of flash
+// that must be reserved at the end of each image slot.
+func (t *TargetBuilder) bootTrailerSize() int {
+	var minWriteSz int
+
+	entry, ok := t.res.Cfg.Settings["MCU_FLASH_MIN_WRITE_SIZE"]
+	if !ok {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"* Warning: target does not define MCU_FLASH_MIN_WRITE_SIZE "+
+				"setting; assuming a value of 1.\n")
+		minWriteSz = 1
+	} else {
+		val, err := util.AtoiNoOct(entry.Value)
+		if err != nil {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"* Warning: target specifies invalid non-integer "+
+					"MCU_FLASH_MIN_WRITE_SIZE setting; assuming a "+
+					"value of 1.\n")
+			minWriteSz = 1
+		} else {
+			minWriteSz = val
+		}
+	}
+
+	/* Mynewt boot trailer format:
+	 *
+	 *  0                   1                   2                   3
+	 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * ~                       MAGIC (16 octets)                       ~
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * ~                                                               ~
+	 * ~             Swap status (128 * min-write-size * 3)            ~
+	 * ~                                                               ~
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |   Copy done   |     0xff padding (up to min-write-sz - 1)     |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |   Image OK    |     0xff padding (up to min-write-sz - 1)     |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+
+	tsize := 16 + // Magic.
+		128*minWriteSz*3 + // Swap status.
+		minWriteSz + // Copy done.
+		minWriteSz // Image Ok.
+
+	log.Debugf("Min-write-size=%d; boot-trailer-size=%d", minWriteSz, tsize)
+
+	return tsize
+}
+
+// Calculates the size of the largest image that can be written to each image
+// slot.
+func (t *TargetBuilder) maxImgSizes() []int {
+	sz0 := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0].Size
+	sz1 := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_1].Size
+	trailerSz := t.bootTrailerSize()
+
+	return []int{
+		sz0 - trailerSz,
+		sz1 - trailerSz,
+	}
+}
+
+// Verifies that each already-built image leaves enough room for a boot trailer
+// a the end of its slot.
+func (t *TargetBuilder) verifyImgSizes(li *image.Image, ai *image.Image) error {
+	maxSizes := t.maxImgSizes()
+
+	errLines := []string{}
+	if li != nil {
+		if overflow := int(li.TotalSize) - maxSizes[0]; overflow > 0 {
+			errLines = append(errLines,
+				fmt.Sprintf("loader overflows slot-0 by %d bytes "+
+					"(image=%d max=%d)",
+					overflow, li.TotalSize, maxSizes[0]))
+		}
+		if overflow := int(ai.TotalSize) - maxSizes[1]; overflow > 0 {
+			errLines = append(errLines,
+				fmt.Sprintf("app overflows slot-1 by %d bytes "+
+					"(image=%d max=%d)",
+					overflow, ai.TotalSize, maxSizes[1]))
+
+		}
+	} else {
+		if overflow := int(ai.TotalSize) - maxSizes[0]; overflow > 0 {
+			errLines = append(errLines,
+				fmt.Sprintf("app overflows slot-0 by %d bytes "+
+					"(image=%d max=%d)",
+					overflow, ai.TotalSize, maxSizes[0]))
+		}
+	}
+
+	if len(errLines) > 0 {
+		if !newtutil.NewtForce {
+			return util.NewNewtError(strings.Join(errLines, "; "))
+		} else {
+			for _, e := range errLines {
+				util.StatusMessage(util.VERBOSITY_QUIET,
+					"* Warning: %s (ignoring due to force flag)\n", e)
+			}
+		}
+	}
+
+	return nil
+}
+
 // @return                      app-image, loader-image, error
 func (t *TargetBuilder) CreateImages(version string,
 	keystr string, keyId uint8) (*image.Image, *image.Image, error) {
@@ -672,6 +781,10 @@ func (t *TargetBuilder) CreateImages(version string,
 
 	buildId := image.CreateBuildId(appImg, loaderImg)
 	if err := t.augmentManifest(appImg, loaderImg, buildId); err != nil {
+		return nil, nil, err
+	}
+
+	if err := t.verifyImgSizes(loaderImg, appImg); err != nil {
 		return nil, nil, err
 	}
 

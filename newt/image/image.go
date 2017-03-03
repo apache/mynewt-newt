@@ -63,6 +63,7 @@ type Image struct {
 	Hash       []byte
 	SrcSkip    uint // Number of bytes to skip from the source image.
 	HeaderSize uint // If non-zero pad out the header to this size.
+	TotalSize  uint // Total size, in bytes, of the generated .img file.
 }
 
 type ImageHdr struct {
@@ -582,6 +583,14 @@ func (image *Image) Generate(loader *Image) error {
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Computed Hash for image %s as %s \n",
 		image.TargetImg, hex.EncodeToString(image.Hash))
+
+	sz, err := imgFile.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return util.FmtNewtError("Failed to calculate file size of generated "+
+			"image %s: %s", image.TargetImg, err.Error())
+	}
+	image.TotalSize = uint(sz)
+
 	return nil
 }
 

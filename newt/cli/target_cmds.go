@@ -31,6 +31,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/syscfg"
@@ -717,7 +718,8 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: delHelpEx,
 		Run:     targetDelCmd,
 	}
-	delCmd.PersistentFlags().BoolVarP(&targetForce, "force", "f", false,
+	delCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
 		"Force delete of targets with user files without prompt")
 
 	targetCmd.AddCommand(delCmd)
@@ -768,7 +770,8 @@ func AddTargetCommands(cmd *cobra.Command) {
 			"Unspecified settings are given default values.",
 		Run: targetConfigInitCmd,
 	}
-	configInitCmd.PersistentFlags().BoolVarP(&targetForce, "force", "f", false,
+	configInitCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
 		"Force overwrite of target configuration")
 
 	configCmd.AddCommand(configInitCmd)

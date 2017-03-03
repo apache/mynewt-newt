@@ -32,9 +32,6 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-var projectForce bool = false
-var syncForce bool = false
-
 func newRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify "+
@@ -78,7 +75,7 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Install(false, projectForce); err != nil {
+	if err := proj.Install(false, newtutil.NewtForce); err != nil {
 		NewtUsage(cmd, err)
 	}
 }
@@ -87,7 +84,7 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Upgrade(projectForce); err != nil {
+	if err := proj.Upgrade(newtutil.NewtForce); err != nil {
 		NewtUsage(cmd, err)
 	}
 }
@@ -170,11 +167,11 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 				"No installed version of %s found, skipping\n",
 				repo.Name())
 		}
-		if err, exists = repo.Sync(vers, syncForce); err != nil {
+		if err, exists = repo.Sync(vers, newtutil.NewtForce); err != nil {
 			NewtUsage(nil, err)
 		}
 
-		if exists && !syncForce {
+		if exists && !newtutil.NewtForce {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"Skipping resync of %s because directory exists.  To "+
 					"force resync, add the -f (force) option.\n", repo.Name())
@@ -192,7 +189,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 		Example: installHelpEx,
 		Run:     installRunCmd,
 	}
-	installCmd.PersistentFlags().BoolVarP(&projectForce, "force", "f", false,
+	installCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
 		"Force install of the repositories in project, regardless of what "+
 			"exists in repos directory")
 
@@ -207,7 +205,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 		Example: upgradeHelpEx,
 		Run:     upgradeRunCmd,
 	}
-	upgradeCmd.PersistentFlags().BoolVarP(&projectForce, "force", "f", false,
+	upgradeCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
 		"Force upgrade of the repositories to latest state in project.yml")
 
 	cmd.AddCommand(upgradeCmd)
@@ -221,7 +220,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 		Example: syncHelpEx,
 		Run:     syncRunCmd,
 	}
-	syncCmd.PersistentFlags().BoolVarP(&syncForce, "force", "f", false,
+	syncCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
 		"Force overwrite of existing remote repositories.")
 	cmd.AddCommand(syncCmd)
 
