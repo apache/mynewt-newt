@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
@@ -345,6 +346,11 @@ func (r *Repo) repoFilePath() string {
 		".configs/" + r.name + "/"
 }
 
+func (r *Repo) patchesFilePath() string {
+	return interfaces.GetProject().Path() + "/" + REPOS_DIR +
+		"/.patches/"
+}
+
 func (r *Repo) downloadRepo(branchName string) error {
 	dl := r.downloader
 
@@ -364,6 +370,66 @@ func (r *Repo) downloadRepo(branchName string) error {
 	}
 
 	return nil
+}
+
+func (r *Repo) checkExists() bool {
+	return util.NodeExist(r.Path())
+}
+
+func (r *Repo) updateRepo() error {
+	dl := r.downloader
+	err := dl.UpdateRepo(r.Path())
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("\tError updating\n"))
+	}
+	return nil
+}
+
+func (r *Repo) cleanupRepo(branchName string) error {
+	dl := r.downloader
+	err := dl.CleanupRepo(r.Path(), branchName)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("\tError cleaning and updating\n"))
+	}
+	return nil
+}
+
+func (r *Repo) saveLocalDiff() (string, error) {
+	dl := r.downloader
+	diff, err := dl.LocalDiff(r.Path())
+	if err != nil {
+		return "", util.NewNewtError(fmt.Sprintf(
+			"Error creating diff for \"%s\" : %s", r.Name(), err.Error()))
+	}
+
+	// NOTE: date was not a typo: https://golang.org/pkg/time/#Time.Format
+	timenow := time.Now().Format("20060102_150405")
+	filename := r.patchesFilePath() + r.Name() + "_" + timenow + ".diff"
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return "", util.NewNewtError(fmt.Sprintf(
+			"Error creating repo diff file \"%s\"", filename))
+	}
+	defer f.Close()
+
+	_, err = f.Write(diff)
+	if err != nil {
+		return "", util.NewNewtError(fmt.Sprintf(
+			"Error writing repo diff file \"%s\"", filename))
+	}
+
+	return filename, nil
+}
+
+func (r *Repo) currentBranch() (string, error) {
+	dl := r.downloader
+	branch, err := dl.CurrentBranch(r.Path())
+	if err != nil {
+		return "", util.NewNewtError(fmt.Sprintf("Error finding current branch for \"%s\" : %s",
+			r.Name(), err.Error()))
+	}
+	return branch, nil
 }
 
 func (r *Repo) checkForceInstall(force bool) (error, bool) {
@@ -405,33 +471,82 @@ func (r *Repo) Install(force bool) (*Version, error) {
 	return vers, nil
 }
 
-func (r *Repo) Sync(vers *Version, force bool) (error, bool) {
+func (r *Repo) Sync(vers *Version, force bool) (bool, bool, error) {
 	var exists bool
 	var err error
+	var currBranch string
 
-	if err, exists = r.checkForceInstall(force); err != nil {
-		return err, exists
-	}
-	if exists && !force {
-		return nil, exists
-	}
+	exists = r.checkExists()
 
 	// Update the repo description
 	if _, updated, err := r.UpdateDesc(); updated != true || err != nil {
-		return util.NewNewtError("Cannot update repository description."), exists
+		return exists, false, util.NewNewtError("Cannot update repository description.")
 	}
 
-	branchName, vers, found := r.rdesc.MatchVersion(vers)
+	branchName, _, found := r.rdesc.MatchVersion(vers)
 	if found == false {
-		return util.NewNewtError(fmt.Sprintf("Branch description for %s not found",
-			r.Name())), exists
+		return exists, false, util.NewNewtError(fmt.Sprintf(
+			"Branch description for %s not found", r.Name()))
 	}
 
-	if err := r.downloadRepo(branchName); err != nil {
-		return err, exists
+	if exists {
+		// Here assuming that if the branch was changed by the user,
+		// the user must know what he's doing...
+		// but, if -f is passed let's just save the work and re-clone
+		currBranch, err = r.currentBranch()
+		if err != nil {
+			return exists, false, err
+		} else if currBranch != branchName {
+			msg := "Unexpected local branch for %s: \"%s\" != \"%s\""
+			if force {
+				util.StatusMessage(util.VERBOSITY_VERBOSE,
+					msg, r.rdesc.name, currBranch, branchName)
+			} else {
+				err = util.NewNewtError(
+					fmt.Sprintf(msg, r.rdesc.name, currBranch, branchName))
+				return exists, false, err
+			}
+		}
+
+		// Don't try updating if on an invalid branch...
+		if currBranch == branchName {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "\tTrying to update repository... ")
+			err = r.updateRepo()
+			if err == nil {
+				util.StatusMessage(util.VERBOSITY_VERBOSE, " success!\n")
+				return exists, true, err
+			} else {
+				util.StatusMessage(util.VERBOSITY_VERBOSE, " failed!\n")
+				if !force {
+					return exists, false, err
+				}
+			}
+		}
+
+		filename, err := r.saveLocalDiff()
+		if err != nil {
+			return exists, false, err
+		}
+		wd, _ := os.Getwd()
+		filename, _ = filepath.Rel(wd, filename)
+
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Saved local diff: "+
+			"\"%s\"\n", filename)
+
+		err = r.cleanupRepo(branchName)
+		if err != nil {
+			return exists, false, err
+		}
+
+	} else {
+		// fresh or updating was unsuccessfull and force was given...
+		err = r.downloadRepo(branchName)
+		if err != nil {
+			return exists, false, err
+		}
 	}
 
-	return nil, exists
+	return exists, true, nil
 }
 
 func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
@@ -441,7 +556,7 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 		return nil, false, nil
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", r.Name())
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "[%s]:\n", r.Name())
 
 	if err = r.DownloadDesc(); err != nil {
 		return nil, false, err
@@ -461,8 +576,8 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 func (r *Repo) DownloadDesc() error {
 	dl := r.downloader
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
-		"repository description for %s...\n", r.Name())
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "\tDownloading "+
+		"repository description... ")
 
 	// Configuration path
 	cpath := r.repoFilePath()
@@ -477,6 +592,14 @@ func (r *Repo) DownloadDesc() error {
 		cpath+"/"+REPO_FILE_NAME); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, " failed\n")
 		return err
+	}
+
+	// also create a directory to save diffs for sync
+	cpath = r.patchesFilePath()
+	if util.NodeNotExist(cpath) {
+		if err := os.MkdirAll(cpath, REPO_DEFAULT_PERMS); err != nil {
+			return util.NewNewtError(err.Error())
+		}
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, " success!\n")

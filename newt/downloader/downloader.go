@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -39,6 +40,10 @@ type Downloader interface {
 	Branch() string
 	SetBranch(branch string)
 	DownloadRepo(branch string) (string, error)
+	CurrentBranch(path string) (string, error)
+	UpdateRepo(path string) error
+	CleanupRepo(path string, branchName string) error
+	LocalDiff(path string) ([]byte, error)
 }
 
 type GenericDownloader struct {
@@ -66,42 +71,57 @@ type LocalDownloader struct {
 	Path string
 }
 
-func checkout(repoDir string, commit string) error {
-	// Retrieve the current directory so that we can get back to where we
-	// started after the download completes.
-	pwd, err := os.Getwd()
+func executeGitCommand(dir string, cmd []string) ([]byte, error) {
+	wd, err := os.Getwd()
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	}
 
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
+		return nil, util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
 			err.Error()))
 	}
 	gitPath = filepath.ToSlash(gitPath)
 
-	if err := os.Chdir(repoDir); err != nil {
-		return util.NewNewtError(err.Error())
+	if err := os.Chdir(dir); err != nil {
+		return nil, util.NewNewtError(err.Error())
 	}
 
-	// Checkout the specified commit.
+	defer os.Chdir(wd)
+
+	gitCmd := []string{gitPath}
+	gitCmd = append(gitCmd, cmd...)
+	output, err := util.ShellCommand(gitCmd, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
+}
+
+func checkout(repoDir string, commit string) error {
 	cmd := []string{
-		gitPath,
 		"checkout",
 		commit,
 	}
+	_, err := executeGitCommand(repoDir, cmd)
+	return err
+}
 
-	if o, err := util.ShellCommand(cmd, nil); err != nil {
-		return util.NewNewtError(string(o))
-	}
+func pull(repoDir string) error {
+	_, err := executeGitCommand(repoDir, []string{"pull"})
+	return err
+}
 
-	// Go back to original directory.
-	if err := os.Chdir(pwd); err != nil {
-		return util.NewNewtError(err.Error())
-	}
+func stash(repoDir string) error {
+	_, err := executeGitCommand(repoDir, []string{"stash"})
+	return err
+}
 
-	return nil
+func clean(repoDir string) error {
+	_, err := executeGitCommand(repoDir, []string{"clean", "-f"})
+	return err
 }
 
 func (gd *GenericDownloader) Branch() string {
@@ -170,6 +190,39 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	_, err = io.Copy(handle, rsp.Body)
 
 	return nil
+}
+
+func (gd *GithubDownloader) CurrentBranch(path string) (string, error) {
+	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
+	branch, err := executeGitCommand(path, cmd)
+	return strings.Trim(string(branch), "\r\n"), err
+}
+
+func (gd *GithubDownloader) UpdateRepo(path string) error {
+	return pull(path)
+}
+
+func (gd *GithubDownloader) CleanupRepo(path string, branchName string) error {
+	err := stash(path)
+	if err != nil {
+		return err
+	}
+
+	err = clean(path)
+	if err != nil {
+		return err
+	}
+
+	err = checkout(path, branchName)
+	if err != nil {
+		return err
+	}
+
+	return pull(path)
+}
+
+func (gd *GithubDownloader) LocalDiff(path string) ([]byte, error) {
+	return executeGitCommand(path, []string{"diff"})
 }
 
 func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
@@ -241,6 +294,27 @@ func (ld *LocalDownloader) FetchFile(name string, dest string) error {
 	}
 
 	return nil
+}
+
+func (ld *LocalDownloader) CurrentBranch(path string) (string, error) {
+	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
+	branch, err := executeGitCommand(path, cmd)
+	return strings.Trim(string(branch), "\r\n"), err
+}
+
+// NOTE: intentionally always error...
+func (ld *LocalDownloader) UpdateRepo(path string) error {
+	return util.NewNewtError(fmt.Sprintf("Can't pull from a local repo\n"))
+}
+
+func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
+	os.RemoveAll(path)
+	_, err := ld.DownloadRepo(branchName)
+	return err
+}
+
+func (ld *LocalDownloader) LocalDiff(path string) ([]byte, error) {
+	return executeGitCommand(path, []string{"diff"})
 }
 
 func (ld *LocalDownloader) DownloadRepo(commit string) (string, error) {
