@@ -57,7 +57,12 @@ func (ps *ProjectState) Save() error {
 	defer file.Close()
 
 	for k, v := range ps.installedRepos {
-		str := fmt.Sprintf("%s,%d.%d.%d\n", k, v.Major(), v.Minor(), v.Revision())
+		str := ""
+		if v.Tag() == "" {
+			str = fmt.Sprintf("%s,%d.%d.%d\n", k, v.Major(), v.Minor(), v.Revision())
+		} else {
+			str = fmt.Sprintf("%s,%s-tag\n", k, v.Tag())
+		}
 		file.WriteString(str)
 	}
 
