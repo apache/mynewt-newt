@@ -47,6 +47,7 @@ type Repo struct {
 	downloader downloader.Downloader
 	localPath  string
 	versreq    []interfaces.VersionReqInterface
+	rversTag   string
 	rdesc      *RepoDesc
 	deps       []*RepoDependency
 	ignDirs    []string
@@ -333,6 +334,10 @@ func (r *Repo) VersionRequirements() []interfaces.VersionReqInterface {
 	return r.versreq
 }
 
+func (r *Repo) VersionIsTag() string {
+	return r.rversTag
+}
+
 func (r *Repo) VersionRequirementsString() string {
 	str := ""
 	for _, vreq := range r.versreq {
@@ -394,12 +399,19 @@ func (r *Repo) Install(force bool) (*Version, error) {
 		}
 	}
 
-	branchName, vers, found := r.rdesc.Match(r)
-	if !found {
-		return nil, util.NewNewtError(fmt.Sprintf("No repository matching description %s found",
-			r.rdesc.String()))
+	branchName := ""
+	var vers *Version = nil
+	var found bool
+	if r.rversTag == "" {
+		branchName, vers, found = r.rdesc.Match(r)
+		if !found {
+			return nil, util.NewNewtError(fmt.Sprintf("No repository " +
+				"matching description %s found", r.rdesc.String()))
+		}
+	} else {
+		branchName = r.rversTag
+		vers = NewTag(r.rversTag)
 	}
-
 	if err := r.downloadRepo(branchName); err != nil {
 		return nil, err
 	}
@@ -509,7 +521,7 @@ func (r *Repo) readDepRepos(v *viper.Viper) ([]*Repo, error) {
 		}
 
 		rversreq := repoVars["vers"]
-		newRepo, err := NewRepo(repoName, rversreq, dl)
+		newRepo, err := NewRepo(repoName, rversreq, "", dl)
 		if err != nil {
 			return nil, err
 		}
@@ -609,15 +621,20 @@ func (r *Repo) HasMinCommit() (bool, error) {
 	return string(mergeBase) == string(revParse), nil
 }
 
-func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) error {
+func (r *Repo) Init(repoName string, rversreq string, rversTag string,
+			d downloader.Downloader) error {
 	var err error
 
 	r.name = repoName
 	r.downloader = d
 	r.deps = []*RepoDependency{}
-	r.versreq, err = LoadVersionMatches(rversreq)
-	if err != nil {
-		return err
+	if rversreq != "" {
+		r.versreq, err = LoadVersionMatches(rversreq)
+		if err != nil {
+			return err
+		}
+	} else {
+		r.rversTag = rversTag
 	}
 
 	path := interfaces.GetProject().Path()
@@ -655,12 +672,13 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 	return nil
 }
 
-func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, error) {
+func NewRepo(repoName string, rversreq string, rversTag string,
+		d downloader.Downloader) (*Repo, error) {
 	r := &Repo{
 		local: false,
 	}
 
-	if err := r.Init(repoName, rversreq, d); err != nil {
+	if err := r.Init(repoName, rversreq, rversTag, d); err != nil {
 		return nil, err
 	}
 
@@ -672,7 +690,7 @@ func NewLocalRepo(repoName string) (*Repo, error) {
 		local: true,
 	}
 
-	if err := r.Init(repoName, "", nil); err != nil {
+	if err := r.Init(repoName, "", "", nil); err != nil {
 		return nil, err
 	}
 
