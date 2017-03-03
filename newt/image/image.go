@@ -118,6 +118,30 @@ const (
 /*
  * Data that's going to go to build manifest file
  */
+type ImageManifestSizeArea struct {
+	Name string `json:"name"`
+	Size uint32 `json:"size"`
+}
+
+type ImageManifestSizeSym struct {
+	Name  string                   `json:"name"`
+	Areas []*ImageManifestSizeArea `json:"areas"`
+}
+
+type ImageManifestSizeFile struct {
+	Name string                  `json:"name"`
+	Syms []*ImageManifestSizeSym `json:"sym"`
+}
+
+type ImageManifestSizePkg struct {
+	Name  string                   `json:"name"`
+	Files []*ImageManifestSizeFile `json:"files"`
+}
+
+type ImageManifestSizeCollector struct {
+	Pkgs []*ImageManifestSizePkg
+}
+
 type ImageManifest struct {
 	Name       string              `json:"name"`
 	Date       string              `json:"build_time"`
@@ -128,9 +152,12 @@ type ImageManifest struct {
 	Loader     string              `json:"loader"`
 	LoaderHash string              `json:"loader_hash"`
 	Pkgs       []*ImageManifestPkg `json:"pkgs"`
-	LoaderPkgs []*ImageManifestPkg `json:"loader_pkgs"`
+	LoaderPkgs []*ImageManifestPkg `json:"loader_pkgs,omitempty"`
 	TgtVars    []string            `json:"target"`
 	Repos      []ImageManifestRepo `json:"repos"`
+
+	PkgSizes       []*ImageManifestSizePkg `json:"pkgsz"`
+	LoaderPkgSizes []*ImageManifestSizePkg `json:"loader_pkgsz,omitempty"`
 }
 
 type ImageManifestPkg struct {
@@ -696,4 +723,55 @@ func (r *RepoManager) AllRepos() []ImageManifestRepo {
 	}
 
 	return repos
+}
+
+func NewImageManifestSizeCollector() *ImageManifestSizeCollector {
+	return &ImageManifestSizeCollector{}
+}
+
+func (c *ImageManifestSizeCollector) AddPkg(pkg string) *ImageManifestSizePkg {
+	p := &ImageManifestSizePkg{
+		Name: pkg,
+	}
+	c.Pkgs = append(c.Pkgs, p)
+
+	return p
+}
+
+func (c *ImageManifestSizePkg) AddSymbol(file string, sym string, area string,
+	symSz uint32) {
+	f := c.addFile(file)
+	s := f.addSym(sym)
+	s.addArea(area, symSz)
+}
+
+func (p *ImageManifestSizePkg) addFile(file string) *ImageManifestSizeFile {
+	for _, f := range p.Files {
+		if f.Name == file {
+			return f
+		}
+	}
+	f := &ImageManifestSizeFile{
+		Name: file,
+	}
+	p.Files = append(p.Files, f)
+
+	return f
+}
+
+func (f *ImageManifestSizeFile) addSym(sym string) *ImageManifestSizeSym {
+	s := &ImageManifestSizeSym{
+		Name: sym,
+	}
+	f.Syms = append(f.Syms, s)
+
+	return s
+}
+
+func (s *ImageManifestSizeSym) addArea(area string, areaSz uint32) {
+	a := &ImageManifestSizeArea{
+		Name: area,
+		Size: areaSz,
+	}
+	s.Areas = append(s.Areas, a)
 }
