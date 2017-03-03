@@ -524,7 +524,7 @@ func coreEraseCmd(cmd *cobra.Command, args []string) {
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
-		Short: "Manage images on remote instance",
+		Short: "Manage images on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
@@ -532,7 +532,7 @@ func imageCmd() *cobra.Command {
 
 	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "Show target images",
+		Short: "Show images on a device",
 		Run:   imageStateListCmd,
 	}
 	imageCmd.AddCommand(listCmd)
@@ -545,7 +545,7 @@ func imageCmd() *cobra.Command {
 	imageCmd.AddCommand(testCmd)
 
 	confirmCmd := &cobra.Command{
-		Use:   "confirm [hex-image-hash]",
+		Use:   "confirm [hex-image-hash] -c <conn_profile>",
 		Short: "Permanently run image",
 		Long: "If a hash is specified, permanently switch to the " +
 			"corresponding image.  If no hash is specified, the current " +
@@ -554,12 +554,11 @@ func imageCmd() *cobra.Command {
 	}
 	imageCmd.AddCommand(confirmCmd)
 
-	uploadEx := "  newtmgr -c olimex image upload <image_file\n"
-	uploadEx += "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
+	uploadEx := "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
 
 	uploadCmd := &cobra.Command{
-		Use:     "upload",
-		Short:   "Upload image to target",
+		Use:     "upload <image-file> -c <conn_profile>",
+		Short:   "Upload image to a device",
 		Example: uploadEx,
 		Run:     imageUploadCmd,
 	}
@@ -568,20 +567,19 @@ func imageCmd() *cobra.Command {
 	coreListEx := "  newtmgr -c olimex image corelist\n"
 
 	coreListCmd := &cobra.Command{
-		Use:     "corelist",
-		Short:   "List core(s) on target",
+		Use:     "corelist -c <conn_profile>",
+		Short:   "List core(s) on a device",
 		Example: coreListEx,
 		Run:     coreListCmd,
 	}
 	imageCmd.AddCommand(coreListCmd)
 
-	coreEx := "  newtmgr -c olimex image coredownload -e <filename>\n"
-	coreEx += "  newtmgr -c olimex image coredownload -e core\n"
+	coreEx := "  newtmgr -c olimex image coredownload -e core\n"
 	coreEx += "  newtmgr -c olimex image coredownload --offset 10 -n 10 core\n"
 
 	coreDownloadCmd := &cobra.Command{
-		Use:     "coredownload",
-		Short:   "Download core from target",
+		Use:     "coredownload <core_filename> -c <conn_profile>",
+		Short:   "Download core from a device",
 		Example: coreEx,
 		Run:     coreDownloadCmd,
 	}
@@ -600,8 +598,8 @@ func imageCmd() *cobra.Command {
 	coreEraseEx := "  newtmgr -c olimex image coreerase\n"
 
 	coreEraseCmd := &cobra.Command{
-		Use:     "coreerase",
-		Short:   "Erase core on target",
+		Use:     "coreerase -c <conn_profile>",
+		Short:   "Erase core on a device",
 		Example: coreEraseEx,
 		Run:     coreEraseCmd,
 	}

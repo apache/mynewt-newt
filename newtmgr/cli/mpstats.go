@@ -74,8 +74,8 @@ func mempoolStatsRunCmd(cmd *cobra.Command, args []string) {
 
 func mempoolStatsCmd() *cobra.Command {
 	mempoolStatsCmd := &cobra.Command{
-		Use:   "mpstats",
-		Short: "Read statistics from a remote endpoint",
+		Use:   "mpstats -c <conn_profile>",
+		Short: "Read memory pool statistics from a device",
 		Run:   mempoolStatsRunCmd,
 	}
 

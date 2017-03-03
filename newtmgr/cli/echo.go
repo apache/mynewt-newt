@@ -67,8 +67,8 @@ func echoRunCmd(cmd *cobra.Command, args []string) {
 
 func echoCmd() *cobra.Command {
 	echoCmd := &cobra.Command{
-		Use:   "echo",
-		Short: "Send data to remote endpoint using newtmgr, and receive data back",
+		Use:   "echo <text> -c <conn_profile>",
+		Short: "Send data to a device and display the echoed back data",
 		Run:   echoRunCmd,
 	}
 

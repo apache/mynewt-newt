@@ -327,44 +327,44 @@ func logsClearCmd(cmd *cobra.Command, args []string) {
 func logsCmd() *cobra.Command {
 	logsCmd := &cobra.Command{
 		Use:   "log",
-		Short: "Handles logs on remote instance",
+		Short: "Handle logs on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
 	}
 
 	showCmd := &cobra.Command{
-		Use:   "show [log-name] [min-index] [min-timestamp]",
-		Short: "Show logs on target",
+		Use:   "show [log-name] [min-index] [min-timestamp] -c <conn_profile>",
+		Short: "Show the logs on a device",
 		Run:   logsShowCmd,
 	}
 	logsCmd.AddCommand(showCmd)
 
 	clearCmd := &cobra.Command{
-		Use:   "clear",
-		Short: "Clear logs on target",
+		Use:   "clear -c <conn_profile>",
+		Short: "Clear the logs on a device",
 		Run:   logsClearCmd,
 	}
 	logsCmd.AddCommand(clearCmd)
 
 	moduleListCmd := &cobra.Command{
-		Use:   "module_list",
-		Short: "Module List Command",
+		Use:   "module_list -c <conn_profile>",
+		Short: "Show the log module names",
 		Run:   logsModuleListCmd,
 	}
 	logsCmd.AddCommand(moduleListCmd)
 
 	levelListCmd := &cobra.Command{
-		Use:   "level_list",
-		Short: "Level List Command",
+		Use:   "level_list -c <conn_profile>",
+		Short: "Show the log levels",
 		Run:   logsLevelListCmd,
 	}
 
 	logsCmd.AddCommand(levelListCmd)
 
 	ListCmd := &cobra.Command{
-		Use:   "list",
-		Short: "Log List Command",
+		Use:   "list -c <conn_profile>",
+		Short: "Show the log names",
 		Run:   logsListCmd,
 	}
 

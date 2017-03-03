@@ -111,14 +111,14 @@ func statsRunCmd(cmd *cobra.Command, args []string) {
 
 func statsCmd() *cobra.Command {
 	statsCmd := &cobra.Command{
-		Use:   "stat",
-		Short: "Read statistics from a remote endpoint",
+		Use:   "stat ",
+		Short: "Read statistics from a device",
 		Run:   statsRunCmd,
 	}
 
 	ListCmd := &cobra.Command{
-		Use:   "list",
-		Short: "Read list of statistics from a remote endpoint",
+		Use:   "list -c <conn_profile>",
+		Short: "Read list of statistics from a device",
 		Run:   statsListRunCmd,
 	}
 
