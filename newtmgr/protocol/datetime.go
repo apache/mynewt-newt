@@ -28,7 +28,7 @@ import (
 
 type DateTime struct {
 	DateTime string `codec:"datetime"`
-	Return   uint64 `codec:"rc"`
+	Return   uint64 `codec:"rc,omitempty"`
 }
 
 func NewDateTime() (*DateTime, error) {
