@@ -35,7 +35,7 @@ func Commands() *cobra.Command {
 	logLevelStr := ""
 	nmCmd := &cobra.Command{
 		Use:   "newtmgr",
-		Short: "Newtmgr helps you manage devices running the Mynewt OS",
+		Short: "Newtmgr helps you manage remote devices running the Mynewt OS",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			NewtmgrLogLevel, err := log.ParseLevel(logLevelStr)
 			err = util.Init(NewtmgrLogLevel, "", util.VERBOSITY_DEFAULT)
