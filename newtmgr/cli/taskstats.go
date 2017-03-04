@@ -61,7 +61,7 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 	if tsrsp.ReturnCode == 0 {
 		fmt.Printf("  %8s %3s %3s %8s %8s %8s %8s %8s %8s\n",
 			"task", "pri", "tid", "runtime", "csw", "stksz",
-			"stkuse", "last_checkin", "next_checkin");
+			"stkuse", "last_checkin", "next_checkin")
 		for k, info := range tsrsp.Tasks {
 			fmt.Printf("  %8s %3d %3d %8d %8d %8d %8d %8d %8d\n",
 				k,
@@ -79,8 +79,8 @@ func taskStatsRunCmd(cmd *cobra.Command, args []string) {
 
 func taskStatsCmd() *cobra.Command {
 	taskStatsCmd := &cobra.Command{
-		Use:   "taskstats",
-		Short: "Read statistics from a remote endpoint",
+		Use:   "taskstats -c <conn_profile>",
+		Short: "Read task statistics from a device",
 		Run:   taskStatsRunCmd,
 	}
 

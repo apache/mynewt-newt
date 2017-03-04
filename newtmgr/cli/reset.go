@@ -57,8 +57,8 @@ func resetRunCmd(cmd *cobra.Command, args []string) {
 
 func resetCmd() *cobra.Command {
 	resetCmd := &cobra.Command{
-		Use:   "reset",
-		Short: "Send reset request to remote endpoint using newtmgr",
+		Use:   "reset -c <conn_profile>",
+		Short: "Send reset request to a device",
 		Run:   resetRunCmd,
 	}
 

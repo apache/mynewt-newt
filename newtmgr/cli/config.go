@@ -72,9 +72,12 @@ func configRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func configCmd() *cobra.Command {
+	configCmdLongHelp := "Read or write a config value for <var-name> variable on " +
+		"a device.\nSpecify a var-value to write a value to a device.\n"
 	statsCmd := &cobra.Command{
-		Use:   "config",
-		Short: "Read or write config value on target",
+		Use:   "config <var-name> [var-value] -c <conn_profile>",
+		Short: "Read or write a config value on a device",
+		Long:  configCmdLongHelp,
 		Run:   configRunCmd,
 	}
 

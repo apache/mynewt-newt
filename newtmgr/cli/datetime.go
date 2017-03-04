@@ -86,8 +86,8 @@ func dateTimeCmd(cmd *cobra.Command, args []string) {
 
 func dTimeCmd() *cobra.Command {
 	dateTCmd := &cobra.Command{
-		Use:   "datetime",
-		Short: "Manage datetime on the device",
+		Use:   "datetime -c <conn_profile>",
+		Short: "Manage datetime on a device",
 		Run:   dateTimeCmd,
 	}
 

@@ -62,6 +62,11 @@ func connProfileAddCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
+	// Connection Profile name required
+	if len(args) == 0 {
+		nmUsage(cmd, util.NewNewtError("Need connection profile name"))
+	}
+
 	name := args[0]
 	cp, err := config.NewConnProfile(name)
 	if err != nil {
@@ -161,6 +166,11 @@ func connProfileDelCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
+	// Connection Profile name required
+	if len(args) == 0 {
+		nmUsage(cmd, util.NewNewtError("Need connection profile name"))
+	}
+
 	name := args[0]
 
 	if err := cpm.DeleteConnProfile(name); err != nil {
@@ -180,14 +190,14 @@ func connProfileCmd() *cobra.Command {
 	}
 
 	addCmd := &cobra.Command{
-		Use:   "add",
+		Use:   "add <conn_profile> [varname=value ...] ",
 		Short: "Add a newtmgr connection profile",
 		Run:   connProfileAddCmd,
 	}
 	cpCmd.AddCommand(addCmd)
 
 	deleCmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <conn_profile>",
 		Short: "Delete a newtmgr connection profile",
 		Run:   connProfileDelCmd,
 	}

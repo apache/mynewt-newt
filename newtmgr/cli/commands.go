@@ -29,12 +29,13 @@ import (
 
 var ConnProfileName string
 var NewtmgrLogLevel log.Level
+var NewtmgrHelp bool
 
 func Commands() *cobra.Command {
 	logLevelStr := ""
 	nmCmd := &cobra.Command{
 		Use:   "newtmgr",
-		Short: "Newtmgr helps you manage remote instances of the Mynewt OS.",
+		Short: "Newtmgr helps you manage remote devices running the Mynewt OS",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			NewtmgrLogLevel, err := log.ParseLevel(logLevelStr)
 			err = util.Init(NewtmgrLogLevel, "", util.VERBOSITY_DEFAULT)
@@ -48,13 +49,17 @@ func Commands() *cobra.Command {
 	}
 
 	nmCmd.PersistentFlags().StringVarP(&ConnProfileName, "conn", "c", "",
-		"connection profile to use.")
+		"connection profile to use")
 
 	nmCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l", "info",
-		"log level to use (default INFO.)")
+		"log level to use")
 
 	nmCmd.PersistentFlags().BoolVarP(&nmutil.TraceLogEnabled, "trace", "t",
 		false, "print all bytes transmitted and received")
+
+	// Add the help flag so it shows up under Global Flags
+	nmCmd.PersistentFlags().BoolVarP(&NewtmgrHelp, "help", "h",
+		false, "Help for newtmgr commands")
 
 	nmCmd.AddCommand(configCmd())
 	nmCmd.AddCommand(connProfileCmd())

@@ -186,7 +186,7 @@ func fsDownloadCmd(cmd *cobra.Command, args []string) {
 func fsCmd() *cobra.Command {
 	fsCmd := &cobra.Command{
 		Use:   "fs",
-		Short: "Access files on device",
+		Short: "Access files on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
@@ -195,8 +195,8 @@ func fsCmd() *cobra.Command {
 	uploadEx := "  newtmgr -c olimex fs upload sample.lua /sample.lua\n"
 
 	uploadCmd := &cobra.Command{
-		Use:     "upload <src-filename> <dst-filename>",
-		Short:   "Upload file to target",
+		Use:     "upload <src-filename> <dst-filename> -c <conn_profile>",
+		Short:   "Upload file to a device",
 		Example: uploadEx,
 		Run:     fsUploadCmd,
 	}
@@ -205,8 +205,8 @@ func fsCmd() *cobra.Command {
 	downloadEx := "  newtmgr -c olimex image download /cfg/mfg mfg.txt\n"
 
 	downloadCmd := &cobra.Command{
-		Use:     "download <src-filename> <dst-filename>",
-		Short:   "Download file from target",
+		Use:     "download <src-filename> <dst-filename> -c <conn_profile>",
+		Short:   "Download file from a device",
 		Example: downloadEx,
 		Run:     fsDownloadCmd,
 	}

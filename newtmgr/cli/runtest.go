@@ -28,118 +28,118 @@ import (
 
 func runCmd() *cobra.Command {
 	runCmd := &cobra.Command{
-		Use:     "run",
-		Short:   "Run procedures on remote device",
+		Use:   "run",
+		Short: "Run procedures on a device",
 		Run: func(cmd *cobra.Command, args []string) {
-                cmd.HelpFunc()(cmd, args)
-        },
+			cmd.HelpFunc()(cmd, args)
+		},
 	}
 
-    runtestEx :="  newtmgr -c conn run test all 201612161220"
+	runtestEx := "  newtmgr -c conn run test all 201612161220"
 
 	runTestCmd := &cobra.Command{
-		Use:     "test [all | testname] [token]",
-        Short:   "Run commands on remote device - \"token\" output on log messages",
-        Example: runtestEx,
+		Use:     "test [all | testname] [token] -c <conn_profile>",
+		Short:   "Run commands a device - \"token\" output on log messages",
+		Example: runtestEx,
 		Run:     runTestCmd,
 	}
-    runCmd.AddCommand(runTestCmd)
+	runCmd.AddCommand(runTestCmd)
 
 	runListCmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List registered commands on remote device",
-		Run:     runListCmd,
+		Use:   "list -c <conn_profile>",
+		Short: "List registered commands on a device",
+		Run:   runListCmd,
 	}
-    runCmd.AddCommand(runListCmd)
+	runCmd.AddCommand(runListCmd)
 
 	return runCmd
 }
 
 func runTestCmd(cmd *cobra.Command, args []string) {
-    runner, err := getTargetCmdRunner()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
-    defer runner.Conn.Close()
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	defer runner.Conn.Close()
 
-    req, err := protocol.NewRunTestReq()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	req, err := protocol.NewRunTestReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    if len(args) > 0 {
-        req.Testname = args[0]
-        if len(args) > 1 {
-            req.Token = args[1]
-        } else {
-            req.Token = ""
-        }
-    } else {
-        /*
-         * If nothing specified, turn on "all" by default
-         * There is no default token.
-         */
-        req.Testname = "all"
-        req.Token = ""
-    }
+	if len(args) > 0 {
+		req.Testname = args[0]
+		if len(args) > 1 {
+			req.Token = args[1]
+		} else {
+			req.Token = ""
+		}
+	} else {
+		/*
+		 * If nothing specified, turn on "all" by default
+		 * There is no default token.
+		 */
+		req.Testname = "all"
+		req.Token = ""
+	}
 
-    nmr, err := req.Encode()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    if err := runner.WriteReq(nmr); err != nil {
-        nmUsage(cmd, err)
-    }
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
 
-    rsp, err := runner.ReadResp()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    decodedResponse, err := protocol.DecodeRunTestResponse(rsp.Data)
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	decodedResponse, err := protocol.DecodeRunTestResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    if decodedResponse.ReturnCode != 0 {
-        fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
-    }
+	if decodedResponse.ReturnCode != 0 {
+		fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+	}
 }
 
 func runListCmd(cmd *cobra.Command, args []string) {
-    runner, err := getTargetCmdRunner()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    defer runner.Conn.Close()
-    req, err := protocol.NewRunListReq()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	defer runner.Conn.Close()
+	req, err := protocol.NewRunListReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    nmr, err := req.Encode()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    if err := runner.WriteReq(nmr); err != nil {
-        nmUsage(cmd, err)
-    }
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
 
-    rsp, err := runner.ReadResp()
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    decodedResponse, err := protocol.DecodeRunListResponse(rsp.Data)
-    if err != nil {
-        nmUsage(cmd, err)
-    }
+	decodedResponse, err := protocol.DecodeRunListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
 
-    fmt.Println(decodedResponse.List)
-    if decodedResponse.ReturnCode != 0 {
-        fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
-    }
+	fmt.Println(decodedResponse.List)
+	if decodedResponse.ReturnCode != 0 {
+		fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+	}
 }
