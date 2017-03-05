@@ -190,7 +190,7 @@ func connProfileCmd() *cobra.Command {
 	}
 
 	addCmd := &cobra.Command{
-		Use:   "add <conn_profile> [varname=value ...] ",
+		Use:   "add <conn_profile> <varname=value ...> ",
 		Short: "Add a newtmgr connection profile",
 		Run:   connProfileAddCmd,
 	}
@@ -203,9 +203,14 @@ func connProfileCmd() *cobra.Command {
 	}
 	cpCmd.AddCommand(deleCmd)
 
+	connShowHelpText := "Show information for the conn_profile connection "
+	connShowHelpText += "profile or for all\nconnection profiles "
+	connShowHelpText += "if conn_profile is not specified.\n"
+
 	showCmd := &cobra.Command{
-		Use:   "show",
+		Use:   "show [conn_profile]",
 		Short: "Show newtmgr connection profiles",
+		Long:  connShowHelpText,
 		Run:   connProfileShowCmd,
 	}
 	cpCmd.AddCommand(showCmd)

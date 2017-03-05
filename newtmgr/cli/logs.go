@@ -327,7 +327,7 @@ func logsClearCmd(cmd *cobra.Command, args []string) {
 func logsCmd() *cobra.Command {
 	logsCmd := &cobra.Command{
 		Use:   "log",
-		Short: "Handle logs on a device",
+		Short: "Manage logs on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
