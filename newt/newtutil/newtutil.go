@@ -213,6 +213,9 @@ func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
 //         string               package name
 //         error                if invalid package string
 func ParsePackageString(pkgStr string) (string, string, error) {
+	// remove possible trailing '/'
+	pkgStr = strings.TrimSuffix(pkgStr, "/")
+
 	if strings.HasPrefix(pkgStr, "@") {
 		nameParts := strings.SplitN(pkgStr[1:], "/", 2)
 		if len(nameParts) == 1 {
