@@ -6,8 +6,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/runtimeinc/gatt/linux/cmd"
-	"github.com/runtimeinc/gatt/linux/evt"
+	"github.com/runtimeco/gatt/linux/cmd"
+	"github.com/runtimeco/gatt/linux/evt"
 )
 
 type HCI struct {

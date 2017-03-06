@@ -21,42 +21,74 @@ package cli
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newtmgr/config"
 	"mynewt.apache.org/newt/newtmgr/protocol"
-	"mynewt.apache.org/newt/newtmgr/transport"
 )
 
-func runtestRunCmd(cmd *cobra.Command, args []string) {
-	cpm, err := config.NewConnProfileMgr()
+func runCmd() *cobra.Command {
+	runCmd := &cobra.Command{
+		Use:   "run",
+		Short: "Run test procedures on a device",
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.HelpFunc()(cmd, args)
+		},
+	}
+
+	runtestEx := "  newtmgr -c conn run test all 201612161220"
+
+	runTestHelpText := "Run tests on a device. Specify a testname to run a "
+	runTestHelpText += "specific test. All tests are\nrun if \"all\" or no "
+	runTestHelpText += "testname is specified. If a token-value is "
+	runTestHelpText += "specified, the\nvalue is output on the log messages.\n"
+	runTestCmd := &cobra.Command{
+		Use:     "test [all | testname] [token-value] -c <conn_profile>",
+		Short:   "Run tests on a device",
+		Long:    runTestHelpText,
+		Example: runtestEx,
+		Run:     runTestCmd,
+	}
+	runCmd.AddCommand(runTestCmd)
+
+	runListCmd := &cobra.Command{
+		Use:   "list -c <conn_profile>",
+		Short: "List registered tests on a device",
+		Run:   runListCmd,
+	}
+	runCmd.AddCommand(runListCmd)
+
+	return runCmd
+}
+
+func runTestCmd(cmd *cobra.Command, args []string) {
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	defer runner.Conn.Close()
+
+	req, err := protocol.NewRunTestReq()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
 
-	profile, err := cpm.GetConnProfile(ConnProfileName)
-	if err != nil {
-		nmUsage(cmd, err)
+	if len(args) > 0 {
+		req.Testname = args[0]
+		if len(args) > 1 {
+			req.Token = args[1]
+		} else {
+			req.Token = ""
+		}
+	} else {
+		/*
+		 * If nothing specified, turn on "all" by default
+		 * There is no default token.
+		 */
+		req.Testname = "all"
+		req.Token = ""
 	}
 
-	conn, err := transport.NewConnWithTimeout(profile, time.Second*1)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer conn.Close()
-
-	runner, err := protocol.NewCmdRunner(conn)
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	runtest, err := protocol.RunTest()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-
-	nmr, err := runtest.EncodeWriteRequest()
+	nmr, err := req.Encode()
 	if err != nil {
 		nmUsage(cmd, err)
 	}
@@ -66,27 +98,53 @@ func runtestRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	rsp, err := runner.ReadResp()
-	if err == nil {
-		cRsp, err := protocol.DecodeRunTestResponse(rsp.Data)
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-		if cRsp.Err != 0 {
-			fmt.Printf("Failed, error:%d\n", cRsp.Err)
-		}
+	if err != nil {
+		nmUsage(cmd, err)
 	}
-	fmt.Println("Done")
+
+	decodedResponse, err := protocol.DecodeRunTestResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if decodedResponse.ReturnCode != 0 {
+		fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+	}
 }
 
-func runtestCmd() *cobra.Command {
-	runtestEx := "   runtest "
-
-	runtestCmd := &cobra.Command{
-		Use:     "runtest ",
-		Short:   "Initiate named test on remote endpoint using newtmgr (named test not yet supported)",
-		Example: runtestEx,
-		Run:     runtestRunCmd,
+func runListCmd(cmd *cobra.Command, args []string) {
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
 	}
 
-	return runtestCmd
+	defer runner.Conn.Close()
+	req, err := protocol.NewRunListReq()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := req.Encode()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	decodedResponse, err := protocol.DecodeRunListResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	fmt.Println(decodedResponse.List)
+	if decodedResponse.ReturnCode != 0 {
+		fmt.Printf("Return Code = %d\n", decodedResponse.ReturnCode)
+	}
 }

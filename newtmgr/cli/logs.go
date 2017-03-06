@@ -127,15 +127,24 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	if len(args) > 0 {
+	if len(args) >= 1 {
 		req.Name = args[0]
-		if len(args) > 1 {
-			req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
-			if len(args) > 2 {
-				req.Index, err = strconv.ParseUint(args[2], 0, 64)
+	}
+
+	if len(args) >= 2 {
+		if args[1] == "last" {
+			req.Index = 0
+			req.Timestamp = -1
+		} else {
+			req.Index, err = strconv.ParseUint(args[1], 0, 64)
+			if err != nil {
+				nmUsage(cmd, err)
 			}
 		}
+	}
 
+	if len(args) >= 3 && req.Timestamp != -1 {
+		req.Timestamp, err = strconv.ParseInt(args[1], 0, 64)
 		if err != nil {
 			nmUsage(cmd, err)
 		}
@@ -161,12 +170,11 @@ func logsShowCmd(cmd *cobra.Command, args []string) {
 	}
 
 	for j := 0; j < len(decodedResponse.Logs); j++ {
-
 		fmt.Println("Name:", decodedResponse.Logs[j].Name)
 		fmt.Println("Type:", LogTypeToString(decodedResponse.Logs[j].Type))
 
 		for i := 0; i < len(decodedResponse.Logs[j].Entries); i++ {
-			fmt.Println(fmt.Sprintf("%+v usecs, %+v > %s: %s: %s",
+			fmt.Println(fmt.Sprintf("%20d usecs %10d > %s: %s: %s",
 				decodedResponse.Logs[j].Entries[i].Timestamp,
 				decodedResponse.Logs[j].Entries[i].Index,
 				LogModuleToString(decodedResponse.Logs[j].Entries[i].Module),
@@ -318,45 +326,45 @@ func logsClearCmd(cmd *cobra.Command, args []string) {
 
 func logsCmd() *cobra.Command {
 	logsCmd := &cobra.Command{
-		Use:   "logs",
-		Short: "Handles logs on remote instance",
+		Use:   "log",
+		Short: "Manage logs on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
 	}
 
 	showCmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show logs on target",
+		Use:   "show [log-name] [min-index] [min-timestamp] -c <conn_profile>",
+		Short: "Show the logs on a device",
 		Run:   logsShowCmd,
 	}
 	logsCmd.AddCommand(showCmd)
 
 	clearCmd := &cobra.Command{
-		Use:   "clear",
-		Short: "Clear logs on target",
+		Use:   "clear -c <conn_profile>",
+		Short: "Clear the logs on a device",
 		Run:   logsClearCmd,
 	}
 	logsCmd.AddCommand(clearCmd)
 
 	moduleListCmd := &cobra.Command{
-		Use:   "module_list",
-		Short: "Module List Command",
+		Use:   "module_list -c <conn_profile>",
+		Short: "Show the log module names",
 		Run:   logsModuleListCmd,
 	}
 	logsCmd.AddCommand(moduleListCmd)
 
 	levelListCmd := &cobra.Command{
-		Use:   "level_list",
-		Short: "Level List Command",
+		Use:   "level_list -c <conn_profile>",
+		Short: "Show the log levels",
 		Run:   logsLevelListCmd,
 	}
 
 	logsCmd.AddCommand(levelListCmd)
 
 	ListCmd := &cobra.Command{
-		Use:   "log_list",
-		Short: "Log List Command",
+		Use:   "list -c <conn_profile>",
+		Short: "Show the log names",
 		Run:   logsListCmd,
 	}
 

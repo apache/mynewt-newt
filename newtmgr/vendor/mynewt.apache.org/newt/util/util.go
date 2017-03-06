@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -267,43 +266,6 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	} else {
 		return v, nil
 	}
-}
-
-func DescendantDirsOfParent(rootPath string, parentName string, fullPath bool) ([]string, error) {
-	rootPath = path.Clean(rootPath)
-
-	if NodeNotExist(rootPath) {
-		return []string{}, nil
-	}
-
-	children, err := ChildDirs(rootPath)
-	if err != nil {
-		return nil, err
-	}
-
-	dirs := []string{}
-	if path.Base(rootPath) == parentName {
-		for _, child := range children {
-			if fullPath {
-				child = rootPath + "/" + child
-			}
-
-			dirs = append(dirs, child)
-		}
-	} else {
-		for _, child := range children {
-			childPath := rootPath + "/" + child
-			subDirs, err := DescendantDirsOfParent(childPath, parentName,
-				fullPath)
-			if err != nil {
-				return nil, err
-			}
-
-			dirs = append(dirs, subDirs...)
-		}
-	}
-
-	return dirs, nil
 }
 
 // Execute the command specified by cmdStr on the shell and return results

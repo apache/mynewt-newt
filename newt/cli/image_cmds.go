@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -35,7 +36,7 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	targetName := args[0]
 	t := ResolveTarget(targetName)
@@ -63,28 +64,32 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if _, _, err := b.CreateImages(version, keystr, keyId); err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 		return
 	}
 }
 
 func AddImageCommands(cmd *cobra.Command) {
-	createImageHelpText := "Create image by adding image header to created " +
-		"binary file for <target-name>. Version number in the header is set " +
-		"to be <version>.\n\nTo sign the image give private key as <signing_key>."
-	createImageHelpEx := "  newt create-image <target-name> <version>\n"
-	createImageHelpEx += "  newt create-image my_target1 1.2.0\n"
+	createImageHelpText := "Create an image by adding an image header to the " +
+		"binary file created for <target-name>. Version number in the header is set " +
+		"to be <version>.\n\nTo sign the image give private key as <signing-key> and an optional key-id."
+	createImageHelpEx := "  newt create-image my_target1 1.2.0\n"
 	createImageHelpEx += "  newt create-image my_target1 1.2.0.3\n"
 	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem\n"
+	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem 5\n"
 
 	createImageCmd := &cobra.Command{
-		Use:     "create-image",
+		Use:     "create-image <target-name> <version> [signing-key [key-id]]",
 		Short:   "Add image header to target binary",
 		Long:    createImageHelpText,
 		Example: createImageHelpEx,
 		Run:     createImageRunCmd,
 	}
 
-	createImageCmd.ValidArgs = targetList()
+	createImageCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
+		"Ignore flash overflow errors during image creation")
+
 	cmd.AddCommand(createImageCmd)
+	AddTabCompleteFn(createImageCmd, targetList)
 }

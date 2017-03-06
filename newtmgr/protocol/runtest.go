@@ -26,43 +26,123 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-type Test struct {
-	Err       int    `codec:"rc,omitempty"`
+const (
+    RUN_NMGR_OP_TEST        = 0
+    RUN_NMGR_OP_LIST        = 1
+)
+
+/*
+ * run test [all | testname] [token]
+ * max testname and token size is 32 bytes
+ *
+ * This is written with the idea to provide a more extensible RPC mechanism however
+ * the "test" commands constrains the remote calls to those registered to
+ * test infrastructure.
+ */
+type RunTestReq struct {
+    Testname        string `codec:"testname"`
+    Token           string `codec:"token"`
 }
 
-func RunTest() (*Test, error) {
-	c := &Test{ }
-	return c, nil
+func NewRunTestReq() (*RunTestReq, error) {
+    s := &RunTestReq{}
+
+    return s, nil
 }
 
-func (c *Test) EncodeWriteRequest() (*NmgrReq, error) {
-	data := make([]byte, 0)
-	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
-	enc.Encode(c)
-
-	fmt.Printf("runtest\n")
-	nmr, err := NewNmgrReq()
+func (sr *RunTestReq) Encode() (*NmgrReq, error) {
+    nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
 	}
 
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
-	nmr.Group = NMGR_GROUP_ID_RUNTEST
-	nmr.Id = 0
-	nmr.Len = uint16(len(data))
-	nmr.Data = data
+	nmr.Group = NMGR_GROUP_ID_RUN
+    nmr.Id = RUN_NMGR_OP_TEST
+    req := &RunTestReq{
+        Testname: sr.Testname,
+        Token: sr.Token,
+    }
 
-	return nmr, nil
+    data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
+
+	enc.Encode(req)
+	nmr.Data = data
+	nmr.Len = uint16(len(data))
+
+    return nmr, nil
 }
 
-func DecodeRunTestResponse(data []byte) (*Test, error) {
-	c := &Test{}
+type RunTestRsp struct {
+    ReturnCode int      `codec:"rc"`
+}
+
+func DecodeRunTestResponse(data []byte) (*RunTestRsp, error) {
+    var resp RunTestRsp
 
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
-	if err := dec.Decode(&c); err != nil {
+	err := dec.Decode(&resp)
+	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid response: %s",
-			err.Error()))
+			                          err.Error()))
 	}
-	return c, nil
+
+	return &resp, nil
+}
+
+/*
+ * run list
+ * Returns the list of tests that have been registered on the device.
+ */
+type RunListReq struct {
+}
+
+type RunListRsp struct {
+    ReturnCode int      `codec:"rc"`
+    List       []string `codec:"run_list"`
+}
+
+func NewRunListReq() (*RunListReq, error) {
+    s := &RunListReq{}
+
+    return s, nil
+}
+
+func (sr *RunListReq) Encode() (*NmgrReq, error) {
+    nmr, err := NewNmgrReq()
+    if err != nil {
+        return nil, err
+    }
+
+    nmr.Op = NMGR_OP_READ
+    nmr.Flags = 0
+    nmr.Group = NMGR_GROUP_ID_RUN
+    nmr.Id = RUN_NMGR_OP_LIST
+
+    req := &RunListReq{}
+
+    data := make([]byte, 0)
+    enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
+    enc.Encode(req)
+
+    nmr.Data = data
+    nmr.Len = uint16(len(data))
+
+    return nmr, nil
+}
+
+func DecodeRunListResponse(data []byte) (*RunListRsp, error) {
+    var resp RunListRsp
+
+    dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
+    err := dec.Decode(&resp)
+    if err != nil {
+        return nil,
+        util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+                                      err.Error()))
+    }
+
+    return &resp, nil
 }

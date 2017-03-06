@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -66,8 +67,9 @@ type Project struct {
 	v *viper.Viper
 }
 
-func InitProject(dir string) error {
+func initProject(dir string) error {
 	var err error
+
 	globalProject, err = LoadProject(dir)
 	if err != nil {
 		return err
@@ -85,7 +87,7 @@ func initialize() error {
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		if err := InitProject(wd); err != nil {
+		if err := initProject(wd); err != nil {
 			return err
 		}
 	}
@@ -93,10 +95,8 @@ func initialize() error {
 }
 
 func TryGetProject() (*Project, error) {
-	if globalProject == nil {
-		if err := initialize(); err != nil {
-			return nil, err
-		}
+	if err := initialize(); err != nil {
+		return nil, err
 	}
 	return globalProject, nil
 }
@@ -155,6 +155,15 @@ func (proj *Project) FindRepo(rname string) *repo.Repo {
 		r, _ := proj.repos[rname]
 		return r
 	}
+}
+
+func (proj *Project) FindRepoPath(rname string) string {
+	r := proj.FindRepo(rname)
+	if r == nil {
+		return ""
+	}
+
+	return r.Path()
 }
 
 func (proj *Project) LocalRepo() *repo.Repo {
@@ -473,7 +482,7 @@ func (proj *Project) loadConfig() error {
 }
 
 func (proj *Project) Init(dir string) error {
-	proj.BasePath = dir
+	proj.BasePath = filepath.ToSlash(filepath.Clean(dir))
 
 	// Only one project per system, when created, set it as the global project
 	interfaces.SetProject(proj)
@@ -585,7 +594,13 @@ func (proj *Project) loadPackageList() error {
 	for name, repo := range repos {
 		list, warnings, err := pkg.ReadLocalPackages(repo, repo.Path())
 		if err != nil {
-			return err
+			/* Failed to read the repo's package list.  Report the failure as a
+			 * warning if the project state indicates that this repo should be
+			 * installed.
+			 */
+			if proj.projState.installedRepos[name] != nil {
+				util.StatusMessage(util.VERBOSITY_QUIET, err.Error()+"\n")
+			}
 		} else {
 			proj.packages[name] = list
 		}

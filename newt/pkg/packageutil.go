@@ -37,7 +37,7 @@ func (s lpkgSorter) Swap(i, j int) {
 	s.pkgs[i], s.pkgs[j] = s.pkgs[j], s.pkgs[i]
 }
 func (s lpkgSorter) Less(i, j int) bool {
-	return s.pkgs[i].Name() < s.pkgs[j].Name()
+	return s.pkgs[i].FullName() < s.pkgs[j].FullName()
 }
 
 func SortLclPkgs(pkgs []*LocalPackage) []*LocalPackage {

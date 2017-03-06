@@ -21,9 +21,7 @@ package cli
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -55,6 +53,9 @@ func imageFlagsStr(image protocol.ImageStateEntry) string {
 	}
 	if image.Pending {
 		strs = append(strs, "pending")
+	}
+	if image.Permanent {
+		strs = append(strs, "permanent")
 	}
 
 	return strings.Join(strs, " ")
@@ -168,6 +169,10 @@ func imageStateConfirmCmd(cmd *cobra.Command, args []string) {
 		nmUsage(nil, err)
 	}
 
+	if len(args) >= 1 {
+		hexBytes, _ := hex.DecodeString(args[0])
+		req.Hash = hexBytes
+	}
 	req.Confirm = true
 
 	nmr, err := req.Encode()
@@ -367,157 +372,6 @@ func imageUploadCmd(cmd *cobra.Command, args []string) {
 	fmt.Println("Done")
 }
 
-func fileUploadCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 2 {
-		nmUsage(cmd, util.NewNewtError(
-			"Need to specify file and target filename to upload"))
-	}
-
-	file, err := ioutil.ReadFile(args[0])
-	if err != nil {
-		nmUsage(cmd, util.NewNewtError(err.Error()))
-	}
-
-	filename := args[1]
-	if len(filename) > 64 {
-		nmUsage(cmd, util.NewNewtError("Target filename too long"))
-	}
-
-	runner, err := getTargetCmdRunner()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer runner.Conn.Close()
-
-	err = echoCtrl(runner, "0")
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer echoCtrl(runner, "1")
-	var currOff uint32 = 0
-	var cnt int = 0
-
-	fileSz := uint32(len(file))
-
-	for currOff < fileSz {
-		fileUpload, err := protocol.NewFileUpload()
-		if err != nil {
-			echoOnNmUsage(runner, err, cmd)
-		}
-
-		blockSz := fileSz - currOff
-		if currOff == 0 {
-			blockSz = 3
-		} else {
-			if blockSz > 36 {
-				blockSz = 36
-			}
-		}
-
-		fileUpload.Offset = currOff
-		fileUpload.Size = fileSz
-		fileUpload.Name = filename
-		fileUpload.Data = file[currOff : currOff+blockSz]
-
-		nmr, err := fileUpload.EncodeWriteRequest()
-		if err != nil {
-			echoOnNmUsage(runner, err, cmd)
-		}
-
-		if err := runner.WriteReq(nmr); err != nil {
-			echoOnNmUsage(runner, err, cmd)
-		}
-
-		rsp, err := runner.ReadResp()
-		if err != nil {
-			echoOnNmUsage(runner, err, cmd)
-		}
-
-		ersp, err := protocol.DecodeFileUploadResponse(rsp.Data)
-		if err != nil {
-			echoOnNmUsage(runner, err, cmd)
-		}
-		currOff = ersp.Offset
-		cnt++
-		fmt.Println(cnt, currOff)
-	}
-	fmt.Println("Done")
-}
-
-func fileDownloadCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 2 {
-		nmUsage(cmd, util.NewNewtError(
-			"Need to specify file and target filename to download"))
-	}
-
-	filename := args[0]
-	if len(filename) > 64 {
-		nmUsage(cmd, util.NewNewtError("Target filename too long"))
-	}
-
-	runner, err := getTargetCmdRunner()
-	if err != nil {
-		nmUsage(cmd, err)
-	}
-	defer runner.Conn.Close()
-
-	var currOff uint32 = 0
-	var cnt int = 0
-	var fileSz uint32 = 1
-
-	file, err := os.OpenFile(args[1], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
-	if err != nil {
-		nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
-			"Cannot open file %s - %s", args[1], err.Error())))
-	}
-	for currOff < fileSz {
-		fileDownload, err := protocol.NewFileDownload()
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-
-		fileDownload.Offset = currOff
-		fileDownload.Name = filename
-
-		nmr, err := fileDownload.EncodeWriteRequest()
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-
-		if err := runner.WriteReq(nmr); err != nil {
-			nmUsage(cmd, err)
-		}
-
-		rsp, err := runner.ReadResp()
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-
-		ersp, err := protocol.DecodeFileDownloadResponse(rsp.Data)
-		if err != nil {
-			nmUsage(cmd, err)
-		}
-		if currOff == ersp.Offset {
-			n, err := file.Write(ersp.Data)
-			if err == nil && n < len(ersp.Data) {
-				err = io.ErrShortWrite
-				nmUsage(cmd, util.NewNewtError(fmt.Sprintf(
-					"Cannot write file %s - %s", args[1],
-					err.Error())))
-			}
-		}
-		if currOff == 0 {
-			fileSz = ersp.Size
-		}
-		cnt++
-		currOff += uint32(len(ersp.Data))
-		fmt.Println(cnt, currOff)
-
-	}
-	file.Close()
-	fmt.Println("Done")
-}
-
 func coreConvertCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		nmUsage(cmd, nil)
@@ -535,7 +389,7 @@ func coreConvertCmd(cmd *cobra.Command, args []string) {
 
 func coreDownloadCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		nmUsage(cmd, errors.New("Need to specify target filename to download"))
+		nmUsage(cmd, util.NewNewtError("Need to specify filename for core"))
 		return
 	}
 
@@ -670,7 +524,7 @@ func coreEraseCmd(cmd *cobra.Command, args []string) {
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
-		Short: "Manage images on remote instance",
+		Short: "Manage images on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
@@ -678,7 +532,7 @@ func imageCmd() *cobra.Command {
 
 	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "Show target images",
+		Short: "Show images on a device",
 		Run:   imageStateListCmd,
 	}
 	imageCmd.AddCommand(listCmd)
@@ -691,73 +545,52 @@ func imageCmd() *cobra.Command {
 	imageCmd.AddCommand(testCmd)
 
 	confirmCmd := &cobra.Command{
-		Use:   "confirm",
-		Short: "Confirm current image setup",
-		Run:   imageStateConfirmCmd,
+		Use:   "confirm [hex-image-hash] -c <conn_profile>",
+		Short: "Permanently run image",
+		Long: "If a hash is specified, permanently switch to the " +
+			"corresponding image.  If no hash is specified, the current " +
+			"image setup is made permanent.",
+		Run: imageStateConfirmCmd,
 	}
 	imageCmd.AddCommand(confirmCmd)
 
-	uploadEx := "  newtmgr -c olimex image upload <image_file\n"
-	uploadEx += "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
+	uploadEx := "  newtmgr -c olimex image upload bin/slinky_zero/apps/slinky.img\n"
 
 	uploadCmd := &cobra.Command{
-		Use:     "upload",
-		Short:   "Upload image to target",
+		Use:     "upload <image-file> -c <conn_profile>",
+		Short:   "Upload image to a device",
 		Example: uploadEx,
 		Run:     imageUploadCmd,
 	}
 	imageCmd.AddCommand(uploadCmd)
 
-	fileUploadEx := "  newtmgr -c olimex image fileupload <filename> <tgt_file>\n"
-	fileUploadEx += "  newtmgr -c olimex image fileupload sample.lua /sample.lua\n"
-
-	fileUploadCmd := &cobra.Command{
-		Use:     "fileupload",
-		Short:   "Upload file to target",
-		Example: fileUploadEx,
-		Run:     fileUploadCmd,
-	}
-	imageCmd.AddCommand(fileUploadCmd)
-
-	fileDownloadEx := "  newtmgr -c olimex image filedownload <tgt_file> <filename>\n"
-	fileDownloadEx += "  newtmgr -c olimex image filedownload /cfg/mfg mfg.txt\n"
-
-	fileDownloadCmd := &cobra.Command{
-		Use:     "filedownload",
-		Short:   "Download file from target",
-		Example: fileDownloadEx,
-		Run:     fileDownloadCmd,
-	}
-	imageCmd.AddCommand(fileDownloadCmd)
-
 	coreListEx := "  newtmgr -c olimex image corelist\n"
 
 	coreListCmd := &cobra.Command{
-		Use:     "corelist",
-		Short:   "List core(s) on target",
+		Use:     "corelist -c <conn_profile>",
+		Short:   "List core(s) on a device",
 		Example: coreListEx,
 		Run:     coreListCmd,
 	}
 	imageCmd.AddCommand(coreListCmd)
 
-	coreEx := "  newtmgr -c olimex image coredownload -e <filename>\n"
-	coreEx += "  newtmgr -c olimex image coredownload -e core\n"
+	coreEx := "  newtmgr -c olimex image coredownload -e core\n"
 	coreEx += "  newtmgr -c olimex image coredownload --offset 10 -n 10 core\n"
 
 	coreDownloadCmd := &cobra.Command{
-		Use:     "coredownload",
-		Short:   "Download core from target",
+		Use:     "coredownload <core-filename> -c <conn_profile>",
+		Short:   "Download core from a device",
 		Example: coreEx,
 		Run:     coreDownloadCmd,
 	}
-	coreDownloadCmd.Flags().BoolVarP(&coreElfify, "elfify", "e", false, "Creat an elf file")
+	coreDownloadCmd.Flags().BoolVarP(&coreElfify, "elfify", "e", false, "Create an ELF file")
 	coreDownloadCmd.Flags().Uint32Var(&coreOffset, "offset", 0, "Start offset")
 	coreDownloadCmd.Flags().Uint32VarP(&coreNumBytes, "bytes", "n", 0, "Number of bytes of the core to download")
 	imageCmd.AddCommand(coreDownloadCmd)
 
 	coreConvertCmd := &cobra.Command{
 		Use:   "coreconvert <core-filename> <elf-filename>",
-		Short: "Convert core to elf",
+		Short: "Convert core to ELF",
 		Run:   coreConvertCmd,
 	}
 	imageCmd.AddCommand(coreConvertCmd)
@@ -765,8 +598,8 @@ func imageCmd() *cobra.Command {
 	coreEraseEx := "  newtmgr -c olimex image coreerase\n"
 
 	coreEraseCmd := &cobra.Command{
-		Use:     "coreerase",
-		Short:   "Erase core on target",
+		Use:     "coreerase -c <conn_profile>",
+		Short:   "Erase core on a device",
 		Example: coreEraseEx,
 		Run:     coreEraseCmd,
 	}

@@ -22,6 +22,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -36,6 +37,22 @@ var newtSilent bool
 var newtQuiet bool
 var newtVerbose bool
 var newtLogFile string
+var newtNumJobs int
+var newtHelp bool
+
+func newtDfltNumJobs() int {
+	maxProcs := runtime.GOMAXPROCS(0)
+	numCpu := runtime.NumCPU()
+
+	var numJobs int
+	if maxProcs < numCpu {
+		numJobs = maxProcs
+	} else {
+		numJobs = numCpu
+	}
+
+	return numJobs
+}
 
 func newtCmd() *cobra.Command {
 	newtHelpText := cli.FormatHelp(`Newt allows you to create your own embedded 
@@ -79,6 +96,8 @@ func newtCmd() *cobra.Command {
 			if err != nil {
 				cli.NewtUsage(nil, err)
 			}
+
+			newtutil.NewtNumJobs = newtNumJobs
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -95,12 +114,16 @@ func newtCmd() *cobra.Command {
 		"WARN", "Log level")
 	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
 		"", "Filename to tee output to")
+	newtCmd.PersistentFlags().IntVarP(&newtNumJobs, "jobs", "j",
+		newtDfltNumJobs(), "Number of concurrent build jobs")
+	newtCmd.PersistentFlags().BoolVarP(&newtHelp, "help", "h",
+		false, "Help for newt commands")
 
-	versHelpText := cli.FormatHelp(`Display the Newt version number.`)
+	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
 	versCmd := &cobra.Command{
 		Use:     "version",
-		Short:   "Display the Newt version number.",
+		Short:   "Display the Newt version number",
 		Long:    versHelpText,
 		Example: versHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -135,6 +158,7 @@ func main() {
 		os.Args = tmpArgs[0:2]
 
 		if err == nil && bc.Name() == "complete" {
+			cli.GenerateTabCompleteValues()
 			bc.Execute()
 			return
 		}

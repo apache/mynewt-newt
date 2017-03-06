@@ -20,6 +20,7 @@
 package toolchain
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -29,11 +30,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
@@ -58,8 +61,12 @@ type CompilerInfo struct {
 }
 
 type Compiler struct {
-	ObjPathList   map[string]bool
+	objPathList   map[string]bool
 	LinkerScripts []string
+
+	// Needs to be locked whenever a mutable field in this struct is accessed
+	// during a build.  Currently, objPathList is the only such member.
+	mutex *sync.Mutex
 
 	depTracker            DepTracker
 	ccPath                string
@@ -72,6 +79,8 @@ type Compiler struct {
 	ldResolveCircularDeps bool
 	ldMapFile             bool
 	ldBinFile             bool
+	baseDir               string
+	srcDir                string
 	dstDir                string
 
 	// The info to be applied during compilation.
@@ -87,6 +96,12 @@ type Compiler struct {
 	lclInfoAdded bool
 
 	extraDeps []string
+}
+
+type CompilerJob struct {
+	Filename     string
+	Compiler     *Compiler
+	CompilerType int
 }
 
 func NewCompilerInfo() *CompilerInfo {
@@ -173,15 +188,19 @@ func NewCompiler(compilerDir string, dstDir string,
 	buildProfile string) (*Compiler, error) {
 
 	c := &Compiler{
-		ObjPathList: map[string]bool{},
-		dstDir:      filepath.Clean(dstDir),
+		mutex:       &sync.Mutex{},
+		objPathList: map[string]bool{},
+		baseDir:     project.GetProject().BasePath,
+		srcDir:      "",
+		dstDir:      dstDir,
 		extraDeps:   []string{},
 	}
 
 	c.depTracker = NewDepTracker(c)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"Loading compiler %s, def %s\n", compilerDir, buildProfile)
+		"Loading compiler %s, buildProfile %s\n", compilerDir,
+		buildProfile)
 	err := c.load(compilerDir, buildProfile)
 	if err != nil {
 		return nil, err
@@ -269,6 +288,10 @@ func (c *Compiler) DstDir() string {
 	return c.dstDir
 }
 
+func (c *Compiler) SetSrcDir(srcDir string) {
+	c.srcDir = filepath.ToSlash(filepath.Clean(srcDir))
+}
+
 func (c *Compiler) AddDeps(depFilenames ...string) {
 	c.extraDeps = append(c.extraDeps, depFilenames...)
 }
@@ -280,14 +303,16 @@ func (c *Compiler) AddDeps(depFilenames ...string) {
 // still be remembered so that it gets linked in to the final library or
 // executable.
 func (c *Compiler) SkipSourceFile(srcFile string) error {
-	objFile := c.dstDir + "/" +
-		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".o"
-	c.ObjPathList[filepath.ToSlash(objFile)] = true
+	objPath := c.dstFilePath(srcFile) + ".o"
+
+	c.mutex.Lock()
+	c.objPathList[filepath.ToSlash(objPath)] = true
+	c.mutex.Unlock()
 
 	// Update the dependency tracker with the object file's modification time.
 	// This is necessary later for determining if the library / executable
 	// needs to be rebuilt.
-	err := c.depTracker.ProcessFileTime(objFile)
+	err := c.depTracker.ProcessFileTime(objPath)
 	if err != nil {
 		return err
 	}
@@ -297,28 +322,47 @@ func (c *Compiler) SkipSourceFile(srcFile string) error {
 
 // Generates a string consisting of all the necessary include path (-I)
 // options.  The result is sorted and contains no duplicate paths.
-func (c *Compiler) includesString() string {
+func (c *Compiler) includesStrings() []string {
 	if len(c.info.Includes) == 0 {
-		return ""
+		return nil
 	}
 
 	includes := util.SortFields(c.info.Includes...)
-	return "-I" + strings.Join(includes, " -I")
+
+	tokens := make([]string, len(includes))
+	for i, s := range includes {
+		s = strings.TrimPrefix(filepath.ToSlash(filepath.Clean(s)), c.baseDir+"/")
+		tokens[i] = "-I" + s
+	}
+
+	return tokens
 }
 
-func (c *Compiler) cflagsString() string {
+func (c *Compiler) cflagsStrings() []string {
 	cflags := util.SortFields(c.info.Cflags...)
-	return strings.Join(cflags, " ")
+	return cflags
 }
 
-func (c *Compiler) lflagsString() string {
+func (c *Compiler) aflagsStrings() []string {
+	aflags := util.SortFields(c.info.Aflags...)
+	return aflags
+}
+
+func (c *Compiler) lflagsStrings() []string {
 	lflags := util.SortFields(c.info.Lflags...)
-	return strings.Join(lflags, " ")
+	return lflags
 }
 
 func (c *Compiler) depsString() string {
 	extraDeps := util.SortFields(c.extraDeps...)
 	return strings.Join(extraDeps, " ") + "\n"
+}
+
+func (c *Compiler) dstFilePath(srcPath string) string {
+	relSrcPath := strings.TrimPrefix(filepath.ToSlash(srcPath), c.baseDir+"/")
+	relDstPath := strings.TrimSuffix(relSrcPath, filepath.Ext(srcPath))
+	dstPath := fmt.Sprintf("%s/%s", c.dstDir, relDstPath)
+	return dstPath
 }
 
 // Calculates the command-line invocation necessary to compile the specified C
@@ -327,28 +371,42 @@ func (c *Compiler) depsString() string {
 // @param file                  The filename of the source file to compile.
 // @param compilerType          One of the COMPILER_TYPE_[...] constants.
 //
-// @return                      (success) The command string.
-func (c *Compiler) CompileFileCmd(file string,
-	compilerType int) (string, error) {
+// @return                      (success) The command arguments.
+func (c *Compiler) CompileFileCmd(file string, compilerType int) (
+	[]string, error) {
 
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	objPath := filepath.ToSlash(c.dstDir + "/" + objFile)
+	objPath := c.dstFilePath(file) + ".o"
 
-	var cmd string
-
+	var cmdName string
+	var flags []string
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		cmd = c.ccPath
+		cmdName = c.ccPath
+		flags = c.cflagsStrings()
 	case COMPILER_TYPE_ASM:
-		cmd = c.asPath
+		cmdName = c.asPath
+
+		// Include both the compiler flags and the assembler flags.
+		// XXX: This is not great.  We don't have a way of specifying compiler
+		// flags without also passing them to the assembler.
+		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
 	case COMPILER_TYPE_CPP:
-		cmd = c.cppPath
+		cmdName = c.cppPath
+		flags = c.cflagsStrings()
 	default:
-		return "", util.NewNewtError("Unknown compiler type")
+		return nil, util.NewNewtError("Unknown compiler type")
 	}
 
-	cmd += " -c " + "-o " + objPath + " " + file +
-		" " + c.cflagsString() + " " + c.includesString()
+	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	cmd := []string{cmdName}
+	cmd = append(cmd, flags...)
+	cmd = append(cmd, c.includesStrings()...)
+	cmd = append(cmd, []string{
+		"-c",
+		"-o",
+		objPath,
+		srcPath,
+	}...)
 
 	return cmd, nil
 }
@@ -357,31 +415,35 @@ func (c *Compiler) CompileFileCmd(file string,
 //
 // @param file                  The name of the source file.
 func (c *Compiler) GenDepsForFile(file string) error {
-	if util.NodeNotExist(c.dstDir) {
-		os.MkdirAll(c.dstDir, 0755)
+	depPath := c.dstFilePath(file) + ".d"
+	depDir := filepath.Dir(depPath)
+	if util.NodeNotExist(depDir) {
+		os.MkdirAll(depDir, 0755)
 	}
 
-	depFile := c.dstDir + "/" +
-		strings.TrimSuffix(file, filepath.Ext(file)) + ".d"
-	depFile = filepath.ToSlash(depFile)
+	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	cmd := []string{c.ccPath}
+	cmd = append(cmd, c.cflagsStrings()...)
+	cmd = append(cmd, c.includesStrings()...)
+	cmd = append(cmd, []string{"-MM", "-MG", srcPath}...)
 
-	var cmd string
-	var err error
-
-	cmd = c.ccPath + " " + c.cflagsString() + " " + c.includesString() +
-		" -MM -MG " + file + " > " + depFile
-	o, err := util.ShellCommand(cmd)
+	o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
 	if err != nil {
-		return util.NewNewtError(string(o))
+		return err
 	}
 
-	// Append the extra dependencies (.yml files) to the .d file.
-	f, err := os.OpenFile(depFile, os.O_APPEND|os.O_WRONLY, 0666)
+	// Write the compiler output to a dependency file.
+	f, err := os.OpenFile(depPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return util.ChildNewtError(err)
 	}
 	defer f.Close()
 
+	if _, err := f.Write(o); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	// Append the extra dependencies (.yml files) to the .d file.
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
 	if _, err := f.WriteString(objFile + ": " + c.depsString()); err != nil {
 		return util.NewNewtError(err.Error())
@@ -390,16 +452,23 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	return nil
 }
 
+func serializeCommand(cmd []string) []byte {
+	// Use a newline as the separator rather than a space to disambiguate cases
+	// where arguments contain spaces.
+	return []byte(strings.Join(cmd, "\n"))
+}
+
 // Writes a file containing the command-line invocation used to generate the
 // specified file.  The file that this function writes can be used later to
 // determine if the set of compiler options has changed.
 //
 // @param dstFile               The output file whose build invocation is being
 //                                  recorded.
-// @param cmd                   The command to write.
-func writeCommandFile(dstFile string, cmd string) error {
+// @param cmd                   The command strings to write.
+func writeCommandFile(dstFile string, cmd []string) error {
 	cmdPath := dstFile + ".cmd"
-	err := ioutil.WriteFile(cmdPath, []byte(cmd), 0644)
+	content := serializeCommand(cmd)
+	err := ioutil.WriteFile(cmdPath, content, 0644)
 	if err != nil {
 		return err
 	}
@@ -423,32 +492,34 @@ func (c *Compiler) ensureLclInfoAdded() {
 // @param file                  The filename of the source file to compile.
 // @param compilerType          One of the COMPILER_TYPE_[...] constants.
 func (c *Compiler) CompileFile(file string, compilerType int) error {
-	if util.NodeNotExist(c.dstDir) {
-		os.MkdirAll(c.dstDir, 0755)
+	objPath := c.dstFilePath(file) + ".o"
+	objDir := filepath.Dir(objPath)
+	if util.NodeNotExist(objDir) {
+		os.MkdirAll(objDir, 0755)
 	}
 
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-
-	objPath := c.dstDir + "/" + objFile
-	c.ObjPathList[filepath.ToSlash(objPath)] = true
+	c.mutex.Lock()
+	c.objPathList[filepath.ToSlash(objPath)] = true
+	c.mutex.Unlock()
 
 	cmd, err := c.CompileFileCmd(file, compilerType)
 	if err != nil {
 		return err
 	}
 
+	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
 	case COMPILER_TYPE_CPP:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
 	case COMPILER_TYPE_ASM:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", file)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", srcPath)
 	default:
 		return util.NewNewtError("Unknown compiler type")
 	}
 
-	_, err = util.ShellCommand(cmd)
+	_, err = util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
@@ -465,6 +536,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 }
 
 func (c *Compiler) shouldIgnoreFile(file string) bool {
+	file = strings.TrimPrefix(file, c.srcDir)
 	for _, re := range c.info.IgnoreFiles {
 		if match := re.MatchString(file); match {
 			return true
@@ -474,83 +546,71 @@ func (c *Compiler) shouldIgnoreFile(file string) bool {
 	return false
 }
 
-// Compiles all C files matching the specified file glob.
-//
-func (c *Compiler) CompileC() error {
-	files, _ := filepath.Glob("*.c")
+func compilerTypeToExts(compilerType int) ([]string, error) {
+	switch compilerType {
+	case COMPILER_TYPE_C:
+		return []string{"c"}, nil
+	case COMPILER_TYPE_ASM:
+		return []string{"s", "S"}, nil
+	case COMPILER_TYPE_CPP:
+		return []string{"cc", "cpp", "cxx"}, nil
+	case COMPILER_TYPE_ARCHIVE:
+		return []string{"a"}, nil
+	default:
+		return nil, util.NewNewtError("Wrong compiler type specified to " +
+			"compilerTypeToExts")
+	}
+}
 
-	wd, err := os.Getwd()
+// Compiles all C files matching the specified file glob.
+func (c *Compiler) CompileC(filename string) error {
+	filename = filepath.ToSlash(filename)
+
+	if c.shouldIgnoreFile(filename) {
+		log.Infof("Ignoring %s because package dictates it.", filename)
+		return nil
+	}
+
+	compileRequired, err := c.depTracker.CompileRequired(filename,
+		COMPILER_TYPE_C)
 	if err != nil {
 		return err
 	}
-
-	log.Infof("Compiling C if outdated (%s/*.c) %s", wd,
-		strings.Join(files, " "))
-
-	for _, file := range files {
-		file = filepath.ToSlash(file)
-
-		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
-			log.Infof("Ignoring %s because package dictates it.", file)
-			continue
-		}
-
-		compileRequired, err := c.depTracker.CompileRequired(file,
-			COMPILER_TYPE_C)
-		if err != nil {
-			return err
-		}
-		if compileRequired {
-			err = c.CompileFile(file, COMPILER_TYPE_C)
-		} else {
-			err = c.SkipSourceFile(file)
-		}
-		if err != nil {
-			return err
-		}
+	if compileRequired {
+		err = c.CompileFile(filename, COMPILER_TYPE_C)
+	} else {
+		err = c.SkipSourceFile(filename)
+	}
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // Compiles all CPP files
-func (c *Compiler) CompileCpp() error {
-	files, _ := filepath.Glob("*.cc")
-	moreFiles, _ := filepath.Glob("*.cpp")
-	files = append(files, moreFiles...)
-	moreFiles, _ = filepath.Glob("*.cxx")
-	files = append(files, moreFiles...)
+func (c *Compiler) CompileCpp(filename string) error {
+	filename = filepath.ToSlash(filename)
 
-	wd, err := os.Getwd()
+	if c.shouldIgnoreFile(filename) {
+		log.Infof("Ignoring %s because package dictates it.", filename)
+		return nil
+	}
+
+	compileRequired, err := c.depTracker.CompileRequired(filename,
+		COMPILER_TYPE_CPP)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Compiling CC if outdated (%s/*.cc) %s", wd,
-		strings.Join(files, " "))
+	if compileRequired {
+		err = c.CompileFile(filename, COMPILER_TYPE_CPP)
+	} else {
+		err = c.SkipSourceFile(filename)
+	}
 
-	for _, file := range files {
-		file = filepath.ToSlash(file)
-
-		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
-			log.Infof("Ignoring %s because package dictates it.", file)
-		}
-
-		compileRequired, err := c.depTracker.CompileRequired(file,
-			COMPILER_TYPE_CPP)
-		if err != nil {
-			return err
-		}
-
-		if compileRequired {
-			err = c.CompileFile(file, COMPILER_TYPE_CPP)
-		} else {
-			err = c.SkipSourceFile(file)
-		}
-
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -560,37 +620,26 @@ func (c *Compiler) CompileCpp() error {
 //
 // @param match                 The file glob specifying which assembly files
 //                                  to compile.
-func (c *Compiler) CompileAs() error {
-	files, _ := filepath.Glob("*.s")
-	Sfiles, _ := filepath.Glob("*.S")
-	files = append(files, Sfiles...)
+func (c *Compiler) CompileAs(filename string) error {
+	filename = filepath.ToSlash(filename)
 
-	wd, err := os.Getwd()
+	if c.shouldIgnoreFile(filename) {
+		log.Infof("Ignoring %s because package dictates it.", filename)
+		return nil
+	}
+
+	compileRequired, err := c.depTracker.CompileRequired(filename,
+		COMPILER_TYPE_ASM)
 	if err != nil {
 		return err
 	}
-
-	log.Infof("Compiling assembly if outdated (%s/*.s) %s", wd,
-		strings.Join(files, " "))
-	for _, file := range files {
-		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
-			log.Infof("Ignoring %s because package dictates it.", file)
-			continue
-		}
-
-		compileRequired, err := c.depTracker.CompileRequired(file,
-			COMPILER_TYPE_ASM)
-		if err != nil {
-			return err
-		}
-		if compileRequired {
-			err = c.CompileFile(file, COMPILER_TYPE_ASM)
-		} else {
-			err = c.SkipSourceFile(file)
-		}
-		if err != nil {
-			return err
-		}
+	if compileRequired {
+		err = c.CompileFile(filename, COMPILER_TYPE_ASM)
+	} else {
+		err = c.SkipSourceFile(filename)
+	}
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -600,120 +649,142 @@ func (c *Compiler) CompileAs() error {
 //
 // @param match                 The file glob specifying which assembly files
 //                                  to compile.
-func (c *Compiler) CopyArchive() error {
-	files, _ := filepath.Glob("*.a")
+func (c *Compiler) CopyArchive(filename string) error {
+	filename = filepath.ToSlash(filename)
 
-	wd, err := os.Getwd()
+	if c.shouldIgnoreFile(filename) {
+		log.Infof("Ignoring %s because package dictates it.", filename)
+		return nil
+	}
+
+	tgtFile := c.dstFilePath(filename) + ".a"
+	copyRequired, err := c.depTracker.CopyRequired(filename)
 	if err != nil {
 		return err
 	}
+	if copyRequired {
+		err = util.CopyFile(filename, tgtFile)
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "copying %s\n",
+			filepath.ToSlash(tgtFile))
+	}
 
-	log.Infof("Copying archive if outdated (%s/*.a) %s", wd,
-		strings.Join(files, " "))
-	for _, file := range files {
-		if shouldIgnore := c.shouldIgnoreFile(file); shouldIgnore {
-			log.Infof("Ignoring %s because package dictates it.", file)
-			continue
-		}
-
-		tgtFile := c.DstDir() + "/" +
-			strings.TrimSuffix(file, filepath.Ext(file)) + ".a"
-		copyRequired, err := c.depTracker.CopyRequired(file)
-		if err != nil {
-			return err
-		}
-		if copyRequired {
-			err = util.CopyFile(file, tgtFile)
-			util.StatusMessage(util.VERBOSITY_DEFAULT, "copying %s\n",
-				filepath.ToSlash(tgtFile))
-		}
-
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (c *Compiler) processEntry(wd string, node os.FileInfo, cType int,
-	ignDirs []string) error {
+func (c *Compiler) processEntry(node os.FileInfo, cType int,
+	ignDirs []string) ([]CompilerJob, error) {
 
 	// check to see if we ignore this element
-	for _, entry := range ignDirs {
-		if entry == node.Name() {
-			return nil
+	for _, dir := range ignDirs {
+		if dir == node.Name() {
+			return nil, nil
 		}
 	}
 
 	// Check in the user specified ignore directories
-	for _, entry := range c.info.IgnoreDirs {
-		if entry.MatchString(node.Name()) {
-			return nil
+	for _, dir := range c.info.IgnoreDirs {
+		if dir.MatchString(node.Name()) {
+			return nil, nil
 		}
 	}
 
-	// if not, recurse into the directory
-	os.Chdir(wd + "/" + node.Name())
-	return c.RecursiveCompile(cType, ignDirs)
+	// If not, recurse into the directory.  Make the output directory
+	// structure mirror that of the source tree.
+	prevSrcDir := c.srcDir
+	prevDstDir := c.dstDir
+
+	c.srcDir += "/" + node.Name()
+	c.dstDir += "/" + node.Name()
+
+	entries, err := c.RecursiveCollectEntries(cType, ignDirs)
+
+	// Restore the compiler destination directory now that the child
+	// directory has been fully built.
+	c.srcDir = prevSrcDir
+	c.dstDir = prevDstDir
+
+	return entries, err
 }
 
-func (c *Compiler) RecursiveCompile(cType int, ignDirs []string) error {
+func (c *Compiler) RecursiveCollectEntries(cType int,
+	ignDirs []string) ([]CompilerJob, error) {
+
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
+
+	if err := os.Chdir(c.baseDir); err != nil {
+		return nil, util.ChildNewtError(err)
+	}
 
 	// Get a list of files in the current directory, and if they are a
 	// directory, and that directory is not in the ignDirs variable, then
 	// recurse into that directory and compile the files in there
 
-	wd, err := os.Getwd()
+	ls, err := ioutil.ReadDir(c.srcDir)
 	if err != nil {
-		return util.NewNewtError(err.Error())
-	}
-	wd = filepath.ToSlash(wd)
-
-	dirList, err := ioutil.ReadDir(wd)
-	if err != nil {
-		return util.NewNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	}
 
-	for _, node := range dirList {
+	entries := []CompilerJob{}
+	for _, node := range ls {
 		if node.IsDir() {
-			err = c.processEntry(wd, node, cType, ignDirs)
+			subEntries, err := c.processEntry(node, cType, ignDirs)
 			if err != nil {
-				return err
+				return nil, err
 			}
+
+			entries = append(entries, subEntries...)
 		}
 	}
 
-	err = os.Chdir(wd)
+	exts, err := compilerTypeToExts(cType)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	switch cType {
+	for _, ext := range exts {
+		files, _ := filepath.Glob(c.srcDir + "/*." + ext)
+		for _, file := range files {
+			entries = append(entries, CompilerJob{
+				Filename:     file,
+				Compiler:     c,
+				CompilerType: cType,
+			})
+		}
+	}
+
+	return entries, nil
+}
+
+func RunJob(record CompilerJob) error {
+	switch record.CompilerType {
 	case COMPILER_TYPE_C:
-		return c.CompileC()
+		return record.Compiler.CompileC(record.Filename)
 	case COMPILER_TYPE_ASM:
-		return c.CompileAs()
+		return record.Compiler.CompileAs(record.Filename)
 	case COMPILER_TYPE_CPP:
-		return c.CompileCpp()
+		return record.Compiler.CompileCpp(record.Filename)
 	case COMPILER_TYPE_ARCHIVE:
-		return c.CopyArchive()
+		return record.Compiler.CopyArchive(record.Filename)
 	default:
 		return util.NewNewtError("Wrong compiler type specified to " +
-			"RecursiveCompile")
+			"RunJob")
 	}
 }
 
-func (c *Compiler) getObjFiles(baseObjFiles []string) string {
-	for objName, _ := range c.ObjPathList {
+func (c *Compiler) getObjFiles(baseObjFiles []string) []string {
+	c.mutex.Lock()
+	for objName, _ := range c.objPathList {
 		baseObjFiles = append(baseObjFiles, objName)
 	}
+	c.mutex.Unlock()
 
 	sort.Strings(baseObjFiles)
-	objList := strings.Join(baseObjFiles, " ")
-	return objList
+	return baseObjFiles
 }
 
 // Calculates the command-line invocation necessary to link the specified elf
@@ -725,40 +796,48 @@ func (c *Compiler) getObjFiles(baseObjFiles []string) string {
 //                                  gets generated.
 // @param objFiles              An array of the source .o and .a filenames.
 //
-// @return                      (success) The command string.
+// @return                      (success) The command tokens.
 func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
-	objFiles []string, keepSymbols []string, elfLib string) string {
+	objFiles []string, keepSymbols []string, elfLib string) []string {
 
 	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
-	cmd := c.ccPath + " -o " + dstFile + " " + " " + c.cflagsString()
+	cmd := []string{
+		c.ccPath,
+		"-o",
+		dstFile,
+	}
+	cmd = append(cmd, c.cflagsStrings()...)
 
 	if elfLib != "" {
-		cmd += " -Wl,--just-symbols=" + elfLib
+		cmd = append(cmd, "-Wl,--just-symbols="+elfLib)
 	}
 
 	if c.ldResolveCircularDeps {
-		cmd += " -Wl,--start-group " + objList + " -Wl,--end-group "
+		cmd = append(cmd, "-Wl,--start-group")
+		cmd = append(cmd, objList...)
+		cmd = append(cmd, "-Wl,--end-group")
 	} else {
-		cmd += " " + objList
+		cmd = append(cmd, objList...)
 	}
 
 	if keepSymbols != nil {
 		for _, name := range keepSymbols {
-			cmd += " -Wl,--undefined=" + name
+			cmd = append(cmd, "-Wl,--undefined="+name)
 		}
 	}
 
-	cmd += " " + c.lflagsString()
+	cmd = append(cmd, c.lflagsStrings()...)
 
 	/* so we don't get multiple global definitions of the same vartiable */
 	//cmd += " -Wl,--warn-common "
 
 	for _, ls := range c.LinkerScripts {
-		cmd += " -T " + ls
+		cmd = append(cmd, "-T")
+		cmd = append(cmd, ls)
 	}
 	if options["mapFile"] {
-		cmd += " -Wl,-Map=" + dstFile + ".map"
+		cmd = append(cmd, "-Wl,-Map="+dstFile+".map")
 	}
 
 	return cmd
@@ -789,7 +868,7 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	}
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles, keepSymbols, elfLib)
-	_, err := util.ShellCommand(cmd)
+	_, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
@@ -814,13 +893,22 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 func (c *Compiler) generateExtras(elfFilename string,
 	options map[string]bool) error {
 
-	var cmd string
-
 	if options["binFile"] {
 		binFile := elfFilename + ".bin"
-		cmd = c.ocPath + " -R .bss -R .bss.core -R .bss.core.nz -O binary " +
-			elfFilename + " " + binFile
-		_, err := util.ShellCommand(cmd)
+		cmd := []string{
+			c.ocPath,
+			"-R",
+			".bss",
+			"-R",
+			".bss.core",
+			"-R",
+			".bss.core.nz",
+			"-O",
+			"binary",
+			elfFilename,
+			binFile,
+		}
+		_, err := util.ShellCommand(cmd, nil)
 		if err != nil {
 			return err
 		}
@@ -828,32 +916,56 @@ func (c *Compiler) generateExtras(elfFilename string,
 
 	if options["listFile"] {
 		listFile := elfFilename + ".lst"
-		// if list file exists, remove it
-		if util.NodeExist(listFile) {
-			if err := os.RemoveAll(listFile); err != nil {
-				return err
-			}
+		f, err := os.OpenFile(listFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+			0666)
+		if err != nil {
+			return util.NewNewtError(err.Error())
 		}
+		defer f.Close()
 
-		cmd = c.odPath + " -wxdS " + elfFilename + " >> " + listFile
-		_, err := util.ShellCommand(cmd)
+		cmd := []string{
+			c.odPath,
+			"-wxdS",
+			elfFilename,
+		}
+		o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
 		if err != nil {
 			// XXX: gobjdump appears to always crash.  Until we get that sorted
 			// out, don't fail the link process if lst generation fails.
 			return nil
 		}
 
-		sects := []string{".text", ".rodata", ".data"}
-		for _, sect := range sects {
-			cmd = c.odPath + " -s -j " + sect + " " + elfFilename + " >> " +
-				listFile
-			util.ShellCommand(cmd)
+		if _, err := f.Write(o); err != nil {
+			return util.ChildNewtError(err)
 		}
 
-		cmd = c.osPath + " " + elfFilename + " >> " + listFile
-		_, err = util.ShellCommand(cmd)
+		sects := []string{".text", ".rodata", ".data"}
+		for _, sect := range sects {
+			cmd := []string{
+				c.odPath,
+				"-s",
+				"-j",
+				sect,
+				elfFilename,
+			}
+			o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
+			if err != nil {
+				if _, err := f.Write(o); err != nil {
+					return util.NewNewtError(err.Error())
+				}
+			}
+		}
+
+		cmd = []string{
+			c.osPath,
+			elfFilename,
+		}
+		o, err = util.ShellCommandLimitDbgOutput(cmd, nil, 0)
 		if err != nil {
 			return err
+		}
+		if _, err := f.Write(o); err != nil {
+			return util.NewNewtError(err.Error())
 		}
 	}
 
@@ -861,12 +973,15 @@ func (c *Compiler) generateExtras(elfFilename string,
 }
 
 func (c *Compiler) PrintSize(elfFilename string) (string, error) {
-	cmd := c.osPath + " " + elfFilename
-	rsp, err := util.ShellCommand(cmd)
+	cmd := []string{
+		c.osPath,
+		elfFilename,
+	}
+	o, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return "", err
 	}
-	return string(rsp), nil
+	return string(o), nil
 }
 
 // Links the specified elf file and generates some associated artifacts (lst,
@@ -908,33 +1023,39 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string,
 	return nil
 }
 
-func (c *Compiler) RenameSymbolsCmd(sm *symbol.SymbolMap, libraryFile string, ext string) string {
-	val := c.ocPath
+func (c *Compiler) RenameSymbolsCmd(
+	sm *symbol.SymbolMap, libraryFile string, ext string) []string {
 
+	cmd := []string{c.ocPath}
 	for s, _ := range *sm {
-		val += " --redefine-sym " + s + "=" + s + ext
+		cmd = append(cmd, "--redefine-sym")
+		cmd = append(cmd, s+"="+s+ext)
 	}
 
-	val += " " + libraryFile
-	return val
+	cmd = append(cmd, libraryFile)
+	return cmd
 }
 
-func (c *Compiler) ParseLibraryCmd(libraryFile string) string {
-	val := c.odPath + " -t " + libraryFile
-	return val
+func (c *Compiler) ParseLibraryCmd(libraryFile string) []string {
+	return []string{
+		c.odPath,
+		"-t",
+		libraryFile,
+	}
 }
 
-func (c *Compiler) CopySymbolsCmd(infile string, outfile string, sm *symbol.SymbolMap) string {
+func (c *Compiler) CopySymbolsCmd(infile string, outfile string, sm *symbol.SymbolMap) []string {
 
-	val := c.ocPath + " -S "
-
+	cmd := []string{c.ocPath, "-S"}
 	for symbol, _ := range *sm {
-		val += " -K " + symbol
+		cmd = append(cmd, "-K")
+		cmd = append(cmd, symbol)
 	}
 
-	val += " " + infile
-	val += " " + outfile
-	return val
+	cmd = append(cmd, infile)
+	cmd = append(cmd, outfile)
+
+	return cmd
 }
 
 // Calculates the command-line invocation necessary to archive the specified
@@ -945,10 +1066,15 @@ func (c *Compiler) CopySymbolsCmd(infile string, outfile string, sm *symbol.Symb
 //
 // @return                      The command string.
 func (c *Compiler) CompileArchiveCmd(archiveFile string,
-	objFiles []string) string {
+	objFiles []string) []string {
 
-	objList := c.getObjFiles(objFiles)
-	return c.arPath + " rcs " + archiveFile + " " + objList
+	cmd := []string{
+		c.arPath,
+		"rcs",
+		archiveFile,
+	}
+	cmd = append(cmd, c.getObjFiles(objFiles)...)
+	return cmd
 }
 
 func linkerScriptFileName(archiveFile string) string {
@@ -964,7 +1090,8 @@ func createSplitArchiveLinkerFile(archiveFile string,
 	ar_script_name := linkerScriptFileName(archiveFile)
 
 	// open the file and write out the script
-	f, err := os.OpenFile(ar_script_name, os.O_CREATE|os.O_WRONLY, 0666)
+	f, err := os.OpenFile(ar_script_name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0666)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
@@ -1022,23 +1149,31 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	}
 
 	// Delete the old archive, if it exists.
-	err = os.Remove(archiveFile)
+	os.Remove(archiveFile)
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s\n",
-		path.Base(archiveFile))
 	objList := c.getObjFiles([]string{})
-	if objList == "" {
+	if objList == nil {
 		return nil
 	}
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Archiving %s with object "+
-		"files %s\n", archiveFile, objList)
+
+	if len(objList) == 0 {
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
+			"Not archiving %s; no object files\n", archiveFile)
+		return nil
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
+		path.Base(archiveFile))
+	util.StatusMessage(util.VERBOSITY_VERBOSE, " with object files %s",
+		strings.Join(objList, " "))
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
 	if err != nil && !os.IsNotExist(err) {
 		return util.NewNewtError(err.Error())
 	}
 
 	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
-	_, err = util.ShellCommand(cmd)
+	_, err = util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
@@ -1125,7 +1260,7 @@ func (c *Compiler) RenameSymbols(sm *symbol.SymbolMap, libraryFile string, ext s
 
 	cmd := c.RenameSymbolsCmd(sm, libraryFile, ext)
 
-	_, err := util.ShellCommand(cmd)
+	_, err := util.ShellCommand(cmd, nil)
 
 	return err
 }
@@ -1133,7 +1268,7 @@ func (c *Compiler) RenameSymbols(sm *symbol.SymbolMap, libraryFile string, ext s
 func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
 	cmd := c.ParseLibraryCmd(libraryFile)
 
-	out, err := util.ShellCommand(cmd)
+	out, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err, nil
 	}
@@ -1143,7 +1278,7 @@ func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
 func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolMap) error {
 	cmd := c.CopySymbolsCmd(infile, outfile, sm)
 
-	_, err := util.ShellCommand(cmd)
+	_, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}

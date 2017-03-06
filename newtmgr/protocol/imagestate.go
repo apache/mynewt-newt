@@ -34,6 +34,7 @@ type ImageStateEntry struct {
 	Pending   bool   `codec:"pending"`
 	Confirmed bool   `codec:"confirmed"`
 	Active    bool   `codec:"active"`
+	Permanent bool   `codec:"permanent"`
 }
 
 type ImageStateRsp struct {
@@ -74,7 +75,7 @@ func (i *ImageStateReadReq) Encode() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_STATE
+	nmr.Id = IMGMGR_NMGR_ID_STATE
 	nmr.Len = 0
 
 	return nmr, nil
@@ -103,7 +104,7 @@ func (i *ImageStateWriteReq) Encode() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_STATE
+	nmr.Id = IMGMGR_NMGR_ID_STATE
 
 	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))

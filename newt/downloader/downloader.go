@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -47,8 +47,9 @@ type GenericDownloader struct {
 
 type GithubDownloader struct {
 	GenericDownloader
-	User string
-	Repo string
+	Server string
+	User   string
+	Repo   string
 
 	// Github access token for private repositories.
 	Token string
@@ -78,19 +79,20 @@ func checkout(repoDir string, commit string) error {
 		return util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
 			err.Error()))
 	}
+	gitPath = filepath.ToSlash(gitPath)
 
 	if err := os.Chdir(repoDir); err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
 	// Checkout the specified commit.
-	cmds := []string{
+	cmd := []string{
 		gitPath,
 		"checkout",
 		commit,
 	}
 
-	if o, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+	if o, err := util.ShellCommand(cmd, nil); err != nil {
 		return util.NewNewtError(string(o))
 	}
 
@@ -116,8 +118,14 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 }
 
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-		gd.User, gd.Repo, name, gd.Branch())
+	server := "api.github.com"
+	prefix := "repos"
+	if gd.Server != "" {
+		server = gd.Server
+		prefix = "api/v3/repos"
+	}
+	url := fmt.Sprintf("https://%s/%s/%s/%s/contents/%s?ref=%s",
+		server, prefix, gd.User, gd.Repo, name, gd.Branch())
 
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", "application/vnd.github.v3.raw")
@@ -173,8 +181,12 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 
 	// Currently only the master branch is supported.
 	branch := "master"
+	server := "github.com"
 
-	url := fmt.Sprintf("https://github.com/%s/%s.git", gd.User, gd.Repo)
+	if gd.Server != "" {
+		server = gd.Server
+	}
+	url := fmt.Sprintf("https://%s/%s/%s.git", server, gd.User, gd.Repo)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
 		commit, url)
@@ -185,9 +197,10 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 		return "", util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
 			err.Error()))
 	}
+	gitPath = filepath.ToSlash(gitPath)
 
 	// Clone the repository.
-	cmds := []string{
+	cmd := []string{
 		gitPath,
 		"clone",
 		"-b",
@@ -197,12 +210,12 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
-		if err := util.ShellInteractiveCommand(cmds, nil); err != nil {
+		if err := util.ShellInteractiveCommand(cmd, nil); err != nil {
 			os.RemoveAll(tmpdir)
 			return "", err
 		}
 	} else {
-		if _, err := util.ShellCommand(strings.Join(cmds, " ")); err != nil {
+		if _, err := util.ShellCommand(cmd, nil); err != nil {
 			return "", err
 		}
 	}
@@ -263,6 +276,7 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 	case "github":
 		gd := NewGithubDownloader()
 
+		gd.Server = repoVars["server"]
 		gd.User = repoVars["user"]
 		gd.Repo = repoVars["repo"]
 

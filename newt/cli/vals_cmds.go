@@ -55,7 +55,7 @@ func valsRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func AddValsCommands(cmd *cobra.Command) {
-	valsShortHelp := "Displays valid values for the specified element type(s)"
+	valsShortHelp := "Display valid values for the specified element type(s)"
 
 	valsLongHelp := valsShortHelp + ".\n\nElement types:\n    " +
 		strings.Join(VarTypes(), "\n    ")

@@ -61,6 +61,9 @@ type Image struct {
 	SigningEC  *ecdsa.PrivateKey
 	KeyId      uint8
 	Hash       []byte
+	SrcSkip    uint // Number of bytes to skip from the source image.
+	HeaderSize uint // If non-zero pad out the header to this size.
+	TotalSize  uint // Total size, in bytes, of the generated .img file.
 }
 
 type ImageHdr struct {
@@ -99,6 +102,7 @@ const (
 	IMAGE_F_PKCS15_RSA2048_SHA256 = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
 	IMAGE_F_ECDSA224_SHA256       = 0x00000008 /* ECDSA224 over SHA256 */
 	IMAGE_F_NON_BOOTABLE          = 0x00000010 /* non bootable image */
+	IMAGE_F_ECDSA256_SHA256       = 0x00000020 /* ECDSA256 over SHA256 */
 )
 
 /*
@@ -108,12 +112,38 @@ const (
 	IMAGE_TLV_SHA256   = 1
 	IMAGE_TLV_RSA2048  = 2
 	IMAGE_TLV_ECDSA224 = 3
+	IMAGE_TLV_ECDSA256 = 4
 )
 
 /*
  * Data that's going to go to build manifest file
  */
+type ImageManifestSizeArea struct {
+	Name string `json:"name"`
+	Size uint32 `json:"size"`
+}
+
+type ImageManifestSizeSym struct {
+	Name  string                   `json:"name"`
+	Areas []*ImageManifestSizeArea `json:"areas"`
+}
+
+type ImageManifestSizeFile struct {
+	Name string                  `json:"name"`
+	Syms []*ImageManifestSizeSym `json:"sym"`
+}
+
+type ImageManifestSizePkg struct {
+	Name  string                   `json:"name"`
+	Files []*ImageManifestSizeFile `json:"files"`
+}
+
+type ImageManifestSizeCollector struct {
+	Pkgs []*ImageManifestSizePkg
+}
+
 type ImageManifest struct {
+	Name       string              `json:"name"`
 	Date       string              `json:"build_time"`
 	Version    string              `json:"build_version"`
 	BuildID    string              `json:"id"`
@@ -122,9 +152,12 @@ type ImageManifest struct {
 	Loader     string              `json:"loader"`
 	LoaderHash string              `json:"loader_hash"`
 	Pkgs       []*ImageManifestPkg `json:"pkgs"`
-	LoaderPkgs []*ImageManifestPkg `json:"loader_pkgs"`
+	LoaderPkgs []*ImageManifestPkg `json:"loader_pkgs,omitempty"`
 	TgtVars    []string            `json:"target"`
 	Repos      []ImageManifestRepo `json:"repos"`
+
+	PkgSizes       []*ImageManifestSizePkg `json:"pkgsz"`
+	LoaderPkgSizes []*ImageManifestSizePkg `json:"loader_pkgsz,omitempty"`
 }
 
 type ImageManifestPkg struct {
@@ -148,6 +181,50 @@ type ECDSASig struct {
 	S *big.Int
 }
 
+func ParseVersion(versStr string) (ImageVersion, error) {
+	var err error
+	var major uint64
+	var minor uint64
+	var rev uint64
+	var buildNum uint64
+	var ver ImageVersion
+
+	components := strings.Split(versStr, ".")
+	major, err = strconv.ParseUint(components[0], 10, 8)
+	if err != nil {
+		return ver, util.FmtNewtError("Invalid version string %s", versStr)
+	}
+	if len(components) > 1 {
+		minor, err = strconv.ParseUint(components[1], 10, 8)
+		if err != nil {
+			return ver, util.FmtNewtError("Invalid version string %s", versStr)
+		}
+	}
+	if len(components) > 2 {
+		rev, err = strconv.ParseUint(components[2], 10, 16)
+		if err != nil {
+			return ver, util.FmtNewtError("Invalid version string %s", versStr)
+		}
+	}
+	if len(components) > 3 {
+		buildNum, err = strconv.ParseUint(components[3], 10, 32)
+		if err != nil {
+			return ver, util.FmtNewtError("Invalid version string %s", versStr)
+		}
+	}
+
+	ver.Major = uint8(major)
+	ver.Minor = uint8(minor)
+	ver.Rev = uint16(rev)
+	ver.BuildNum = uint32(buildNum)
+	return ver, nil
+}
+
+func (ver ImageVersion) String() string {
+	return fmt.Sprintf("%d.%d.%d.%d",
+		ver.Major, ver.Minor, ver.Rev, ver.BuildNum)
+}
+
 func NewImage(srcBinPath string, dstImgPath string) (*Image, error) {
 	image := &Image{}
 
@@ -157,46 +234,15 @@ func NewImage(srcBinPath string, dstImgPath string) (*Image, error) {
 }
 
 func (image *Image) SetVersion(versStr string) error {
-	var err error
-	var major uint64
-	var minor uint64
-	var rev uint64
-	var buildNum uint64
-
-	components := strings.Split(versStr, ".")
-	major, err = strconv.ParseUint(components[0], 10, 8)
+	ver, err := ParseVersion(versStr)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-			versStr))
+		return err
 	}
-	if len(components) > 1 {
-		minor, err = strconv.ParseUint(components[1], 10, 8)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-				versStr))
-		}
-	}
-	if len(components) > 2 {
-		rev, err = strconv.ParseUint(components[2], 10, 16)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-				versStr))
-		}
-	}
-	if len(components) > 3 {
-		buildNum, err = strconv.ParseUint(components[3], 10, 32)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Invalid version string %s",
-				versStr))
-		}
-	}
-	image.Version.Major = uint8(major)
-	image.Version.Minor = uint8(minor)
-	image.Version.Rev = uint16(rev)
-	image.Version.BuildNum = uint32(buildNum)
+
 	log.Debugf("Assigning version number %d.%d.%d.%d\n",
-		image.Version.Major, image.Version.Minor,
-		image.Version.Rev, image.Version.BuildNum)
+		ver.Major, ver.Minor, ver.Rev, ver.BuildNum)
+
+	image.Version = ver
 
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.LittleEndian, image.Version)
@@ -214,7 +260,15 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
 	}
 
-	block, _ := pem.Decode(data)
+	block, data := pem.Decode(data)
+	if block != nil && block.Type == "EC PARAMETERS" {
+		/*
+		 * Openssl prepends an EC PARAMETERS block before the
+		 * key itself.  If we see this first, just skip it,
+		 * and go on to the data block.
+		 */
+		block, _ = pem.Decode(data)
+	}
 	if block != nil && block.Type == "RSA PRIVATE KEY" {
 		/*
 		 * ParsePKCS1PrivateKey returns an RSA private key from its ASN.1
@@ -245,6 +299,57 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 	image.KeyId = keyId
 
 	return nil
+}
+
+func (image *Image) sigHdrType() (uint32, error) {
+	if image.SigningRSA != nil {
+		return IMAGE_F_PKCS15_RSA2048_SHA256, nil
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return IMAGE_F_ECDSA224_SHA256, nil
+		case "P-256":
+			return IMAGE_F_ECDSA256_SHA256, nil
+		default:
+			return 0, util.NewNewtError("Unsupported ECC curve")
+		}
+	} else {
+		return 0, nil
+	}
+}
+
+func (image *Image) sigLen() uint16 {
+	if image.SigningRSA != nil {
+		return 256
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return 68
+		case "P-256":
+			return 72
+		default:
+			return 0
+		}
+	} else {
+		return 0
+	}
+}
+
+func (image *Image) sigTlvType() uint8 {
+	if image.SigningRSA != nil {
+		return IMAGE_TLV_RSA2048
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return IMAGE_TLV_ECDSA224
+		case "P-256":
+			return IMAGE_TLV_ECDSA256
+		default:
+			return 0
+		}
+	} else {
+		return 0
+	}
 }
 
 func (image *Image) Generate(loader *Image) error {
@@ -292,19 +397,21 @@ func (image *Image) Generate(loader *Image) error {
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
 		Pad2:  0,
-		ImgSz: uint32(binInfo.Size()),
+		ImgSz: uint32(binInfo.Size()) - uint32(image.SrcSkip),
 		Flags: 0,
 		Vers:  image.Version,
 		Pad3:  0,
 	}
 
-	if image.SigningRSA != nil {
-		hdr.TlvSz = 4 + 256
-		hdr.Flags = IMAGE_F_PKCS15_RSA2048_SHA256
-		hdr.KeyId = image.KeyId
-	} else if image.SigningEC != nil {
-		hdr.TlvSz = 4 + 68
-		hdr.Flags = IMAGE_F_ECDSA224_SHA256
+	hdr.Flags, err = image.sigHdrType()
+	if err != nil {
+		return err
+	}
+	if hdr.Flags != 0 {
+		/*
+		 * Signature present
+		 */
+		hdr.TlvSz = 4 + image.sigLen()
 		hdr.KeyId = image.KeyId
 	}
 
@@ -313,6 +420,19 @@ func (image *Image) Generate(loader *Image) error {
 
 	if loader != nil {
 		hdr.Flags |= IMAGE_F_NON_BOOTABLE
+	}
+
+	if image.HeaderSize != 0 {
+		/*
+		 * Pad the header out to the given size.  There will
+		 * just be zeros between the header and the start of
+		 * the image when it is padded.
+		 */
+		if image.HeaderSize < IMAGE_HEADER_SIZE {
+			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+		}
+
+		hdr.HdrSz = uint16(image.HeaderSize)
 	}
 
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
@@ -324,6 +444,50 @@ func (image *Image) Generate(loader *Image) error {
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
 			err.Error()))
+	}
+
+	if image.HeaderSize > IMAGE_HEADER_SIZE {
+		/*
+		 * Pad the image (and hash) with zero bytes to fill
+		 * out the buffer.
+		 */
+		buf := make([]byte, image.HeaderSize-IMAGE_HEADER_SIZE)
+
+		_, err = imgFile.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to write padding: %s",
+				err.Error()))
+		}
+
+		_, err = hash.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to hash padding: %s",
+				err.Error()))
+		}
+	}
+
+	/*
+	 * Skip requested initial part of image.
+	 */
+	if image.SrcSkip > 0 {
+		buf := make([]byte, image.SrcSkip)
+		_, err = binFile.Read(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
+				image.SourceBin, err.Error()))
+		}
+
+		nonZero := false
+		for _, b := range buf {
+			if b != 0 {
+				nonZero = true
+				break
+			}
+		}
+		if nonZero {
+			log.Warnf("Skip requested of iamge %s, but image not preceeded by %d bytes of all zeros",
+				image.SourceBin, image.SrcSkip)
+		}
 	}
 
 	/*
@@ -406,6 +570,8 @@ func (image *Image) Generate(loader *Image) error {
 				"Failed to compute signature: %s", err))
 		}
 
+		sigLen := image.sigLen()
+
 		var ECDSA ECDSASig
 		ECDSA.R = r
 		ECDSA.S = s
@@ -414,14 +580,14 @@ func (image *Image) Generate(loader *Image) error {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to construct signature: %s", err))
 		}
-		if len(signature) > 68 {
+		if len(signature) > int(sigLen) {
 			return util.NewNewtError(fmt.Sprintf(
 				"Something is really wrong\n"))
 		}
 		tlv := &ImageTrailerTlv{
-			Type: IMAGE_TLV_ECDSA224,
+			Type: image.sigTlvType(),
 			Pad:  0,
-			Len:  68,
+			Len:  sigLen,
 		}
 		err = binary.Write(imgFile, binary.LittleEndian, tlv)
 		if err != nil {
@@ -433,7 +599,7 @@ func (image *Image) Generate(loader *Image) error {
 			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
 				err.Error()))
 		}
-		pad := make([]byte, 68-len(signature))
+		pad := make([]byte, int(sigLen)-len(signature))
 		_, err = imgFile.Write(pad)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
@@ -444,6 +610,14 @@ func (image *Image) Generate(loader *Image) error {
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Computed Hash for image %s as %s \n",
 		image.TargetImg, hex.EncodeToString(image.Hash))
+
+	sz, err := imgFile.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return util.FmtNewtError("Failed to calculate file size of generated "+
+			"image %s: %s", image.TargetImg, err.Error())
+	}
+	image.TotalSize = uint(sz)
+
 	return nil
 }
 
@@ -481,15 +655,36 @@ func (r *RepoManager) GetImageManifestPkg(
 		Name: ip.Repo,
 	}
 
-	res, err := util.ShellCommand(fmt.Sprintf("cd %s && git rev-parse HEAD",
-		path))
+	// Make sure we restore the current working dir to whatever it was when
+	// this function was called
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Debugf("Unable to determine current working directory: %v", err)
+		return ip
+	}
+	defer os.Chdir(cwd)
+
+	if err := os.Chdir(path); err != nil {
+		return ip
+	}
+
+	var res []byte
+
+	res, err = util.ShellCommand([]string{
+		"git",
+		"rev-parse",
+		"HEAD",
+	}, nil)
 	if err != nil {
 		log.Debugf("Unable to determine commit hash for %s: %v", path, err)
 		repo.Commit = "UNKNOWN"
 	} else {
 		repo.Commit = strings.TrimSpace(string(res))
-		res, err := util.ShellCommand(fmt.Sprintf(
-			"cd %s && git status --porcelain", path))
+		res, err = util.ShellCommand([]string{
+			"git",
+			"status",
+			"--porcelain",
+		}, nil)
 		if err != nil {
 			log.Debugf("Unable to determine dirty state for %s: %v", path, err)
 		} else {
@@ -497,8 +692,12 @@ func (r *RepoManager) GetImageManifestPkg(
 				repo.Dirty = true
 			}
 		}
-		res, err = util.ShellCommand(fmt.Sprintf(
-			"cd %s && git config --get remote.origin.url", path))
+		res, err = util.ShellCommand([]string{
+			"git",
+			"config",
+			"--get",
+			"remote.origin.url",
+		}, nil)
 		if err != nil {
 			log.Debugf("Unable to determine URL for %s: %v", path, err)
 		} else {
@@ -524,4 +723,55 @@ func (r *RepoManager) AllRepos() []ImageManifestRepo {
 	}
 
 	return repos
+}
+
+func NewImageManifestSizeCollector() *ImageManifestSizeCollector {
+	return &ImageManifestSizeCollector{}
+}
+
+func (c *ImageManifestSizeCollector) AddPkg(pkg string) *ImageManifestSizePkg {
+	p := &ImageManifestSizePkg{
+		Name: pkg,
+	}
+	c.Pkgs = append(c.Pkgs, p)
+
+	return p
+}
+
+func (c *ImageManifestSizePkg) AddSymbol(file string, sym string, area string,
+	symSz uint32) {
+	f := c.addFile(file)
+	s := f.addSym(sym)
+	s.addArea(area, symSz)
+}
+
+func (p *ImageManifestSizePkg) addFile(file string) *ImageManifestSizeFile {
+	for _, f := range p.Files {
+		if f.Name == file {
+			return f
+		}
+	}
+	f := &ImageManifestSizeFile{
+		Name: file,
+	}
+	p.Files = append(p.Files, f)
+
+	return f
+}
+
+func (f *ImageManifestSizeFile) addSym(sym string) *ImageManifestSizeSym {
+	s := &ImageManifestSizeSym{
+		Name: sym,
+	}
+	f.Syms = append(f.Syms, s)
+
+	return s
+}
+
+func (s *ImageManifestSizeSym) addArea(area string, areaSz uint32) {
+	a := &ImageManifestSizeArea{
+		Name: area,
+		Size: areaSz,
+	}
+	s.Areas = append(s.Areas, a)
 }

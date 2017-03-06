@@ -20,6 +20,7 @@
 package pkg
 
 import (
+	"runtime"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/flash"
@@ -101,6 +102,13 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 func (bsp *BspPackage) Reload(features map[string]bool) error {
 	var err error
 
+	if features == nil {
+		features = map[string]bool{
+			strings.ToUpper(runtime.GOOS): true,
+		}
+	} else {
+		features[strings.ToUpper(runtime.GOOS)] = true
+	}
 	bsp.BspV, err = util.ReadConfig(bsp.BasePath(),
 		strings.TrimSuffix(BSP_YAML_FILENAME, ".yml"))
 	if err != nil {
@@ -131,7 +139,6 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 	if err != nil {
 		return err
 	}
-
 	bsp.DebugScript, err = bsp.resolvePathSetting(
 		features, "bsp.debugscript")
 	if err != nil {

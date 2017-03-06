@@ -29,7 +29,7 @@ import (
 )
 
 type NmgrReq struct {
-	Op    uint8
+	Op    uint8 /* 3 bits of opcode */
 	Flags uint8
 	Len   uint16
 	Group uint16

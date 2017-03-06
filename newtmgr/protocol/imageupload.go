@@ -58,7 +58,7 @@ func (i *ImageUpload) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_UPLOAD
+	nmr.Id = IMGMGR_NMGR_ID_UPLOAD
 
 	data := []byte{}
 

@@ -35,12 +35,24 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*pkg.LocalPackage {
-	sm := map[int][]*pkg.LocalPackage{}
+type initFunc struct {
+	stage int
+	name  string
+	pkg   *pkg.LocalPackage
+}
+
+func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*initFunc {
+	sm := map[int][]*initFunc{}
 
 	for _, p := range pkgs {
-		stage := p.InitStage()
-		sm[stage] = append(sm[stage], p)
+		for name, stage := range p.Init() {
+			initFunc := &initFunc{
+				stage: stage,
+				name:  name,
+				pkg:   p,
+			}
+			sm[stage] = append(sm[stage], initFunc)
+		}
 	}
 
 	return sm
@@ -48,38 +60,26 @@ func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*pkg.LocalPackage {
 
 func writePrototypes(pkgs []*pkg.LocalPackage, w io.Writer) {
 	sorted := pkg.SortLclPkgs(pkgs)
-	fmt.Fprintf(w, "void os_init(void);\n")
 	for _, p := range sorted {
-		fmt.Fprintf(w, "void %s(void);\n", p.InitFnName())
-	}
-}
-
-func writeStage(stage int, pkgs []*pkg.LocalPackage, w io.Writer) {
-	sorted := pkg.SortLclPkgs(pkgs)
-
-	fmt.Fprintf(w, "    /*** Stage %d */\n", stage)
-	for i, p := range sorted {
-		fmt.Fprintf(w, "    /* %d.%d: %s */\n", stage, i, p.Name())
-		fmt.Fprintf(w, "    %s();\n", p.InitFnName())
-	}
-}
-
-func onlyPkgsWithInit(pkgs []*pkg.LocalPackage) []*pkg.LocalPackage {
-	good := make([]*pkg.LocalPackage, 0, len(pkgs))
-	for _, p := range pkgs {
-		if p.InitFnName() != "" {
-			good = append(good, p)
+		init := p.Init()
+		for name, _ := range init {
+			fmt.Fprintf(w, "void %s(void);\n", name)
 		}
 	}
+}
 
-	return good
+func writeStage(stage int, initFuncs []*initFunc, w io.Writer) {
+	fmt.Fprintf(w, "    /*** Stage %d */\n", stage)
+	for i, initFunc := range initFuncs {
+		fmt.Fprintf(w, "    /* %d.%d: %s */\n", stage, i, initFunc.pkg.Name())
+		fmt.Fprintf(w, "    %s();\n", initFunc.name)
+	}
 }
 
 func write(pkgs []*pkg.LocalPackage, isLoader bool,
 	w io.Writer) {
 
-	goodPkgs := onlyPkgsWithInit(pkgs)
-	stageMap := buildStageMap(goodPkgs)
+	stageMap := buildStageMap(pkgs)
 
 	i := 0
 	stages := make([]int, len(stageMap))
@@ -97,7 +97,7 @@ func write(pkgs []*pkg.LocalPackage, isLoader bool,
 		fmt.Fprintf(w, "#if !SPLIT_LOADER\n\n")
 	}
 
-	writePrototypes(goodPkgs, w)
+	writePrototypes(pkgs, w)
 
 	var fnName string
 	if isLoader {
@@ -108,7 +108,6 @@ func write(pkgs []*pkg.LocalPackage, isLoader bool,
 
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "void\n%s(void)\n{\n", fnName)
-	fmt.Fprintf(w, "    os_init();\n")
 
 	for _, s := range stages {
 		fmt.Fprintf(w, "\n")

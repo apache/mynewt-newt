@@ -26,15 +26,11 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/resolve"
 )
 
 func TestTargetName(testPkgName string) string {
 	return strings.Replace(testPkgName, "/", "_", -1)
-}
-
-func (b *Builder) TestExePath(bpkg *BuildPackage) string {
-	return b.PkgBinDir(bpkg) + "/" + TestTargetName(bpkg.Name())
 }
 
 func (b *Builder) FeatureString() string {
@@ -68,7 +64,7 @@ func (b bpkgSorter) Swap(i, j int) {
 	b.bpkgs[i], b.bpkgs[j] = b.bpkgs[j], b.bpkgs[i]
 }
 func (b bpkgSorter) Less(i, j int) bool {
-	return b.bpkgs[i].Name() < b.bpkgs[j].Name()
+	return b.bpkgs[i].rpkg.Lpkg.Name() < b.bpkgs[j].rpkg.Lpkg.Name()
 }
 
 func (b *Builder) sortedBuildPackages() []*BuildPackage {
@@ -84,54 +80,46 @@ func (b *Builder) sortedBuildPackages() []*BuildPackage {
 	return sorter.bpkgs
 }
 
-func (b *Builder) sortedLocalPackages() []*pkg.LocalPackage {
+func (b *Builder) sortedRpkgs() []*resolve.ResolvePackage {
 	bpkgs := b.sortedBuildPackages()
 
-	lpkgs := make([]*pkg.LocalPackage, len(bpkgs), len(bpkgs))
+	rpkgs := make([]*resolve.ResolvePackage, len(bpkgs), len(bpkgs))
 	for i, bpkg := range bpkgs {
-		lpkgs[i] = bpkg.LocalPackage
+		rpkgs[i] = bpkg.rpkg
 	}
 
-	return lpkgs
+	return rpkgs
 }
 
-func (b *Builder) logDepInfo() {
-	// Log feature set.
-	log.Debugf("Feature set: [" + b.FeatureString() + "]")
-
+func logDepInfo(res *resolve.Resolution) {
 	// Log API set.
-	apis := make([]string, 0, len(b.apiMap))
-	for api, _ := range b.apiMap {
+	apis := []string{}
+	for api, _ := range res.ApiMap {
 		apis = append(apis, api)
 	}
 	sort.Strings(apis)
 
 	log.Debugf("API set:")
 	for _, api := range apis {
-		bpkg := b.apiMap[api]
-		log.Debugf("    * " + api + " (" + bpkg.FullName() + ")")
+		rpkg := res.ApiMap[api]
+		log.Debugf("    * " + api + " (" + rpkg.Lpkg.FullName() + ")")
 	}
 
 	// Log dependency graph.
-	bpkgSorter := bpkgSorter{
-		bpkgs: make([]*BuildPackage, 0, len(b.PkgMap)),
+	dg, err := depGraph(res.MasterSet)
+	if err != nil {
+		log.Debugf("Error while constructing dependency graph: %s\n",
+			err.Error())
+	} else {
+		log.Debugf("%s", DepGraphText(dg))
 	}
-	for _, bpkg := range b.PkgMap {
-		bpkgSorter.bpkgs = append(bpkgSorter.bpkgs, bpkg)
-	}
-	sort.Sort(bpkgSorter)
 
-	log.Debugf("Dependency graph:")
-	var buffer bytes.Buffer
-	for _, bpkg := range bpkgSorter.bpkgs {
-		buffer.Reset()
-		for i, dep := range bpkg.Deps() {
-			if i != 0 {
-				buffer.WriteString(" ")
-			}
-			buffer.WriteString(dep.String())
-		}
-		log.Debugf("    * " + bpkg.Name() + " [" +
-			buffer.String() + "]")
+	// Log reverse dependency graph.
+	rdg, err := revdepGraph(res.MasterSet)
+	if err != nil {
+		log.Debugf("Error while constructing reverse dependency graph: %s\n",
+			err.Error())
+	} else {
+		log.Debugf("%s", RevdepGraphText(rdg))
 	}
 }

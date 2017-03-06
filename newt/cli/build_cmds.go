@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
@@ -64,7 +65,8 @@ func testablePkgs() map[*pkg.LocalPackage]struct{} {
 	}
 
 	// Next add first ancestor of each test package.
-	for testPkg, _ := range testablePkgMap {
+	for _, testPkgItf := range testPkgs {
+		testPkg := testPkgItf.(*pkg.LocalPackage)
 		for cur := filepath.Dir(testPkg.BasePath()); cur != proj.BasePath; cur = filepath.Dir(cur) {
 			lpkg := pathLpkgMap[cur]
 			if lpkg != nil && lpkg.Type() != pkg.PACKAGE_TYPE_UNITTEST {
@@ -106,7 +108,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, nil)
 	}
 
-	InitProject()
+	TryGetProject()
 
 	// Verify and resolve each specified package.
 	targets, all, err := ResolveTargetsOrAll(args...)
@@ -129,8 +131,10 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 		// Reset the global state for the next build.
 		// XXX: It is not good that this is necessary.  This is certainly going
 		// to bite us...
-		if err := ResetGlobalState(); err != nil {
-			NewtUsage(nil, err)
+		if i > 0 {
+			if err := ResetGlobalState(); err != nil {
+				NewtUsage(nil, err)
+			}
 		}
 
 		// Look up the target by name.  This has to be done a second time here
@@ -173,7 +177,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	cleanAll := false
 	targets := []*target.Target{}
@@ -181,9 +185,9 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		if arg == TARGET_KEYWORD_ALL {
 			cleanAll = true
 		} else {
-			t := ResolveTarget(arg)
-			if t == nil {
-				NewtUsage(cmd, util.NewNewtError("invalid target name: "+arg))
+			t, _, err := ResolveTargetOrUnittest(arg)
+			if err != nil {
+				NewtUsage(cmd, err)
 			}
 			targets = append(targets, t)
 		}
@@ -208,12 +212,12 @@ func pkgnames(pkgs []*pkg.LocalPackage) string {
 	return s
 }
 
-func testRunCmd(cmd *cobra.Command, args []string) {
+func testRunCmd(cmd *cobra.Command, args []string, exclude string) {
 	if len(args) < 1 {
 		NewtUsage(cmd, nil)
 	}
 
-	proj := InitProject()
+	proj := TryGetProject()
 
 	// Verify and resolve each specified package.
 	testAll := false
@@ -247,6 +251,22 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		packs = pkg.SortLclPkgs(packs)
 	}
 
+	if len(exclude) > 0 {
+		// filter out excluded tests
+		orig := packs
+		packs = packs[:0]
+		excls := strings.Split(exclude, ",")
+	packLoop:
+		for _, pack := range orig {
+			for _, excl := range excls {
+				if pack.Name() == excl || strings.HasPrefix(pack.Name(), excl+"/") {
+					continue packLoop
+				}
+			}
+			packs = append(packs, pack)
+		}
+	}
+
 	if len(packs) == 0 {
 		NewtUsage(nil, util.NewNewtError("No testable packages found"))
 	}
@@ -259,31 +279,9 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 
-		// Each unit test package gets its own target.  This target is a copy
-		// of the base unit test package, just with an appropriate name.  The
-		// reason each test needs a unique target is: syscfg and sysinit are
-		// target-specific.  If each test package shares a target, they will
-		// overwrite these generated headers each time they are run.  Worse, if
-		// two tests are run back-to-back, the timestamps may indicate that the
-		// headers have not changed between tests, causing build failures.
-		baseTarget := ResolveTarget(TARGET_TEST_NAME)
-		if baseTarget == nil {
-			NewtUsage(nil, util.NewNewtError("Can't find unit test target: "+
-				TARGET_TEST_NAME))
-		}
-
-		targetName := fmt.Sprintf("%s/%s/%s",
-			TARGET_DEFAULT_DIR, TARGET_TEST_NAME,
-			builder.TestTargetName(pack.Name()))
-
-		t := ResolveTarget(targetName)
-		if t == nil {
-			targetName, err := ResolveNewTargetName(targetName)
-			if err != nil {
-				NewtUsage(nil, err)
-			}
-
-			t = baseTarget.Clone(proj.LocalRepo(), targetName)
+		t, err := ResolveUnittest(pack.Name())
+		if err != nil {
+			NewtUsage(nil, err)
 		}
 
 		b, err := builder.NewTargetTester(t, pack)
@@ -294,7 +292,7 @@ func testRunCmd(cmd *cobra.Command, args []string) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
 			pack.FullName())
 
-		err = b.Test()
+		err = b.SelfTestExecute()
 		if err == nil {
 			passedPkgs = append(passedPkgs, pack)
 		} else {
@@ -321,7 +319,7 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -343,7 +341,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -360,12 +358,12 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func sizeRunCmd(cmd *cobra.Command, args []string) {
+func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool) {
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	t := ResolveTarget(args[0])
 	if t == nil {
@@ -377,6 +375,13 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
+	if ram || flash {
+		if err := b.SizeReport(ram, flash); err != nil {
+			NewtUsage(cmd, err)
+		}
+		return
+	}
+
 	if err := b.Size(); err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -385,31 +390,41 @@ func sizeRunCmd(cmd *cobra.Command, args []string) {
 func AddBuildCommands(cmd *cobra.Command) {
 	buildCmd := &cobra.Command{
 		Use:   "build <target-name> [target-names...]",
-		Short: "Builds one or more targets.",
+		Short: "Build one or more targets",
 		Run:   buildRunCmd,
 	}
 
-	buildCmd.ValidArgs = targetList()
 	cmd.AddCommand(buildCmd)
+	AddTabCompleteFn(buildCmd, func() []string {
+		return append(targetList(), "all")
+	})
 
 	cleanCmd := &cobra.Command{
 		Use:   "clean <target-name> [target-names...] | all",
-		Short: "Deletes build artifacts for one or more targets.",
+		Short: "Delete build artifacts for one or more targets",
 		Run:   cleanRunCmd,
 	}
 
-	cleanCmd.ValidArgs = append(targetList(), "all")
 	cmd.AddCommand(cleanCmd)
+	AddTabCompleteFn(cleanCmd, func() []string {
+		return append(append(targetList(), unittestList()...), "all")
+	})
 
+	var exclude string
 	testCmd := &cobra.Command{
 		Use:   "test <package-name> [package-names...] | all",
 		Short: "Executes unit tests for one or more packages",
-		Run:   testRunCmd,
+		Run: func(cmd *cobra.Command, args []string) {
+			testRunCmd(cmd, args, exclude)
+		},
 	}
-	testCmd.ValidArgs = append(packageList(), "all")
+	testCmd.Flags().StringVarP(&exclude, "exclude", "e", "", "Comma separated list of packages to exclude")
 	cmd.AddCommand(testCmd)
+	AddTabCompleteFn(testCmd, func() []string {
+		return append(testablePkgList(), "all", "allexcept")
+	})
 
-	loadHelpText := "Load app image to target for <target-name>."
+	loadHelpText := "Load application image on to the board for <target-name>"
 
 	loadCmd := &cobra.Command{
 		Use:   "load <target-name>",
@@ -418,12 +433,13 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   loadRunCmd,
 	}
 
-	loadCmd.ValidArgs = targetList()
 	cmd.AddCommand(loadCmd)
-	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
-		"extra commands to send to JTAG software")
+	AddTabCompleteFn(loadCmd, targetList)
 
-	debugHelpText := "Open debugger session for <target-name>."
+	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "", "",
+		"Extra commands to send to JTAG software")
+
+	debugHelpText := "Open a debugger session for <target-name>"
 
 	debugCmd := &cobra.Command{
 		Use:   "debug <target-name>",
@@ -432,24 +448,31 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Run:   debugRunCmd,
 	}
 
-	debugCmd.ValidArgs = targetList()
-	cmd.AddCommand(debugCmd)
-	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
-		"extra commands to send to JTAG software")
+	debugCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "",
+		"", "Extra commands to send to JTAG software")
 	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
-		"don't start GDB from command line")
+		"Do not start GDB from command line")
+
+	cmd.AddCommand(debugCmd)
+	AddTabCompleteFn(debugCmd, targetList)
 
 	sizeHelpText := "Calculate the size of target components specified by " +
 		"<target-name>."
 
+	var ram, flash bool
 	sizeCmd := &cobra.Command{
 		Use:   "size <target-name>",
 		Short: "Size of target components",
 		Long:  sizeHelpText,
-		Run:   sizeRunCmd,
+		Run: func(cmd *cobra.Command, args []string) {
+			sizeRunCmd(cmd, args, ram, flash)
+		},
 	}
 
-	sizeCmd.ValidArgs = targetList()
-	cmd.AddCommand(sizeCmd)
+	sizeCmd.Flags().BoolVarP(&ram, "ram", "R", false, "Print RAM statistics")
+	sizeCmd.Flags().BoolVarP(&flash, "flash", "F", false,
+		"Print FLASH statistics")
 
+	cmd.AddCommand(sizeCmd)
+	AddTabCompleteFn(sizeCmd, targetList)
 }

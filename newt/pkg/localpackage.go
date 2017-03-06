@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -59,13 +60,10 @@ type LocalPackage struct {
 
 	// General information about the package
 	desc *PackageDesc
-	// Dependencies for this package
-	deps []*Dependency
 
 	// Package init function name and stage.  These are used to generate the
 	// sysinit C file.
-	initFnName string
-	initStage  int
+	init map[string]int
 
 	// Extra package-specific settings that don't come from syscfg.  For
 	// example, SELFTEST gets set when the newt test command is used.
@@ -87,7 +85,8 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		PkgV:             viper.New(),
 		SyscfgV:          viper.New(),
 		repo:             r,
-		basePath:         filepath.Clean(pkgDir) + "/", // XXX: Remove slash.
+		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
+		init:             map[string]int{},
 		injectedSettings: map[string]string{},
 	}
 	return pkg
@@ -107,7 +106,12 @@ func (pkg *LocalPackage) FullName() string {
 }
 
 func (pkg *LocalPackage) BasePath() string {
-	return filepath.Clean(pkg.basePath)
+	return pkg.basePath
+}
+
+func (pkg *LocalPackage) RelativePath() string {
+	proj := interfaces.GetProject()
+	return strings.TrimPrefix(pkg.BasePath(), proj.Path())
 }
 
 func (pkg *LocalPackage) Type() interfaces.PackageType {
@@ -129,7 +133,7 @@ func (pkg *LocalPackage) SetName(name string) {
 }
 
 func (pkg *LocalPackage) SetBasePath(basePath string) {
-	pkg.basePath = basePath
+	pkg.basePath = filepath.ToSlash(filepath.Clean(basePath))
 }
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
@@ -186,23 +190,6 @@ func (pkg *LocalPackage) CfgFilenames() []string {
 
 func (pkg *LocalPackage) AddCfgFilename(cfgFilename string) {
 	pkg.cfgFilenames = append(pkg.cfgFilenames, cfgFilename)
-}
-
-func (pkg *LocalPackage) HasDep(searchDep *Dependency) bool {
-	for _, dep := range pkg.deps {
-		if dep.String() == searchDep.String() {
-			return true
-		}
-	}
-	return false
-}
-
-func (pkg *LocalPackage) AddDep(dep *Dependency) {
-	pkg.deps = append(pkg.deps, dep)
-}
-
-func (pkg *LocalPackage) Deps() []*Dependency {
-	return pkg.deps
 }
 
 func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
@@ -302,7 +289,6 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString(pkg.sequenceString("pkg.aflags"))
 	file.WriteString(pkg.sequenceString("pkg.cflags"))
-	file.WriteString(pkg.sequenceString("pkg.features"))
 	file.WriteString(pkg.sequenceString("pkg.lflags"))
 
 	return nil
@@ -321,7 +307,7 @@ func (pkg *LocalPackage) Load() error {
 	if err != nil {
 		return err
 	}
-	pkg.AddCfgFilename(pkg.basePath + PACKAGE_FILE_NAME)
+	pkg.AddCfgFilename(pkg.basePath + "/" + PACKAGE_FILE_NAME)
 
 	// Set package name from the package
 	pkg.name = pkg.PkgV.GetString("pkg.name")
@@ -335,8 +321,21 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
-	pkg.initFnName = pkg.PkgV.GetString("pkg.init_function")
-	pkg.initStage = pkg.PkgV.GetInt("pkg.init_stage")
+	init := pkg.PkgV.GetStringMapString("pkg.init")
+	for name, stageStr := range init {
+		stage, err := strconv.ParseInt(stageStr, 10, 64)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Parsing pkg %s config: %s",
+				pkg.FullName(), err.Error()))
+		}
+		pkg.init[name] = int(stage)
+	}
+	initFnName := pkg.PkgV.GetString("pkg.init_function")
+	initStage := pkg.PkgV.GetInt("pkg.init_stage")
+
+	if initFnName != "" {
+		pkg.init[initFnName] = initStage
+	}
 
 	// Read the package description from the file
 	pkg.desc, err = pkg.readDesc(pkg.PkgV)
@@ -351,18 +350,14 @@ func (pkg *LocalPackage) Load() error {
 		if err != nil {
 			return err
 		}
-		pkg.AddCfgFilename(pkg.basePath + SYSCFG_YAML_FILENAME)
+		pkg.AddCfgFilename(pkg.basePath + "/" + SYSCFG_YAML_FILENAME)
 	}
 
 	return nil
 }
 
-func (pkg *LocalPackage) InitStage() int {
-	return pkg.initStage
-}
-
-func (pkg *LocalPackage) InitFnName() string {
-	return pkg.initFnName
+func (pkg *LocalPackage) Init() map[string]int {
+	return pkg.init
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {
@@ -402,11 +397,11 @@ func LocalPackageSpecialName(dirName string) bool {
 
 func ReadLocalPackageRecursive(repo *repo.Repo,
 	pkgList map[string]interfaces.PackageInterface, basePath string,
-	pkgName string) ([]string, error) {
+	pkgName string, searchedMap map[string]struct{}) ([]string, error) {
 
 	var warnings []string
 
-	dirList, err := repo.FilteredSearchList(pkgName)
+	dirList, err := repo.FilteredSearchList(pkgName, searchedMap)
 	if err != nil {
 		return warnings, util.NewNewtError(err.Error())
 	}
@@ -417,7 +412,7 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 		}
 
 		subWarnings, err := ReadLocalPackageRecursive(repo, pkgList,
-			basePath, filepath.Join(pkgName, name))
+			basePath, filepath.Join(pkgName, name), searchedMap)
 		warnings = append(warnings, subWarnings...)
 		if err != nil {
 			return warnings, err
@@ -452,40 +447,17 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 }
 
 func ReadLocalPackages(repo *repo.Repo, basePath string) (
-	pkgMap *map[string]interfaces.PackageInterface,
-	warnings []string,
-	err error) {
+	*map[string]interfaces.PackageInterface, []string, error) {
 
-	pkgMap = &map[string]interfaces.PackageInterface{}
-	warnings = []string{}
+	pkgMap := &map[string]interfaces.PackageInterface{}
 
-	searchPaths, err := repo.FilteredSearchList("")
-	if err != nil {
-		return
-	}
+	// Keep track of which directories we have traversed.  Prevent infinite
+	// loops caused by symlink cycles by not inspecting the same directory
+	// twice.
+	searchedMap := map[string]struct{}{}
 
-	for _, path := range searchPaths {
-		pkgDir := basePath + "/" + path
+	warnings, err := ReadLocalPackageRecursive(repo, *pkgMap,
+		basePath, "", searchedMap)
 
-		if util.NodeNotExist(pkgDir) {
-			continue
-		}
-
-		var dirList []string
-		if dirList, err = repo.FilteredSearchList(path); err != nil {
-			return
-		}
-
-		for _, subDir := range dirList {
-			var subWarnings []string
-			subWarnings, err = ReadLocalPackageRecursive(repo, *pkgMap,
-				basePath, filepath.Join(path, subDir))
-			warnings = append(warnings, subWarnings...)
-			if err != nil {
-				return
-			}
-		}
-	}
-
-	return
+	return pkgMap, warnings, err
 }

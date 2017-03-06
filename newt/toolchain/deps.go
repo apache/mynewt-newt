@@ -57,8 +57,7 @@ func parseDepsLine(line string) (string, []string, error) {
 
 	dFileTok := tokens[0]
 	if dFileTok[len(dFileTok)-1:] != ":" {
-		return "", nil, util.NewNewtError("Invalid Makefile dependency file; " +
-			"line missing ':'")
+		return "", nil, util.NewNewtError("line missing ':'")
 	}
 
 	dFileName := dFileTok[:len(dFileTok)-1]
@@ -91,7 +90,9 @@ func ParseDepsFile(filename string) ([]string, error) {
 	for _, line := range lines {
 		src, deps, err := parseDepsLine(line)
 		if err != nil {
-			return nil, err
+			return nil, util.FmtNewtError(
+				"Invalid Makefile dependency file \"%s\"; %s",
+				filename, err.Error())
 		}
 
 		if dFile == "" {
@@ -133,14 +134,17 @@ func (tracker *DepTracker) ProcessFileTime(file string) error {
 // @return                      true if the command has changed or if the
 //                                  destination file was never built;
 //                              false otherwise.
-func commandHasChanged(dstFile string, cmd string) bool {
+func commandHasChanged(dstFile string, cmd []string) bool {
 	cmdFile := dstFile + ".cmd"
 	prevCmd, err := ioutil.ReadFile(cmdFile)
 	if err != nil {
 		return true
 	}
 
-	return bytes.Compare(prevCmd, []byte(cmd)) != 0
+	curCmd := serializeCommand(cmd)
+
+	changed := bytes.Compare(prevCmd, curCmd) != 0
+	return changed
 }
 
 // Determines if the specified C or assembly file needs to be built.  A compile
@@ -154,10 +158,8 @@ func commandHasChanged(dstFile string, cmd string) bool {
 func (tracker *DepTracker) CompileRequired(srcFile string,
 	compilerType int) (bool, error) {
 
-	objFile := tracker.compiler.DstDir() + "/" +
-		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".o"
-	depFile := tracker.compiler.DstDir() + "/" +
-		strings.TrimSuffix(srcFile, filepath.Ext(srcFile)) + ".d"
+	objPath := tracker.compiler.dstFilePath(srcFile) + ".o"
+	depPath := tracker.compiler.dstFilePath(srcFile) + ".d"
 
 	// If the object was previously built with a different set of options, a
 	// rebuild is necessary.
@@ -166,7 +168,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		return false, err
 	}
 
-	if commandHasChanged(objFile, cmd) {
+	if commandHasChanged(objPath, cmd) {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; "+
 			"different command\n", srcFile)
 		err := tracker.compiler.GenDepsForFile(srcFile)
@@ -176,7 +178,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		return true, nil
 	}
 
-	if util.NodeNotExist(depFile) {
+	if util.NodeNotExist(depPath) {
 		err := tracker.compiler.GenDepsForFile(srcFile)
 		if err != nil {
 			return false, err
@@ -188,7 +190,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		return false, err
 	}
 
-	objModTime, err := util.FileModificationTime(objFile)
+	objModTime, err := util.FileModificationTime(objPath)
 	if err != nil {
 		return false, err
 	}
@@ -204,7 +206,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// Determine if the dependency (.d) file needs to be generated.  If it
 	// doesn't exist or is older than the source file, it is out of date and
 	// needs to be created.
-	depModTime, err := util.FileModificationTime(depFile)
+	depModTime, err := util.FileModificationTime(depPath)
 	if err != nil {
 		return false, err
 	}
@@ -217,7 +219,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	}
 
 	// Extract the dependency filenames from the dependency file.
-	deps, err := ParseDepsFile(depFile)
+	deps, err := ParseDepsFile(depPath)
 	if err != nil {
 		return false, err
 	}
@@ -229,7 +231,10 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 			// the dependency file is out of date, so it needs to be deleted.
 			// We cannot regenerate it now because the source file might be
 			// including a nonexistent header.
-			os.Remove(depFile)
+			util.StatusMessage(util.VERBOSITY_VERBOSE,
+				"%s - rebuild required; dependency \"%s\" has been deleted\n",
+				srcFile, dep)
+			os.Remove(depPath)
 			return true, nil
 		} else {
 			depModTime, err = util.FileModificationTime(dep)

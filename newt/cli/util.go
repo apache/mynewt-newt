@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -30,9 +31,11 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
@@ -198,7 +201,7 @@ func ResetGlobalState() error {
 	return nil
 }
 
-func InitProject() *project.Project {
+func TryGetProject() *project.Project {
 	var p *project.Project
 	var err error
 
@@ -211,4 +214,140 @@ func InitProject() *project.Project {
 	}
 
 	return p
+}
+
+func ResolveUnittest(pkgName string) (*target.Target, error) {
+	// Each unit test package gets its own target.  This target is a copy
+	// of the base unit test package, just with an appropriate name.  The
+	// reason each test needs a unique target is: syscfg and sysinit are
+	// target-specific.  If each test package shares a target, they will
+	// overwrite these generated headers each time they are run.  Worse, if
+	// two tests are run back-to-back, the timestamps may indicate that the
+	// headers have not changed between tests, causing build failures.
+	baseTarget := ResolveTarget(TARGET_TEST_NAME)
+	if baseTarget == nil {
+		return nil, util.FmtNewtError("Can't find unit test target: %s",
+			TARGET_TEST_NAME)
+	}
+
+	targetName := fmt.Sprintf("%s/%s/%s",
+		TARGET_DEFAULT_DIR, TARGET_TEST_NAME,
+		builder.TestTargetName(pkgName))
+
+	t := ResolveTarget(targetName)
+	if t == nil {
+		targetName, err := ResolveNewTargetName(targetName)
+		if err != nil {
+			return nil, err
+		}
+
+		t = baseTarget.Clone(TryGetProject().LocalRepo(), targetName)
+	}
+
+	return t, nil
+}
+
+// @return Target
+// @return LocalPackage         The package under test, if any.
+// @return error
+func ResolveTargetOrUnittest(pkgName string) (
+	*target.Target, *pkg.LocalPackage, error) {
+
+	// Argument can specify either a target or a unittest package.  Determine
+	// which type the package is and construct a target builder appropriately.
+	if t, err := resolveExistingTargetArg(pkgName); err == nil {
+		return t, nil, nil
+	}
+
+	// Package wasn't a target.  Try for a unittest.
+	proj := TryGetProject()
+	pack, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
+	if err != nil {
+		return nil, nil, util.FmtNewtError(
+			"Could not resolve target or unittest \"%s\"", pkgName)
+	}
+
+	if pack.Type() != pkg.PACKAGE_TYPE_UNITTEST {
+		return nil, nil, util.FmtNewtError(
+			"Package \"%s\" is of type %s; "+
+				"must be target or unittest", pkgName,
+			pkg.PackageTypeNames[pack.Type()])
+	}
+
+	t, err := ResolveUnittest(pack.Name())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return t, pack, nil
+}
+
+func ResolvePackages(pkgNames []string) ([]*pkg.LocalPackage, error) {
+	proj := TryGetProject()
+
+	lpkgs := []*pkg.LocalPackage{}
+	for _, pkgName := range pkgNames {
+		pack, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
+		if err != nil {
+			return nil, err
+		}
+		lpkgs = append(lpkgs, pack)
+	}
+
+	return lpkgs, nil
+}
+
+func ResolveRpkgs(res *resolve.Resolution, pkgNames []string) (
+	[]*resolve.ResolvePackage, error) {
+
+	lpkgs, err := ResolvePackages(pkgNames)
+	if err != nil {
+		return nil, err
+	}
+
+	rpkgs := []*resolve.ResolvePackage{}
+	for _, lpkg := range lpkgs {
+		rpkg := res.LpkgRpkgMap[lpkg]
+		if rpkg == nil {
+			return nil, util.FmtNewtError("Unexpected error; local package "+
+				"%s lacks a corresponding resolve package", lpkg.FullName())
+		}
+
+		rpkgs = append(rpkgs, rpkg)
+	}
+
+	return rpkgs, nil
+}
+
+func TargetBuilderForTargetOrUnittest(pkgName string) (
+	*builder.TargetBuilder, error) {
+
+	t, testPkg, err := ResolveTargetOrUnittest(pkgName)
+	if err != nil {
+		return nil, err
+	}
+
+	if testPkg == nil {
+		return builder.NewTargetBuilder(t)
+	} else {
+		return builder.NewTargetTester(t, testPkg)
+	}
+}
+
+func PromptYesNo(dflt bool) bool {
+	scanner := bufio.NewScanner(os.Stdin)
+	rc := scanner.Scan()
+	if !rc {
+		return dflt
+	}
+
+	if strings.ToLower(scanner.Text()) == "y" {
+		return true
+	}
+
+	if strings.ToLower(scanner.Text()) == "n" {
+		return false
+	}
+
+	return dflt
 }

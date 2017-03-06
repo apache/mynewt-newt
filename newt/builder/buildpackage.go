@@ -24,21 +24,26 @@ import (
 	"path/filepath"
 	"regexp"
 
-	log "github.com/Sirupsen/logrus"
-
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
-	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
 type BuildPackage struct {
-	*pkg.LocalPackage
-
-	ci                *toolchain.CompilerInfo
+	rpkg              *resolve.ResolvePackage
 	SourceDirectories []string
+	ci                *toolchain.CompilerInfo
+}
+
+func NewBuildPackage(rpkg *resolve.ResolvePackage) *BuildPackage {
+	bpkg := &BuildPackage{
+		rpkg: rpkg,
+	}
+
+	return bpkg
 }
 
 // Recursively iterates through an pkg's dependencies, adding each pkg
@@ -52,22 +57,11 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 
 	(*set)[bpkg] = true
 
-	for _, dep := range bpkg.Deps() {
-		if dep.Name == "" {
-			break
-		}
-
-		// Get pkg structure
-		p := project.GetProject().ResolveDependency(dep)
-		if p == nil {
-			return util.FmtNewtError("Cannot resolve dependency %+v", dep)
-		}
-		dpkg := p.(*pkg.LocalPackage)
-
-		dbpkg := b.PkgMap[dpkg]
+	for _, dep := range bpkg.rpkg.Deps {
+		dbpkg := b.PkgMap[dep.Rpkg]
 		if dbpkg == nil {
 			return util.FmtNewtError("Package not found %s; required by %s",
-				dpkg.Name(), bpkg.Name())
+				dbpkg.rpkg.Lpkg.Name(), bpkg.rpkg.Lpkg.Name())
 		}
 
 		if err := dbpkg.collectDepsAux(b, set); err != nil {
@@ -114,6 +108,16 @@ func (bpkg *BuildPackage) recursiveIncludePaths(
 	return incls, nil
 }
 
+// Replaces instances of "@<repo-name>" with repo paths.
+func expandFlags(flags []string) {
+	for i, f := range flags {
+		newFlag, changed := newtutil.ReplaceRepoDesignators(f)
+		if changed {
+			flags[i] = newFlag
+		}
+	}
+}
+
 func (bpkg *BuildPackage) CompilerInfo(
 	b *Builder) (*toolchain.CompilerInfo, error) {
 
@@ -124,22 +128,30 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	features := b.cfg.FeaturesForLpkg(bpkg.LocalPackage)
-	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
+	features := b.cfg.FeaturesForLpkg(bpkg.rpkg.Lpkg)
+
+	// Read each set of flags and expand repo designators ("@<repo-nme>") into
+	// paths.
+	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV, features,
 		"pkg.cflags")
-	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
+	expandFlags(ci.Cflags)
+
+	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV, features,
 		"pkg.lflags")
-	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
+	expandFlags(ci.Lflags)
+
+	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV, features,
 		"pkg.aflags")
+	expandFlags(ci.Aflags)
 
 	// Package-specific injected settings get specified as C flags on the
 	// command line.
-	for k, _ := range bpkg.InjectedSettings() {
+	for k, _ := range bpkg.rpkg.Lpkg.InjectedSettings() {
 		ci.Cflags = append(ci.Cflags, syscfg.FeatureToCflag(k))
 	}
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
-	ignPats := newtutil.GetStringSliceFeatures(bpkg.PkgV,
+	ignPats := newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV,
 		features, "pkg.ign_files")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
@@ -151,7 +163,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
-	ignPats = newtutil.GetStringSliceFeatures(bpkg.PkgV,
+	ignPats = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV,
 		features, "pkg.ign_dirs")
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
@@ -162,7 +174,8 @@ func (bpkg *BuildPackage) CompilerInfo(
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
-	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(bpkg.PkgV,
+	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(
+		bpkg.rpkg.Lpkg.PkgV,
 		features, "pkg.src_dirs")
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
@@ -176,26 +189,8 @@ func (bpkg *BuildPackage) CompilerInfo(
 	return bpkg.ci, nil
 }
 
-// Searches for a package which can satisfy bpkg's API requirement.  If such a
-// package is found, bpkg's API requirement is marked as satisfied, and the
-// package is added to bpkg's dependency list.
-func (bpkg *BuildPackage) satisfyReqApi(
-	reqApi string, apiPkg *BuildPackage) error {
-
-	dep := &pkg.Dependency{
-		Name: apiPkg.Name(),
-		Repo: apiPkg.Repo().Name(),
-	}
-	bpkg.AddDep(dep)
-
-	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s)",
-		bpkg.Name(), reqApi, dep.String())
-
-	return nil
-}
-
 func (bpkg *BuildPackage) findSdkIncludes() []string {
-	sdkDir := bpkg.BasePath() + "/src/ext/"
+	sdkDir := bpkg.rpkg.Lpkg.BasePath() + "/src/ext/"
 
 	sdkPathList := []string{}
 	err := filepath.Walk(sdkDir,
@@ -215,15 +210,15 @@ func (bpkg *BuildPackage) findSdkIncludes() []string {
 }
 
 func (bpkg *BuildPackage) publicIncludeDirs(bspPkg *pkg.BspPackage) []string {
-	pkgBase := filepath.Base(bpkg.Name())
-	bp := bpkg.BasePath()
+	pkgBase := filepath.Base(bpkg.rpkg.Lpkg.Name())
+	bp := bpkg.rpkg.Lpkg.BasePath()
 
 	incls := []string{
 		bp + "/include",
 		bp + "/include/" + pkgBase + "/arch/" + bspPkg.Arch,
 	}
 
-	if bpkg.Type() == pkg.PACKAGE_TYPE_SDK {
+	if bpkg.rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_SDK {
 		incls = append(incls, bspPkg.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
@@ -234,17 +229,17 @@ func (bpkg *BuildPackage) publicIncludeDirs(bspPkg *pkg.BspPackage) []string {
 }
 
 func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
-	srcDir := bpkg.BasePath() + "/src/"
+	srcDir := bpkg.rpkg.Lpkg.BasePath() + "/src/"
 
 	incls := []string{}
 	incls = append(incls, srcDir)
 	incls = append(incls, srcDir+"/arch/"+b.targetBuilder.bspPkg.Arch)
 
-	switch bpkg.Type() {
+	switch bpkg.rpkg.Lpkg.Type() {
 	case pkg.PACKAGE_TYPE_SDK:
 		// If pkgType == SDK, include all the items in "ext" directly into the
 		// include path
-		incls = append(incls, b.bspPkg.BasePath()+"/include/bsp/")
+		incls = append(incls, b.bspPkg.rpkg.Lpkg.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
@@ -262,50 +257,4 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	}
 
 	return incls
-}
-
-// Resolves all of a build package's dependencies and API requirements.
-func (bpkg *BuildPackage) resolveDeps(
-	cfg syscfg.Cfg, apiMap map[string]*BuildPackage) error {
-
-	features := cfg.FeaturesForLpkg(bpkg.LocalPackage)
-
-	// Match each required API with the package which implements it.
-	reqApis := newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
-		"pkg.req_apis")
-	for _, reqApi := range reqApis {
-		if err := bpkg.satisfyReqApi(reqApi, apiMap[reqApi]); err != nil {
-			return err
-		}
-	}
-
-	proj := project.GetProject()
-	newDeps := newtutil.GetStringSliceFeatures(bpkg.PkgV, features,
-		"pkg.deps")
-	for _, newDepStr := range newDeps {
-		newDep, err := pkg.NewDependency(bpkg.Repo(), newDepStr)
-		if err != nil {
-			return err
-		}
-
-		_, ok := proj.ResolveDependency(newDep).(*pkg.LocalPackage)
-		if !ok {
-			return util.NewNewtError("Could not resolve package dependency " +
-				newDep.String())
-		}
-
-		if !bpkg.HasDep(newDep) {
-			bpkg.AddDep(newDep)
-		}
-	}
-
-	return nil
-}
-
-func NewBuildPackage(pkg *pkg.LocalPackage) *BuildPackage {
-	bpkg := &BuildPackage{
-		LocalPackage: pkg,
-	}
-
-	return bpkg
 }

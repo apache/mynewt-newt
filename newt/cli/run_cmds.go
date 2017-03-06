@@ -23,7 +23,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"mynewt.apache.org/newt/newt/builder"
+
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -32,46 +33,53 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
-	InitProject()
+	TryGetProject()
 
-	t := ResolveTarget(args[0])
-	if t == nil {
-		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+args[0]))
-	}
-
-	b, err := builder.NewTargetBuilder(t)
+	b, err := TargetBuilderForTargetOrUnittest(args[0])
 	if err != nil {
-		NewtUsage(nil, err)
+		NewtUsage(cmd, err)
 	}
 
-	if err := b.Build(); err != nil {
-		NewtUsage(nil, err)
-	}
-
-	/*
-	 * Run create-image if version number is specified. If no version number,
-	 * remove .img which would'be been created. This so that download script
-	 * will barf if it needs an image for this type of target, instead of
-	 * downloading an older version.
-	 */
-	if len(args) > 1 {
-		_, _, err = b.CreateImages(args[1], "", 0)
-		if err != nil {
-			NewtUsage(cmd, err)
+	testPkg := b.GetTestPkg()
+	if testPkg != nil {
+		b.InjectSetting("TESTUTIL_SYSTEM_ASSERT", "1")
+		if err := b.SelfTestCreateExe(); err != nil {
+			NewtUsage(nil, err)
+		}
+		if err := b.SelfTestDebug(); err != nil {
+			NewtUsage(nil, err)
 		}
 	} else {
-		os.Remove(b.AppBuilder.AppImgPath())
-
-		if b.LoaderBuilder != nil {
-			os.Remove(b.LoaderBuilder.AppImgPath())
+		if err := b.Build(); err != nil {
+			NewtUsage(nil, err)
 		}
-	}
 
-	if err := b.Load(extraJtagCmd); err != nil {
-		NewtUsage(nil, err)
-	}
-	if err := b.Debug(extraJtagCmd, true, noGDB_flag); err != nil {
-		NewtUsage(nil, err)
+		/*
+		 * Run create-image if version number is specified. If no version
+		 * number, remove .img which would'be been created. This so that
+		 * download script will barf if it needs an image for this type of
+		 * target, instead of downloading an older version.
+		 */
+		if len(args) > 1 {
+			_, _, err = b.CreateImages(args[1], "", 0)
+			if err != nil {
+				NewtUsage(cmd, err)
+			}
+		} else {
+			os.Remove(b.AppBuilder.AppImgPath())
+
+			if b.LoaderBuilder != nil {
+				os.Remove(b.LoaderBuilder.AppImgPath())
+			}
+		}
+
+		if err := b.Load(extraJtagCmd); err != nil {
+			NewtUsage(nil, err)
+		}
+
+		if err := b.Debug(extraJtagCmd, true, noGDB_flag); err != nil {
+			NewtUsage(nil, err)
+		}
 	}
 }
 
@@ -91,12 +99,17 @@ func AddRunCommands(cmd *cobra.Command) {
 		Example: runHelpEx,
 		Run:     runRunCmd,
 	}
-	runCmd.ValidArgs = targetList()
-	cmd.AddCommand(runCmd)
 
-	runCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "j", "",
-		"extra commands to send to JTAG software")
+	runCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "", "",
+		"Extra commands to send to JTAG software")
 	runCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
-		"don't start GDB from command line")
+		"Do not start GDB from command line")
+	runCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
+		"Ignore flash overflow errors during image creation")
 
+	cmd.AddCommand(runCmd)
+	AddTabCompleteFn(runCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
 }

@@ -29,15 +29,44 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/viper"
 )
 
 var NewtVersionStr string = "Apache Newt (incubating) version: 1.0.0-dev"
 var NewtBlinkyTag string = "develop"
+var NewtNumJobs int
+var NewtForce bool
 
 const NEWTRC_DIR string = ".newt"
 const REPOS_FILENAME string = "repos.yml"
+
+const CORE_REPO_NAME string = "apache-mynewt-core"
+const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"
+
+type RepoCommitEntry struct {
+	Version     string
+	Hash        string
+	Description string
+}
+
+// A warning is displayed if newt requires a newer version of a repo.
+var RepoMinCommits = map[string]*RepoCommitEntry{
+	// Newt no longer cd's to a source directory when it compiles its contents.
+	// Consequently, package include flags need to be relative to the project
+	// directory, not the package source directory.
+	CORE_REPO_NAME: &RepoCommitEntry{
+		Version:     "develop",
+		Hash:        "cd99344df197d5b9e372b93142184a39ec078f69",
+		Description: "Include paths now relative to project base.",
+	},
+	ARDUINO_ZERO_REPO_NAME: &RepoCommitEntry{
+		Version:     "develop",
+		Hash:        "a6348961fef56dbfe09a1b9418d3add3ad22eaf2",
+		Description: "Include paths now relative to project base.",
+	},
+}
 
 // Contains general newt settings read from $HOME/.newt
 var newtrc *viper.Viper
@@ -76,7 +105,7 @@ func GetSliceFeatures(v *viper.Viper, features map[string]bool,
 
 	// Process the features in alphabetical order to ensure consistent
 	// results across repeated runs.
-	var featureKeys []string
+	featureKeys := make([]string, 0, len(features))
 	for feature, _ := range features {
 		featureKeys = append(featureKeys, feature)
 	}
@@ -195,6 +224,39 @@ func ParsePackageString(pkgStr string) (string, string, error) {
 	} else {
 		return "", pkgStr, nil
 	}
+}
+
+func FindRepoDesignator(s string) (int, int) {
+	start := strings.Index(s, "@")
+	if start == -1 {
+		return -1, -1
+	}
+
+	len := strings.Index(s[start:], "/")
+	if len == -1 {
+		return -1, -1
+	}
+
+	return start, len
+}
+
+func ReplaceRepoDesignators(s string) (string, bool) {
+	start, len := FindRepoDesignator(s)
+	if start == -1 {
+		return s, false
+	}
+	repoName := s[start+1 : start+len]
+
+	proj := interfaces.GetProject()
+	repoPath := proj.FindRepoPath(repoName)
+	if repoPath == "" {
+		return s, false
+	}
+
+	// Trim common project base from repo path.
+	relRepoPath := strings.TrimPrefix(repoPath, proj.Path()+"/")
+
+	return s[:start] + relRepoPath + s[start+len:], true
 }
 
 func BuildPackageString(repoName string, pkgName string) string {

@@ -22,13 +22,14 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/mfg"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"
 )
 
 func ResolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
-	proj := InitProject()
+	proj := TryGetProject()
 
 	lpkg, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
 	if err != nil {
@@ -83,12 +84,19 @@ func mfgLoad(mi *mfg.MfgImage) {
 }
 
 func mfgCreateRunCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		NewtUsage(cmd, util.NewNewtError("Must specify mfg package name"))
+	if len(args) < 2 {
+		NewtUsage(cmd, util.NewNewtError(
+			"Must specify mfg package name and version number"))
 	}
 
 	pkgName := args[0]
 	lpkg, err := ResolveMfgPkg(pkgName)
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	versStr := args[1]
+	ver, err := image.ParseVersion(versStr)
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
@@ -98,6 +106,7 @@ func mfgCreateRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
+	mi.SetVersion(ver)
 	mfgCreate(mi)
 }
 
@@ -131,12 +140,23 @@ func mfgDeployRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
+	ver := image.ImageVersion{}
+	if len(args) >= 2 {
+		versStr := args[1]
+		ver, err = image.ParseVersion(versStr)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+	}
+
 	mi, err := mfg.Load(lpkg)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
+	mi.SetVersion(ver)
 	mfgCreate(mi)
+
 	mfgLoad(mi)
 }
 
@@ -156,26 +176,26 @@ func AddMfgCommands(cmd *cobra.Command) {
 	cmd.AddCommand(mfgCmd)
 
 	mfgCreateCmd := &cobra.Command{
-		Use:       "create <mfg-package-name>",
-		Short:     "Create a manufacturing flash image",
-		Run:       mfgCreateRunCmd,
-		ValidArgs: mfgList(),
+		Use:   "create <mfg-package-name> <version #.#.#.#>",
+		Short: "Create a manufacturing flash image",
+		Run:   mfgCreateRunCmd,
 	}
 	mfgCmd.AddCommand(mfgCreateCmd)
+	AddTabCompleteFn(mfgCreateCmd, mfgList)
 
 	mfgLoadCmd := &cobra.Command{
-		Use:       "load <mfg-package-name>",
-		Short:     "Load a manufacturing flash image onto a device",
-		Run:       mfgLoadRunCmd,
-		ValidArgs: mfgList(),
+		Use:   "load <mfg-package-name>",
+		Short: "Load a manufacturing flash image onto a device",
+		Run:   mfgLoadRunCmd,
 	}
 	mfgCmd.AddCommand(mfgLoadCmd)
+	AddTabCompleteFn(mfgLoadCmd, mfgList)
 
 	mfgDeployCmd := &cobra.Command{
-		Use:       "deploy <mfg-package-name>",
-		Short:     "Builds and uploads a manufacturing image (build + load)",
-		Run:       mfgDeployRunCmd,
-		ValidArgs: mfgList(),
+		Use:   "deploy <mfg-package-name> [version #.#.#.#]",
+		Short: "Build and upload a manufacturing image (create + load)",
+		Run:   mfgDeployRunCmd,
 	}
 	mfgCmd.AddCommand(mfgDeployCmd)
+	AddTabCompleteFn(mfgDeployCmd, mfgList)
 }

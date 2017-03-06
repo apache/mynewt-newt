@@ -77,7 +77,7 @@ func (cl *CoreDownload) Download(off, size uint32) error {
 		nmr.Op = NMGR_OP_READ
 		nmr.Flags = 0
 		nmr.Group = NMGR_GROUP_ID_IMAGE
-		nmr.Id = IMGMGR_NMGR_OP_CORELOAD
+		nmr.Id = IMGMGR_NMGR_ID_CORELOAD
 		nmr.Len = uint16(len(data))
 		nmr.Data = data
 

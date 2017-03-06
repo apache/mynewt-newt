@@ -61,14 +61,7 @@ func dateTimeCmd(cmd *cobra.Command, args []string) {
 		nmUsage(cmd, err)
 	}
 
-	err_str := "Command: datetime\n" +
-		"For writing datetime <argument>\n" +
-		"Need to specify a datetime in RFC 3339 format\n" +
-		"2016-03-02T22:44:00                  UTC time (implicit)\n" +
-		"2016-03-02T22:44:00Z                 UTC time (explicit)\n" +
-		"2016-03-02T22:44:00-08:00            PST timezone\n" +
-		"2016-03-02T22:44:00.1                fractional seconds\n" +
-		"2016-03-02T22:44:00.101+05:30        fractional seconds with timezone\n"
+	err_str := "Need to specify a datetime in RFC 3339 format\n"
 
 	if len(args) > 1 {
 		nmUsage(cmd, util.NewNewtError(err_str))
@@ -85,10 +78,29 @@ func dateTimeCmd(cmd *cobra.Command, args []string) {
 }
 
 func dTimeCmd() *cobra.Command {
+	dateTimeHelpText := "Display or set datetime on a device. "
+	dateTimeHelpText += "Specify a datetime-value\n"
+	dateTimeHelpText += "to set the datetime on the device.\n\n"
+	dateTimeHelpText += "Must specify datetime-value in RFC 3339 format.\n"
+
+	dateTimeEx := "newtmgr datetime -c myserial\n"
+	dateTimeEx += "newtmgr datetime 2016-03-02T22:44:00 -c myserial"
+	dateTimeEx += "             (implicit UTC) \n"
+	dateTimeEx += "newtmgr datetime 2016-03-02T22:44:00Z -c myserial"
+	dateTimeEx += "            (explicit UTC)\n"
+	dateTimeEx += "newtmgr datetime 2016-03-02T22:44:00-08:00 -c myserial"
+	dateTimeEx += "       (PST)\n"
+	dateTimeEx += "newtmgr datetime 2016-03-02T22:44:00.1 -c myserial"
+	dateTimeEx += "           (fractional secs)\n"
+	dateTimeEx += "newtmgr datetime 2016-03-02T22:44:00.101+05:30 -c myserial"
+	dateTimeEx += "   (fractional secs + timezone)\n"
+
 	dateTCmd := &cobra.Command{
-		Use:   "datetime",
-		Short: "Manage datetime on the device",
-		Run:   dateTimeCmd,
+		Use:     "datetime [datetime-value] -c <conn_profile>",
+		Short:   "Manage datetime on a device",
+		Long:    dateTimeHelpText,
+		Example: dateTimeEx,
+		Run:     dateTimeCmd,
 	}
 
 	return dateTCmd

@@ -31,8 +31,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/resolve"
@@ -59,6 +61,8 @@ type TargetBuilder struct {
 	LoaderList    interfaces.PackageList
 
 	injectedSettings map[string]string
+
+	res *resolve.Resolution
 }
 
 func NewTargetTester(target *target.Target,
@@ -96,21 +100,31 @@ func NewTargetBuilder(target *target.Target) (*TargetBuilder, error) {
 	return NewTargetTester(target, nil)
 }
 
-func (t *TargetBuilder) NewCompiler(dstDir string) (*toolchain.Compiler, error) {
-	c, err := toolchain.NewCompiler(t.compilerPkg.BasePath(), dstDir,
+func (t *TargetBuilder) NewCompiler(dstDir string) (
+	*toolchain.Compiler, error) {
+
+	c, err := toolchain.NewCompiler(
+		t.compilerPkg.BasePath(),
+		dstDir,
 		t.target.BuildProfile)
 
 	return c, err
 }
 
-func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
-	seeds := []*pkg.LocalPackage{
-		t.bspPkg.LocalPackage,
-		t.compilerPkg,
-		t.target.Package(),
+func (t *TargetBuilder) ensureResolved() error {
+	if t.res != nil {
+		return nil
 	}
 
+	var loaderSeeds []*pkg.LocalPackage
 	if t.loaderPkg != nil {
+		loaderSeeds = []*pkg.LocalPackage{
+			t.loaderPkg,
+			t.bspPkg.LocalPackage,
+			t.compilerPkg,
+			t.target.Package(),
+		}
+
 		// For split images, inject the SPLIT_[...] settings into the
 		// corresponding app packages.  This ensures that:
 		//     * The app packages know they are part of a split image during
@@ -125,12 +139,16 @@ func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
 		// Inject the SPLIT_IMAGE setting into the entire target.  All packages
 		// now know that they are part of a split image build.
 		t.injectedSettings["SPLIT_IMAGE"] = "1"
+	}
 
-		seeds = append(seeds, t.loaderPkg)
+	appSeeds := []*pkg.LocalPackage{
+		t.bspPkg.LocalPackage,
+		t.compilerPkg,
+		t.target.Package(),
 	}
 
 	if t.appPkg != nil {
-		seeds = append(seeds, t.appPkg)
+		appSeeds = append(appSeeds, t.appPkg)
 	}
 
 	if t.testPkg != nil {
@@ -142,26 +160,44 @@ func (t *TargetBuilder) ExportCfg() (resolve.CfgResolution, error) {
 		t.injectedSettings["TEST"] = "1"
 		t.injectedSettings["SELFTEST"] = "1"
 
-		seeds = append(seeds, t.testPkg)
+		appSeeds = append(appSeeds, t.testPkg)
 	}
 
-	cfgResolution, err := resolve.ResolveCfg(seeds, t.injectedSettings,
-		t.bspPkg.FlashMap)
+	var err error
+	t.res, err = resolve.ResolveFull(
+		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap)
 	if err != nil {
-		return cfgResolution, err
+		return err
 	}
 
-	return cfgResolution, nil
+	return nil
 }
 
-func (t *TargetBuilder) validateAndWriteCfg(
-	cfgResolution resolve.CfgResolution) error {
+func (t *TargetBuilder) Resolve() (*resolve.Resolution, error) {
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
 
-	if errText := cfgResolution.ErrorText(); errText != "" {
+	return t.res, nil
+}
+
+func (t *TargetBuilder) validateAndWriteCfg() error {
+	if err := t.ensureResolved(); err != nil {
+		return err
+	}
+
+	if errText := t.res.ErrorText(); errText != "" {
 		return util.NewNewtError(errText)
 	}
 
-	if err := syscfg.EnsureWritten(cfgResolution.Cfg,
+	warningText := strings.TrimSpace(t.res.WarningText())
+	if warningText != "" {
+		for _, line := range strings.Split(warningText, "\n") {
+			log.Debugf(line)
+		}
+	}
+
+	if err := syscfg.EnsureWritten(t.res.Cfg,
 		GeneratedIncludeDir(t.target.Name())); err != nil {
 
 		return err
@@ -170,40 +206,21 @@ func (t *TargetBuilder) validateAndWriteCfg(
 	return nil
 }
 
-func (t *TargetBuilder) resolvePkgs(cfgResolution resolve.CfgResolution) (
-	[]*pkg.LocalPackage, []*pkg.LocalPackage, error) {
-
-	var appPkg *pkg.LocalPackage
-	if t.appPkg != nil {
-		appPkg = t.appPkg
-	} else {
-		appPkg = t.testPkg
-	}
-
-	return resolve.ResolveSplitPkgs(cfgResolution,
-		t.loaderPkg,
-		appPkg,
-		t.bspPkg.LocalPackage,
-		t.compilerPkg,
-		t.target.Package())
-}
-
-func (t *TargetBuilder) generateSysinit(
-	cfgResolution resolve.CfgResolution) error {
-
-	loaderPkgs, appPkgs, err := t.resolvePkgs(cfgResolution)
-	if err != nil {
+func (t *TargetBuilder) generateSysinit() error {
+	if err := t.ensureResolved(); err != nil {
 		return err
 	}
 
 	srcDir := GeneratedSrcDir(t.target.Name())
 
-	if loaderPkgs != nil {
-		sysinit.EnsureWritten(loaderPkgs, srcDir,
+	if t.res.LoaderSet != nil {
+		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
+		sysinit.EnsureWritten(lpkgs, srcDir,
 			pkg.ShortName(t.target.Package()), true)
 	}
 
-	sysinit.EnsureWritten(appPkgs, srcDir,
+	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
+	sysinit.EnsureWritten(lpkgs, srcDir,
 		pkg.ShortName(t.target.Package()), false)
 
 	return nil
@@ -216,10 +233,8 @@ func (t *TargetBuilder) generateFlashMap() error {
 		pkg.ShortName(t.target.Package()))
 }
 
-func (t *TargetBuilder) generateCode(
-	cfgResolution resolve.CfgResolution) error {
-
-	if err := t.generateSysinit(cfgResolution); err != nil {
+func (t *TargetBuilder) generateCode() error {
+	if err := t.generateSysinit(); err != nil {
 		return err
 	}
 
@@ -231,8 +246,7 @@ func (t *TargetBuilder) generateCode(
 }
 
 func (t *TargetBuilder) PrepBuild() error {
-	cfgResolution, err := t.ExportCfg()
-	if err != nil {
+	if err := t.ensureResolved(); err != nil {
 		return err
 	}
 
@@ -241,18 +255,14 @@ func (t *TargetBuilder) PrepBuild() error {
 		return util.NewNewtError(flashErrText)
 	}
 
-	if err := t.validateAndWriteCfg(cfgResolution); err != nil {
+	if err := t.validateAndWriteCfg(); err != nil {
 		return err
 	}
 
-	loaderPkgs, appPkgs, err := t.resolvePkgs(cfgResolution)
-	if err != nil {
-		return err
-	}
-
-	if loaderPkgs != nil {
-		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER, loaderPkgs,
-			cfgResolution.ApiMap, cfgResolution.Cfg)
+	var err error
+	if t.res.LoaderSet != nil {
+		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER,
+			t.res.LoaderSet.Rpkgs, t.res.ApiMap, t.res.Cfg)
 		if err != nil {
 			return err
 		}
@@ -267,8 +277,8 @@ func (t *TargetBuilder) PrepBuild() error {
 		t.LoaderList = project.ResetDeps(nil)
 	}
 
-	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, appPkgs,
-		cfgResolution.ApiMap, cfgResolution.Cfg)
+	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, t.res.AppSet.Rpkgs,
+		t.res.ApiMap, t.res.Cfg)
 	if err != nil {
 		return err
 	}
@@ -276,7 +286,7 @@ func (t *TargetBuilder) PrepBuild() error {
 		return err
 	}
 
-	if loaderPkgs != nil {
+	if t.res.LoaderSet != nil {
 		appFlags := toolchain.NewCompilerInfo()
 		appFlags.Cflags = append(appFlags.Cflags, "-DSPLIT_APPLICATION")
 		t.AppBuilder.AddCompilerInfo(appFlags)
@@ -284,7 +294,9 @@ func (t *TargetBuilder) PrepBuild() error {
 
 	t.AppList = project.ResetDeps(nil)
 
-	if err := t.generateCode(cfgResolution); err != nil {
+	logDepInfo(t.res)
+
+	if err := t.generateCode(); err != nil {
 		return err
 	}
 
@@ -292,8 +304,8 @@ func (t *TargetBuilder) PrepBuild() error {
 }
 
 func (t *TargetBuilder) buildLoader() error {
-	/* Link the app as a test (using the normal single image linker script) */
-	if err := t.AppBuilder.TestLink(t.bspPkg.LinkerScripts); err != nil {
+	/* Tentatively link the app (using the normal single image linker script) */
+	if err := t.AppBuilder.TentativeLink(t.bspPkg.LinkerScripts); err != nil {
 		return err
 	}
 
@@ -308,8 +320,8 @@ func (t *TargetBuilder) buildLoader() error {
 		return err
 	}
 
-	/* perform a test link of the loader */
-	if err := t.LoaderBuilder.TestLink(t.bspPkg.LinkerScripts); err != nil {
+	/* Tentatively link the loader */
+	if err := t.LoaderBuilder.TentativeLink(t.bspPkg.LinkerScripts); err != nil {
 		return err
 	}
 
@@ -386,12 +398,12 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 
 	/* fetch symbols from the elf and from the libraries themselves */
 	log.Debugf("Loader packages:")
-	for _, lpkg := range t.LoaderBuilder.sortedLocalPackages() {
-		log.Debugf("    * %s", lpkg.Name())
+	for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
+		log.Debugf("    * %s", rpkg.Lpkg.Name())
 	}
 	log.Debugf("App packages:")
-	for _, lpkg := range t.AppBuilder.sortedLocalPackages() {
-		log.Debugf("    * %s", lpkg.Name())
+	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
+		log.Debugf("    * %s", rpkg.Lpkg.Name())
 	}
 	err, appLibSym := t.AppBuilder.ExtractSymbolInfo()
 	if err != nil {
@@ -399,7 +411,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	}
 
 	/* fetch the symbol list from the app temporary elf */
-	err, appElfSym := t.AppBuilder.ParseObjectElf(t.AppBuilder.AppTempElfPath())
+	err, appElfSym := t.AppBuilder.ParseObjectElf(t.AppBuilder.AppTentativeElfPath())
 	if err != nil {
 		return err, nil, nil
 	}
@@ -411,7 +423,7 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	}
 
 	err, loaderElfSym := t.LoaderBuilder.ParseObjectElf(
-		t.LoaderBuilder.AppTempElfPath())
+		t.LoaderBuilder.AppTentativeElfPath())
 	if err != nil {
 		return err, nil, nil
 	}
@@ -425,45 +437,34 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	uncommonPkgs := smNomatch.Packages()
 
 	/* ensure that the loader and app packages are never shared */
-	delete(commonPkgs, t.AppBuilder.appPkg.Name())
-	uncommonPkgs[t.AppBuilder.appPkg.Name()] = true
-	ma := smMatch.FilterPkg(t.AppBuilder.appPkg.Name())
+	delete(commonPkgs, t.AppBuilder.appPkg.rpkg.Lpkg.Name())
+	uncommonPkgs[t.AppBuilder.appPkg.rpkg.Lpkg.Name()] = true
+	ma := smMatch.FilterPkg(t.AppBuilder.appPkg.rpkg.Lpkg.Name())
 	smMatch.RemoveMap(ma)
 
-	delete(commonPkgs, t.LoaderBuilder.appPkg.Name())
-	uncommonPkgs[t.LoaderBuilder.appPkg.Name()] = true
-	ml := smMatch.FilterPkg(t.LoaderBuilder.appPkg.Name())
+	delete(commonPkgs, t.LoaderBuilder.appPkg.rpkg.Lpkg.Name())
+	uncommonPkgs[t.LoaderBuilder.appPkg.rpkg.Lpkg.Name()] = true
+	ml := smMatch.FilterPkg(t.LoaderBuilder.appPkg.rpkg.Lpkg.Name())
 	smMatch.RemoveMap(ml)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Putting %d symbols from %d packages into loader\n",
 		len(*smMatch), len(commonPkgs))
 
-	/* This is worth a special comment.  We are building both apps as
-	 * stand-alone apps against the normal linker file, so they will both
-	 * have a Reset_Handler symbol.  We need to ignore this here.  When
-	 * we build the split app, we use a special linker file which
-	 * uses a different entry point */
-	specialSm := symbol.NewSymbolMap()
-	specialSm.Add(*symbol.NewElfSymbol("Reset_Handler(app)"))
-	specialSm.Add(*symbol.NewElfSymbol("Reset_Handler(loader)"))
-
 	var badpkgs []string
 	var symbolStr string
 	for v, _ := range uncommonPkgs {
 		if t.AppBuilder.appPkg != nil &&
-			t.AppBuilder.appPkg.Name() != v &&
+			t.AppBuilder.appPkg.rpkg.Lpkg.Name() != v &&
 			t.LoaderBuilder.appPkg != nil &&
-			t.LoaderBuilder.appPkg.Name() != v {
+			t.LoaderBuilder.appPkg.rpkg.Lpkg.Name() != v {
 
 			trouble := smNomatch.FilterPkg(v)
 
 			var found bool
 			for _, sym := range *trouble {
-				if _, ok := specialSm.Find(sym.Name); !ok {
-					if !sym.IsLocal() {
-						found = true
-					}
+				if !sym.IsLocal() {
+					found = true
 				}
 			}
 
@@ -514,43 +515,16 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	return err, commonPkgs, smMatch
 }
 
-func (t *TargetBuilder) Test() error {
-	cfgResolution, err := t.ExportCfg()
-	if err != nil {
-		return err
-	}
-
-	if err := t.validateAndWriteCfg(cfgResolution); err != nil {
-		return err
-	}
-
-	_, appPkgs, err := t.resolvePkgs(cfgResolution)
-	if err != nil {
-		return err
-	}
-
-	t.AppBuilder, err = NewBuilder(t, "test", appPkgs,
-		cfgResolution.ApiMap, cfgResolution.Cfg)
-	if err != nil {
-		return err
-	}
-	if err := t.AppBuilder.PrepBuild(); err != nil {
-		return err
-	}
-
-	if err := t.generateCode(cfgResolution); err != nil {
-		return err
-	}
-
-	if err := t.AppBuilder.Test(t.testPkg); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (t *TargetBuilder) GetTarget() *target.Target {
 	return t.target
+}
+
+func (t *TargetBuilder) GetTestPkg() *pkg.LocalPackage {
+	return t.testPkg
+}
+
+func (t *TargetBuilder) InjectSetting(key string, value string) {
+	t.injectedSettings[key] = value
 }
 
 func readManifest(path string) (*image.ImageManifest, error) {
@@ -571,18 +545,19 @@ func readManifest(path string) (*image.ImageManifest, error) {
 func (t *TargetBuilder) createManifest() error {
 	manifest := &image.ImageManifest{
 		Date: time.Now().Format(time.RFC3339),
+		Name: t.GetTarget().FullName(),
 	}
 
 	rm := image.NewRepoManager()
-	for _, lpkg := range t.AppBuilder.sortedLocalPackages() {
+	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
 		manifest.Pkgs = append(manifest.Pkgs,
-			rm.GetImageManifestPkg(lpkg))
+			rm.GetImageManifestPkg(rpkg.Lpkg))
 	}
 
 	if t.LoaderBuilder != nil {
-		for _, lpkg := range t.LoaderBuilder.sortedLocalPackages() {
+		for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
 			manifest.LoaderPkgs = append(manifest.LoaderPkgs,
-				rm.GetImageManifestPkg(lpkg))
+				rm.GetImageManifestPkg(rpkg.Lpkg))
 		}
 	}
 
@@ -596,6 +571,23 @@ func (t *TargetBuilder) createManifest() error {
 	sort.Strings(keys)
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
+	}
+	syscfgKV := t.GetTarget().Package().SyscfgV.GetStringMapString("syscfg.vals")
+	if len(syscfgKV) > 0 {
+		tgtSyscfg := fmt.Sprintf("target.syscfg=%s",
+			syscfg.KeyValueToStr(syscfgKV))
+		manifest.TgtVars = append(manifest.TgtVars, tgtSyscfg)
+	}
+
+	c, err := t.AppBuilder.PkgSizes()
+	if err == nil {
+		manifest.PkgSizes = c.Pkgs
+	}
+	if t.LoaderBuilder != nil {
+		c, err = t.LoaderBuilder.PkgSizes()
+		if err == nil {
+			manifest.LoaderPkgSizes = c.Pkgs
+		}
 	}
 	file, err := os.Create(t.AppBuilder.ManifestPath())
 	if err != nil {
@@ -634,9 +626,7 @@ func (t *TargetBuilder) augmentManifest(
 		return err
 	}
 
-	manifest.Version = fmt.Sprintf("%d.%d.%d.%d",
-		appImg.Version.Major, appImg.Version.Minor,
-		appImg.Version.Rev, appImg.Version.BuildNum)
+	manifest.Version = appImg.Version.String()
 	manifest.ImageHash = fmt.Sprintf("%x", appImg.Hash)
 	manifest.Image = filepath.Base(appImg.TargetImg)
 
@@ -662,6 +652,113 @@ func (t *TargetBuilder) augmentManifest(
 	if err != nil {
 		return util.FmtNewtError("Cannot write manifest file: %s",
 			err.Error())
+	}
+
+	return nil
+}
+
+// Calculates the size of a single boot trailer.  This is the amount of flash
+// that must be reserved at the end of each image slot.
+func (t *TargetBuilder) bootTrailerSize() int {
+	var minWriteSz int
+
+	entry, ok := t.res.Cfg.Settings["MCU_FLASH_MIN_WRITE_SIZE"]
+	if !ok {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"* Warning: target does not define MCU_FLASH_MIN_WRITE_SIZE "+
+				"setting; assuming a value of 1.\n")
+		minWriteSz = 1
+	} else {
+		val, err := util.AtoiNoOct(entry.Value)
+		if err != nil {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"* Warning: target specifies invalid non-integer "+
+					"MCU_FLASH_MIN_WRITE_SIZE setting; assuming a "+
+					"value of 1.\n")
+			minWriteSz = 1
+		} else {
+			minWriteSz = val
+		}
+	}
+
+	/* Mynewt boot trailer format:
+	 *
+	 *  0                   1                   2                   3
+	 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * ~                       MAGIC (16 octets)                       ~
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * ~                                                               ~
+	 * ~             Swap status (128 * min-write-size * 3)            ~
+	 * ~                                                               ~
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |   Copy done   |     0xff padding (up to min-write-sz - 1)     |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |   Image OK    |     0xff padding (up to min-write-sz - 1)     |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+
+	tsize := 16 + // Magic.
+		128*minWriteSz*3 + // Swap status.
+		minWriteSz + // Copy done.
+		minWriteSz // Image Ok.
+
+	log.Debugf("Min-write-size=%d; boot-trailer-size=%d", minWriteSz, tsize)
+
+	return tsize
+}
+
+// Calculates the size of the largest image that can be written to each image
+// slot.
+func (t *TargetBuilder) maxImgSizes() []int {
+	sz0 := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0].Size
+	sz1 := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_1].Size
+	trailerSz := t.bootTrailerSize()
+
+	return []int{
+		sz0 - trailerSz,
+		sz1 - trailerSz,
+	}
+}
+
+// Verifies that each already-built image leaves enough room for a boot trailer
+// a the end of its slot.
+func (t *TargetBuilder) verifyImgSizes(li *image.Image, ai *image.Image) error {
+	maxSizes := t.maxImgSizes()
+
+	errLines := []string{}
+	if li != nil {
+		if overflow := int(li.TotalSize) - maxSizes[0]; overflow > 0 {
+			errLines = append(errLines,
+				fmt.Sprintf("loader overflows slot-0 by %d bytes "+
+					"(image=%d max=%d)",
+					overflow, li.TotalSize, maxSizes[0]))
+		}
+		if overflow := int(ai.TotalSize) - maxSizes[1]; overflow > 0 {
+			errLines = append(errLines,
+				fmt.Sprintf("app overflows slot-1 by %d bytes "+
+					"(image=%d max=%d)",
+					overflow, ai.TotalSize, maxSizes[1]))
+
+		}
+	} else {
+		if overflow := int(ai.TotalSize) - maxSizes[0]; overflow > 0 {
+			errLines = append(errLines,
+				fmt.Sprintf("app overflows slot-0 by %d bytes "+
+					"(image=%d max=%d)",
+					overflow, ai.TotalSize, maxSizes[0]))
+		}
+	}
+
+	if len(errLines) > 0 {
+		if !newtutil.NewtForce {
+			return util.NewNewtError(strings.Join(errLines, "; "))
+		} else {
+			for _, e := range errLines {
+				util.StatusMessage(util.VERBOSITY_QUIET,
+					"* Warning: %s (ignoring due to force flag)\n", e)
+			}
+		}
 	}
 
 	return nil
@@ -697,5 +794,25 @@ func (t *TargetBuilder) CreateImages(version string,
 		return nil, nil, err
 	}
 
+	if err := t.verifyImgSizes(loaderImg, appImg); err != nil {
+		return nil, nil, err
+	}
+
 	return appImg, loaderImg, nil
+}
+
+func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
+
+	return depGraph(t.res.MasterSet)
+}
+
+func (t *TargetBuilder) CreateRevdepGraph() (DepGraph, error) {
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
+
+	return revdepGraph(t.res.MasterSet)
 }

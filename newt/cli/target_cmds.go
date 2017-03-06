@@ -20,9 +20,9 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -31,7 +31,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
@@ -84,7 +86,7 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
-	InitProject()
+	TryGetProject()
 	targetNames := []string{}
 	if len(args) == 0 {
 		for name, _ := range target.GetTargets() {
@@ -120,7 +122,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		}
 
 		// A few variables come from the base package rather than the target.
-		kvPairs["syscfg"] = targetSyscfgKVToStr(
+		kvPairs["syscfg"] = syscfg.KeyValueToStr(
 			target.Package().SyscfgV.GetStringMapString("syscfg.vals"))
 		kvPairs["cflags"] = pkgVarSliceString(target.Package(), "pkg.cflags")
 		kvPairs["lflags"] = pkgVarSliceString(target.Package(), "pkg.lflags")
@@ -141,56 +143,6 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func targetSyscfgKVFromStr(str string) (map[string]string, error) {
-	vals := map[string]string{}
-
-	if strings.TrimSpace(str) == "" {
-		return vals, nil
-	}
-
-	// Separate syscfg vals are delimited by ':'.
-	fields := strings.Split(str, ":")
-
-	// Key-value pairs are delimited by '='.  If no '=' is present, assume the
-	// string is the key name and the value is 1.
-	for _, f := range fields {
-		if _, err := util.AtoiNoOct(f); err == nil {
-			return nil, util.FmtNewtError(
-				"Invalid setting name \"%s\"; must not be a number", f)
-		}
-
-		kv := strings.SplitN(f, "=", 2)
-		switch len(kv) {
-		case 1:
-			vals[f] = "1"
-		case 2:
-			vals[kv[0]] = kv[1]
-		}
-	}
-
-	return vals, nil
-}
-
-func targetSyscfgKVToStr(syscfgKv map[string]string) string {
-	str := ""
-
-	names := make([]string, 0, len(syscfgKv))
-	for k, _ := range syscfgKv {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-
-	for i, name := range names {
-		if i != 0 {
-			str += ":"
-		}
-
-		str += fmt.Sprintf("%s=%s", name, syscfgKv[name])
-	}
-
-	return str
-}
-
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		NewtUsage(cmd,
@@ -198,7 +150,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				"(target-name & k=v) to set"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	// Parse target name.
 	t, err := resolveExistingTargetArg(args[0])
@@ -233,7 +185,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		// instead of the target.
 		if kv[0] == "target.syscfg" {
 			t.Package().SyscfgV = viper.New()
-			kv, err := targetSyscfgKVFromStr(kv[1])
+			kv, err := syscfg.KeyValueFromStr(kv[1])
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
@@ -282,7 +234,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Missing target name"))
 	}
 
-	proj := InitProject()
+	proj := TryGetProject()
 
 	pkgName, err := ResolveNewTargetName(args[0])
 	if err != nil {
@@ -314,11 +266,10 @@ func targetDelOne(t *target.Target) error {
 		}
 
 		if userFiles {
-			scanner := bufio.NewScanner(os.Stdin)
 			fmt.Printf("Target directory %s contains some extra content; "+
 				"delete anyway? (y/N): ", t.Package().BasePath())
-			rc := scanner.Scan()
-			if !rc || strings.ToLower(scanner.Text()) != "y" {
+			rsp := PromptYesNo(false)
+			if !rsp {
 				return nil
 			}
 		}
@@ -340,7 +291,7 @@ func targetDelCmd(cmd *cobra.Command, args []string) {
 			"target to delete"))
 	}
 
-	InitProject()
+	TryGetProject()
 
 	targets, err := ResolveTargets(args...)
 	if err != nil {
@@ -360,7 +311,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 			"source target and one destination target"))
 	}
 
-	proj := InitProject()
+	proj := TryGetProject()
 
 	srcTarget, err := resolveExistingTargetArg(args[0])
 	if err != nil {
@@ -462,36 +413,233 @@ func printCfg(targetName string, cfg syscfg.Cfg) {
 	}
 }
 
-func targetConfigCmd(cmd *cobra.Command, args []string) {
-	if len(args) != 1 {
-		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
+func yamlPkgCfg(w io.Writer, pkgName string, cfg syscfg.Cfg,
+	entries []syscfg.CfgEntry) {
+
+	settingNames := make([]string, len(entries))
+	for i, entry := range entries {
+		settingNames[i] = entry.Name
+	}
+	sort.Strings(settingNames)
+
+	fmt.Fprintf(w, "    ### %s\n", pkgName)
+	for _, name := range settingNames {
+		fmt.Fprintf(w, "    %s: '%s'\n", name, cfg.Settings[name].Value)
+	}
+}
+
+func yamlCfg(cfg syscfg.Cfg) string {
+	if errText := cfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
 	}
 
-	InitProject()
+	pkgNameEntryMap := syscfg.EntriesByPkg(cfg)
 
-	t, err := resolveExistingTargetArg(args[0])
-	if err != nil {
-		NewtUsage(cmd, err)
+	pkgNames := make([]string, 0, len(pkgNameEntryMap))
+	for pkgName, _ := range pkgNameEntryMap {
+		pkgNames = append(pkgNames, pkgName)
+	}
+	sort.Strings(pkgNames)
+
+	buf := bytes.Buffer{}
+
+	fmt.Fprintf(&buf, "syscfg.vals:\n")
+	for i, pkgName := range pkgNames {
+		if i > 0 {
+			fmt.Fprintf(&buf, "\n")
+		}
+		yamlPkgCfg(&buf, pkgName, cfg, pkgNameEntryMap[pkgName])
 	}
 
-	b, err := builder.NewTargetBuilder(t)
+	return string(buf.Bytes())
+}
+
+func targetBuilderConfigResolve(b *builder.TargetBuilder) *resolve.Resolution {
+	res, err := b.Resolve()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	cfgResolution, err := b.ExportCfg()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
-
-	warningText := strings.TrimSpace(cfgResolution.WarningText())
+	warningText := strings.TrimSpace(res.WarningText())
 	if warningText != "" {
 		for _, line := range strings.Split(warningText, "\n") {
 			log.Warn(line)
 		}
 	}
 
-	printCfg(t.Name(), cfgResolution.Cfg)
+	return res
+}
+
+func targetConfigShowCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	for _, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printCfg(b.GetTarget().Name(), res.Cfg)
+	}
+}
+
+func targetConfigInitCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	type entry struct {
+		lpkg   *pkg.LocalPackage
+		path   string
+		b      *builder.TargetBuilder
+		exists bool
+	}
+
+	anyExist := false
+	entries := make([]entry, len(args))
+	for i, pkgName := range args {
+		e := &entries[i]
+
+		b, err := TargetBuilderForTargetOrUnittest(pkgName)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+		e.b = b
+
+		e.lpkg = b.GetTestPkg()
+		if e.lpkg == nil {
+			e.lpkg = b.GetTarget().Package()
+		}
+
+		e.path = builder.PkgSyscfgPath(e.lpkg.BasePath())
+
+		if util.NodeExist(e.path) {
+			e.exists = true
+			anyExist = true
+		}
+	}
+
+	if anyExist && !targetForce {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Configuration files already exist:\n")
+		for _, e := range entries {
+			if e.exists {
+				util.StatusMessage(util.VERBOSITY_DEFAULT, "    * %s\n",
+					e.path)
+			}
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+
+		fmt.Printf("Overwrite them? (y/N): ")
+		rsp := PromptYesNo(false)
+		if !rsp {
+			return
+		}
+	}
+
+	for _, e := range entries {
+		res := targetBuilderConfigResolve(e.b)
+		yaml := yamlCfg(res.Cfg)
+
+		if err := ioutil.WriteFile(e.path, []byte(yaml), 0644); err != nil {
+			NewtUsage(nil, util.FmtNewtError("Error writing file \"%s\"; %s",
+				e.path, err.Error()))
+		}
+	}
+}
+
+func targetDepCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	b, err := TargetBuilderForTargetOrUnittest(args[0])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	res, err := b.Resolve()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	dg, err := b.CreateDepGraph()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	// If user specified any package names, only include specified packages.
+	if len(args) > 1 {
+		rpkgs, err := ResolveRpkgs(res, args[1:])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		var missingRpkgs []*resolve.ResolvePackage
+		dg, missingRpkgs = builder.FilterDepGraph(dg, rpkgs)
+		for _, rpkg := range missingRpkgs {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"Warning: Package \"%s\" not included in target \"%s\"\n",
+				rpkg.Lpkg.FullName(), b.GetTarget().FullName())
+		}
+	}
+
+	if len(dg) > 0 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			builder.DepGraphText(dg)+"\n")
+	}
+}
+
+func targetRevdepCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
+	}
+
+	TryGetProject()
+
+	b, err := TargetBuilderForTargetOrUnittest(args[0])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	res, err := b.Resolve()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	dg, err := b.CreateRevdepGraph()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	// If user specified any package names, only include specified packages.
+	if len(args) > 1 {
+		rpkgs, err := ResolveRpkgs(res, args[1:])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		var missingRpkgs []*resolve.ResolvePackage
+		dg, missingRpkgs = builder.FilterDepGraph(dg, rpkgs)
+		for _, rpkg := range missingRpkgs {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"Warning: Package \"%s\" not included in target \"%s\"\n",
+				rpkg.Lpkg.FullName(), b.GetTarget().FullName())
+		}
+	}
+
+	if len(dg) > 0 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			builder.RevdepGraphText(dg)+"\n")
+	}
 }
 
 func AddTargetCommands(cmd *cobra.Command) {
@@ -499,7 +647,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetHelpEx := ""
 	targetCmd := &cobra.Command{
 		Use:     "target",
-		Short:   "Command for manipulating targets",
+		Short:   "Commands to create, delete, configure, and query targets",
 		Long:    targetHelpText,
 		Example: targetHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -521,25 +669,29 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: showHelpEx,
 		Run:     targetShowCmd,
 	}
-	showCmd.ValidArgs = targetList()
 	targetCmd.AddCommand(showCmd)
+	AddTabCompleteFn(showCmd, targetList)
 
-	setHelpText := "Set a target variable (<var-name>) on target " +
-		"<target-name> to value <value>."
-	setHelpEx := "  newt target set <target-name> <var-name>=<value>\n"
-	setHelpEx += "  newt target set my_target1 var_name=value\n"
-	setHelpEx += "  newt target set my_target1 arch=cortex_m4\n"
-	setHelpEx += "  newt target set my_target1 var_name   (display valid values for <var_name>)"
+	setHelpText := "Set a target variable (<var-name>) on target "
+	setHelpText += "<target-name> to value <value>.\n\n"
+	setHelpText += "Warning: When setting the syscfg variable, a new syscfg.yml file\n"
+	setHelpText += "is created and the current settings are deleted. Only the settings\n"
+	setHelpText += "specified in the command are saved in the syscfg.yml file."
+	setHelpEx := "  newt target set my_target1 build_profile=optimized "
+	setHelpEx += "cflags=\"-DNDEBUG\"\n"
+	setHelpEx += "  newt target set my_target1 "
+	setHelpEx += "syscfg=LOG_NEWTMGR=1:CONFIG_NEWTMGR=0\n"
 
 	setCmd := &cobra.Command{
-		Use:     "set",
+		Use: "set <target-name> <var-name>=<value>" +
+			"[:<var-name>=<value>...]",
 		Short:   "Set target configuration variable",
 		Long:    setHelpText,
 		Example: setHelpEx,
 		Run:     targetSetCmd,
 	}
-	setCmd.ValidArgs = targetList()
 	targetCmd.AddCommand(setCmd)
+	AddTabCompleteFn(setCmd, targetList)
 
 	createHelpText := "Create a target specified by <target-name>."
 	createHelpEx := "  newt target create <target-name>\n"
@@ -566,35 +718,92 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: delHelpEx,
 		Run:     targetDelCmd,
 	}
-	delCmd.PersistentFlags().BoolVarP(&targetForce, "force", "f", false,
+	delCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
 		"Force delete of targets with user files without prompt")
 
 	targetCmd.AddCommand(delCmd)
 
-	copyHelpText := "Create a new target by cloning <src-target>."
-	copyHelpEx := "  newt target copy <src-target> <dst-target>\n"
-	copyHelpEx += "  newt target copy blinky_sim my_target"
+	copyHelpText := "Create a new target <dst-target> by cloning <src-target>"
+	copyHelpEx := "  newt target copy blinky_sim my_target"
 
 	copyCmd := &cobra.Command{
-		Use:       "copy",
-		Short:     "Copy target",
-		Long:      copyHelpText,
-		Example:   copyHelpEx,
-		Run:       targetCopyCmd,
-		ValidArgs: targetList(),
+		Use:     "copy <src-target> <dst-target>",
+		Short:   "Copy target",
+		Long:    copyHelpText,
+		Example: copyHelpEx,
+		Run:     targetCopyCmd,
 	}
 
 	targetCmd.AddCommand(copyCmd)
+	AddTabCompleteFn(copyCmd, targetList)
 
-	configHelpText := "View a target's system configuration."
+	configHelpText := "View or populate a target's system configuration"
 
 	configCmd := &cobra.Command{
-		Use:       "config",
-		Short:     "View target system configuration",
-		Long:      configHelpText,
-		Run:       targetConfigCmd,
-		ValidArgs: targetList(),
+		Use:   "config",
+		Short: configHelpText,
+		Long:  configHelpText,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Usage()
+		},
 	}
 
 	targetCmd.AddCommand(configCmd)
+
+	configShowCmd := &cobra.Command{
+		Use:   "show <target>",
+		Short: "View a target's system configuration",
+		Long:  "View a target's system configuration",
+		Run:   targetConfigShowCmd,
+	}
+
+	configCmd.AddCommand(configShowCmd)
+	AddTabCompleteFn(configShowCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	configInitCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Populate a target's system configuration file",
+		Long: "Populate a target's system configuration file (syscfg). " +
+			"Unspecified settings are given default values.",
+		Run: targetConfigInitCmd,
+	}
+	configInitCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
+		"Force overwrite of target configuration")
+
+	configCmd.AddCommand(configInitCmd)
+	AddTabCompleteFn(configInitCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	depHelpText := "View a target's dependency graph."
+
+	depCmd := &cobra.Command{
+		Use:   "dep <target> [pkg-1] [pkg-2] [...]",
+		Short: "View target's dependency graph",
+		Long:  depHelpText,
+		Run:   targetDepCmd,
+	}
+
+	targetCmd.AddCommand(depCmd)
+	AddTabCompleteFn(depCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	revdepHelpText := "View a target's reverse-dependency graph."
+
+	revdepCmd := &cobra.Command{
+		Use:   "revdep <target> [pkg-1] [pkg-2] [...]",
+		Short: "View target's reverse-dependency graph",
+		Long:  revdepHelpText,
+		Run:   targetRevdepCmd,
+	}
+
+	targetCmd.AddCommand(revdepCmd)
+	AddTabCompleteFn(revdepCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
 }

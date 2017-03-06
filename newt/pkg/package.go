@@ -30,28 +30,29 @@ const (
 	PACKAGE_STABILITY_DEV    = "dev"
 )
 
+// Define constants with values of increasing priority.
 const (
-	PACKAGE_TYPE_APP interfaces.PackageType = iota
-	PACKAGE_TYPE_BSP
-	PACKAGE_TYPE_SDK
-	PACKAGE_TYPE_COMPILER
-	PACKAGE_TYPE_LIB
-	PACKAGE_TYPE_TARGET
-	PACKAGE_TYPE_UNITTEST
-	PACKAGE_TYPE_GENERATED
+	PACKAGE_TYPE_COMPILER interfaces.PackageType = iota
 	PACKAGE_TYPE_MFG
+	PACKAGE_TYPE_SDK
+	PACKAGE_TYPE_GENERATED
+	PACKAGE_TYPE_LIB
+	PACKAGE_TYPE_BSP
+	PACKAGE_TYPE_UNITTEST
+	PACKAGE_TYPE_APP
+	PACKAGE_TYPE_TARGET
 )
 
 var PackageTypeNames = map[interfaces.PackageType]string{
-	PACKAGE_TYPE_APP:       "app",
-	PACKAGE_TYPE_BSP:       "bsp",
-	PACKAGE_TYPE_SDK:       "sdk",
 	PACKAGE_TYPE_COMPILER:  "compiler",
-	PACKAGE_TYPE_LIB:       "lib",
-	PACKAGE_TYPE_TARGET:    "target",
-	PACKAGE_TYPE_UNITTEST:  "unittest",
-	PACKAGE_TYPE_GENERATED: "generated",
 	PACKAGE_TYPE_MFG:       "mfg",
+	PACKAGE_TYPE_SDK:       "sdk",
+	PACKAGE_TYPE_GENERATED: "generated",
+	PACKAGE_TYPE_LIB:       "lib",
+	PACKAGE_TYPE_BSP:       "bsp",
+	PACKAGE_TYPE_UNITTEST:  "unittest",
+	PACKAGE_TYPE_APP:       "app",
+	PACKAGE_TYPE_TARGET:    "target",
 }
 
 // An interface, representing information about a Package
@@ -74,8 +75,6 @@ type Package interface {
 	Hash() (string, error)
 	// Description of this package
 	Desc() *PackageDesc
-	// Dependency list for this package
-	Deps() []*Dependency
 	// APIs exported by this package
 	Apis() []string
 	// APIs required by this package

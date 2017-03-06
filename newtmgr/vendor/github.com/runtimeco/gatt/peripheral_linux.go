@@ -9,7 +9,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/runtimeinc/gatt/linux"
+	"github.com/runtimeco/gatt/linux"
 )
 
 type peripheral struct {

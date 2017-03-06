@@ -22,6 +22,7 @@ package mfg
 import (
 	"sort"
 
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 )
@@ -50,6 +51,12 @@ type MfgImage struct {
 	boot       *target.Target
 	images     []*target.Target
 	rawEntries []MfgRawEntry
+
+	version image.ImageVersion
+}
+
+func (mi *MfgImage) SetVersion(ver image.ImageVersion) {
+	mi.version = ver
 }
 
 func (mi *MfgImage) imgApps(imageIdx int) (

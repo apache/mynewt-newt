@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/runtimeinc/gatt/linux/cmd"
+	"github.com/runtimeco/gatt/linux/cmd"
 )
 
 type aclData struct {

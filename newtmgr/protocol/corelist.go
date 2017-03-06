@@ -45,7 +45,7 @@ func (ce *CoreList) EncodeWriteRequest() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_READ
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_IMAGE
-	nmr.Id = IMGMGR_NMGR_OP_CORELIST
+	nmr.Id = IMGMGR_NMGR_ID_CORELIST
 	nmr.Len = 0
 
 	return nmr, nil

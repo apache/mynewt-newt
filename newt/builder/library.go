@@ -162,7 +162,7 @@ func (b *Builder) ParseObjectLibraryFile(bp *BuildPackage,
 
 			/* assign the library */
 			if bp != nil {
-				(*si).Bpkg = bp.Name()
+				(*si).Bpkg = bp.rpkg.Lpkg.Name()
 			} else {
 				(*si).Bpkg = "elf"
 			}
@@ -206,7 +206,6 @@ func (b *Builder) ParseObjectLibraryFile(bp *BuildPackage,
 }
 
 func (b *Builder) CopySymbols(sm *symbol.SymbolMap) error {
-
 	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
 
 	if err != nil {

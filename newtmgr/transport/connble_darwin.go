@@ -18,6 +18,6 @@
  */
 package transport
 
-import "github.com/runtimeinc/gatt"
+import "github.com/runtimeco/gatt"
 
 var BleOptions = []gatt.Option{}
