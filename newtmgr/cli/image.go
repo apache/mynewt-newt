@@ -578,19 +578,19 @@ func imageCmd() *cobra.Command {
 	coreEx += "  newtmgr -c olimex image coredownload --offset 10 -n 10 core\n"
 
 	coreDownloadCmd := &cobra.Command{
-		Use:     "coredownload <core_filename> -c <conn_profile>",
+		Use:     "coredownload <core-filename> -c <conn_profile>",
 		Short:   "Download core from a device",
 		Example: coreEx,
 		Run:     coreDownloadCmd,
 	}
-	coreDownloadCmd.Flags().BoolVarP(&coreElfify, "elfify", "e", false, "Creat an elf file")
+	coreDownloadCmd.Flags().BoolVarP(&coreElfify, "elfify", "e", false, "Create an ELF file")
 	coreDownloadCmd.Flags().Uint32Var(&coreOffset, "offset", 0, "Start offset")
 	coreDownloadCmd.Flags().Uint32VarP(&coreNumBytes, "bytes", "n", 0, "Number of bytes of the core to download")
 	imageCmd.AddCommand(coreDownloadCmd)
 
 	coreConvertCmd := &cobra.Command{
 		Use:   "coreconvert <core-filename> <elf-filename>",
-		Short: "Convert core to elf",
+		Short: "Convert core to ELF",
 		Run:   coreConvertCmd,
 	}
 	imageCmd.AddCommand(coreConvertCmd)

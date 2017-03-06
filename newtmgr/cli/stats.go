@@ -110,15 +110,17 @@ func statsRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func statsCmd() *cobra.Command {
+	statsHelpText := "Read statistics for the specified stats_name from a device"
 	statsCmd := &cobra.Command{
-		Use:   "stat ",
+		Use:   "stat [stats_name] -c <conn_profile>",
 		Short: "Read statistics from a device",
+		Long:  statsHelpText,
 		Run:   statsRunCmd,
 	}
 
 	ListCmd := &cobra.Command{
 		Use:   "list -c <conn_profile>",
-		Short: "Read list of statistics from a device",
+		Short: "Read the list of Stats names from a device",
 		Run:   statsListRunCmd,
 	}
 

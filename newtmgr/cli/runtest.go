@@ -29,7 +29,7 @@ import (
 func runCmd() *cobra.Command {
 	runCmd := &cobra.Command{
 		Use:   "run",
-		Short: "Run procedures on a device",
+		Short: "Run test procedures on a device",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
@@ -37,9 +37,14 @@ func runCmd() *cobra.Command {
 
 	runtestEx := "  newtmgr -c conn run test all 201612161220"
 
+	runTestHelpText := "Run tests on a device. Specify a testname to run a "
+	runTestHelpText += "specific test. All tests are\nrun if \"all\" or no "
+	runTestHelpText += "testname is specified. If a token-value is "
+	runTestHelpText += "specified, the\nvalue is output on the log messages.\n"
 	runTestCmd := &cobra.Command{
-		Use:     "test [all | testname] [token] -c <conn_profile>",
-		Short:   "Run commands a device - \"token\" output on log messages",
+		Use:     "test [all | testname] [token-value] -c <conn_profile>",
+		Short:   "Run tests on a device",
+		Long:    runTestHelpText,
 		Example: runtestEx,
 		Run:     runTestCmd,
 	}
@@ -47,7 +52,7 @@ func runCmd() *cobra.Command {
 
 	runListCmd := &cobra.Command{
 		Use:   "list -c <conn_profile>",
-		Short: "List registered commands on a device",
+		Short: "List registered tests on a device",
 		Run:   runListCmd,
 	}
 	runCmd.AddCommand(runListCmd)
