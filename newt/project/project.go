@@ -443,7 +443,7 @@ func (proj *Project) checkNewtVer() error {
 	compatSms := proj.v.GetStringMapString("project.newt_compatibility")
 	// If this project doesn't have a newt compatibility map, just assume there
 	// is no incompatibility.
-	if compatSms == nil {
+	if len(compatSms) == 0 {
 		return nil
 	}
 
