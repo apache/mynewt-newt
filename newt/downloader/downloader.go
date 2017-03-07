@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -39,6 +40,10 @@ type Downloader interface {
 	Branch() string
 	SetBranch(branch string)
 	DownloadRepo(branch string) (string, error)
+	CurrentBranch(path string) (string, error)
+	UpdateRepo(path string, branchName string) error
+	CleanupRepo(path string, branchName string) error
+	LocalDiff(path string) ([]byte, error)
 }
 
 type GenericDownloader struct {
@@ -66,42 +71,121 @@ type LocalDownloader struct {
 	Path string
 }
 
-func checkout(repoDir string, commit string) error {
-	// Retrieve the current directory so that we can get back to where we
-	// started after the download completes.
-	pwd, err := os.Getwd()
+func executeGitCommand(dir string, cmd []string) ([]byte, error) {
+	wd, err := os.Getwd()
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	}
 
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
+		return nil, util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
 			err.Error()))
 	}
 	gitPath = filepath.ToSlash(gitPath)
 
-	if err := os.Chdir(repoDir); err != nil {
-		return util.NewNewtError(err.Error())
+	if err := os.Chdir(dir); err != nil {
+		return nil, util.NewNewtError(err.Error())
 	}
 
-	// Checkout the specified commit.
-	cmd := []string{
-		gitPath,
-		"checkout",
-		commit,
+	defer os.Chdir(wd)
+
+	gitCmd := []string{gitPath}
+	gitCmd = append(gitCmd, cmd...)
+	output, err := util.ShellCommand(gitCmd, nil)
+	if err != nil {
+		return nil, err
 	}
 
-	if o, err := util.ShellCommand(cmd, nil); err != nil {
-		return util.NewNewtError(string(o))
-	}
+	return output, nil
+}
 
-	// Go back to original directory.
-	if err := os.Chdir(pwd); err != nil {
-		return util.NewNewtError(err.Error())
-	}
+func isTag(repoDir string, branchName string) bool {
+	cmd := []string{"tag", "--list"}
+	output, _ := executeGitCommand(repoDir, cmd)
+	return strings.Contains(string(output), branchName)
+}
 
-	return nil
+func branchExists(repoDir string, branchName string) bool {
+	cmd := []string{"show-ref", "--verify", "--quiet", "refs/heads/" + branchName}
+	_, err := executeGitCommand(repoDir, cmd)
+	return err == nil
+}
+
+// checkout does checkout a branch, or create a new branch from a tag name
+// if the commit supplied is a tag. sha1 based commits have no special
+// handling and result in dettached from HEAD state.
+func checkout(repoDir string, commit string) error {
+	var cmd []string
+	if isTag(repoDir, commit) && !branchExists(repoDir, commit) {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Will create new branch %s"+
+			" from tag %s\n", commit, "tags/"+commit)
+		cmd = []string{
+			"checkout",
+			"tags/" + commit,
+			"-b",
+			commit,
+		}
+	} else {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Will checkout branch %s\n",
+			commit)
+		cmd = []string{
+			"checkout",
+			commit,
+		}
+	}
+	_, err := executeGitCommand(repoDir, cmd)
+	return err
+}
+
+// mergeBranches applies upstream changes to the local copy and must be
+// preceeded by a "fetch" to achieve any meaningful result.
+func mergeBranches(repoDir string) {
+	branches := []string{"master", "develop"}
+	for _, branch := range branches {
+		err := checkout(repoDir, branch)
+		if err != nil {
+			continue
+		}
+		_, err = executeGitCommand(repoDir, []string{"merge", "origin/" + branch})
+		if err != nil {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "Merging changes from origin/%s: %s\n",
+				branch, err)
+		} else {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "Merging changes from origin/%s\n",
+				branch)
+		}
+		// XXX: ignore error, probably resulting from a branch not available at
+		//      origin anymore.
+	}
+}
+
+func fetch(repoDir string) error {
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Fetching new remote branches/tags\n")
+	_, err := executeGitCommand(repoDir, []string{"fetch", "--tags"})
+	return err
+}
+
+// stash saves current changes locally and returns if a new stash was
+// created (if there where no changes, there's no need to stash)
+func stash(repoDir string) (bool, error) {
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Stashing local changes\n")
+	output, err := executeGitCommand(repoDir, []string{"stash"})
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(string(output), "Saved"), nil
+}
+
+func stashPop(repoDir string) error {
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Un-stashing local changes\n")
+	_, err := executeGitCommand(repoDir, []string{"stash", "pop"})
+	return err
+}
+
+func clean(repoDir string) error {
+	_, err := executeGitCommand(repoDir, []string{"clean", "-f"})
+	return err
 }
 
 func (gd *GenericDownloader) Branch() string {
@@ -170,6 +254,57 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	_, err = io.Copy(handle, rsp.Body)
 
 	return nil
+}
+
+func (gd *GithubDownloader) CurrentBranch(path string) (string, error) {
+	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
+	branch, err := executeGitCommand(path, cmd)
+	return strings.Trim(string(branch), "\r\n"), err
+}
+
+func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
+	err := fetch(path)
+	if err != nil {
+		return err
+	}
+
+	stashed, err := stash(path)
+	if err != nil {
+		return err
+	}
+
+	mergeBranches(path)
+
+	err = checkout(path, branchName)
+	if err != nil {
+		return err
+	}
+
+	if stashed {
+		return stashPop(path)
+	}
+
+	return nil
+}
+
+func (gd *GithubDownloader) CleanupRepo(path string, branchName string) error {
+	_, err := stash(path)
+	if err != nil {
+		return err
+	}
+
+	err = clean(path)
+	if err != nil {
+		return err
+	}
+
+	// TODO: needs handling of non-tracked files
+
+	return gd.UpdateRepo(path, branchName)
+}
+
+func (gd *GithubDownloader) LocalDiff(path string) ([]byte, error) {
+	return executeGitCommand(path, []string{"diff"})
 }
 
 func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
@@ -241,6 +376,27 @@ func (ld *LocalDownloader) FetchFile(name string, dest string) error {
 	}
 
 	return nil
+}
+
+func (ld *LocalDownloader) CurrentBranch(path string) (string, error) {
+	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
+	branch, err := executeGitCommand(path, cmd)
+	return strings.Trim(string(branch), "\r\n"), err
+}
+
+// NOTE: intentionally always error...
+func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
+	return util.NewNewtError(fmt.Sprintf("Can't pull from a local repo\n"))
+}
+
+func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
+	os.RemoveAll(path)
+	_, err := ld.DownloadRepo(branchName)
+	return err
+}
+
+func (ld *LocalDownloader) LocalDiff(path string) ([]byte, error) {
+	return executeGitCommand(path, []string{"diff"})
 }
 
 func (ld *LocalDownloader) DownloadRepo(commit string) (string, error) {

@@ -300,7 +300,6 @@ func ShellCommandLimitDbgOutput(
 	}
 
 	o, err := cmd.CombinedOutput()
-
 	if maxDbgOutputChrs < 0 || len(o) <= maxDbgOutputChrs {
 		dbgStr := string(o)
 		log.Debugf("o=%s", dbgStr)
