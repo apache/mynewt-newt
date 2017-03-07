@@ -20,10 +20,12 @@
 package repo
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -65,6 +67,20 @@ type RepoDependency struct {
 	versreq   []interfaces.VersionReqInterface
 	name      string
 	Storerepo *Repo
+}
+
+func (rd *RepoDependency) String() string {
+	rstr := "<"
+
+	for idx, vr := range rd.versreq {
+		if idx != 0 {
+			rstr = rstr + " " + vr.Version().String()
+		} else  {
+			rstr = rstr + vr.Version().String()
+		}
+	}
+	rstr = rstr + ">"
+	return rstr
 }
 
 func (r *Repo) Deps() []*RepoDependency {
@@ -156,6 +172,32 @@ func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
 	return rd, nil
 }
 
+func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
+	fmt.Printf("Dependency list for %s contains a specific commit tag, " +
+		"so normal version number/stability comparison cannot be done.\n",
+		repo.Name())
+	fmt.Printf("If the following list does not contain the requirement to use, "+
+		"then modify your project.yml so that it does.\n")
+	for {
+		for i, vers := range versions {
+			fmt.Printf(" %d) %s\n", i, vers)
+		}
+		fmt.Printf("Pick the index of a version to use from above list: ")
+		line, _, err := bufio.NewReader(os.Stdin).ReadLine()
+		if err != nil {
+			return nil, util.NewNewtError(fmt.Sprintf("Couldn't read "+
+				"response: %s", err.Error()))
+		}
+		idx, err := strconv.ParseUint(string(line), 10, 8)
+		if err != nil {
+			fmt.Printf("Error: could not parse the response.\n")
+		} else {
+			repo.versreq, err = LoadVersionMatches(versions[idx].String())
+			return []*Version{versions[idx]}, nil
+		}
+	}
+}
+
 func CheckDeps(upgrade bool, checkRepos map[string]*Repo) error {
 	// For each dependency, get it's version
 	depArray := map[string][]*Version{}
@@ -179,6 +221,27 @@ func CheckDeps(upgrade bool, checkRepos map[string]*Repo) error {
 		}
 	}
 
+	for repoName, depVersList := range depArray {
+		if len(depVersList) <= 1 {
+			continue
+		}
+
+		pickVer := false
+		for _, depVers := range depVersList {
+			if depVers.Tag() != "" {
+				pickVer = true
+				break
+			}
+		}
+		if pickVer {
+			newArray, err := pickVersion(checkRepos[repoName],
+				depArray[repoName])
+			depArray[repoName] = newArray
+			if err != nil {
+				return err
+			}
+		}
+	}
 	for repoName, depVersList := range depArray {
 		for _, depVers := range depVersList {
 			for _, curVers := range depVersList {
@@ -207,8 +270,9 @@ func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
 }
 
 func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
+	log.Debugf("Requires repository version %s for %s\n", r.VersionRequirements(),
+		r.Name())
 	for vers, branch := range rd.vers {
-		log.Debugf("Repository version requires for %s are %s\n", r.Name(), r.VersionRequirements())
 		if vers.SatisfiesVersion(r.VersionRequirements()) {
 			log.Debugf("Found matching version %s for repo %s",
 				vers.String(), r.Name())
@@ -233,9 +297,24 @@ func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 			}
 
 			return branch, vers, true
+		} else {
+			log.Debugf("Rejected version %s for repo %s",
+				vers.String(), r.Name())
 		}
 	}
 
+	/*
+	 * No match so far. See if requirements have a repository tag directly.
+	 * If so, then return that as the branch.
+	 */
+	for _, versreq := range r.VersionRequirements() {
+		tag := versreq.Version().Tag()
+		if  tag != "" {
+			log.Debugf("Requirements for %s have a tag option %s\n",
+				r.Name(), tag)
+			return tag, NewTag(tag), true
+		}
+	}
 	return "", nil, false
 }
 
@@ -394,10 +473,9 @@ func (r *Repo) Install(force bool) (*Version, error) {
 
 	branchName, vers, found := r.rdesc.Match(r)
 	if !found {
-		return nil, util.NewNewtError(fmt.Sprintf("No repository matching description %s found",
-			r.rdesc.String()))
+		return nil, util.NewNewtError(fmt.Sprintf("No repository " +
+			"matching description %s found", r.rdesc.String()))
 	}
-
 	if err := r.downloadRepo(branchName); err != nil {
 		return nil, err
 	}
