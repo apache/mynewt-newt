@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package repo
+package compat
 
 import (
 	"fmt"
@@ -50,20 +50,10 @@ type NewtCompatEntry struct {
 	minNewtVer newtutil.Version
 }
 
-type NewtCompatTable struct {
-	// Sorted in ascending order by newt version number.
-	entries []NewtCompatEntry
-}
+// Sorted in ascending order by newt version number.
+type NewtCompatTable []NewtCompatEntry
 
-type NewtCompatMap struct {
-	verTableMap map[newtutil.Version]NewtCompatTable
-}
-
-func newNewtCompatMap() *NewtCompatMap {
-	return &NewtCompatMap{
-		verTableMap: map[newtutil.Version]NewtCompatTable{},
-	}
-}
+type NewtCompatMap map[newtutil.Version]NewtCompatTable
 
 func newtCompatCodeToString(code NewtCompatCode) string {
 	return NewtCompatCodeNames[code]
@@ -97,25 +87,25 @@ func parseNcEntry(verStr string, codeStr string) (NewtCompatEntry, error) {
 	return entry, nil
 }
 
-func parseNcTable(strMap map[string]string) (NewtCompatTable, error) {
+func ParseNcTable(strMap map[string]string) (NewtCompatTable, error) {
 	tbl := NewtCompatTable{}
 
-	for c, v := range strMap {
-		entry, err := parseNcEntry(c, v)
+	for v, c := range strMap {
+		entry, err := parseNcEntry(v, c)
 		if err != nil {
 			return tbl, err
 		}
 
-		tbl.entries = append(tbl.entries, entry)
+		tbl = append(tbl, entry)
 	}
 
-	sortEntries(tbl.entries)
+	sortEntries(tbl)
 
 	return tbl, nil
 }
 
-func readNcMap(v *viper.Viper) (*NewtCompatMap, error) {
-	mp := newNewtCompatMap()
+func ReadNcMap(v *viper.Viper) (NewtCompatMap, error) {
+	mp := NewtCompatMap{}
 	ncMap := v.GetStringMap("repo.newt_compatibility")
 
 	for k, v := range ncMap {
@@ -125,29 +115,29 @@ func readNcMap(v *viper.Viper) (*NewtCompatMap, error) {
 				"invalid repo version \"%s\"")
 		}
 
-		if _, ok := mp.verTableMap[repoVer]; ok {
+		if _, ok := mp[repoVer]; ok {
 			return nil, util.FmtNewtError("Newt compatibility table contains "+
 				"duplicate version specifier: %s", repoVer.String())
 		}
 
 		strMap := cast.ToStringMapString(v)
-		tbl, err := parseNcTable(strMap)
+		tbl, err := ParseNcTable(strMap)
 		if err != nil {
 			return nil, err
 		}
 
-		mp.verTableMap[repoVer] = tbl
+		mp[repoVer] = tbl
 	}
 
 	return mp, nil
 }
 
-func (tbl *NewtCompatTable) matchIdx(newtVer newtutil.Version) int {
+func (tbl NewtCompatTable) matchIdx(newtVer newtutil.Version) int {
 	// Iterate the table backwards.  The first entry whose version is less than
 	// or equal to the specified version is the match.
-	for i := 0; i < len(tbl.entries); i++ {
-		idx := len(tbl.entries) - i - 1
-		entry := &tbl.entries[idx]
+	for i := 0; i < len(tbl); i++ {
+		idx := len(tbl) - i - 1
+		entry := &tbl[idx]
 		cmp := newtutil.VerCmp(entry.minNewtVer, newtVer)
 		if cmp <= 0 {
 			return idx
@@ -157,17 +147,17 @@ func (tbl *NewtCompatTable) matchIdx(newtVer newtutil.Version) int {
 	return -1
 }
 
-func (tbl *NewtCompatTable) newIdxRange(i int, j int) []int {
-	if i >= len(tbl.entries) {
+func (tbl NewtCompatTable) newIdxRange(i int, j int) []int {
+	if i >= len(tbl) {
 		return []int{j, i}
 	}
 
-	if j >= len(tbl.entries) {
+	if j >= len(tbl) {
 		return []int{i, j}
 	}
 
-	e1 := tbl.entries[i]
-	e2 := tbl.entries[j]
+	e1 := tbl[i]
+	e2 := tbl[j]
 
 	if newtutil.VerCmp(e1.minNewtVer, e2.minNewtVer) < 0 {
 		return []int{i, j}
@@ -176,11 +166,11 @@ func (tbl *NewtCompatTable) newIdxRange(i int, j int) []int {
 	}
 }
 
-func (tbl *NewtCompatTable) idxRangesWithCode(c NewtCompatCode) [][]int {
+func (tbl NewtCompatTable) idxRangesWithCode(c NewtCompatCode) [][]int {
 	ranges := [][]int{}
 
 	curi := -1
-	for i, e := range tbl.entries {
+	for i, e := range tbl {
 		if curi == -1 {
 			if e.code == c {
 				curi = i
@@ -194,24 +184,24 @@ func (tbl *NewtCompatTable) idxRangesWithCode(c NewtCompatCode) [][]int {
 	}
 
 	if curi != -1 {
-		ranges = append(ranges, tbl.newIdxRange(curi, len(tbl.entries)))
+		ranges = append(ranges, tbl.newIdxRange(curi, len(tbl)))
 	}
 	return ranges
 }
 
-func (tbl *NewtCompatTable) minMaxTgtVers(goodRange []int) (
+func (tbl NewtCompatTable) minMaxTgtVers(goodRange []int) (
 	newtutil.Version, newtutil.Version, newtutil.Version) {
 
-	minVer := tbl.entries[goodRange[0]].minNewtVer
+	minVer := tbl[goodRange[0]].minNewtVer
 
 	var maxVer newtutil.Version
-	if goodRange[1] < len(tbl.entries) {
-		maxVer = tbl.entries[goodRange[1]].minNewtVer
+	if goodRange[1] < len(tbl) {
+		maxVer = tbl[goodRange[1]].minNewtVer
 	} else {
 		maxVer = newtutil.Version{math.MaxInt64, math.MaxInt64, math.MaxInt64}
 	}
 
-	targetVer := tbl.entries[goodRange[1]-1].minNewtVer
+	targetVer := tbl[goodRange[1]-1].minNewtVer
 
 	return minVer, maxVer, targetVer
 }
@@ -219,7 +209,7 @@ func (tbl *NewtCompatTable) minMaxTgtVers(goodRange []int) (
 // @return NewtCompatCode       The severity of the newt incompatibility
 //         string               The warning or error message to display in case
 //                                  of incompatibility.
-func (tbl *NewtCompatTable) CheckNewtVer(
+func (tbl NewtCompatTable) CheckNewtVer(
 	newtVer newtutil.Version) (NewtCompatCode, string) {
 
 	var code NewtCompatCode
@@ -228,7 +218,7 @@ func (tbl *NewtCompatTable) CheckNewtVer(
 		// This version of newt is older than every entry in the table.
 		code = NEWT_COMPAT_ERROR
 	} else {
-		code = tbl.entries[idx].code
+		code = tbl[idx].code
 		if code == NEWT_COMPAT_GOOD {
 			return NEWT_COMPAT_GOOD, ""
 		}
@@ -244,7 +234,8 @@ func (tbl *NewtCompatTable) CheckNewtVer(
 		}
 
 		if newtutil.VerCmp(newtVer, maxVer) >= 0 {
-			return code, "Please upgrade your repos with \"newt upgrade\""
+			return code, fmt.Sprintf("Please upgrade your project "+
+				"or downgrade newt to %s", tgtVer.String())
 		}
 	}
 

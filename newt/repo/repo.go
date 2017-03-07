@@ -29,6 +29,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
+	"mynewt.apache.org/newt/newt/compat"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -52,7 +53,7 @@ type Repo struct {
 	ignDirs    []string
 	updated    bool
 	local      bool
-	ncMap      *NewtCompatMap
+	ncMap      compat.NewtCompatMap
 }
 
 type RepoDesc struct {
@@ -551,7 +552,7 @@ func (r *Repo) ReadDesc() (*RepoDesc, []*Repo, error) {
 	}
 
 	// Read the newt version compatibility map.
-	r.ncMap, err = readNcMap(v)
+	r.ncMap, err = compat.ReadNcMap(v)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -582,23 +583,24 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 }
 
 func (r *Repo) CheckNewtCompatibility(rvers *Version, nvers newtutil.Version) (
-	NewtCompatCode, string) {
+	compat.NewtCompatCode, string) {
 
 	// If this repo doesn't have a newt compatibility map, just assume there is
 	// no incompatibility.
-	if len(r.ncMap.verTableMap) == 0 {
-		return NEWT_COMPAT_GOOD, ""
+	if len(r.ncMap) == 0 {
+		return compat.NEWT_COMPAT_GOOD, ""
 	}
 
 	rnuver := rvers.ToNuVersion()
-	tbl, ok := r.ncMap.verTableMap[rnuver]
+	tbl, ok := r.ncMap[rnuver]
 	if !ok {
 		// Unknown repo version.
-		return NEWT_COMPAT_WARN, "Repo version missing from compatibility map"
+		return compat.NEWT_COMPAT_WARN,
+			"Repo version missing from compatibility map"
 	}
 
 	code, text := tbl.CheckNewtVer(nvers)
-	if code == NEWT_COMPAT_GOOD {
+	if code == compat.NEWT_COMPAT_GOOD {
 		return code, text
 	}
 
@@ -610,7 +612,6 @@ func (r *Repo) CheckNewtCompatibility(rvers *Version, nvers newtutil.Version) (
 func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, error) {
 	r := &Repo{
 		local: false,
-		ncMap: newNewtCompatMap(),
 	}
 
 	if err := r.Init(repoName, rversreq, d); err != nil {
@@ -623,7 +624,6 @@ func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, 
 func NewLocalRepo(repoName string) (*Repo, error) {
 	r := &Repo{
 		local: true,
-		ncMap: newNewtCompatMap(),
 	}
 
 	if err := r.Init(repoName, "", nil); err != nil {
