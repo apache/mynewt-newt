@@ -22,6 +22,7 @@ package interfaces
 type PackageInterface interface {
 	Name() string
 	FullName() string
+	BasePath() string
 	Repo() RepoInterface
 	Type() PackageType
 }
