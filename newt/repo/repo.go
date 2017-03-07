@@ -52,10 +52,7 @@ type Repo struct {
 	ignDirs    []string
 	updated    bool
 	local      bool
-
-	// The minimim git commit the repo must have to interoperate with this
-	// version of newt.
-	minCommit *newtutil.RepoCommitEntry
+	ncMap      *NewtCompatMap
 }
 
 type RepoDesc struct {
@@ -475,8 +472,8 @@ func (r *Repo) DownloadDesc() error {
 	}
 
 	dl.SetBranch("master")
-	if err := dl.FetchFile("repository.yml",
-		cpath+"/"+"repository.yml"); err != nil {
+	if err := dl.FetchFile(REPO_FILE_NAME,
+		cpath+"/"+REPO_FILE_NAME); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, " failed\n")
 		return err
 	}
@@ -553,60 +550,13 @@ func (r *Repo) ReadDesc() (*RepoDesc, []*Repo, error) {
 		return nil, nil, err
 	}
 
+	// Read the newt version compatibility map.
+	r.ncMap, err = readNcMap(v)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return rdesc, repos, nil
-}
-
-// Checks if the specified repo is compatible with this version of newt.  This
-// function only verifies that the repo is new enough; it doesn't check that
-// newt is new enough.
-func (r *Repo) HasMinCommit() (bool, error) {
-	if r.minCommit == nil {
-		return true, nil
-	}
-
-	// Change back to the initial directory when this function returns.
-	cwd, err := os.Getwd()
-	if err != nil {
-		return false, util.ChildNewtError(err)
-	}
-	defer os.Chdir(cwd)
-
-	if err := os.Chdir(r.localPath); err != nil {
-		return false, util.ChildNewtError(err)
-	}
-
-	cmd := []string{
-		"git",
-		"merge-base",
-		r.minCommit.Hash,
-		"HEAD",
-	}
-	mergeBase, err := util.ShellCommand(cmd, nil)
-	if err != nil {
-		if strings.Contains(err.Error(), "Not a valid commit name") {
-			return false, nil
-		} else {
-			return false, util.ChildNewtError(err)
-		}
-	}
-	if len(mergeBase) == 0 {
-		// No output means the commit does not exist in the current branch.
-		return false, nil
-	}
-
-	cmd = []string{
-		"git",
-		"rev-parse",
-		"--verify",
-		r.minCommit.Hash,
-	}
-	revParse, err := util.ShellCommand(cmd, nil)
-	if err != nil {
-		return false, util.ChildNewtError(err)
-	}
-
-	// The commit exists in HEAD if the two commands produced identical output.
-	return string(mergeBase) == string(revParse), nil
 }
 
 func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) error {
@@ -626,38 +576,41 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 		r.localPath = filepath.ToSlash(filepath.Clean(path))
 	} else {
 		r.localPath = filepath.ToSlash(filepath.Clean(path + "/" + REPOS_DIR + "/" + r.name))
-		r.minCommit = newtutil.RepoMinCommits[repoName]
-
-		upToDate, err := r.HasMinCommit()
-		if err != nil {
-			// If there is an error checking the repo's commit log, just abort
-			// the check.  An error could have many possible causes: repo not
-			// installed, network issue, etc.  In none of these cases does it
-			// makes sense to warn about an out of date repo.  If the issue is
-			// a real one, it will be handled when it prevents forward
-			// progress.
-			return nil
-		}
-
-		if !upToDate {
-			util.ErrorMessage(util.VERBOSITY_QUIET,
-				"Warning: repo \"%s\" is out of date for this version of "+
-					"newt.  Please upgrade the repo to meet these "+
-					"requirements:\n"+
-					"    * Version: %s\n"+
-					"    * Commit: %s\n"+
-					"    * Change: %s\n",
-				r.name, r.minCommit.Version, r.minCommit.Hash,
-				r.minCommit.Description)
-		}
 	}
 
 	return nil
 }
 
+func (r *Repo) CheckNewtCompatibility(rvers *Version, nvers newtutil.Version) (
+	NewtCompatCode, string) {
+
+	// If this repo doesn't have a newt compatibility map, just assume there is
+	// no incompatibility.
+	if len(r.ncMap.verTableMap) == 0 {
+		return NEWT_COMPAT_GOOD, ""
+	}
+
+	rnuver := rvers.ToNuVersion()
+	tbl, ok := r.ncMap.verTableMap[rnuver]
+	if !ok {
+		// Unknown repo version.
+		return NEWT_COMPAT_WARN, "Repo version missing from compatibility map"
+	}
+
+	code, text := tbl.CheckNewtVer(nvers)
+	if code == NEWT_COMPAT_GOOD {
+		return code, text
+	}
+
+	return code, fmt.Sprintf("This version of newt (%s) is incompatible with "+
+		"your version of the %s repo (%s); %s",
+		nvers.String(), r.name, rnuver.String(), text)
+}
+
 func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, error) {
 	r := &Repo{
 		local: false,
+		ncMap: newNewtCompatMap(),
 	}
 
 	if err := r.Init(repoName, rversreq, d); err != nil {
@@ -670,6 +623,7 @@ func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, 
 func NewLocalRepo(repoName string) (*Repo, error) {
 	r := &Repo{
 		local: true,
+		ncMap: newNewtCompatMap(),
 	}
 
 	if err := r.Init(repoName, "", nil); err != nil {

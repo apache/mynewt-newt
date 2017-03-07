@@ -34,6 +34,7 @@ import (
 	"mynewt.apache.org/newt/viper"
 )
 
+var NewtVersion Version = Version{1, 0, 0}
 var NewtVersionStr string = "Apache Newt (incubating) version: 1.0.0-dev"
 var NewtBlinkyTag string = "develop"
 var NewtNumJobs int
@@ -45,27 +46,59 @@ const REPOS_FILENAME string = "repos.yml"
 const CORE_REPO_NAME string = "apache-mynewt-core"
 const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"
 
-type RepoCommitEntry struct {
-	Version     string
-	Hash        string
-	Description string
+type Version struct {
+	Major    int64
+	Minor    int64
+	Revision int64
 }
 
-// A warning is displayed if newt requires a newer version of a repo.
-var RepoMinCommits = map[string]*RepoCommitEntry{
-	// Newt no longer cd's to a source directory when it compiles its contents.
-	// Consequently, package include flags need to be relative to the project
-	// directory, not the package source directory.
-	CORE_REPO_NAME: &RepoCommitEntry{
-		Version:     "develop",
-		Hash:        "cd99344df197d5b9e372b93142184a39ec078f69",
-		Description: "Include paths now relative to project base.",
-	},
-	ARDUINO_ZERO_REPO_NAME: &RepoCommitEntry{
-		Version:     "develop",
-		Hash:        "a6348961fef56dbfe09a1b9418d3add3ad22eaf2",
-		Description: "Include paths now relative to project base.",
-	},
+func ParseVersion(s string) (Version, error) {
+	v := Version{}
+	parseErr := util.FmtNewtError("Invalid version string: %s", s)
+
+	parts := strings.Split(s, ".")
+	if len(parts) != 3 {
+		return v, parseErr
+	}
+
+	var err error
+
+	v.Major, err = strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return v, parseErr
+	}
+
+	v.Minor, err = strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return v, parseErr
+	}
+
+	v.Revision, err = strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		return v, parseErr
+	}
+
+	return v, nil
+}
+
+func (v *Version) String() string {
+	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Revision)
+}
+
+func VerCmp(v1 Version, v2 Version) int64 {
+	if r := v1.Major - v2.Major; r != 0 {
+		return r
+	}
+
+	if r := v1.Minor - v2.Minor; r != 0 {
+		return r
+	}
+
+	if r := v1.Revision - v2.Revision; r != 0 {
+		return r
+	}
+
+	return 0
 }
 
 // Contains general newt settings read from $HOME/.newt
