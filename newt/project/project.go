@@ -416,6 +416,24 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 
 	proj.localRepo.AddDependency(rd)
 
+	// Read the repo's descriptor file so that we have its newt version
+	// compatibility map.
+	_, _, err = r.ReadDesc()
+	if err != nil {
+		return util.FmtNewtError("Failed to read repo descriptor; %s",
+			err.Error())
+	}
+
+	rvers := proj.projState.GetInstalledVersion(rname)
+	code, msg := r.CheckNewtCompatibility(rvers, newtutil.NewtVersion)
+	switch code {
+	case repo.NEWT_COMPAT_GOOD:
+	case repo.NEWT_COMPAT_WARN:
+		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+	case repo.NEWT_COMPAT_ERROR:
+		return util.NewNewtError(msg)
+	}
+
 	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
 		repoVars["type"], repoVars["user"], repoVars["repo"])
 

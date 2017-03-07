@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -135,6 +136,14 @@ func (v *Version) SatisfiesVersion(versMatches []interfaces.VersionReqInterface)
 
 func (vers *Version) String() string {
 	return fmt.Sprintf(VERSION_FORMAT, vers.Major(), vers.Minor(), vers.Revision(), vers.Stability())
+}
+
+func (vers *Version) ToNuVersion() newtutil.Version {
+	return newtutil.Version{
+		Major:    vers.major,
+		Minor:    vers.minor,
+		Revision: vers.revision,
+	}
 }
 
 func LoadVersion(versStr string) (*Version, error) {
