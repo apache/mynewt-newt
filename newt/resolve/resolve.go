@@ -131,12 +131,12 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 	}
 }
 
-func (r *Resolver) resolveDep(dep *pkg.Dependency) (*pkg.LocalPackage, error) {
+func (r *Resolver) resolveDep(dep *pkg.Dependency, depender string) (*pkg.LocalPackage, error) {
 	proj := project.GetProject()
 
 	if proj.ResolveDependency(dep) == nil {
 		return nil, util.FmtNewtError("Could not resolve package dependency: "+
-			"%s; depender: %s", dep.String(), dep.Name)
+			"%s; depender: %s", dep.String(), depender)
 	}
 	lpkg := proj.ResolveDependency(dep).(*pkg.LocalPackage)
 
@@ -284,13 +284,14 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 	changed := false
 	newDeps := newtutil.GetStringSliceFeatures(rpkg.Lpkg.PkgV, features,
 		"pkg.deps")
+	depender := rpkg.Lpkg.Name()
 	for _, newDepStr := range newDeps {
 		newDep, err := pkg.NewDependency(rpkg.Lpkg.Repo(), newDepStr)
 		if err != nil {
 			return false, err
 		}
 
-		lpkg, err := r.resolveDep(newDep)
+		lpkg, err := r.resolveDep(newDep, depender)
 		if err != nil {
 			return false, err
 		}
