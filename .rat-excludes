@@ -7,8 +7,6 @@
 tags
 
 # Non-source files
-COMPATIBLE
-COPYING
 INSTALLING.md
 RELEASE_NOTES.md
 Godeps.json
