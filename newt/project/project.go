@@ -547,13 +547,40 @@ func (proj *Project) Init(dir string) error {
 	return nil
 }
 
+func matchNamePath(name, path string) bool {
+	// assure that name and path use the same path separator...
+	names := filepath.SplitList(name)
+	name = filepath.Join(names...)
+
+	if strings.HasSuffix(path, name) {
+		return true
+	}
+	return false
+}
+
 func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) interfaces.PackageInterface {
+	type NamePath struct {
+		name string
+		path string
+	}
+
+	var errorPkgs []NamePath
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
+			name := pkg.Name()
+			path := pkg.BasePath()
+			if !matchNamePath(name, path) {
+				errorPkgs = append(errorPkgs, NamePath{name: name, path: path})
+			}
 			if dep.SatisfiesDependency(pkg) {
 				return pkg
 			}
 		}
+	}
+
+	for _, namepath := range errorPkgs {
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
+			"Package name \"%s\" doesn't match path \"%s\"\n", namepath.name, namepath.path)
 	}
 
 	return nil
