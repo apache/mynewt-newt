@@ -60,7 +60,7 @@ func pkgNewCmd(cmd *cobra.Command, args []string) {
 type dirOperation func(string, string) error
 
 func pkgCopyCmd(cmd *cobra.Command, args []string) {
-	pkgCloneOrMoveCmd(cmd, args, util.CopyDir, "Cloning")
+	pkgCloneOrMoveCmd(cmd, args, util.CopyDir, "Copying")
 }
 
 func pkgMoveCmd(cmd *cobra.Command, args []string) {
