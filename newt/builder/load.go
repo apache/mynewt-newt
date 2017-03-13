@@ -86,6 +86,10 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
 		strings.Join(cmd, " "))
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Environment:\n")
+	for _, v := range env {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "* %s\n", v)
+	}
 	if _, err := util.ShellCommand(cmd, env); err != nil {
 		return err
 	}
@@ -144,8 +148,6 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 
 		return err
 	}
-
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
 
 	return nil
 }
