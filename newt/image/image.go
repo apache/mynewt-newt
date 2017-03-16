@@ -611,7 +611,8 @@ func (image *Image) Generate(loader *Image) error {
 		"Computed Hash for image %s as %s \n",
 		image.TargetImg, hex.EncodeToString(image.Hash))
 
-	sz, err := imgFile.Seek(0, io.SeekCurrent)
+	// XXX: Replace "1" with io.SeekCurrent when go 1.7 becomes mainstream.
+	sz, err := imgFile.Seek(0, 1)
 	if err != nil {
 		return util.FmtNewtError("Failed to calculate file size of generated "+
 			"image %s: %s", image.TargetImg, err.Error())
