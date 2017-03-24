@@ -48,6 +48,7 @@ type VersionInterface interface {
 	Minor() int64
 	Revision() int64
 	Stability() string
+	Tag() string
 	String() string
 }
 
