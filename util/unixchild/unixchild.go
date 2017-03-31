@@ -60,14 +60,12 @@ type Config struct {
 	Depth         int
 	MaxMsgSz      int
 	AcceptTimeout time.Duration
-	Restart       bool
 }
 
 type clientState uint32
 
 const (
 	CLIENT_STATE_STOPPED clientState = iota
-	CLIENT_STATE_STARTING
 	CLIENT_STATE_STARTED
 	CLIENT_STATE_STOPPING
 )
@@ -81,11 +79,9 @@ type Client struct {
 	childArgs     []string
 	maxMsgSz      int
 	acceptTimeout time.Duration
-	restart       bool
 	stop          chan bool
 	stopped       chan bool
 	state         clientState
-	stateMutex    sync.Mutex
 }
 
 func New(conf Config) *Client {
@@ -98,7 +94,6 @@ func New(conf Config) *Client {
 		ToChild:       make(chan []byte, conf.Depth),
 		ErrChild:      make(chan error),
 		acceptTimeout: conf.AcceptTimeout,
-		restart:       conf.Restart,
 		stop:          make(chan bool),
 		stopped:       make(chan bool),
 	}
@@ -108,42 +103,6 @@ func New(conf Config) *Client {
 	}
 
 	return c
-}
-
-func (c *Client) getState() clientState {
-	c.stateMutex.Lock()
-	defer c.stateMutex.Unlock()
-
-	return c.state
-}
-
-func (c *Client) setState(toState clientState) {
-	c.stateMutex.Lock()
-	defer c.stateMutex.Unlock()
-
-	c.state = toState
-}
-
-func (c *Client) setStateIf(toState clientState,
-	pred func(st clientState) bool) (bool, clientState) {
-
-	c.stateMutex.Lock()
-	defer c.stateMutex.Unlock()
-
-	if pred(c.state) {
-		c.state = toState
-		return true, toState
-	}
-
-	return false, c.state
-
-}
-
-func (c *Client) setStateFrom(fromState clientState,
-	toState clientState) (bool, clientState) {
-
-	return c.setStateIf(toState,
-		func(st clientState) bool { return st == fromState })
 }
 
 func (c *Client) startChild() (*exec.Cmd, error) {
@@ -249,20 +208,18 @@ func (c *Client) handleChild(con net.Conn) {
 }
 
 func (c *Client) Stop() {
-	ok, _ := c.setStateIf(CLIENT_STATE_STOPPING,
-		func(st clientState) bool {
-			return st != CLIENT_STATE_STOPPING
-		})
-	if !ok {
+	if c.state != CLIENT_STATE_STARTED {
 		return
 	}
 
+	c.state = CLIENT_STATE_STOPPING
 	log.Debugf("Stopping client")
 
 	c.stop <- true
 
 	select {
 	case <-c.stopped:
+		c.state = CLIENT_STATE_STOPPED
 		log.Debugf("Stopped client")
 		return
 	}
@@ -277,63 +234,56 @@ func (c *Client) acceptDeadline() *time.Time {
 	return &t
 }
 
+func (c *Client) deleteSocket() {
+	log.Debugf("deleting socket")
+	os.Remove(c.sockPath)
+}
+
 func (c *Client) Start() error {
-	ok, state := c.setStateFrom(CLIENT_STATE_STOPPED, CLIENT_STATE_STARTING)
-	if !ok {
-		return fmt.Errorf("client in invalid state for stating: %d", state)
+	if c.state != CLIENT_STATE_STOPPED {
+		return fmt.Errorf("Attempt to start unixchild twice")
 	}
 
 	l, err := net.Listen("unix", c.sockPath)
 	if err != nil {
-		c.setState(CLIENT_STATE_STOPPED)
 		return err
 	}
 
-	var cmd *exec.Cmd
+	cmd, err := c.startChild()
+	if err != nil {
+		err = fmt.Errorf("unixchild start error: %s", err.Error())
+		log.Debugf("%s", err.Error())
+		c.deleteSocket()
+		return err
+	}
+
+	if t := c.acceptDeadline(); t != nil {
+		l.(*net.UnixListener).SetDeadline(*t)
+	}
+	fd, err := l.Accept()
+	if err != nil {
+		err = NewUcAcceptError(fmt.Sprintf("unixchild accept error: %s",
+			err.Error()))
+		c.deleteSocket()
+		return err
+	}
+
+	c.state = CLIENT_STATE_STARTED
 
 	go func() {
-		for {
-			var err error
-			cmd, err = c.startChild()
-			if err != nil {
-				log.Debugf("unixchild start error: %s", err.Error())
-				c.ErrChild <- fmt.Errorf("Child start error: %s", err.Error())
-			} else {
-				if t := c.acceptDeadline(); t != nil {
-					l.(*net.UnixListener).SetDeadline(*t)
-				}
-				fd, err := l.Accept()
-				if err != nil {
-					text := fmt.Sprintf("unixchild accept error: %s",
-						err.Error())
-					c.ErrChild <- NewUcAcceptError(text)
-				} else {
-					c.setState(CLIENT_STATE_STARTED)
-					c.handleChild(fd)
-					c.ErrChild <- fmt.Errorf("Child exited")
-				}
-			}
-			if c.getState() == CLIENT_STATE_STOPPING {
-				log.Debugf("unixchild exit loop")
-				return
-			}
-			time.Sleep(time.Second)
-		}
+		c.handleChild(fd)
+		c.Stop()
+		c.ErrChild <- fmt.Errorf("child process terminated")
 	}()
 
 	go func() {
-		select {
-		case <-c.stop:
-			if c.getState() == CLIENT_STATE_STARTED {
-				l.Close()
-			}
-			if cmd != nil {
-				cmd.Process.Kill()
-			}
-			log.Debugf("deleting socket")
-			os.Remove(c.sockPath)
-			c.stopped <- true
+		<-c.stop
+		l.Close()
+		if cmd != nil {
+			cmd.Process.Kill()
 		}
+		c.deleteSocket()
+		c.stopped <- true
 	}()
 
 	return nil
