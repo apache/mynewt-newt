@@ -620,3 +620,9 @@ func IntMin(a, b int) int {
 		return b
 	}
 }
+
+func PrintStacks() {
+	buf := make([]byte, 1024*1024)
+	stacklen := runtime.Stack(buf, true)
+	fmt.Printf("*** goroutine dump\n%s\n*** end\n", buf[:stacklen])
+}
