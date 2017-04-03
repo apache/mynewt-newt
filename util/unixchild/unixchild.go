@@ -219,6 +219,7 @@ func (c *Client) Stop() {
 
 	select {
 	case <-c.stopped:
+		c.deleteSocket()
 		c.state = CLIENT_STATE_STOPPED
 		log.Debugf("Stopped client")
 		return
@@ -246,6 +247,7 @@ func (c *Client) Start() error {
 
 	l, err := net.Listen("unix", c.sockPath)
 	if err != nil {
+		c.deleteSocket()
 		return err
 	}
 
