@@ -249,7 +249,7 @@ func (lpkg *LocalPackage) SaveSyscfgVals() error {
 	fmt.Fprintf(file, "\n")
 	fmt.Fprintf(file, "syscfg.vals:\n")
 	for _, name := range names {
-		fmt.Fprintf(file, "    %s: %s\n", name, syscfgVals[name])
+		fmt.Fprintf(file, "    %s: %s\n", name, yaml.EscapeString(syscfgVals[name]))
 	}
 
 	return nil

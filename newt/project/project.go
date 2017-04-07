@@ -29,6 +29,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/compat"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -100,6 +101,7 @@ func TryGetProject() (*Project, error) {
 	}
 	return globalProject, nil
 }
+
 func GetProject() *Project {
 	if _, err := TryGetProject(); err != nil {
 		panic(err.Error())
@@ -416,11 +418,55 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 
 	proj.localRepo.AddDependency(rd)
 
+	// Read the repo's descriptor file so that we have its newt version
+	// compatibility map.
+	r.ReadDesc()
+
+	rvers := proj.projState.GetInstalledVersion(rname)
+	code, msg := r.CheckNewtCompatibility(rvers, newtutil.NewtVersion)
+	switch code {
+	case compat.NEWT_COMPAT_GOOD:
+	case compat.NEWT_COMPAT_WARN:
+		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+	case compat.NEWT_COMPAT_ERROR:
+		return util.NewNewtError(msg)
+	}
+
 	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
 		repoVars["type"], repoVars["user"], repoVars["repo"])
 
 	proj.repos[r.Name()] = r
 	return nil
+}
+
+func (proj *Project) checkNewtVer() error {
+	compatSms := proj.v.GetStringMapString("project.newt_compatibility")
+	// If this project doesn't have a newt compatibility map, just assume there
+	// is no incompatibility.
+	if len(compatSms) == 0 {
+		return nil
+	}
+
+	tbl, err := compat.ParseNcTable(compatSms)
+	if err != nil {
+		return util.FmtNewtError("Error reading project.yml: %s", err.Error())
+	}
+
+	code, msg := tbl.CheckNewtVer(newtutil.NewtVersion)
+	msg = fmt.Sprintf("This version of newt (%s) is incompatible with "+
+		"your project; %s", newtutil.NewtVersion.String(), msg)
+
+	switch code {
+	case compat.NEWT_COMPAT_GOOD:
+		return nil
+	case compat.NEWT_COMPAT_WARN:
+		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+		return nil
+	case compat.NEWT_COMPAT_ERROR:
+		return util.NewNewtError(msg)
+	default:
+		return nil
+	}
 }
 
 func (proj *Project) loadConfig() error {
@@ -478,6 +524,10 @@ func (proj *Project) loadConfig() error {
 		r.AddIgnoreDir(dirName)
 	}
 
+	if err := proj.checkNewtVer(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -497,13 +547,40 @@ func (proj *Project) Init(dir string) error {
 	return nil
 }
 
+func matchNamePath(name, path string) bool {
+	// assure that name and path use the same path separator...
+	names := filepath.SplitList(name)
+	name = filepath.Join(names...)
+
+	if strings.HasSuffix(path, name) {
+		return true
+	}
+	return false
+}
+
 func (proj *Project) ResolveDependency(dep interfaces.DependencyInterface) interfaces.PackageInterface {
+	type NamePath struct {
+		name string
+		path string
+	}
+
+	var errorPkgs []NamePath
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
+			name := pkg.Name()
+			path := pkg.BasePath()
+			if !matchNamePath(name, path) {
+				errorPkgs = append(errorPkgs, NamePath{name: name, path: path})
+			}
 			if dep.SatisfiesDependency(pkg) {
 				return pkg
 			}
 		}
+	}
+
+	for _, namepath := range errorPkgs {
+		util.StatusMessage(util.VERBOSITY_VERBOSE,
+			"Package name \"%s\" doesn't match path \"%s\"\n", namepath.name, namepath.path)
 	}
 
 	return nil

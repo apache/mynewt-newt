@@ -71,6 +71,8 @@ type Package interface {
 	FullName() string
 	// The type of package (lib, target, bsp, etc.)
 	Type() interfaces.PackageType
+	// BasePath is the path on disk if it's a local package
+	BasePath() string
 	// Hash of the contents of the package
 	Hash() (string, error)
 	// Description of this package
