@@ -58,15 +58,10 @@ const SYSCFG_PRIO_ANY = "any"
 // Reserve last 16 priorities for the system (sanity, idle).
 const SYSCFG_TASK_PRIO_MAX = 0xef
 
-// The range of interrupt priorities is hardware dependent, so don't limit
-// these here.
-const SYSCFG_INTERRUPT_PRIO_MAX = 0xffffffff
-
 var cfgSettingNameTypeMap = map[string]CfgSettingType{
-	"raw":                CFG_SETTING_TYPE_RAW,
-	"task_priority":      CFG_SETTING_TYPE_TASK_PRIO,
-	"interrupt_priority": CFG_SETTING_TYPE_INTERRUPT_PRIO,
-	"flash_owner":        CFG_SETTING_TYPE_FLASH_OWNER,
+	"raw":           CFG_SETTING_TYPE_RAW,
+	"task_priority": CFG_SETTING_TYPE_TASK_PRIO,
+	"flash_owner":   CFG_SETTING_TYPE_FLASH_OWNER,
 }
 
 type CfgPoint struct {
@@ -956,13 +951,6 @@ func EnsureWritten(cfg Cfg, includeDir string) error {
 	// XXX: Detect these problems at error text generation time.
 	if err := calcPriorities(cfg, CFG_SETTING_TYPE_TASK_PRIO,
 		SYSCFG_TASK_PRIO_MAX, false); err != nil {
-
-		return err
-	}
-
-	// XXX: Detect these problems at error text generation time.
-	if err := calcPriorities(cfg, CFG_SETTING_TYPE_INTERRUPT_PRIO,
-		SYSCFG_INTERRUPT_PRIO_MAX, true); err != nil {
 
 		return err
 	}
