@@ -657,7 +657,7 @@ func (c *Compiler) CopyArchive(filename string) error {
 		return nil
 	}
 
-	tgtFile := c.dstFilePath(filename) + ".a"
+	tgtFile := c.dstDir + "/" + filepath.Base(filename)
 	copyRequired, err := c.depTracker.CopyRequired(filename)
 	if err != nil {
 		return err
