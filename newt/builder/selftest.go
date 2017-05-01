@@ -133,7 +133,8 @@ func (b *Builder) testOwner(bpkg *BuildPackage) *BuildPackage {
 	curPath := bpkg.rpkg.Lpkg.BasePath()
 
 	for {
-		parentPath := filepath.Dir(curPath)
+		parentPath := filepath.ToSlash(filepath.Dir(curPath))
+
 		if parentPath == project.GetProject().BasePath || parentPath == "." {
 			return nil
 		}

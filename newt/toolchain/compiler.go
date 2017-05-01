@@ -749,6 +749,7 @@ func (c *Compiler) RecursiveCollectEntries(cType int,
 	for _, ext := range exts {
 		files, _ := filepath.Glob(c.srcDir + "/*." + ext)
 		for _, file := range files {
+			file = filepath.ToSlash(file)
 			entries = append(entries, CompilerJob{
 				Filename:     file,
 				Compiler:     c,
