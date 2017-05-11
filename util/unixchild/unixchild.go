@@ -72,8 +72,8 @@ const (
 
 type Client struct {
 	FromChild     chan []byte
-	ToChild       chan []byte
 	ErrChild      chan error
+	toChild       chan []byte
 	childPath     string
 	sockPath      string
 	childArgs     []string
@@ -91,8 +91,8 @@ func New(conf Config) *Client {
 		childArgs:     conf.ChildArgs,
 		maxMsgSz:      conf.MaxMsgSz,
 		FromChild:     make(chan []byte, conf.Depth),
-		ToChild:       make(chan []byte, conf.Depth),
 		ErrChild:      make(chan error),
+		toChild:       make(chan []byte, conf.Depth),
 		acceptTimeout: conf.AcceptTimeout,
 		stop:          make(chan bool),
 		stopped:       make(chan bool),
@@ -181,7 +181,7 @@ func (c *Client) handleChild(con net.Conn) {
 		defer wg.Done()
 		for {
 			select {
-			case buf := <-c.ToChild:
+			case buf := <-c.toChild:
 				mlen := uint16(len(buf))
 				err := binary.Write(con, binary.BigEndian, mlen)
 				if err != nil {
@@ -288,5 +288,14 @@ func (c *Client) Start() error {
 		c.stopped <- true
 	}()
 
+	return nil
+}
+
+func (c *Client) TxToChild(data []byte) error {
+	if c.state != CLIENT_STATE_STARTED {
+		return fmt.Errorf("transmit over unixchild before it is fully started")
+	}
+
+	c.toChild <- data
 	return nil
 }
