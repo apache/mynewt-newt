@@ -85,6 +85,7 @@ func initProject(dir string) error {
 func initialize() error {
 	if globalProject == nil {
 		wd, err := os.Getwd()
+		wd = filepath.ToSlash(wd)
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
@@ -654,7 +655,9 @@ func findProjectDir(dir string) (string, error) {
 
 		// Move back one directory and continue searching
 		dir = path.Clean(dir + "../../")
-		if dir == "/" {
+		// path.Clean returns . if processing results in empty string.
+		// Need to check for . on Windows.
+		if dir == "/" || dir == "." {
 			return "", util.NewNewtError("No project file found!")
 		}
 	}

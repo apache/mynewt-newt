@@ -67,7 +67,7 @@ func testablePkgs() map[*pkg.LocalPackage]struct{} {
 	// Next add first ancestor of each test package.
 	for _, testPkgItf := range testPkgs {
 		testPkg := testPkgItf.(*pkg.LocalPackage)
-		for cur := filepath.Dir(testPkg.BasePath()); cur != proj.BasePath; cur = filepath.Dir(cur) {
+		for cur := filepath.ToSlash(filepath.Dir(testPkg.BasePath())); cur != proj.BasePath; cur = filepath.ToSlash(filepath.Dir(cur)) {
 			lpkg := pathLpkgMap[cur]
 			if lpkg != nil && lpkg.Type() != pkg.PACKAGE_TYPE_UNITTEST {
 				testablePkgMap[lpkg] = struct{}{}
@@ -90,8 +90,9 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 	result := []*pkg.LocalPackage{}
 	srcPath := pack.BasePath()
 	for p, _ := range testablePkgs() {
+		dirPath := filepath.ToSlash(filepath.Dir(p.BasePath()))
 		if p.Type() == pkg.PACKAGE_TYPE_UNITTEST &&
-			filepath.Dir(p.BasePath()) == srcPath {
+			dirPath == srcPath {
 
 			result = append(result, p)
 		}
