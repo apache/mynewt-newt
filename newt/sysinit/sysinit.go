@@ -69,9 +69,20 @@ func writePrototypes(pkgs []*pkg.LocalPackage, w io.Writer) {
 }
 
 func writeStage(stage int, initFuncs []*initFunc, w io.Writer) {
-	fmt.Fprintf(w, "    /*** Stage %d */\n", stage)
+	// Sort stage alphabetically by package name.
+	pkgNames := make([]string, len(initFuncs))
+	funcMap := make(map[string]*initFunc, len(initFuncs))
 	for i, initFunc := range initFuncs {
-		fmt.Fprintf(w, "    /* %d.%d: %s */\n", stage, i, initFunc.pkg.Name())
+		name := initFunc.pkg.Name()
+		pkgNames[i] = name
+		funcMap[name] = initFunc
+	}
+	sort.Strings(pkgNames)
+
+	fmt.Fprintf(w, "    /*** Stage %d */\n", stage)
+	for i, pkgName := range pkgNames {
+		initFunc := funcMap[pkgName]
+		fmt.Fprintf(w, "    /* %d.%d: %s */\n", stage, i, pkgName)
 		fmt.Fprintf(w, "    %s();\n", initFunc.name)
 	}
 }
