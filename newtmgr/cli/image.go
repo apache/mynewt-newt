@@ -521,6 +521,44 @@ func coreEraseCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func imageEraseCmd(cmd *cobra.Command, args []string) {
+	runner, err := getTargetCmdRunner()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	defer runner.Conn.Close()
+
+	imageErase, err := protocol.NewImageErase()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	nmr, err := imageErase.EncodeWriteRequest()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	if err := runner.WriteReq(nmr); err != nil {
+		nmUsage(cmd, err)
+	}
+
+	rsp, err := runner.ReadResp()
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+
+	ieRsp, err := protocol.DecodeImageEraseResponse(rsp.Data)
+	if err != nil {
+		nmUsage(cmd, err)
+	}
+	if ieRsp.ErrCode != 0 {
+		fmt.Printf("Erase failed: %d\n", ieRsp.ErrCode)
+	} else {
+		fmt.Printf("Done\n")
+	}
+}
+
+
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
@@ -604,6 +642,16 @@ func imageCmd() *cobra.Command {
 		Run:     coreEraseCmd,
 	}
 	imageCmd.AddCommand(coreEraseCmd)
+
+	imageEraseEx := "  newtmgr -c olimex image erase\n"
+
+	imageEraseCmd := &cobra.Command{
+		Use:     "erase -c <conn_profile>",
+		Short:   "Erase image on a device",
+		Example: imageEraseEx,
+		Run:     imageEraseCmd,
+	}
+	imageCmd.AddCommand(imageEraseCmd)
 
 	return imageCmd
 }
