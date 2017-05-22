@@ -29,7 +29,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -108,7 +107,7 @@ func New(conf Config) *Client {
 
 func (c *Client) startChild() (*exec.Cmd, error) {
 	subProcess := exec.Command(c.childPath, c.childArgs...)
-	subProcess.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	subProcess.SysProcAttr = SetSysProcAttrSetPGID()
 
 	stdin, err := subProcess.StdinPipe()
 	if err != nil {
