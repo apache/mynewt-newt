@@ -508,15 +508,22 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	}
 
 	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	var opStr string
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
+		opStr = "Compiling"
 	case COMPILER_TYPE_CPP:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
+		opStr = "Compiling"
 	case COMPILER_TYPE_ASM:
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Assembling %s\n", srcPath)
+		opStr = "Assembling"
 	default:
 		return util.NewNewtError("Unknown compiler type")
+	}
+
+	if util.Verbosity == util.VERBOSITY_VERBOSE {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s\n", strings.Join(cmd, " "))
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s %s\n", opStr, srcPath)
 	}
 
 	_, err = util.ShellCommand(cmd, nil)
@@ -858,9 +865,12 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 
 	objList := c.getObjFiles(util.UniqueStrings(objFiles))
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", dstFile)
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
-		dstFile, objList)
+	if util.Verbosity == util.VERBOSITY_VERBOSE {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
+			dstFile, strings.Join(objList, " "))
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", dstFile)
+	}
 
 	if elfLib != "" {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with rom image %s\n",
