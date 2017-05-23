@@ -20,8 +20,7 @@
 package cli
 
 import (
-	"os"
-
+	"fmt"
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -50,27 +49,38 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 	} else {
+		var version string = ""
+		if len(args) > 1 {
+			version = args[1]
+		} else {
+			// If user did not provide version number and
+			// the target is not a bootloader, then ask
+			// the tell user to enter a version or use
+			// 0 for default value.
+
+			// Resolve to get the config values.
+			res, err := b.Resolve()
+			if err != nil {
+				NewtUsage(nil, err)
+			}
+			features := res.Cfg.Features()
+
+			if _, loader := features["BOOT_LOADER"]; !loader {
+				version = "0"
+				fmt.Println("Enter image version(default 0):")
+				fmt.Scanf("%s\n", &version)
+			}
+		}
 		if err := b.Build(); err != nil {
 			NewtUsage(nil, err)
 		}
 
-		/*
-		 * Run create-image if version number is specified. If no version
-		 * number, remove .img which would'be been created. This so that
-		 * download script will barf if it needs an image for this type of
-		 * target, instead of downloading an older version.
-		 */
-		if len(args) > 1 {
-			_, _, err = b.CreateImages(args[1], "", 0)
+		if len(version) > 0 {
+			_, _, err = b.CreateImages(version, "", 0)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
-		} else {
-			os.Remove(b.AppBuilder.AppImgPath())
 
-			if b.LoaderBuilder != nil {
-				os.Remove(b.LoaderBuilder.AppImgPath())
-			}
 		}
 
 		if err := b.Load(extraJtagCmd); err != nil {
