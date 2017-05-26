@@ -41,9 +41,10 @@ import (
 )
 
 var targetForce bool = false
+var amendDelete bool = false
 
-// target variables that can have values appended with the the append command.
-var appendVars = []string{"aflags", "cflags", "lflags", "syscfg"}
+// target variables that can have values amended with the amend command.
+var amendVars = []string{"aflags", "cflags", "lflags", "syscfg"}
 
 func resolveExistingTargetArg(arg string) (*target.Target, error) {
 	t := ResolveTarget(arg)
@@ -85,6 +86,83 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 		buffer.WriteString(" ")
 	}
 	return buffer.String()
+}
+
+//Process amend command for syscfg target variable
+func amendSysCfg(value string, t *target.Target) error {
+
+	// Get the current syscfg.vals name-value pairs
+	sysVals := t.Package().SyscfgV.GetStringMapString("syscfg.vals")
+
+	// Convert the input syscfg into name-value pairs
+	amendSysVals, err := syscfg.KeyValueFromStr(value)
+	if err != nil {
+		return err
+	}
+	// Have current syscfg.vals in syscfg.yml file
+	if sysVals != nil {
+		// Either delete syscfg variable or replace with new value
+		for k, v := range amendSysVals {
+			if amendDelete {
+				delete(sysVals, k)
+			} else {
+				sysVals[k] = v
+			}
+		}
+	} else {
+		// No syscfg.vals in syscfg.yml file. Use all the new
+		// syscfg name-value  pairs if not deleting
+		if !amendDelete {
+			sysVals = amendSysVals
+		}
+	}
+	t.Package().SyscfgV.Set("syscfg.vals", sysVals)
+	return nil
+}
+
+//Process amend command for aflags, cflags, and lflags target variables.
+func amendBuildFlags(kv []string, t *target.Target) error {
+	pkg_var := "pkg." + kv[0]
+	curFlags := t.Package().PkgV.GetStringSlice(pkg_var)
+	amendFlags := strings.Fields(kv[1])
+
+	newFlags := []string{}
+	exist := false
+
+	// add flags
+	if !amendDelete {
+		newFlags = curFlags
+		for _, amendVal := range amendFlags {
+			exist = false
+			for _, curVal := range curFlags {
+				if amendVal == curVal {
+					exist = true
+				}
+			}
+			// Add flag if flag is not already set
+			if !exist {
+				newFlags = append(newFlags, amendVal)
+			}
+		}
+	} else {
+		// Delete Flag if it exist.
+		for _, curVal := range curFlags {
+			exist = false
+			for _, deleteVal := range amendFlags {
+				if deleteVal == curVal {
+					exist = true
+					break
+				}
+			}
+			// Not deleting this flag, add it to the set of new
+			// flags to save
+			if !exist {
+				newFlags = append(newFlags, curVal)
+			}
+		}
+	}
+	t.Package().PkgV.Set(pkg_var, newFlags)
+	return nil
 }
 
 func targetShowCmd(cmd *cobra.Command, args []string) {
@@ -231,7 +309,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func targetAppendCmd(cmd *cobra.Command, args []string) {
+func targetAmendCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		NewtUsage(cmd,
 			util.NewNewtError("Must specify at least two arguments "+
@@ -253,7 +331,7 @@ func targetAppendCmd(cmd *cobra.Command, args []string) {
 		kv := strings.SplitN(args[i], "=", 2)
 		// Check that the variable can have values appended.
 		valid := false
-		for _, v := range appendVars {
+		for _, v := range amendVars {
 			if kv[0] == v {
 				valid = true
 				break
@@ -261,7 +339,7 @@ func targetAppendCmd(cmd *cobra.Command, args []string) {
 		}
 		if !valid {
 			NewtUsage(cmd,
-				util.NewNewtError("Cannot append values to "+kv[0]))
+				util.NewNewtError("Cannot amend values for "+kv[0]))
 		}
 
 		if len(kv) == 1 {
@@ -278,69 +356,22 @@ func targetAppendCmd(cmd *cobra.Command, args []string) {
 		// Trim trailing slash from value.  This is necessary when tab
 		// completion is used to fill in the value.
 		kv[1] = strings.TrimSuffix(kv[1], "/")
-
 		vars = append(vars, kv)
 	}
-
-	// Append the values for the variables.
 	for _, kv := range vars {
-		if !strings.HasPrefix(kv[0], "target.") {
-			kv[0] = "target." + kv[0]
-		}
-		if kv[0] == "target.syscfg" {
-			// Get the current syscfg.vals setting
-			// name-values pairs and format into a string.
-			curSyscfgStr := syscfg.KeyValueToStr(
-				t.Package().SyscfgV.GetStringMapString("syscfg.vals"))
-
-			if curSyscfgStr != "" {
-				// Append the syscfg KV string from
-				// the command to the current KV string
-				// so the old setting values are saved
-				// or set to the new value if the
-				// setting is specified in the command.
-				// ":" delimits each setting.
-
-				curSyscfgStr = curSyscfgStr + ":" + kv[1]
-			} else {
-				// syscfg.val does not exists.
-				curSyscfgStr = kv[1]
-			}
-
-			kv, err := syscfg.KeyValueFromStr(curSyscfgStr)
+		if kv[0] == "syscfg" {
+			err = amendSysCfg(kv[1], t)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
-
-			t.Package().SyscfgV.Set("syscfg.vals", kv)
-		} else if kv[0] == "target.cflags" ||
-			kv[0] == "target.lflags" ||
-			kv[0] == "target.aflags" {
-
-			kv[0] = "pkg." + strings.TrimPrefix(kv[0], "target.")
-			flags := t.Package().PkgV.GetStringSlice(kv[0])
-			appendFlags := strings.Fields(kv[1])
-			addFlags := []string{}
-			for _, v := range appendFlags {
-				exist := false
-				for _, f := range flags {
-					if v == f {
-						exist = true
-						break
-					}
-				}
-				// Only add if flag is not already specified.
-				if !exist {
-					addFlags = append(addFlags, v)
-				}
+		} else if kv[0] == "cflags" ||
+			kv[0] == "lflags" ||
+			kv[0] == "aflags" {
+			err = amendBuildFlags(kv, t)
+			if err != nil {
+				NewtUsage(cmd, err)
 			}
-			if len(addFlags) > 0 {
-				flags = append(flags, addFlags...)
-				t.Package().PkgV.Set(kv[0], flags)
-			}
-
 		}
-
 	}
 	if err := t.Save(); err != nil {
 		NewtUsage(cmd, err)
@@ -348,8 +379,8 @@ func targetAppendCmd(cmd *cobra.Command, args []string) {
 
 	for _, kv := range vars {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Appended %s to %s for Target %s successfully\n",
-			kv[1], kv[0], t.FullName())
+			"Amended %s for Target %s successfully\n",
+			kv[0], t.FullName())
 	}
 }
 
@@ -802,7 +833,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	setHelpText += "is created and the current settings are deleted. Only the settings\n"
 	setHelpText += "specified in the command are saved in the syscfg.yml file."
 	setHelpText += "\nIf you want to change or add a new syscfg value and keep the other\n"
-	setHelpText += "syscfg values, use the newt target append command.\n"
+	setHelpText += "syscfg values, use the newt target amend command.\n"
 	setHelpEx := "  newt target set my_target1 build_profile=optimized "
 	setHelpEx += "cflags=\"-DNDEBUG\"\n"
 	setHelpEx += "  newt target set my_target1 "
@@ -810,7 +841,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	setCmd := &cobra.Command{
 		Use: "set <target-name> <var-name>=<value>" +
-			"[:<var-name>=<value>...]",
+			"[<var-name>=<value>...]",
 		Short:   "Set target configuration variable",
 		Long:    setHelpText,
 		Example: setHelpEx,
@@ -819,23 +850,32 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetCmd.AddCommand(setCmd)
 	AddTabCompleteFn(setCmd, targetList)
 
-	appendHelpText := "Append <value> to a target variable (<var-name>) "
-	appendHelpText += "on target <target-name>.\n"
-	appendHelpText += "Variables that can have values appended are:\n"
-	appendHelpText += strings.Join(appendVars, "\n")
-	appendHelpEx := "  newt target append my_target cflags=\"-DNDEBUG -DTEST\"\n"
-	appendHelpEx += "  newt target append my_target lflags=\"-llib\" "
-	appendHelpEx += "syscfg=LOG_LEVEL:CONFIG_NEWTMGR=0\n"
-	appendCmd := &cobra.Command{
-		Use: "append <target-name> <var-name>=<value>" +
-			"[:<var-name>=<value>...]",
-		Short:   "Append values to target configuration variables",
-		Long:    appendHelpText,
-		Example: appendHelpEx,
-		Run:     targetAppendCmd,
+	amendHelpText := "Add, change, or delete values for multivalue target variables.\n\n"
+	amendHelpText += "Variables that can have values amended are:\n"
+	amendHelpText += strings.Join(amendVars, "\n") + "\n\n"
+	amendHelpText += "To change single value variables, such as bsp, use the newt target set command.\n"
+
+	amendHelpEx := "  newt target amend my_target cflags=\"-DNDEBUG -DTEST\"\n"
+	amendHelpEx += "    Adds -DDEBUG and -DTEST to cflags\n\n"
+	amendHelpEx += "  newt target amend my_target lflags=\"-Lmylib\" "
+	amendHelpEx += "syscfg=LOG_LEVEL:CONFIG_NEWTMGR=0\n"
+	amendHelpEx += "    Adds -Lmylib to lflags and syscfg variables LOG_LEVEL=1 and CONFIG_NEWTMGR=0\n\n"
+	amendHelpEx += "  newt target amend my_target -d syscfg=CONFIG_NEWTMGR "
+	amendHelpEx += "cflags=\"-DNDEBUG\"\n"
+	amendHelpEx += "    Deletes syscfg variable CONFIG_NEWTMGR and -DNDEBUG from cflags\n"
+
+	amendCmd := &cobra.Command{
+		Use: "amend <target-name> <var-name>=<value>" +
+			"[<var-name>=<value>...]\n",
+		Short:   "Add, update, or delete values for multi-value target variables.",
+		Long:    amendHelpText,
+		Example: amendHelpEx,
+		Run:     targetAmendCmd,
 	}
-	targetCmd.AddCommand(appendCmd)
-	AddTabCompleteFn(appendCmd, targetList)
+	amendCmd.Flags().BoolVarP(&amendDelete, "delete", "d", false,
+		"Delete Variable values")
+	targetCmd.AddCommand(amendCmd)
+	AddTabCompleteFn(amendCmd, targetList)
 
 	createHelpText := "Create a target specified by <target-name>."
 	createHelpEx := "  newt target create <target-name>\n"
@@ -896,7 +936,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetCmd.AddCommand(configCmd)
 
 	configShowCmd := &cobra.Command{
-		Use:   "show <target>",
+		Use:   "show <target-name>",
 		Short: "View a target's system configuration",
 		Long:  "View a target's system configuration",
 		Run:   targetConfigShowCmd,
