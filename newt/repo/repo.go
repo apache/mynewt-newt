@@ -76,7 +76,7 @@ func (rd *RepoDependency) String() string {
 	for idx, vr := range rd.versreq {
 		if idx != 0 {
 			rstr = rstr + " " + vr.Version().String()
-		} else  {
+		} else {
 			rstr = rstr + vr.Version().String()
 		}
 	}
@@ -174,14 +174,14 @@ func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
 }
 
 func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
-	fmt.Printf("Dependency list for %s contains a specific commit tag, " +
+	fmt.Printf("Dependency list for %s contains a specific commit tag, "+
 		"so normal version number/stability comparison cannot be done.\n",
 		repo.Name())
-	fmt.Printf("If the following list does not contain the requirement to use, "+
+	fmt.Printf("If the following list does not contain the requirement to use, " +
 		"then modify your project.yml so that it does.\n")
 	for {
 		for i, vers := range versions {
-			fmt.Printf(" %d) %s\n", i, vers)
+			fmt.Printf(" %d) %s\n", i, vers.String())
 		}
 		fmt.Printf("Pick the index of a version to use from above list: ")
 		line, _, err := bufio.NewReader(os.Stdin).ReadLine()
@@ -310,7 +310,7 @@ func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 	 */
 	for _, versreq := range r.VersionRequirements() {
 		tag := versreq.Version().Tag()
-		if  tag != "" {
+		if tag != "" {
 			log.Debugf("Requirements for %s have a tag option %s\n",
 				r.Name(), tag)
 			return tag, NewTag(tag), true
@@ -521,7 +521,7 @@ func (r *Repo) Install(force bool) (*Version, error) {
 
 	branchName, vers, found := r.rdesc.Match(r)
 	if !found {
-		return nil, util.NewNewtError(fmt.Sprintf("No repository " +
+		return nil, util.NewNewtError(fmt.Sprintf("No repository "+
 			"matching description %s found", r.rdesc.String()))
 	}
 
