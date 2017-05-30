@@ -181,7 +181,7 @@ func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
 		"then modify your project.yml so that it does.\n")
 	for {
 		for i, vers := range versions {
-			fmt.Printf(" %d) %s\n", i, vers)
+			fmt.Printf(" %d) %s\n", i, vers.String())
 		}
 		fmt.Printf("Pick the index of a version to use from above list: ")
 		line, _, err := bufio.NewReader(os.Stdin).ReadLine()
