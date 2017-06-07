@@ -860,7 +860,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	setHelpEx += "syscfg=LOG_NEWTMGR=1:CONFIG_NEWTMGR=0\n"
 
 	setCmd := &cobra.Command{
-		Use: "set <target-name> <var-name>=<value>" +
+		Use: "set <target-name> <var-name>=<value> " +
 			"[<var-name>=<value>...]",
 		Short:   "Set target configuration variable",
 		Long:    setHelpText,
