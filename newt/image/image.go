@@ -46,6 +46,10 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+// Set this to enable RSA-PSS for RSA signatures, instead of PKCS#1
+// v1.5.  Eventually, this should be the default.
+var UseRsaPss = false
+
 type ImageVersion struct {
 	Major    uint8
 	Minor    uint8
@@ -97,12 +101,13 @@ const (
  * Image header flags.
  */
 const (
-	IMAGE_F_PIC                   = 0x00000001
-	IMAGE_F_SHA256                = 0x00000002 /* Image contains hash TLV */
-	IMAGE_F_PKCS15_RSA2048_SHA256 = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
-	IMAGE_F_ECDSA224_SHA256       = 0x00000008 /* ECDSA224 over SHA256 */
-	IMAGE_F_NON_BOOTABLE          = 0x00000010 /* non bootable image */
-	IMAGE_F_ECDSA256_SHA256       = 0x00000020 /* ECDSA256 over SHA256 */
+	IMAGE_F_PIC                      = 0x00000001
+	IMAGE_F_SHA256                   = 0x00000002 /* Image contains hash TLV */
+	IMAGE_F_PKCS15_RSA2048_SHA256    = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
+	IMAGE_F_ECDSA224_SHA256          = 0x00000008 /* ECDSA224 over SHA256 */
+	IMAGE_F_NON_BOOTABLE             = 0x00000010 /* non bootable image */
+	IMAGE_F_ECDSA256_SHA256          = 0x00000020 /* ECDSA256 over SHA256 */
+	IMAGE_F_PKCS1_PSS_RSA2048_SHA256 = 0x00000040 /* RSA-PSS w/RSA2048 and SHA256 */
 )
 
 /*
@@ -303,7 +308,11 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 
 func (image *Image) sigHdrType() (uint32, error) {
 	if image.SigningRSA != nil {
-		return IMAGE_F_PKCS15_RSA2048_SHA256, nil
+		if UseRsaPss {
+			return IMAGE_F_PKCS1_PSS_RSA2048_SHA256, nil
+		} else {
+			return IMAGE_F_PKCS15_RSA2048_SHA256, nil
+		}
 	} else if image.SigningEC != nil {
 		switch image.SigningEC.Curve.Params().Name {
 		case "P-224":
@@ -545,8 +554,17 @@ func (image *Image) Generate(loader *Image) error {
 			Pad:  0,
 			Len:  256, /* 2048 bits */
 		}
-		signature, err := rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
-			crypto.SHA256, image.Hash)
+		var signature []byte
+		if UseRsaPss {
+			opts := rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthEqualsHash,
+			}
+			signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
+				crypto.SHA256, image.Hash, &opts)
+		} else {
+			signature, err = rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
+				crypto.SHA256, image.Hash)
+		}
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to compute signature: %s", err))
