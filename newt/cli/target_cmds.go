@@ -46,6 +46,9 @@ var amendDelete bool = false
 // target variables that can have values amended with the amend command.
 var amendVars = []string{"aflags", "cflags", "lflags", "syscfg"}
 
+var setVars = []string{"aflags", "app", "build_profile", "bsp", "cflags",
+	"lflags", "loader", "syscfg"}
+
 func resolveExistingTargetArg(arg string) (*target.Target, error) {
 	t := ResolveTarget(arg)
 	if t == nil {
@@ -243,9 +246,24 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 	vars := [][]string{}
 	for i := 1; i < len(args); i++ {
 		kv := strings.SplitN(args[i], "=", 2)
+		key := strings.TrimPrefix(kv[0], "target.")
+		supported := false
+		for _, v := range setVars {
+			if key == v {
+				supported = true
+				break
+			}
+		}
+
+		if !supported {
+			NewtUsage(cmd,
+				util.NewNewtError("Not a valid variable: "+key))
+		}
 		if !strings.HasPrefix(kv[0], "target.") {
 			kv[0] = "target." + kv[0]
 		}
+
+		// Make sure it is a valid variable.
 
 		if len(kv) == 1 {
 			// User entered a variable name without a value.
@@ -828,7 +846,9 @@ func AddTargetCommands(cmd *cobra.Command) {
 	AddTabCompleteFn(showCmd, targetList)
 
 	setHelpText := "Set a target variable (<var-name>) on target "
-	setHelpText += "<target-name> to value <value>.\n\n"
+	setHelpText += "<target-name> to value <value>.\n"
+	setHelpText += "Variables that can be set are:\n"
+	setHelpText += strings.Join(setVars, "\n") + "\n\n"
 	setHelpText += "Warning: When setting the syscfg variable, a new syscfg.yml file\n"
 	setHelpText += "is created and the current settings are deleted. Only the settings\n"
 	setHelpText += "specified in the command are saved in the syscfg.yml file."
@@ -840,7 +860,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	setHelpEx += "syscfg=LOG_NEWTMGR=1:CONFIG_NEWTMGR=0\n"
 
 	setCmd := &cobra.Command{
-		Use: "set <target-name> <var-name>=<value>" +
+		Use: "set <target-name> <var-name>=<value> " +
 			"[<var-name>=<value>...]",
 		Short:   "Set target configuration variable",
 		Long:    setHelpText,
