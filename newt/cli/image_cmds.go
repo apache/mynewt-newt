@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
@@ -89,6 +90,9 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
 		"Ignore flash overflow errors during image creation")
+	createImageCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
+		"rsa-pss", false,
+		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sigs")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
