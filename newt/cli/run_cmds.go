@@ -53,10 +53,9 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		if len(args) > 1 {
 			version = args[1]
 		} else {
-			// If user did not provide version number and
-			// the target is not a bootloader, then ask
-			// the tell user to enter a version or use
-			// 0 for default value.
+			// If user did not provide version number and the target is not a
+			// bootloader and doesn't run in the simulator, then ask the user
+			// to enter a version or use 0 for default value.
 
 			// Resolve to get the config values.
 			res, err := b.Resolve()
@@ -65,7 +64,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			}
 			features := res.Cfg.Features()
 
-			if _, loader := features["BOOT_LOADER"]; !loader {
+			if !features["BOOT_LOADER"] && !features["BSP_SIMULATED"] {
 				version = "0"
 				fmt.Println("Enter image version(default 0):")
 				fmt.Scanf("%s\n", &version)
