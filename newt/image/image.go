@@ -390,7 +390,7 @@ func (image *Image) ReSign() error {
 			image.SourceImg, err.Error()))
 	}
 
-	if uint32(srcInfo.Size()) != uint32(hdr.HdrSz) + hdr.ImgSz + uint32(hdr.TlvSz) ||
+	if uint32(srcInfo.Size()) != uint32(hdr.HdrSz)+hdr.ImgSz+uint32(hdr.TlvSz) ||
 		hdr.Magic != IMAGE_MAGIC {
 
 		return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
@@ -401,7 +401,7 @@ func (image *Image) ReSign() error {
 	log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
 		hdr.Vers.Major, hdr.Vers.Minor, hdr.Vers.Rev, hdr.Vers.BuildNum)
 
-        tmpBin, err := ioutil.TempFile("", "")
+	tmpBin, err := ioutil.TempFile("", "")
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Creating temp file failed: %s",
 			err.Error()))
@@ -410,7 +410,7 @@ func (image *Image) ReSign() error {
 	defer os.Remove(tmpBinName)
 
 	log.Debugf("Extracting data from %s:%d-%d to %s\n",
-		image.SourceImg, int64(hdr.HdrSz), int64(hdr.HdrSz) + int64(hdr.ImgSz),
+		image.SourceImg, int64(hdr.HdrSz), int64(hdr.HdrSz)+int64(hdr.ImgSz),
 		tmpBinName)
 	_, err = io.CopyN(tmpBin, srcImg, int64(hdr.ImgSz))
 	srcImg.Close()

@@ -82,7 +82,7 @@ func resignImageRunCmd(cmd *cobra.Command, args []string) {
 	img, err := image.OldImage(imgName)
 	if err != nil {
 		NewtUsage(nil, err)
-		return;
+		return
 	}
 
 	if len(args) > 1 {
