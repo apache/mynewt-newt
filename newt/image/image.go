@@ -407,7 +407,7 @@ func (image *Image) ReSign() error {
 			err.Error()))
 	}
 	tmpBinName := tmpBin.Name()
-//	defer os.Remove(tmpBinName)
+	defer os.Remove(tmpBinName)
 
 	log.Debugf("Extracting data from %s:%d-%d to %s\n",
 		image.SourceImg, int64(hdr.HdrSz), int64(hdr.HdrSz) + int64(hdr.ImgSz),
