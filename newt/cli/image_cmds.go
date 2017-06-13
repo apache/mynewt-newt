@@ -70,6 +70,44 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func resignImageRunCmd(cmd *cobra.Command, args []string) {
+	var keyId uint8
+	var keystr string
+
+	if len(args) < 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify image to re-sign."))
+	}
+
+	imgName := args[0]
+	img, err := image.OldImage(imgName)
+	if err != nil {
+		NewtUsage(nil, err)
+		return
+	}
+
+	if len(args) > 1 {
+		if len(args) > 2 {
+			keyId64, err := strconv.ParseUint(args[2], 10, 8)
+			if err != nil {
+				NewtUsage(cmd,
+					util.NewNewtError("Key ID must be between 0-255"))
+			}
+			keyId = uint8(keyId64)
+		}
+		keystr = args[1]
+		err = img.SetSigningKey(keystr, keyId)
+		if err != nil {
+			NewtUsage(nil, err)
+			return
+		}
+	}
+
+	err = img.ReSign()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+}
+
 func AddImageCommands(cmd *cobra.Command) {
 	createImageHelpText := "Create an image by adding an image header to the " +
 		"binary file created for <target-name>. Version number in the header is set " +
@@ -96,4 +134,26 @@ func AddImageCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
+
+	resignImageHelpText := "Sign/Re-sign existing image file. "
+	resignImageHelpText += "Note image header will be recreated! "
+	resignImageHelpText += "Warning: image has will change if you change key-id "
+	resignImageHelpText += "or the type of key used for signing."
+
+	resignImageHelpEx := "  newt resign-image my_target1.img private.pem\n"
+	resignImageHelpEx += "  newt resign-image my_target1.img private.pem 5\n"
+
+	resignImageCmd := &cobra.Command{
+		Use:     "resign-image <target-name | image-file> [signing-key [key-id]]",
+		Short:   "Re-sign image/target using given key.",
+		Long:    resignImageHelpText,
+		Example: resignImageHelpEx,
+		Run:     resignImageRunCmd,
+	}
+
+	resignImageCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
+		"force", "f", false,
+		"Ignore flash overflow errors during image creation")
+
+	cmd.AddCommand(resignImageCmd)
 }

@@ -59,6 +59,7 @@ type ImageVersion struct {
 
 type Image struct {
 	SourceBin  string
+	SourceImg  string
 	TargetImg  string
 	Version    ImageVersion
 	SigningRSA *rsa.PrivateKey
@@ -238,6 +239,13 @@ func NewImage(srcBinPath string, dstImgPath string) (*Image, error) {
 	return image, nil
 }
 
+func OldImage(imgPath string) (*Image, error) {
+	image := &Image{}
+
+	image.SourceImg = imgPath
+	return image, nil
+}
+
 func (image *Image) SetVersion(versStr string) error {
 	ver, err := ParseVersion(versStr)
 	if err != nil {
@@ -359,6 +367,65 @@ func (image *Image) sigTlvType() uint8 {
 	} else {
 		return 0
 	}
+}
+
+func (image *Image) ReSign() error {
+	srcImg, err := os.Open(image.SourceImg)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Can't open image file %s: %s",
+			image.SourceImg, err.Error()))
+	}
+
+	srcInfo, err := srcImg.Stat()
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Can't stat image file %s: %s",
+			image.SourceImg, err.Error()))
+	}
+
+	var hdr ImageHdr
+
+	err = binary.Read(srcImg, binary.LittleEndian, &hdr)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failing to access image %s: %s",
+			image.SourceImg, err.Error()))
+	}
+
+	if uint32(srcInfo.Size()) != uint32(hdr.HdrSz)+hdr.ImgSz+uint32(hdr.TlvSz) ||
+		hdr.Magic != IMAGE_MAGIC {
+
+		return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
+			image.SourceImg))
+	}
+	srcImg.Seek(int64(hdr.HdrSz), 0)
+
+	log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
+		hdr.Vers.Major, hdr.Vers.Minor, hdr.Vers.Rev, hdr.Vers.BuildNum)
+
+	tmpBin, err := ioutil.TempFile("", "")
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Creating temp file failed: %s",
+			err.Error()))
+	}
+	tmpBinName := tmpBin.Name()
+	defer os.Remove(tmpBinName)
+
+	log.Debugf("Extracting data from %s:%d-%d to %s\n",
+		image.SourceImg, int64(hdr.HdrSz), int64(hdr.HdrSz)+int64(hdr.ImgSz),
+		tmpBinName)
+	_, err = io.CopyN(tmpBin, srcImg, int64(hdr.ImgSz))
+	srcImg.Close()
+	tmpBin.Close()
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Cannot copy to tmpfile %s: %s",
+			tmpBin.Name(), err.Error()))
+	}
+
+	image.SourceBin = tmpBinName
+	image.TargetImg = image.SourceImg
+	image.Version = hdr.Vers
+	image.HeaderSize = uint(hdr.HdrSz)
+
+	return image.Generate(nil)
 }
 
 func (image *Image) Generate(loader *Image) error {
