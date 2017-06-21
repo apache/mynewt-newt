@@ -25,6 +25,7 @@ import (
 	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/newt/toolchain"
 )
 
 type MfgRawEntry struct {
@@ -46,7 +47,8 @@ type mfgPart struct {
 type MfgImage struct {
 	basePkg *pkg.LocalPackage
 
-	bsp *pkg.BspPackage
+	bsp      *pkg.BspPackage
+	compiler *toolchain.Compiler
 
 	boot       *target.Target
 	images     []*target.Target

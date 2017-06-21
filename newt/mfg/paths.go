@@ -78,6 +78,11 @@ func MfgSectionBinPath(mfgPkgName string, sectionNum int) string {
 		filepath.Base(mfgPkgName), sectionNum)
 }
 
+func MfgSectionHexPath(mfgPkgName string, sectionNum int) string {
+	return fmt.Sprintf("%s/%s-s%d.hex", MfgSectionBinDir(mfgPkgName),
+		filepath.Base(mfgPkgName), sectionNum)
+}
+
 func MfgManifestPath(mfgPkgName string) string {
 	return MfgBinDir(mfgPkgName) + "/manifest.json"
 }
