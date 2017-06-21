@@ -202,14 +202,14 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 }
 
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
-	server := "api.github.com"
-	prefix := "repos"
+	var url string
 	if gd.Server != "" {
-		server = gd.Server
-		prefix = "api/v3/repos"
+		// Use the github API
+		url = fmt.Sprintf("https://%s/api/v3/repos/%s/%s/%s?ref=%s", gd.Server, gd.User, gd.Repo, name, gd.Branch())
+	} else {
+		// The public github API is ratelimited. Avoid rate limit issues with the raw endpoint.
+		url = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", gd.User, gd.Repo, gd.Branch(), name)
 	}
-	url := fmt.Sprintf("https://%s/%s/%s/%s/contents/%s?ref=%s",
-		server, prefix, gd.User, gd.Repo, name, gd.Branch())
 
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", "application/vnd.github.v3.raw")
