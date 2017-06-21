@@ -170,3 +170,13 @@ func (mi *MfgImage) SectionBinPaths() []string {
 	}
 	return paths
 }
+
+func (mi *MfgImage) SectionHexPaths() []string {
+	sectionIds := mi.sectionIds()
+
+	paths := make([]string, len(sectionIds))
+	for i, sectionId := range sectionIds {
+		paths[i] = MfgSectionHexPath(mi.basePkg.Name(), sectionId)
+	}
+	return paths
+}

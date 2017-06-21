@@ -492,6 +492,7 @@ func (mi *MfgImage) ToPaths() []string {
 	}
 
 	paths = append(paths, mi.SectionBinPaths()...)
+	paths = append(paths, mi.SectionHexPaths()...)
 	paths = append(paths, mi.ManifestPath())
 
 	return paths
@@ -511,12 +512,12 @@ func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 
 	for device, section := range cs.dsMap {
 		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), device)
-		if err := ioutil.WriteFile(sectionPath, section.blob, 0644); err != nil {
+		err := ioutil.WriteFile(sectionPath, section.blob[section.offset:], 0644)
+		if err != nil {
 			return nil, util.ChildNewtError(err)
 		}
 		hexPath := MfgSectionHexPath(mi.basePkg.Name(), device)
-		mi.compiler.ConvertBinToHex(sectionPath, hexPath, 0)
-
+		mi.compiler.ConvertBinToHex(sectionPath, hexPath, section.offset)
 	}
 
 	manifest, err := mi.createManifest(cs)
