@@ -140,7 +140,7 @@ func buildRunCmd(cmd *cobra.Command, args []string) {
 
 		// Look up the target by name.  This has to be done a second time here
 		// now that the project has been reset.
-		t := ResolveTarget(targets[i].Name())
+		t := ResolveTarget(targets[i].FullName())
 		if t == nil {
 			NewtUsage(nil, util.NewNewtError("Failed to resolve target: "+
 				targets[i].Name()))
