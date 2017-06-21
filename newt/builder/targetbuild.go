@@ -776,11 +776,26 @@ func (t *TargetBuilder) CreateImages(version string,
 	var appImg *image.Image
 	var loaderImg *image.Image
 
+	c, err := t.NewCompiler("")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if t.LoaderBuilder != nil {
 		loaderImg, err = t.LoaderBuilder.CreateImage(version, keystr, keyId,
 			nil)
 		if err != nil {
 			return nil, nil, err
+		}
+		tgtArea := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0]
+		log.Debugf("Convert %s -> %s at offset 0x%x",
+			t.LoaderBuilder.AppImgPath(),
+			t.LoaderBuilder.AppHexPath(),
+			tgtArea.Offset)
+		err = c.ConvertBinToHex(t.LoaderBuilder.AppImgPath(),
+				t.LoaderBuilder.AppHexPath(), tgtArea.Offset)
+		if err != nil {
+			log.Errorf("Can't convert to hexfile %s\n", err.Error())
 		}
 	}
 
@@ -789,6 +804,24 @@ func (t *TargetBuilder) CreateImages(version string,
 		return nil, nil, err
 	}
 
+	flashTargetArea := ""
+	if t.LoaderBuilder == nil {
+		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_0
+	} else  {
+		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_1
+	}
+	tgtArea := t.bspPkg.FlashMap.Areas[flashTargetArea]
+	if tgtArea.Name != "" {
+		log.Debugf("Convert %s -> %s at offset 0x%x",
+			t.AppBuilder.AppImgPath(),
+			t.AppBuilder.AppHexPath(),
+			tgtArea.Offset)
+		err = c.ConvertBinToHex(t.AppBuilder.AppImgPath(),
+				t.AppBuilder.AppHexPath(), tgtArea.Offset)
+		if err != nil {
+			log.Errorf("Can't convert to hexfile %s\n", err.Error())
+		}
+	}
 	buildId := image.CreateBuildId(appImg, loaderImg)
 	if err := t.augmentManifest(appImg, loaderImg, buildId); err != nil {
 		return nil, nil, err
