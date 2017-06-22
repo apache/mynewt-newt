@@ -322,8 +322,10 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 	v := lpkg.SyscfgV
 
 	lfeatures := cfg.FeaturesForLpkg(lpkg)
-	for k, _ := range features {
-		lfeatures[k] = true
+	for k, v := range features {
+		if v {
+			lfeatures[k] = true
+		}
 	}
 
 	settings := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.defs")
@@ -360,8 +362,10 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 	v := lpkg.SyscfgV
 
 	lfeatures := cfg.FeaturesForLpkg(lpkg)
-	for k, _ := range features {
-		lfeatures[k] = true
+	for k, v := range features {
+		if v {
+			lfeatures[k] = true
+		}
 	}
 
 	values := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.vals")
