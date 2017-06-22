@@ -1285,3 +1285,22 @@ func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolM
 	}
 	return err
 }
+
+func (c *Compiler) ConvertBinToHex(inFile string, outFile string, baseAddr int) error {
+	cmd := []string{
+		c.ocPath,
+		"-I",
+		"binary",
+		"-O",
+		"ihex",
+		"--adjust-vma",
+		"0x" + strconv.FormatInt(int64(baseAddr), 16),
+		inFile,
+		outFile,
+	}
+	_, err := util.ShellCommand(cmd, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}

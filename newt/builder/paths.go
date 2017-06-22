@@ -161,6 +161,11 @@ func (b *Builder) AppImgPath() string {
 		".img"
 }
 
+func (b *Builder) AppHexPath() string {
+	return b.PkgBinDir(b.appPkg) + "/" + filepath.Base(b.appPkg.rpkg.Lpkg.Name()) +
+		".hex"
+}
+
 func (b *Builder) AppBinPath() string {
 	return b.AppElfPath() + ".bin"
 }

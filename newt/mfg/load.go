@@ -31,6 +31,7 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -279,6 +280,16 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 			mi.boot.BspName)
 	}
 	mi.bsp, err = pkg.NewBspPackage(bspLpkg)
+	if err != nil {
+		return nil, mi.loadError(err.Error())
+	}
+
+	compilerPkg, err := proj.ResolvePackage(mi.bsp.Repo(), mi.bsp.CompilerName)
+	if err != nil {
+		return nil, mi.loadError(err.Error())
+	}
+	mi.compiler, err = toolchain.NewCompiler(compilerPkg.BasePath(), "",
+							target.DEFAULT_BUILD_PROFILE)
 	if err != nil {
 		return nil, mi.loadError(err.Error())
 	}

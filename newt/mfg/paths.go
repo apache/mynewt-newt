@@ -78,6 +78,11 @@ func MfgSectionBinPath(mfgPkgName string, sectionNum int) string {
 		filepath.Base(mfgPkgName), sectionNum)
 }
 
+func MfgSectionHexPath(mfgPkgName string, sectionNum int) string {
+	return fmt.Sprintf("%s/%s-s%d.hex", MfgSectionBinDir(mfgPkgName),
+		filepath.Base(mfgPkgName), sectionNum)
+}
+
 func MfgManifestPath(mfgPkgName string) string {
 	return MfgBinDir(mfgPkgName) + "/manifest.json"
 }
@@ -162,6 +167,16 @@ func (mi *MfgImage) SectionBinPaths() []string {
 	paths := make([]string, len(sectionIds))
 	for i, sectionId := range sectionIds {
 		paths[i] = MfgSectionBinPath(mi.basePkg.Name(), sectionId)
+	}
+	return paths
+}
+
+func (mi *MfgImage) SectionHexPaths() []string {
+	sectionIds := mi.sectionIds()
+
+	paths := make([]string, len(sectionIds))
+	for i, sectionId := range sectionIds {
+		paths[i] = MfgSectionHexPath(mi.basePkg.Name(), sectionId)
 	}
 	return paths
 }

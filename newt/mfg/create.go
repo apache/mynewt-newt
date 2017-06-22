@@ -43,22 +43,27 @@ type mfgManifest struct {
 	MetaOffset  int    `json:"meta_offset"`
 }
 
+type mfgSection struct {
+	offset     int
+	blob       []byte
+}
+
 type createState struct {
-	// {0:[section0blob], 1:[section1blob], ...}
-	dsMap      map[int][]byte
+	// {0:[section0], 1:[section1], ...}
+	dsMap      map[int]mfgSection
 	metaOffset int
 	hashOffset int
 	hash       []byte
 }
 
-func insertPartIntoBlob(blob []byte, part mfgPart) {
+func insertPartIntoBlob(section mfgSection, part mfgPart) {
 	partEnd := part.offset + len(part.data)
 
-	if len(blob) < partEnd {
+	if len(section.blob) < partEnd {
 		panic("internal error; mfg blob too small")
 	}
 
-	copy(blob[part.offset:partEnd], part.data)
+	copy(section.blob[part.offset:partEnd], part.data)
 }
 
 func (mi *MfgImage) partFromImage(
@@ -146,24 +151,35 @@ func (mi *MfgImage) targetParts() ([]mfgPart, error) {
 	return parts, nil
 }
 
-func sectionSize(parts []mfgPart) int {
+func sectionSize(parts []mfgPart) (int, int) {
 	greatest := 0
-
+	lowest := 0
+	if len(parts) > 0 {
+		lowest = parts[0].offset
+	}
+	for _, part := range parts {
+		lowest = util.IntMin(lowest, part.offset)
+	}
 	for _, part := range parts {
 		end := part.offset + len(part.data)
 		greatest = util.IntMax(greatest, end)
 	}
 
-	return greatest
+	return lowest, greatest
 }
 
-func sectionFromParts(parts []mfgPart) []byte {
-	sectionSize := sectionSize(parts)
-	section := make([]byte, sectionSize)
+func sectionFromParts(parts []mfgPart) mfgSection {
+	offset, sectionSize := sectionSize(parts)
+	blob := make([]byte, sectionSize)
+
+	section := mfgSection{
+		offset: offset,
+		blob:   blob,
+	}
 
 	// Initialize section 0's data as unwritten flash (0xff).
-	for i, _ := range section {
-		section[i] = 0xff
+	for i, _ := range blob {
+		blob[i] = 0xff
 	}
 
 	for _, part := range parts {
@@ -197,14 +213,14 @@ func (mi *MfgImage) devicePartMap() (map[int][]mfgPart, error) {
 	return dpMap, nil
 }
 
-func (mi *MfgImage) deviceSectionMap() (map[int][]byte, error) {
+func (mi *MfgImage) deviceSectionMap() (map[int]mfgSection, error) {
 	dpMap, err := mi.devicePartMap()
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert each part slice into a section (byte slice).
-	dsMap := map[int][]byte{}
+	// Convert each part slice into a section.
+	dsMap := map[int]mfgSection{}
 	for device, parts := range dpMap {
 		dsMap[device] = sectionFromParts(parts)
 	}
@@ -226,11 +242,11 @@ func (mi *MfgImage) createSections() (createState, error) {
 		return cs, err
 	}
 
-	if cs.dsMap[0] == nil {
+	if len(cs.dsMap) < 1 {
 		panic("Invalid state; no section 0")
 	}
 
-	cs.metaOffset, cs.hashOffset, err = insertMeta(cs.dsMap[0],
+	cs.metaOffset, cs.hashOffset, err = insertMeta(cs.dsMap[0].blob,
 		mi.bsp.FlashMap)
 	if err != nil {
 		return cs, err
@@ -245,10 +261,10 @@ func (mi *MfgImage) createSections() (createState, error) {
 
 	sections := make([][]byte, len(devices))
 	for i, device := range devices {
-		sections[i] = cs.dsMap[device]
+		sections[i] = cs.dsMap[device].blob
 	}
 	cs.hash = calcMetaHash(sections)
-	copy(cs.dsMap[0][cs.hashOffset:cs.hashOffset+META_HASH_SZ], cs.hash)
+	copy(cs.dsMap[0].blob[cs.hashOffset:cs.hashOffset+META_HASH_SZ], cs.hash)
 
 	return cs, nil
 }
@@ -476,6 +492,7 @@ func (mi *MfgImage) ToPaths() []string {
 	}
 
 	paths = append(paths, mi.SectionBinPaths()...)
+	paths = append(paths, mi.SectionHexPaths()...)
 	paths = append(paths, mi.ManifestPath())
 
 	return paths
@@ -495,9 +512,12 @@ func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 
 	for device, section := range cs.dsMap {
 		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), device)
-		if err := ioutil.WriteFile(sectionPath, section, 0644); err != nil {
+		err := ioutil.WriteFile(sectionPath, section.blob[section.offset:], 0644)
+		if err != nil {
 			return nil, util.ChildNewtError(err)
 		}
+		hexPath := MfgSectionHexPath(mi.basePkg.Name(), device)
+		mi.compiler.ConvertBinToHex(sectionPath, hexPath, section.offset)
 	}
 
 	manifest, err := mi.createManifest(cs)
