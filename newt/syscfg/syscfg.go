@@ -374,8 +374,10 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 		if ok {
 			sourcetype := normalizePkgType(lpkg.Type())
 			deftype := normalizePkgType(entry.PackageDef.Type())
-			if sourcetype <= deftype {
-				// Overrides must come from a higher priority package.
+
+			// Overrides must come from a higher priority package, with one
+			// exception: a package can override its own setting.
+			if lpkg != entry.PackageDef && sourcetype <= deftype {
 				priority := CfgPriority{
 					PackageDef:  entry.PackageDef,
 					PackageSrc:  lpkg,

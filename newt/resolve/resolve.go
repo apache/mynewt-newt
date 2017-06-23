@@ -362,16 +362,16 @@ func (r *Resolver) reloadCfg() (bool, error) {
 		return false, err
 	}
 
-	changed := false
+	// Determine if any settings have changed.
 	for k, v := range cfg.Settings {
 		oldval, ok := r.cfg.Settings[k]
 		if !ok || len(oldval.History) != len(v.History) {
 			r.cfg = cfg
-			changed = true
+			return true, nil
 		}
 	}
 
-	return changed, nil
+	return false, nil
 }
 
 func (r *Resolver) resolveDepsOnce() (bool, error) {
