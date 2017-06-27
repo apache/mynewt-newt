@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -58,47 +59,93 @@ func buildStageMap(pkgs []*pkg.LocalPackage) map[int][]*initFunc {
 	return sm
 }
 
-func writePrototypes(pkgs []*pkg.LocalPackage, w io.Writer) {
-	sorted := pkg.SortLclPkgs(pkgs)
-	for _, p := range sorted {
-		init := p.Init()
-		for name, _ := range init {
-			fmt.Fprintf(w, "void %s(void);\n", name)
+type initFuncSorter struct {
+	fns []*initFunc
+}
+
+func (s initFuncSorter) Len() int {
+	return len(s.fns)
+}
+func (s initFuncSorter) Swap(i, j int) {
+	s.fns[i], s.fns[j] = s.fns[j], s.fns[i]
+}
+func (s initFuncSorter) Less(i, j int) bool {
+	a := s.fns[i]
+	b := s.fns[j]
+
+	// 1: Sort by stage number.
+	if a.stage < b.stage {
+		return true
+	} else if b.stage < a.stage {
+		return false
+	}
+
+	// 2: Sort by function name.
+	switch strings.Compare(a.name, b.name) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	// Same stage and function name?
+	log.Warnf("Warning: Identical sysinit functions detected: %s", a.name)
+	return true
+}
+
+func sortedInitFuncs(pkgs []*pkg.LocalPackage) []*initFunc {
+	sorter := initFuncSorter{
+		fns: make([]*initFunc, 0, len(pkgs)),
+	}
+
+	for _, p := range pkgs {
+		initMap := p.Init()
+		for name, stage := range initMap {
+			fn := &initFunc{
+				name:  name,
+				stage: stage,
+				pkg:   p,
+			}
+			sorter.fns = append(sorter.fns, fn)
 		}
+	}
+
+	sort.Sort(sorter)
+	return sorter.fns
+}
+
+func writePrototypes(pkgs []*pkg.LocalPackage, w io.Writer) {
+	sortedFns := sortedInitFuncs(pkgs)
+	for _, f := range sortedFns {
+		fmt.Fprintf(w, "void %s(void);\n", f.name)
 	}
 }
 
-func writeStage(stage int, initFuncs []*initFunc, w io.Writer) {
-	// Sort stage alphabetically by package name.
-	pkgNames := make([]string, len(initFuncs))
-	funcMap := make(map[string]*initFunc, len(initFuncs))
-	for i, initFunc := range initFuncs {
-		name := initFunc.pkg.Name()
-		pkgNames[i] = name
-		funcMap[name] = initFunc
-	}
-	sort.Strings(pkgNames)
+func writeCalls(sortedInitFuncs []*initFunc, w io.Writer) {
+	prevStage := -1
+	dupCount := 0
 
-	fmt.Fprintf(w, "    /*** Stage %d */\n", stage)
-	for i, pkgName := range pkgNames {
-		initFunc := funcMap[pkgName]
-		fmt.Fprintf(w, "    /* %d.%d: %s */\n", stage, i, pkgName)
-		fmt.Fprintf(w, "    %s();\n", initFunc.name)
+	for i, f := range sortedInitFuncs {
+		if f.stage != prevStage {
+			prevStage = f.stage
+			dupCount = 0
+
+			if i != 0 {
+				fmt.Fprintf(w, "\n")
+			}
+			fmt.Fprintf(w, "    /*** Stage %d */\n", f.stage)
+		} else {
+			dupCount += 1
+		}
+
+		fmt.Fprintf(w, "    /* %d.%d: %s (%s) */\n",
+			f.stage, dupCount, f.name, f.pkg.Name())
+		fmt.Fprintf(w, "    %s();\n", f.name)
 	}
 }
 
 func write(pkgs []*pkg.LocalPackage, isLoader bool,
 	w io.Writer) {
-
-	stageMap := buildStageMap(pkgs)
-
-	i := 0
-	stages := make([]int, len(stageMap))
-	for k, _ := range stageMap {
-		stages[i] = k
-		i++
-	}
-	sort.Ints(stages)
 
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
@@ -120,10 +167,7 @@ func write(pkgs []*pkg.LocalPackage, isLoader bool,
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "void\n%s(void)\n{\n", fnName)
 
-	for _, s := range stages {
-		fmt.Fprintf(w, "\n")
-		writeStage(s, stageMap[s], w)
-	}
+	writeCalls(sortedInitFuncs(pkgs), w)
 
 	fmt.Fprintf(w, "}\n\n")
 	fmt.Fprintf(w, "#endif\n")
