@@ -67,6 +67,11 @@ var TemplateRepoMap = map[string]templateRepo{
 		name:   "incubator-incubator-mynewt-pkg-pkg",
 		branch: "master",
 	},
+	"UNITTEST": templateRepo{
+		owner:  "runtimeco",
+		name:   "mynewt-pkg-unittest",
+		branch: "master",
+	},
 
 	// Type=pkg is identical to type=lib for backwards compatibility.
 	"PKG": templateRepo{
