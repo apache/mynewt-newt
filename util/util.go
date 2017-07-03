@@ -42,6 +42,7 @@ import (
 )
 
 var Verbosity int
+var PrintShellCmds bool
 var logFile *os.File
 
 func ParseEqualsPair(v string) (string, string, error) {
@@ -247,6 +248,7 @@ func Init(logLevel log.Level, logFile string, verbosity int) error {
 	}
 
 	Verbosity = verbosity
+	PrintShellCmds = false
 
 	return nil
 }
@@ -290,6 +292,10 @@ func ShellCommandLimitDbgOutput(
 		envLogStr = strings.Join(env, " ") + " "
 	}
 	log.Debugf("%s%s", envLogStr, strings.Join(cmdStrs, " "))
+
+	if PrintShellCmds {
+		StatusMessage(VERBOSITY_SILENT, "%s\n", strings.Join(cmdStrs, " "))
+	}
 
 	name := cmdStrs[0]
 	args := cmdStrs[1:]
