@@ -306,6 +306,7 @@ func ShellCommandLimitDbgOutput(
 	}
 
 	o, err := cmd.CombinedOutput()
+
 	if maxDbgOutputChrs < 0 || len(o) <= maxDbgOutputChrs {
 		dbgStr := string(o)
 		log.Debugf("o=%s", dbgStr)
@@ -457,7 +458,7 @@ func MoveFile(srcFile string, destFile string) error {
 	}
 
 	if err := os.RemoveAll(srcFile); err != nil {
-		return err
+		return ChildNewtError(err)
 	}
 
 	return nil
@@ -469,7 +470,7 @@ func MoveDir(srcDir string, destDir string) error {
 	}
 
 	if err := os.RemoveAll(srcDir); err != nil {
-		return err
+		return ChildNewtError(err)
 	}
 
 	return nil
@@ -624,4 +625,10 @@ func IntMin(a, b int) int {
 	} else {
 		return b
 	}
+}
+
+func PrintStacks() {
+	buf := make([]byte, 1024*1024)
+	stacklen := runtime.Stack(buf, true)
+	fmt.Printf("*** goroutine dump\n%s\n*** end\n", buf[:stacklen])
 }

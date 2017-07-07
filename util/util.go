@@ -458,7 +458,7 @@ func MoveFile(srcFile string, destFile string) error {
 	}
 
 	if err := os.RemoveAll(srcFile); err != nil {
-		return err
+		return ChildNewtError(err)
 	}
 
 	return nil
@@ -470,7 +470,7 @@ func MoveDir(srcDir string, destDir string) error {
 	}
 
 	if err := os.RemoveAll(srcDir); err != nil {
-		return err
+		return ChildNewtError(err)
 	}
 
 	return nil

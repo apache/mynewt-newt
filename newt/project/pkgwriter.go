@@ -31,31 +31,63 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+type templateRepo struct {
+	owner  string
+	name   string
+	branch string
+}
+
 type PackageWriter struct {
 	downloader *downloader.GithubDownloader
-	repo       string
+	repo       templateRepo
 	targetPath string
 	template   string
 	fullName   string
 	project    *Project
 }
 
-var TemplateRepoMap = map[string]string{
-	"SDK": "incubator-incubator-mynewt-pkg-sdk",
-	"BSP": "incubator-incubator-mynewt-pkg-bsp",
-	"PKG": "incubator-incubator-mynewt-pkg-pkg",
+var TemplateRepoMap = map[string]templateRepo{
+	"APP": templateRepo{
+		owner:  "runtimeco",
+		name:   "mynewt-pkg-app",
+		branch: "master",
+	},
+	"SDK": templateRepo{
+		owner:  "apache",
+		name:   "incubator-incubator-mynewt-pkg-sdk",
+		branch: "master",
+	},
+	"BSP": templateRepo{
+		owner:  "apache",
+		name:   "incubator-incubator-mynewt-pkg-bsp",
+		branch: "master",
+	},
+	"LIB": templateRepo{
+		owner:  "apache",
+		name:   "incubator-incubator-mynewt-pkg-pkg",
+		branch: "master",
+	},
+	"UNITTEST": templateRepo{
+		owner:  "runtimeco",
+		name:   "mynewt-pkg-unittest",
+		branch: "master",
+	},
+
+	// Type=pkg is identical to type=lib for backwards compatibility.
+	"PKG": templateRepo{
+		owner:  "apache",
+		name:   "incubator-incubator-mynewt-pkg-pkg",
+		branch: "master",
+	},
 }
 
-const PACKAGEWRITER_GITHUB_DOWNLOAD_USER = "apache"
-const PACKAGEWRITER_GITHUB_DOWNLOAD_BRANCH = "master"
-
 func (pw *PackageWriter) ConfigurePackage(template string, loc string) error {
-	str, ok := TemplateRepoMap[template]
+	tr, ok := TemplateRepoMap[template]
 	if !ok {
 		return util.NewNewtError(fmt.Sprintf("Cannot find matching "+
 			"repository for template %s", template))
 	}
-	pw.repo = str
+	pw.repo = tr
 
 	pw.fullName = path.Clean(loc)
 	path := pw.project.Path()
@@ -73,17 +105,14 @@ func (pw *PackageWriter) ConfigurePackage(template string, loc string) error {
 }
 
 func (pw *PackageWriter) cleanupPackageFile(pfile string) error {
-	f, err := os.Open(pfile)
+	data, err := ioutil.ReadFile(pfile)
 	if err != nil {
 		return util.ChildNewtError(err)
 	}
-	defer f.Close()
-
-	data, _ := ioutil.ReadAll(f)
 
 	// Search & replace file contents
 	re := regexp.MustCompile("your-pkg-name")
-	res := re.ReplaceAllString(string(data), pw.fullName)
+	res := re.ReplaceAllString(string(data), "\""+pw.fullName+"\"")
 
 	if err := ioutil.WriteFile(pfile, []byte(res), 0666); err != nil {
 		return util.ChildNewtError(err)
@@ -92,28 +121,39 @@ func (pw *PackageWriter) cleanupPackageFile(pfile string) error {
 	return nil
 }
 
-func (pw *PackageWriter) fixupPKG() error {
+func (pw *PackageWriter) fixupPkg() error {
 	pkgBase := path.Base(pw.fullName)
 
 	// Move include file to name after package name
 	if err := util.MoveFile(pw.targetPath+"/include/your-path/your-file.h",
 		pw.targetPath+"/include/your-path/"+pkgBase+".h"); err != nil {
-		return err
+
+		if !util.IsNotExist(err) {
+			return err
+		}
 	}
 
 	// Move source file
 	if err := util.MoveFile(pw.targetPath+"/src/your-source.c",
 		pw.targetPath+"/src/"+pkgBase+".c"); err != nil {
-		return err
+
+		if !util.IsNotExist(err) {
+			return err
+		}
 	}
 
 	if err := util.CopyDir(pw.targetPath+"/include/your-path/",
 		pw.targetPath+"/include/"+pkgBase+"/"); err != nil {
-		return err
+
+		if !util.IsNotExist(err) {
+			return err
+		}
 	}
 
 	if err := os.RemoveAll(pw.targetPath + "/include/your-path/"); err != nil {
-		return util.ChildNewtError(err)
+		if !util.IsNotExist(err) {
+			return util.ChildNewtError(err)
+		}
 	}
 
 	if err := pw.cleanupPackageFile(pw.targetPath + "/pkg.yml"); err != nil {
@@ -126,14 +166,14 @@ func (pw *PackageWriter) fixupPKG() error {
 func (pw *PackageWriter) WritePackage() error {
 	dl := pw.downloader
 
-	dl.User = PACKAGEWRITER_GITHUB_DOWNLOAD_USER
-	dl.Repo = pw.repo
+	dl.User = pw.repo.owner
+	dl.Repo = pw.repo.name
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Download package template for package type %s.\n",
 		strings.ToLower(pw.template))
 
-	tmpdir, err := dl.DownloadRepo(PACKAGEWRITER_GITHUB_DOWNLOAD_BRANCH)
+	tmpdir, err := dl.DownloadRepo(pw.repo.branch)
 	if err != nil {
 		return err
 	}
@@ -146,11 +186,8 @@ func (pw *PackageWriter) WritePackage() error {
 		return err
 	}
 
-	switch pw.template {
-	case "PKG":
-		if err := pw.fixupPKG(); err != nil {
-			return err
-		}
+	if err := pw.fixupPkg(); err != nil {
+		return err
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
