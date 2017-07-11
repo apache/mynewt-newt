@@ -188,3 +188,7 @@ func (b *Builder) AppBinBasePath() string {
 	return b.PkgBinDir(b.appPkg) + "/" +
 		filepath.Base(b.appPkg.rpkg.Lpkg.Name())
 }
+
+func (b *Builder) CompileCmdsPath() string {
+	return filepath.Dir(b.AppElfPath()) + "/compile_commands.json"
+}
