@@ -135,17 +135,17 @@ func AddImageCommands(cmd *cobra.Command) {
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
 
-	resignImageHelpText := "Sign/Re-sign existing image file. "
-	resignImageHelpText += "Note image header will be recreated! "
-	resignImageHelpText += "Warning: image has will change if you change key-id "
+	resignImageHelpText := "Sign/Re-sign an existing image file with the specified signing key.\nIf a signing key is not specified, the signing key in the current image\nis stripped.  "
+	resignImageHelpText += "A image header will be recreated!\n"
+	resignImageHelpText += "\nWarning: The image hash will change if you change key-id "
 	resignImageHelpText += "or the type of key used for signing."
 
 	resignImageHelpEx := "  newt resign-image my_target1.img private.pem\n"
 	resignImageHelpEx += "  newt resign-image my_target1.img private.pem 5\n"
 
 	resignImageCmd := &cobra.Command{
-		Use:     "resign-image <target-name | image-file> [signing-key [key-id]]",
-		Short:   "Re-sign image/target using given key.",
+		Use:     "resign-image <image-file> [signing-key [key-id]]",
+		Short:   "Re-sign an image.",
 		Long:    resignImageHelpText,
 		Example: resignImageHelpEx,
 		Run:     resignImageRunCmd,
