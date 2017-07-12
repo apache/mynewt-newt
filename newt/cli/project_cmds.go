@@ -47,10 +47,10 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Downloading "+
-		"project skeleton from apache/incubator-mynewt-blinky...\n")
+		"project skeleton from apache/mynewt-blinky...\n")
 	dl := downloader.NewGithubDownloader()
 	dl.User = "apache"
-	dl.Repo = "incubator-mynewt-blinky"
+	dl.Repo = "mynewt-blinky"
 
 	dir, err := dl.DownloadRepo(newtutil.NewtBlinkyTag)
 	if err != nil {
