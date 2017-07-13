@@ -243,7 +243,7 @@ func AddPackageCommands(cmd *cobra.Command) {
 	}
 
 	newCmd.PersistentFlags().StringVarP(&NewTypeStr, "type", "t",
-		"lib", "Type of package to create: app, bsp, lib, sdk.")
+		"lib", "Type of package to create: app, bsp, lib, sdk, unittest.")
 
 	pkgCmd.AddCommand(newCmd)
 
