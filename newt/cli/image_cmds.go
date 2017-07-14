@@ -131,6 +131,9 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
 		"rsa-pss", false,
 		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sigs")
+	createImageCmd.PersistentFlags().BoolVarP(&image.UseV1,
+		"ver1", "1", false,
+		"Use old image header format")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
@@ -154,6 +157,12 @@ func AddImageCommands(cmd *cobra.Command) {
 	resignImageCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
 		"Ignore flash overflow errors during image creation")
+	resignImageCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
+		"rsa-pss", false,
+		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sigs")
+	resignImageCmd.PersistentFlags().BoolVarP(&image.UseV1,
+		"ver1", "1", false,
+		"Use old image header format")
 
 	cmd.AddCommand(resignImageCmd)
 }
