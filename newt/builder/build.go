@@ -721,6 +721,7 @@ func (b *Builder) CreateImage(version string,
 		}
 	}
 
+	img.HeaderSize = uint(b.targetBuilder.target.HeaderSize)
 	err = img.Generate(loaderImg)
 	if err != nil {
 		return nil, err
