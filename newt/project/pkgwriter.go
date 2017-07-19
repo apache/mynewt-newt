@@ -54,17 +54,17 @@ var TemplateRepoMap = map[string]templateRepo{
 	},
 	"SDK": templateRepo{
 		owner:  "apache",
-		name:   "incubator-incubator-mynewt-pkg-sdk",
+		name:   "mynewt-pkg-sdk",
 		branch: "master",
 	},
 	"BSP": templateRepo{
 		owner:  "apache",
-		name:   "incubator-incubator-mynewt-pkg-bsp",
+		name:   "mynewt-pkg-bsp",
 		branch: "master",
 	},
 	"LIB": templateRepo{
 		owner:  "apache",
-		name:   "incubator-incubator-mynewt-pkg-pkg",
+		name:   "mynewt-pkg-pkg",
 		branch: "master",
 	},
 	"UNITTEST": templateRepo{
@@ -76,7 +76,7 @@ var TemplateRepoMap = map[string]templateRepo{
 	// Type=pkg is identical to type=lib for backwards compatibility.
 	"PKG": templateRepo{
 		owner:  "apache",
-		name:   "incubator-incubator-mynewt-pkg-pkg",
+		name:   "mynewt-pkg-pkg",
 		branch: "master",
 	},
 }

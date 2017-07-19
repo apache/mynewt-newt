@@ -7,7 +7,7 @@ For full release notes, please visit the
 
 Apache Newt is the build and package management system for the Apache Mynewt
 project.  More information on Newt can be found
-[here](http://mail-archives.apache.org/mod_mbox/incubator-mynewt-dev/201603.mbox/%3C56E21C13.9050303%40apache.org%3E)
+[here](http://mail-archives.apache.org/mod_mbox/mynewt-dev/201603.mbox/%3C56E21C13.9050303%40apache.org%3E)
 
 Apache Mynewt continues to stabilize with each release, and we believe this
 release is a further step forward.  People who are interested in playing
@@ -22,4 +22,4 @@ Future versions will add:
 
 If working on next-generation build and source package management systems
 sounds exciting to you, get in touch, by sending a mail to the Apache Mynewt
-Developer's list, dev@mynewt.incubator.apache.org.
+Developer's list, dev@mynewt.apache.org.

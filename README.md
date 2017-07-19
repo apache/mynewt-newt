@@ -79,7 +79,7 @@ to that effort.
 
 Apache Mynewt welcomes pull request via Github.  Discussions are done on Github,
 but depending on the topic, can also be relayed to the official Apache Mynewt
-developer mailing list dev@mynewt.incubator.apache.org.
+developer mailing list dev@mynewt.apache.org.
 
 If you are suggesting a new feature, please email the developer list directly,
 with a description of the feature you are planning to work on.
@@ -119,7 +119,7 @@ more information.
 
 If you are having trouble contributing to Apache Mynewt, or just want to talk
 to a human about what you're working on, you can contact us via the
-[developers mailing list](mailto:dev@mynewt.incubator.apache.org).
+[developers mailing list](mailto:dev@mynewt.apache.org).
 
 Although not a formal channel, you can also find a number of core developers
 on the #mynewt channel on Freenode.
