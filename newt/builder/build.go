@@ -447,8 +447,8 @@ func (b *Builder) PrepBuild() error {
 	baseCi.AddCompilerInfo(bspCi)
 
 	// All packages have access to the generated code header directory.
-	baseCi.Cflags = append(baseCi.Cflags,
-		"-I"+GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
+	baseCi.Includes = append(baseCi.Includes,
+		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
 
 	// Note: Compiler flags get added at the end, after the flags for library
 	// package being built are calculated.
