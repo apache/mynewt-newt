@@ -230,55 +230,18 @@ func targetCmakeCmd(cmd *cobra.Command, args []string) {
 	TryGetProject()
 
 	// Verify and resolve each specified package.
-	targets, all, err := ResolveTargetsOrAll(args...)
+	targets, err := ResolveTargets(args...)
 	if err != nil {
 		NewtUsage(cmd, err)
+		return
 	}
 
-	if all {
-		// Collect all targets that specify an app package.
-		targets = []*target.Target{}
-		for _, name := range targetList() {
-			t := ResolveTarget(name)
-			if t != nil && t.AppName != "" {
-				targets = append(targets, t)
-			}
-		}
+	if len(targets) != 1 {
+		NewtUsage(cmd, err)
+		return
 	}
 
-	for i, _ := range targets {
-		// Reset the global state for the next build.
-		// XXX: It is not good that this is necessary.  This is certainly going
-		// to bite us...
-		if i > 0 {
-			if err := ResetGlobalState(); err != nil {
-				NewtUsage(nil, err)
-			}
-		}
-
-		// Look up the target by name.  This has to be done a second time here
-		// now that the project has been reset.
-		t := ResolveTarget(targets[i].FullName())
-		if t == nil {
-			NewtUsage(nil, util.NewNewtError("Failed to resolve target: "+
-				targets[i].Name()))
-		}
-
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Building target %s\n",
-			t.FullName())
-
-		builder, err := builder.NewTargetBuilder(t)
-		if err != nil {
-			NewtUsage(nil, err)
-		}
-
-		if err := builder.Generate(); err != nil {
-			NewtUsage(nil, err)
-		}
-
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Target successfully built: %s\n", t.Name())
-	}
+	builder.CMakeGenerate(targets[0])
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
@@ -908,7 +871,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	cmakeCmd := &cobra.Command{
 		Use:     "cmake",
-		Short:   "View target configuration variables",
+		Short:   "",
 		Long:    cmakeHelpText,
 		Example: cmakeHelpEx,
 		Run:     targetCmakeCmd,
