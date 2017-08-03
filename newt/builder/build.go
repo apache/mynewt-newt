@@ -311,6 +311,11 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 	return entries, nil
 }
 
+func (b *Builder) CollectCompileEntriesBpkg(bpkg *BuildPackage) (
+	[]toolchain.CompilerJob, error) {
+	return b.collectCompileEntriesBpkg(bpkg)
+}
+
 func (b *Builder) createArchive(c *toolchain.Compiler,
 	bpkg *BuildPackage) error {
 

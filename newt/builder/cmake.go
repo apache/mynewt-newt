@@ -46,113 +46,8 @@ func CmakeListsPath() string {
 	return project.GetProject().BasePath + "/" + CMAKELISTS_FILENAME
 }
 
-func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) error {
-	//b.CleanArtifacts()
-
-	// Build the packages alphabetically to ensure a consistent order.
-	bpkgs := b.sortedBuildPackages()
-	linkerScripts := c.LinkerScripts
-	c, _ = b.newCompiler(b.appPkg, "")
-	c.LinkerScripts = linkerScripts
-
-	// Calculate the list of jobs.  Each record represents a single file that
-	// needs to be compiled.
-	entries := []toolchain.CompilerJob{}
-	builtPackages := []*BuildPackage{}
-	for _, bpkg := range bpkgs {
-		subEntries, err := b.collectCompileEntriesBpkg(bpkg)
-		if err != nil {
-			return err
-		}
-
-		if len(subEntries) <= 0 {
-			continue
-		}
-
-		entries = append(entries, subEntries...)
-		files := []string{}
-		for _, s := range subEntries {
-			CmakeSourceObjectWrite(w, s)
-			files = append(files, s.Filename)
-		}
-
-		builtPackages = append(builtPackages, bpkg)
-
-		fmt.Fprintf(w, "# Generating code for %s\n\n", bpkg.rpkg.Lpkg.Name())
-
-		fmt.Fprintf(w, "add_library(%s %s)\n\n",
-			bpkg.rpkg.Lpkg.EscapedName(),
-			strings.Join(files, " "))
-
-		archiveFile, _ := filepath.Abs(filepath.Dir(b.ArchivePath(bpkg)))
-		CmakeCompilerInfoWrite(w, archiveFile, bpkg, subEntries[0])
-
-		fmt.Printf("%s\n", bpkg.rpkg.Lpkg.BasePath())
-	}
-
-	name = filepath.Base(b.AppElfPath())
-
-	fmt.Fprintf(w, "# Generating code for %s\n\n", name)
-
-	var targetObjectsBuffer bytes.Buffer
-
-	for _, bpkg := range builtPackages {
-		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
-			bpkg.rpkg.Lpkg.EscapedName()))
-
-	}
-
-	fmt.Fprintln(w, "file(WRITE null.c \"\")")
-	fmt.Fprintf(w, "add_executable(%s null.c)\n\n", name)
-
-	fmt.Fprintf(w, `
-	target_link_libraries(%s
-							-Wl,--start-group %s -Wl,--end-group)`,
-		name,
-		targetObjectsBuffer.String())
-
-	fmt.Fprintln(w)
-
-	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
-														PROPERTY
-														COMPILE_FLAGS
-														"%s")`,
-		name,
-		strings.Join(append(c.GetCompilerInfo().Cflags, c.GetLocalCompilerInfo().Cflags...), " "))
-
-	fmt.Fprintln(w)
-	elfPath, _ := filepath.Abs(filepath.Dir(b.AppElfPath()))
-
-	fmt.Fprintf(w, `
-	set_target_properties(%s
-							PROPERTIES
-							ARCHIVE_OUTPUT_DIRECTORY %s
-							LIBRARY_OUTPUT_DIRECTORY %s
-							RUNTIME_OUTPUT_DIRECTORY %s
-							OUTPUT_DIRECTORY %s
-							LINK_FLAGS "%s"
-							LINKER_LANGUAGE C)`,
-		name,
-		elfPath,
-		elfPath,
-		elfPath,
-		elfPath,
-		strings.Join(append(c.GetCompilerInfo().Lflags,
-			c.GetLocalCompilerInfo().Lflags...), " "))
-
-	fmt.Fprintln(w)
-	for _, ld := range c.LinkerScripts {
-		fmt.Fprintf(w, `
-			set_target_properties(%s
-									PROPERTIES
-									LINK_DEPENDS %s)`,
-			name,
-			ld)
-		fmt.Fprintln(w)
-	}
-	fmt.Fprintln(w)
-
-	return nil
+func EscapeName(name string) string {
+	return strings.Replace(name, "/","_", -1)
 }
 
 func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
@@ -179,9 +74,105 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
 														COMPILE_FLAGS
 														"%s")`,
 		cj.Filename,
-		strings.Join(compileFlags, " "))
+		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\"", -1))
+	fmt.Fprintln(w)
+}
+
+func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*BuildPackage, error) {
+	entries, err := b.collectCompileEntriesBpkg(bpkg)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(entries) <= 0 {
+		return nil, nil
+	}
+
+	files := []string{}
+	for _, s := range entries {
+		CmakeSourceObjectWrite(w, s)
+		files = append(files, s.Filename)
+	}
+
+	pkgName := bpkg.rpkg.Lpkg.Name()
+
+	fmt.Printf("Generating code for %s\n", pkgName)
+	fmt.Fprintf(w, "# Generating code for %s\n\n", pkgName)
+	fmt.Fprintf(w, "add_library(%s %s)\n\n",
+		EscapeName(pkgName),
+		strings.Join(files, " "))
+
+	archivePath, _ := filepath.Abs(filepath.Dir(b.ArchivePath(bpkg)))
+	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0])
+
+	return bpkg, nil
+}
+
+func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
+	bpkgs := b.sortedBuildPackages()
+
+	c := targetCompiler
+
+	builtPackages := []*BuildPackage{}
+	for _, bpkg := range bpkgs {
+		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg)
+		if err != nil {
+			return err
+		}
+
+		if builtPackage != nil {
+			builtPackages = append(builtPackages, builtPackage)
+		}
+	}
+
+	elfName := "lib" + filepath.Base(b.AppElfPath())
+	fmt.Fprintf(w, "# Generating code for %s\n\n", elfName)
+
+	var targetObjectsBuffer bytes.Buffer
+
+	for _, bpkg := range builtPackages {
+		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
+			EscapeName(bpkg.rpkg.Lpkg.Name())))
+	}
+
+	elfOutputDir := filepath.Dir(b.AppElfPath())
+	fmt.Fprintf(w, "file(WRITE %s \"\")\n", filepath.Join(elfOutputDir, "null.c"))
+	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName, filepath.Join(elfOutputDir, "null.c"))
+
+	fmt.Fprintf(w, " target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
+		elfName, targetObjectsBuffer.String())
+
+	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
+														PROPERTY
+														COMPILE_FLAGS
+														"%s")`,
+		elfName,
+		strings.Replace(strings.Join(append(c.GetCompilerInfo().Cflags,
+			c.GetLocalCompilerInfo().Cflags...), " "), "\"", "\\\"", -1))
 	fmt.Fprintln(w)
 
+	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
+	for _, ld := range c.LinkerScripts {
+		lFlags = append(lFlags, "-T"+ld)
+	}
+
+	fmt.Fprintf(w, `
+	set_target_properties(%s
+							PROPERTIES
+							ARCHIVE_OUTPUT_DIRECTORY %s
+							LIBRARY_OUTPUT_DIRECTORY %s
+							RUNTIME_OUTPUT_DIRECTORY %s
+							LINK_FLAGS "%s"
+							LINKER_LANGUAGE C)`,
+		elfName,
+		elfOutputDir,
+		elfOutputDir,
+		elfOutputDir,
+		strings.Join(lFlags, " "))
+
+	fmt.Fprintln(w)
+
+	return nil
 }
 
 func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage, cj toolchain.CompilerJob) {
@@ -193,16 +184,37 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 							ARCHIVE_OUTPUT_DIRECTORY %s
 							LIBRARY_OUTPUT_DIRECTORY %s
 							RUNTIME_OUTPUT_DIRECTORY %s)`,
-		bpkg.rpkg.Lpkg.EscapedName(),
+		EscapeName(bpkg.rpkg.Lpkg.Name()),
 		archiveFile,
 		archiveFile,
 		archiveFile,
 	)
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s %s)\n\n",
-		bpkg.rpkg.Lpkg.EscapedName(),
+		EscapeName(bpkg.rpkg.Lpkg.Name()),
 		strings.Join(c.GetCompilerInfo().Includes, " "),
 		strings.Join(c.GetLocalCompilerInfo().Includes, " "))
+}
+
+func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
+	if err := t.PrepBuild(); err != nil {
+		return err
+	}
+
+	/* Build the Apps */
+	project.ResetDeps(t.AppList)
+
+	targetCompiler.LinkerScripts = t.bspPkg.LinkerScripts
+
+	if err := t.bspPkg.Reload(t.AppBuilder.cfg.Features()); err != nil {
+		return err
+	}
+
+	if err := t.AppBuilder.CMakeTargetWrite(w, targetCompiler); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CmakeCompilerWrite(w io.Writer, c *toolchain.Compiler) {
@@ -228,28 +240,7 @@ func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler) {
 	fmt.Fprintln(w)
 }
 
-func (t *TargetBuilder) CMakeGenerateTarget(w io.Writer, c *toolchain.Compiler) error {
-	if err := t.PrepBuild(); err != nil {
-		return err
-	}
-
-	/* Build the Apps */
-	project.ResetDeps(t.AppList)
-
-	c.LinkerScripts = t.bspPkg.LinkerScripts
-
-	if err := t.bspPkg.Reload(t.AppBuilder.cfg.Features()); err != nil {
-		return err
-	}
-
-	if err := t.AppBuilder.Generate(w, t.target.ShortName(), c); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func CMakeGenerate(target *target.Target) error {
+func CMakeTargetGenerate(target *target.Target) error {
 	CmakeFileHandle, _ := os.Create(CmakeListsPath())
 	var b = bytes.Buffer{}
 	w := bufio.NewWriter(&b)
@@ -260,14 +251,14 @@ func CMakeGenerate(target *target.Target) error {
 		return util.NewNewtError(err.Error())
 	}
 
-	c, err := targetBuilder.NewCompiler("")
+	targetCompiler, err := targetBuilder.NewCompiler("")
 	if err != nil {
 		return err
 	}
 
-	CmakeHeaderWrite(w, c)
+	CmakeHeaderWrite(w, targetCompiler)
 
-	if err := targetBuilder.CMakeGenerateTarget(w, c); err != nil {
+	if err := targetBuilder.CMakeTargetBuilderWrite(w, targetCompiler); err != nil {
 		return util.NewNewtError(err.Error())
 	}
 

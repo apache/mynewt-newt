@@ -96,10 +96,6 @@ func (pkg *LocalPackage) Name() string {
 	return pkg.name
 }
 
-func (pkg *LocalPackage) EscapedName() string {
-	return strings.Replace(pkg.name, "/","_", -1)
-}
-
 func (pkg *LocalPackage) FullName() string {
 	r := pkg.Repo()
 	if r.IsLocal() {

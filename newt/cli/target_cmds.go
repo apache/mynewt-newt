@@ -241,7 +241,7 @@ func targetCmakeCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	builder.CMakeGenerate(targets[0])
+	builder.CMakeTargetGenerate(targets[0])
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
