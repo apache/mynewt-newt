@@ -51,6 +51,9 @@ func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) erro
 
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
+	linkerScripts := c.LinkerScripts
+	c, _ = b.newCompiler(b.appPkg, "")
+	c.LinkerScripts = linkerScripts
 
 	// Calculate the list of jobs.  Each record represents a single file that
 	// needs to be compiled.
@@ -69,6 +72,7 @@ func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) erro
 		entries = append(entries, subEntries...)
 		files := []string{}
 		for _, s := range subEntries {
+			CmakeSourceObjectWrite(w, s)
 			files = append(files, s.Filename)
 		}
 
@@ -80,10 +84,13 @@ func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) erro
 			bpkg.rpkg.Lpkg.EscapedName(),
 			strings.Join(files, " "))
 
-		CmakeCompilerInfoWrite(w, bpkg, subEntries[0])
+		archiveFile, _ := filepath.Abs(filepath.Dir(b.ArchivePath(bpkg)))
+		CmakeCompilerInfoWrite(w, archiveFile, bpkg, subEntries[0])
 
 		fmt.Printf("%s\n", bpkg.rpkg.Lpkg.BasePath())
 	}
+
+	name = filepath.Base(b.AppElfPath())
 
 	fmt.Fprintf(w, "# Generating code for %s\n\n", name)
 
@@ -105,10 +112,16 @@ func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) erro
 		targetObjectsBuffer.String())
 
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "set_target_properties(%s PROPERTIES COMPILE_FLAGS %s)\n\n",
+
+	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
+														PROPERTY
+														COMPILE_FLAGS
+														"%s")`,
 		name,
-		strings.Replace(strings.Join(append(c.GetCompilerInfo().Cflags,
-			c.GetLocalCompilerInfo().Cflags...), ","), " ", ",", -1))
+		strings.Join(append(c.GetCompilerInfo().Cflags, c.GetLocalCompilerInfo().Cflags...), " "))
+
+	fmt.Fprintln(w)
+	elfPath, _ := filepath.Abs(filepath.Dir(b.AppElfPath()))
 
 	fmt.Fprintf(w, `
 	set_target_properties(%s
@@ -117,15 +130,15 @@ func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) erro
 							LIBRARY_OUTPUT_DIRECTORY %s
 							RUNTIME_OUTPUT_DIRECTORY %s
 							OUTPUT_DIRECTORY %s
-							LINK_FLAGS %s
+							LINK_FLAGS "%s"
 							LINKER_LANGUAGE C)`,
 		name,
-		filepath.Dir(b.AppElfPath()),
-		filepath.Dir(b.AppElfPath()),
-		filepath.Dir(b.AppElfPath()),
-		filepath.Dir(b.AppElfPath()),
+		elfPath,
+		elfPath,
+		elfPath,
+		elfPath,
 		strings.Join(append(c.GetCompilerInfo().Lflags,
-			c.GetLocalCompilerInfo().Lflags...), ";"))
+			c.GetLocalCompilerInfo().Lflags...), " "))
 
 	fmt.Fprintln(w)
 	for _, ld := range c.LinkerScripts {
@@ -137,23 +150,13 @@ func (b *Builder) Generate(w io.Writer, name string, c *toolchain.Compiler) erro
 			ld)
 		fmt.Fprintln(w)
 	}
+	fmt.Fprintln(w)
 
 	return nil
 }
-func CmakeCompilerInfoWrite(w io.Writer, bpkg *BuildPackage, cj toolchain.CompilerJob) {
-	c := cj.Compiler
 
-	fmt.Fprintf(w, `
-	set_target_properties(%s
-							PROPERTIES
-							ARCHIVE_OUTPUT_DIRECTORY %s
-							LIBRARY_OUTPUT_DIRECTORY %s
-							RUNTIME_OUTPUT_DIRECTORY %s)`,
-		bpkg.rpkg.Lpkg.EscapedName(),
-		bpkg.rpkg.Lpkg.BasePath(),
-		bpkg.rpkg.Lpkg.BasePath(),
-		bpkg.rpkg.Lpkg.BasePath())
-	fmt.Fprintln(w)
+func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
+	c := cj.Compiler
 
 	compileFlags := []string{}
 
@@ -171,11 +174,30 @@ func CmakeCompilerInfoWrite(w io.Writer, bpkg *BuildPackage, cj toolchain.Compil
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
 	}
 
-	fmt.Fprintf(w, `set_target_properties(%s
-													PROPERTIES
-													COMPILE_FLAGS %s)`,
+	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
+														PROPERTY
+														COMPILE_FLAGS
+														"%s")`,
+		cj.Filename,
+		strings.Join(compileFlags, " "))
+	fmt.Fprintln(w)
+
+}
+
+func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage, cj toolchain.CompilerJob) {
+	c := cj.Compiler
+
+	fmt.Fprintf(w, `
+	set_target_properties(%s
+							PROPERTIES
+							ARCHIVE_OUTPUT_DIRECTORY %s
+							LIBRARY_OUTPUT_DIRECTORY %s
+							RUNTIME_OUTPUT_DIRECTORY %s)`,
 		bpkg.rpkg.Lpkg.EscapedName(),
-		strings.Replace(strings.Join(compileFlags, ","), " ", ",", -1))
+		archiveFile,
+		archiveFile,
+		archiveFile,
+	)
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s %s)\n\n",
 		bpkg.rpkg.Lpkg.EscapedName(),
