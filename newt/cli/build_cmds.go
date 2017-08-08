@@ -104,12 +104,13 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 var extraJtagCmd string
 var noGDB_flag bool
 
-func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool) {
+func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, executeShell bool) {
 	if len(args) < 1 {
 		NewtUsage(cmd, nil)
 	}
 
 	util.PrintShellCmds = printShellCmds
+	util.ExecuteShell = executeShell
 
 	TryGetProject()
 
@@ -392,17 +393,21 @@ func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool) {
 
 func AddBuildCommands(cmd *cobra.Command) {
 	var printShellCmds bool
+	var executeShell bool
 
 	buildCmd := &cobra.Command{
 		Use:   "build <target-name> [target-names...]",
 		Short: "Build one or more targets",
 		Run: func(cmd *cobra.Command, args []string) {
-			buildRunCmd(cmd, args, printShellCmds)
+			buildRunCmd(cmd, args, printShellCmds, executeShell)
 		},
 	}
 
 	buildCmd.Flags().BoolVarP(&printShellCmds, "printCmds", "p", false,
 		"Print executed build commands")
+
+	buildCmd.Flags().BoolVar(&executeShell, "executeShell", false,
+		"Execute build command using /bin/sh (Linux and MacOS only)")
 
 	cmd.AddCommand(buildCmd)
 	AddTabCompleteFn(buildCmd, func() []string {
