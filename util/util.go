@@ -302,8 +302,9 @@ func ShellCommandLimitDbgOutput(
 	}
 
 	if ExecuteShell && ((runtime.GOOS == "linux") || (runtime.GOOS == "darwin")) {
+		cmd := strings.Join(cmdStrs, " ")
 		name = "/bin/sh"
-		args = []string{"-c", strings.Join(cmdStrs, " ")}
+		args = []string{"-c", strings.Replace(cmd, "\"", "\\\"", -1)}
 	} else {
 		name = cmdStrs[0]
 		args = cmdStrs[1:]
