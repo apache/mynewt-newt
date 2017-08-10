@@ -56,12 +56,15 @@ type GithubDownloader struct {
 	User   string
 	Repo   string
 
-	// Github access token for private repositories.
-	Token string
+	// Login for private repos.
+	Login string
 
-	// Basic authentication login and password for private repositories.
-	Login    string
+	// Password for private repos.
 	Password string
+
+	// Name of environment variable containing the password for private repos.
+	// Only used if the Password field is empty.
+	PasswordEnv string
 }
 
 type LocalDownloader struct {
@@ -201,6 +204,16 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 	return dir, err
 }
 
+func (gd *GithubDownloader) password() string {
+	if gd.Password != "" {
+		return gd.Password
+	} else if gd.PasswordEnv != "" {
+		return os.Getenv(gd.PasswordEnv)
+	} else {
+		return ""
+	}
+}
+
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	var url string
 	if gd.Server != "" {
@@ -214,14 +227,11 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", "application/vnd.github.v3.raw")
 
-	if gd.Token != "" {
-		// XXX: Add command line option to include token in log.
-		log.Debugf("Using authorization token")
-		req.Header.Add("Authorization", "token "+gd.Token)
-	} else if gd.Login != "" && gd.Password != "" {
+	pw := gd.password()
+	if pw != "" {
 		// XXX: Add command line option to include password in log.
 		log.Debugf("Using basic auth; login=%s", gd.Login)
-		req.SetBasicAuth(gd.Login, gd.Password)
+		req.SetBasicAuth(gd.Login, pw)
 	}
 
 	log.Debugf("Fetching file %s (url: %s) to %s", name, url, dest)
@@ -321,10 +331,23 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	if gd.Server != "" {
 		server = gd.Server
 	}
-	url := fmt.Sprintf("https://%s/%s/%s.git", server, gd.User, gd.Repo)
+
+	var auth string
+	var publicAuth string
+	if gd.Login != "" {
+		pw := gd.password()
+		auth = fmt.Sprintf("%s:%s@", gd.Login, pw)
+		if pw == "" {
+			publicAuth = auth
+		} else {
+			publicAuth = fmt.Sprintf("%s:<password-hidden>@", gd.Login)
+		}
+	}
+	url := fmt.Sprintf("https://%s%s/%s/%s.git", auth, server, gd.User, gd.Repo)
+	publicUrl := fmt.Sprintf("https://%s%s/%s/%s.git", publicAuth, server, gd.User, gd.Repo)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
-		commit, url)
+		commit, publicUrl)
 
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
@@ -439,23 +462,23 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 		// The project.yml file can contain github access tokens and
 		// authentication credentials, but this file is probably world-readable
 		// and therefore not a great place for this.
-		gd.Token = repoVars["token"]
 		gd.Login = repoVars["login"]
 		gd.Password = repoVars["password"]
+		gd.PasswordEnv = repoVars["password_env"]
 
 		// Alternatively, the user can put security material in
 		// $HOME/.newt/repos.yml.
 		newtrc := newtutil.Newtrc()
 		privRepo := newtrc.GetStringMapString("repository." + repoName)
 		if privRepo != nil {
-			if gd.Token == "" {
-				gd.Token = privRepo["token"]
-			}
 			if gd.Login == "" {
 				gd.Login = privRepo["login"]
 			}
 			if gd.Password == "" {
 				gd.Password = privRepo["password"]
+			}
+			if gd.PasswordEnv == "" {
+				gd.PasswordEnv = privRepo["password_env"]
 			}
 		}
 		return gd, nil
