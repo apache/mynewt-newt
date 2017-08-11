@@ -99,6 +99,17 @@ func (t *TargetBuilder) SelfTestDebug() error {
 		return err
 	}
 
+	testRpkg, err := t.getTestRpkg()
+	if err != nil {
+		return err
+	}
+
+	t.AppBuilder.testPkg = t.AppBuilder.PkgMap[testRpkg]
+	if t.AppBuilder.testPkg == nil {
+		return util.FmtNewtError(
+			"builder in invalid state: missing test package")
+	}
+
 	return t.AppBuilder.debugBin(
 		strings.TrimSuffix(t.AppBuilder.TestExePath(), ".elf"),
 		"", false, false)
