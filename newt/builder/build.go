@@ -20,13 +20,16 @@
 package builder
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/repo"
@@ -566,6 +569,35 @@ func (b *Builder) Build() error {
 				return err
 			}
 		}
+	}
+
+	var compileCommands []toolchain.CompileCommand
+
+	for _, bpkg := range bpkgs {
+		c := bpkgCompilerMap[bpkg]
+		if c != nil {
+			compileCommands = append(compileCommands,
+				c.GetCompileCommands()...)
+		}
+	}
+
+	projectPath := interfaces.GetProject().Path() + "/"
+	for i := range compileCommands {
+		compileCommands[i].Directory = projectPath
+	}
+
+	cmdBytes, err := json.MarshalIndent(compileCommands, "", "    ")
+	if err != nil {
+		log.Error("Unable to encode compilation commands as JSON")
+		return nil
+	}
+
+	cmdPath := b.CompileCmdsPath()
+	errWrite := ioutil.WriteFile(cmdPath, cmdBytes, 0644)
+	if errWrite != nil {
+		return util.FmtNewtError(
+			"Unable to write compile_commands.json file; reason: %s",
+			errWrite.Error())
 	}
 
 	return nil
