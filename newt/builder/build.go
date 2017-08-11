@@ -49,6 +49,7 @@ type Builder struct {
 	bspPkg           *BuildPackage
 	compilerPkg      *BuildPackage
 	targetPkg        *BuildPackage
+	testPkg          *BuildPackage
 	compilerInfo     *toolchain.CompilerInfo
 	targetBuilder    *TargetBuilder
 	cfg              syscfg.Cfg
