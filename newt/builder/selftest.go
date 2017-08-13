@@ -31,25 +31,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func (b *Builder) getTestBpkg(rpkg *resolve.ResolvePackage) (
-	*BuildPackage, error) {
-
-	testBpkg := b.PkgMap[rpkg]
-	if testBpkg == nil {
-		return nil, util.FmtNewtError("builder missing test package: %s",
-			rpkg.Lpkg.FullName())
-	}
-
-	return testBpkg, nil
-}
-
 func (b *Builder) SelfTestLink(rpkg *resolve.ResolvePackage) error {
-	testBpkg, err := b.getTestBpkg(rpkg)
-	if err != nil {
-		return err
-	}
-
-	testPath := b.TestExePath(testBpkg)
+	testPath := b.TestExePath()
 	if err := b.link(testPath, nil, nil); err != nil {
 		return err
 	}
@@ -72,12 +55,18 @@ func (t *TargetBuilder) SelfTestCreateExe() error {
 		return err
 	}
 
-	if err := t.AppBuilder.Build(); err != nil {
+	testRpkg, err := t.getTestRpkg()
+	if err != nil {
 		return err
 	}
 
-	testRpkg, err := t.getTestRpkg()
-	if err != nil {
+	t.AppBuilder.testPkg = t.AppBuilder.PkgMap[testRpkg]
+	if t.AppBuilder.testPkg == nil {
+		return util.FmtNewtError(
+			"builder in invalid state: missing test package")
+	}
+
+	if err := t.AppBuilder.Build(); err != nil {
 		return err
 	}
 
@@ -115,13 +104,14 @@ func (t *TargetBuilder) SelfTestDebug() error {
 		return err
 	}
 
-	testBpkg, err := t.AppBuilder.getTestBpkg(testRpkg)
-	if err != nil {
-		return err
+	t.AppBuilder.testPkg = t.AppBuilder.PkgMap[testRpkg]
+	if t.AppBuilder.testPkg == nil {
+		return util.FmtNewtError(
+			"builder in invalid state: missing test package")
 	}
 
 	return t.AppBuilder.debugBin(
-		strings.TrimSuffix(t.AppBuilder.TestExePath(testBpkg), ".elf"),
+		strings.TrimSuffix(t.AppBuilder.TestExePath(), ".elf"),
 		"", false, false)
 }
 
@@ -151,12 +141,7 @@ func (b *Builder) testOwner(bpkg *BuildPackage) *BuildPackage {
 }
 
 func (b *Builder) SelfTestExecute(testRpkg *resolve.ResolvePackage) error {
-	testBpkg, err := b.getTestBpkg(testRpkg)
-	if err != nil {
-		return err
-	}
-
-	testPath := b.TestExePath(testBpkg)
+	testPath := b.TestExePath()
 	if err := os.Chdir(filepath.Dir(testPath)); err != nil {
 		return err
 	}
