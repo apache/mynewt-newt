@@ -74,7 +74,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
 														COMPILE_FLAGS
 														"%s")`,
 		cj.Filename,
-		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\"", -1))
+		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\\\\\"", -1))
 	fmt.Fprintln(w)
 }
 
@@ -148,7 +148,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 														"%s")`,
 		elfName,
 		strings.Replace(strings.Join(append(c.GetCompilerInfo().Cflags,
-			c.GetLocalCompilerInfo().Cflags...), " "), "\"", "\\\"", -1))
+			c.GetLocalCompilerInfo().Cflags...), " "), "\"", "\\\\\\\"", -1))
 	fmt.Fprintln(w)
 
 	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
