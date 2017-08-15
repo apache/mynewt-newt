@@ -26,11 +26,20 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 )
 
+type rmap map[*resolve.ResolveDep]struct{}
 type DepGraph map[*resolve.ResolvePackage][]*resolve.ResolveDep
-type graphMap map[*resolve.ResolvePackage]map[*resolve.ResolveDep]struct{}
+type graphMap map[*resolve.ResolvePackage]rmap
+
+func graphMapEnsure(gm graphMap, p *resolve.ResolvePackage) rmap {
+	if gm[p] == nil {
+		gm[p] = rmap{}
+	}
+
+	return gm[p]
+}
 
 func graphMapAdd(gm graphMap, p *resolve.ResolvePackage, c *resolve.ResolveDep) {
-	dstGraph := gm[p]
+	dstGraph := graphMapEnsure(gm, p)
 	if dstGraph == nil {
 		dstGraph = map[*resolve.ResolveDep]struct{}{}
 	}
@@ -77,11 +86,15 @@ func revdepGraph(rs *resolve.ResolveSet) (DepGraph, error) {
 
 	revGm := graphMap{}
 	for parent, children := range graph {
+		// Make sure each node exists in the reverse graph.  This step is
+		// necessary for packages that have no dependers.
+		graphMapEnsure(revGm, parent)
+
+		// Add nodes for packages with with dependers.
 		for _, child := range children {
 			rParent := child.Rpkg
 			rChild := *child
 			rChild.Rpkg = parent
-
 			graphMapAdd(revGm, rParent, &rChild)
 		}
 	}
