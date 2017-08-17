@@ -26,9 +26,16 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 )
 
+// Records presence of each dependency.
 type rmap map[*resolve.ResolveDep]struct{}
-type DepGraph map[*resolve.ResolvePackage][]*resolve.ResolveDep
+
+// Type used internally while building a proper dependency graph.
 type graphMap map[*resolve.ResolvePackage]rmap
+
+// Key=parent, Value=slice of children
+// For normal dependency graph:  parent=depender, children=dependees.
+// For reverse dependency graph: parent=dependee, children=dependers.
+type DepGraph map[*resolve.ResolvePackage][]*resolve.ResolveDep
 
 func graphMapEnsure(gm graphMap, p *resolve.ResolvePackage) rmap {
 	if gm[p] == nil {
