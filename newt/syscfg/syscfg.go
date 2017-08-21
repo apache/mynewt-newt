@@ -327,6 +327,11 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 			lfeatures[k] = true
 		}
 	}
+	for k, _ := range lfeatures {
+		if _, ok := features[k]; ok == false {
+			delete(lfeatures, k)
+		}
+	}
 
 	settings := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.defs")
 	if settings != nil {
@@ -365,6 +370,11 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 	for k, v := range features {
 		if v {
 			lfeatures[k] = true
+		}
+	}
+	for k, _ := range lfeatures {
+		if _, ok := features[k]; ok == false {
+			delete(lfeatures, k)
 		}
 	}
 
