@@ -29,12 +29,24 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+var useV1 bool
+var useV2 bool
+
 func createImageRunCmd(cmd *cobra.Command, args []string) {
 	var keyId uint8
 	var keystr string
 
 	if len(args) < 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
+	}
+
+	if useV1 && useV2 {
+		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
+	}
+	if useV2 {
+		image.UseV1 = false
+	} else {
+		image.UseV1 = true
 	}
 
 	TryGetProject()
@@ -78,6 +90,15 @@ func resignImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify image to re-sign."))
 	}
 
+	if useV1 && useV2 {
+		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
+	}
+	if useV2 {
+		image.UseV1 = false
+	} else {
+		image.UseV1 = true
+	}
+
 	imgName := args[0]
 	img, err := image.OldImage(imgName)
 	if err != nil {
@@ -110,8 +131,20 @@ func resignImageRunCmd(cmd *cobra.Command, args []string) {
 
 func AddImageCommands(cmd *cobra.Command) {
 	createImageHelpText := "Create an image by adding an image header to the " +
-		"binary file created for <target-name>. Version number in the header is set " +
-		"to be <version>.\n\nTo sign the image give private key as <signing-key> and an optional key-id."
+		"binary file created for <target-name>. Version number in the header " +
+		"is set to be <version>.\n\n"
+
+	createImageHelpText += "To use version 1 of image format, specify -1 on " +
+		"command line.\n"
+	createImageHelpText += "To sign version 1 of the image format give private " +
+		"key as <signing-key> and an optional key-id.\n\n"
+	createImageHelpText += "To use version 2 of image format, specify -2 on " +
+		"command line.\n"
+	createImageHelpText += "To sign version 2 of the image format give private " +
+		"key as <signing-key> (no key-id needed).\n\n"
+
+	createImageHelpText += "Default image format is version 1.\n"
+
 	createImageHelpEx := "  newt create-image my_target1 1.2.0\n"
 	createImageHelpEx += "  newt create-image my_target1 1.2.0.3\n"
 	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem\n"
@@ -130,10 +163,12 @@ func AddImageCommands(cmd *cobra.Command) {
 		"Ignore flash overflow errors during image creation")
 	createImageCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
 		"rsa-pss", false,
-		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sigs")
-	createImageCmd.PersistentFlags().BoolVarP(&image.UseV1,
-		"ver1", "1", false,
-		"Use old image header format")
+		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sig. "+
+			"Meaningful for version 1 image format.")
+	createImageCmd.PersistentFlags().BoolVarP(&useV1,
+		"1", "1", false, "Use old image header format")
+	createImageCmd.PersistentFlags().BoolVarP(&useV2,
+		"2", "2", false, "Use new image header format")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
@@ -141,7 +176,8 @@ func AddImageCommands(cmd *cobra.Command) {
 	resignImageHelpText := "Sign/Re-sign an existing image file with the specified signing key.\nIf a signing key is not specified, the signing key in the current image\nis stripped.  "
 	resignImageHelpText += "A image header will be recreated!\n"
 	resignImageHelpText += "\nWarning: The image hash will change if you change key-id "
-	resignImageHelpText += "or the type of key used for signing."
+	resignImageHelpText += "or the type of key used for signing.\n"
+	resignImageHelpText += "Default image format is version 1.\n"
 	resignImageHelpText += "RSA signature format by default for ver 1 image is PKCSv1.5\n"
 	resignImageHelpText += "RSA signature format for ver 2 image is RSA-PSS\n"
 
@@ -161,10 +197,12 @@ func AddImageCommands(cmd *cobra.Command) {
 		"Ignore flash overflow errors during image creation")
 	resignImageCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
 		"rsa-pss", false,
-		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sigs")
-	resignImageCmd.PersistentFlags().BoolVarP(&image.UseV1,
-		"ver1", "1", false,
-		"Use old image header format")
+		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sig. "+
+			"Meaningful for version 1 image format.")
+	resignImageCmd.PersistentFlags().BoolVarP(&useV1,
+		"1", "1", false, "Use old image header format")
+	resignImageCmd.PersistentFlags().BoolVarP(&useV2,
+		"2", "2", false, "Use new image header format")
 
 	cmd.AddCommand(resignImageCmd)
 }
