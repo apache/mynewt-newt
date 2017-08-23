@@ -628,7 +628,8 @@ func (image *Image) generateV1(loader *Image) error {
 			}
 		}
 		if nonZero {
-			log.Warnf("Skip requested of iamge %s, but image not preceeded by %d bytes of all zeros",
+			log.Warnf("Skip requested of image %s, but image not preceeded "+
+				"by %d bytes of all zeros",
 				image.SourceBin, image.SrcSkip)
 		}
 	}
@@ -819,7 +820,7 @@ func (image *Image) generateV2(loader *Image) error {
 		ImgSz: uint32(binInfo.Size()) - uint32(image.SrcSkip),
 		Flags: 0,
 		Vers:  image.Version,
-		Pad2:  [2]uint32 {0, 0},
+		Pad2:  [2]uint32{0, 0},
 	}
 
 	if loader != nil {
@@ -833,7 +834,8 @@ func (image *Image) generateV2(loader *Image) error {
 		 * the image when it is padded.
 		 */
 		if image.HeaderSize < IMAGE_HEADER_SIZE {
-			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+			return util.NewNewtError(fmt.Sprintf("Image header must be at "+
+				"least %d bytes", IMAGE_HEADER_SIZE))
 		}
 
 		hdr.HdrSz = uint16(image.HeaderSize)
@@ -925,7 +927,7 @@ func (image *Image) generateV2(loader *Image) error {
 	 * Write TLV info.
 	 */
 	tlvInfo := &ImageTlvInfo{
-		Magic: IMAGE_TRAILER_MAGIC,
+		Magic:     IMAGE_TRAILER_MAGIC,
 		TlvTotLen: 0,
 	}
 	tlvInfoOff, err := imgFile.Seek(0, 1)
@@ -961,14 +963,14 @@ func (image *Image) generateV2(loader *Image) error {
 	if image.SigningRSA != nil || image.SigningEC != nil {
 		keyHash, err := image.sigKeyHash()
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to compute hash "+
+			return util.NewNewtError(fmt.Sprintf("Failed to compute hash " +
 				"of the public key"))
 		}
 
 		tlv = &ImageTrailerTlv{
 			Type: IMAGE_TLV_KEYHASH,
-			Pad: 0,
-			Len: uint16(len(keyHash)),
+			Pad:  0,
+			Len:  uint16(len(keyHash)),
 		}
 		err = binary.Write(imgFile, binary.LittleEndian, tlv)
 		if err != nil {
@@ -991,16 +993,11 @@ func (image *Image) generateV2(loader *Image) error {
 			Len:  256, /* 2048 bits */
 		}
 		var signature []byte
-		if UseRsaPss {
-			opts := rsa.PSSOptions{
-				SaltLength: rsa.PSSSaltLengthEqualsHash,
-			}
-			signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
-				crypto.SHA256, image.Hash, &opts)
-		} else {
-			signature, err = rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
-				crypto.SHA256, image.Hash)
+		opts := rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthEqualsHash,
 		}
+		signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
+			crypto.SHA256, image.Hash, &opts)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to compute signature: %s", err))
@@ -1093,7 +1090,7 @@ func (image *Image) generateV2(loader *Image) error {
 }
 
 func (image *Image) Generate(loader *Image) error {
-	if (UseV1) {
+	if UseV1 {
 		return image.generateV1(loader)
 	} else {
 		return image.generateV2(loader)

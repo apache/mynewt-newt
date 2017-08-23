@@ -142,6 +142,8 @@ func AddImageCommands(cmd *cobra.Command) {
 	resignImageHelpText += "A image header will be recreated!\n"
 	resignImageHelpText += "\nWarning: The image hash will change if you change key-id "
 	resignImageHelpText += "or the type of key used for signing."
+	resignImageHelpText += "RSA signature format by default for ver 1 image is PKCSv1.5\n"
+	resignImageHelpText += "RSA signature format for ver 2 image is RSA-PSS\n"
 
 	resignImageHelpEx := "  newt resign-image my_target1.img private.pem\n"
 	resignImageHelpEx += "  newt resign-image my_target1.img private.pem 5\n"
