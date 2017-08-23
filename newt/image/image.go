@@ -449,24 +449,51 @@ func (image *Image) ReSign() error {
 			image.SourceImg, err.Error()))
 	}
 
-	var hdr ImageHdrV1 // XXXX
+	var hdr1 ImageHdrV1
+	var hdr2 ImageHdr
+	var hdrSz uint16
+	var imgSz uint32
 
-	err = binary.Read(srcImg, binary.LittleEndian, &hdr)
+	err = binary.Read(srcImg, binary.LittleEndian, &hdr1)
+	if err == nil {
+		srcImg.Seek(0, 0)
+		err = binary.Read(srcImg, binary.LittleEndian, &hdr2)
+	}
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failing to access image %s: %s",
 			image.SourceImg, err.Error()))
 	}
+	if hdr1.Magic == IMAGEv1_MAGIC {
+		if uint32(srcInfo.Size()) !=
+			uint32(hdr1.HdrSz)+hdr1.ImgSz+uint32(hdr1.TlvSz) { // XXXXX
 
-	if uint32(srcInfo.Size()) != uint32(hdr.HdrSz)+hdr.ImgSz+uint32(hdr.TlvSz) ||
-		hdr.Magic != IMAGEv1_MAGIC { // XXXXX
+			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
+				image.SourceImg))
+		}
+		imgSz = hdr1.ImgSz
+		hdrSz = hdr1.HdrSz
+		image.Version = hdr1.Vers
 
+		log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
+			hdr1.Vers.Major, hdr1.Vers.Minor, hdr1.Vers.Rev,
+			hdr1.Vers.BuildNum)
+	} else if hdr2.Magic == IMAGE_MAGIC {
+		if uint32(srcInfo.Size()) < uint32(hdr2.HdrSz)+hdr2.ImgSz {
+			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
+				image.SourceImg))
+		}
+		imgSz = hdr2.ImgSz
+		hdrSz = hdr2.HdrSz
+		image.Version = hdr2.Vers
+
+		log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
+			hdr2.Vers.Major, hdr2.Vers.Minor, hdr2.Vers.Rev,
+			hdr2.Vers.BuildNum)
+	} else {
 		return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
 			image.SourceImg))
 	}
-	srcImg.Seek(int64(hdr.HdrSz), 0)
-
-	log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
-		hdr.Vers.Major, hdr.Vers.Minor, hdr.Vers.Rev, hdr.Vers.BuildNum)
+	srcImg.Seek(int64(hdrSz), 0)
 
 	tmpBin, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -477,9 +504,8 @@ func (image *Image) ReSign() error {
 	defer os.Remove(tmpBinName)
 
 	log.Debugf("Extracting data from %s:%d-%d to %s\n",
-		image.SourceImg, int64(hdr.HdrSz), int64(hdr.HdrSz)+int64(hdr.ImgSz),
-		tmpBinName)
-	_, err = io.CopyN(tmpBin, srcImg, int64(hdr.ImgSz))
+		image.SourceImg, int64(hdrSz), int64(hdrSz)+int64(imgSz), tmpBinName)
+	_, err = io.CopyN(tmpBin, srcImg, int64(imgSz))
 	srcImg.Close()
 	tmpBin.Close()
 	if err != nil {
@@ -489,8 +515,7 @@ func (image *Image) ReSign() error {
 
 	image.SourceBin = tmpBinName
 	image.TargetImg = image.SourceImg
-	image.Version = hdr.Vers
-	image.HeaderSize = uint(hdr.HdrSz)
+	image.HeaderSize = uint(hdrSz)
 
 	return image.Generate(nil)
 }
