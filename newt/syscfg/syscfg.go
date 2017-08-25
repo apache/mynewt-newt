@@ -605,7 +605,7 @@ func (cfg *Cfg) ErrorText() string {
 
 	str += "\n" + historyText(historyMap)
 
-	return strings.TrimSpace(str)
+	return str
 }
 
 func (cfg *Cfg) WarningText() string {
