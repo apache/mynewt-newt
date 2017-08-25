@@ -618,7 +618,12 @@ func (res *Resolution) ErrorText() string {
 
 	str += res.Cfg.ErrorText()
 
-	return strings.TrimSpace(str) + "\n"
+	str = strings.TrimSpace(str)
+	if str != "" {
+		str += "\n"
+	}
+
+	return str
 }
 
 func (res *Resolution) WarningText() string {
