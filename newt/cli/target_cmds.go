@@ -864,7 +864,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	AddTabCompleteFn(showCmd, targetList)
 
 
-	cmakeHelpText := "Cmake all the variables for the target specified " +
+	cmakeHelpText := "Generate CMakeLists.txt for target specified " +
 		"by <target-name>."
 	cmakeHelpEx := "  newt target cmake <target-name>\n"
 	cmakeHelpEx += "  newt target cmake my_target1"

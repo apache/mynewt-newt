@@ -36,12 +36,6 @@ import (
 
 const CMAKELISTS_FILENAME string = "CMakeLists.txt"
 
-const (
-	COMPILER_TYPE_C       = 0
-	COMPILER_TYPE_ASM     = 1
-	COMPILER_TYPE_CPP     = 2
-)
-
 func CmakeListsPath() string {
 	return project.GetProject().BasePath + "/" + CMAKELISTS_FILENAME
 }
@@ -56,15 +50,15 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
 	compileFlags := []string{}
 
 	switch cj.CompilerType {
-	case COMPILER_TYPE_C:
+	case toolchain.COMPILER_TYPE_C:
 		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
-	case COMPILER_TYPE_ASM:
+	case toolchain.COMPILER_TYPE_ASM:
 		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
 		compileFlags = append(compileFlags, c.GetCompilerInfo().Aflags...)
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Aflags...)
-	case COMPILER_TYPE_CPP:
+	case toolchain.COMPILER_TYPE_CPP:
 		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
 	}
@@ -96,8 +90,8 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 
 	pkgName := bpkg.rpkg.Lpkg.Name()
 
-	fmt.Printf("Generating code for %s\n", pkgName)
-	fmt.Fprintf(w, "# Generating code for %s\n\n", pkgName)
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
+	fmt.Fprintf(w, "# Generating CMakeLists.txt for %s\n\n", pkgName)
 	fmt.Fprintf(w, "add_library(%s %s)\n\n",
 		EscapeName(pkgName),
 		strings.Join(files, " "))
@@ -222,11 +216,11 @@ func CmakeCompilerWrite(w io.Writer, c *toolchain.Compiler) {
 	/* TODO: get rid of the prefix to /usr/bin */
 	fmt.Fprintln(w, "set(CMAKE_SYSTEM_NAME Generic)")
 	fmt.Fprintln(w, "set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)")
-	fmt.Fprintf(w, "set(CMAKE_C_COMPILER %s)\n", "/usr/bin/"+c.GetCcPath())
-	fmt.Fprintf(w, "set(CMAKE_CXX_COMPILER %s)\n", "/usr/bin/"+c.GetCppPath())
-	fmt.Fprintf(w, "set(CMAKE_ASM_COMPILER %s)\n", "/usr/bin/"+c.GetAsPath())
+	fmt.Fprintf(w, "set(CMAKE_C_COMPILER %s)\n", c.GetCcPath())
+	fmt.Fprintf(w, "set(CMAKE_CXX_COMPILER %s)\n", c.GetCppPath())
+	fmt.Fprintf(w, "set(CMAKE_ASM_COMPILER %s)\n", c.GetAsPath())
 	/* TODO: cmake returns error on link */
-	//fmt.Fprintf(w, "set(CMAKE_AR %s)\n", "/usr/bin/"+c.GetArPath())
+	//fmt.Fprintf(w, "set(CMAKE_AR %s)\n", c.GetArPath())
 	fmt.Fprintln(w)
 }
 
@@ -241,14 +235,18 @@ func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler) {
 }
 
 func CMakeTargetGenerate(target *target.Target) error {
-	CmakeFileHandle, _ := os.Create(CmakeListsPath())
+	CmakeFileHandle, err := os.Create(CmakeListsPath())
+	if err != nil {
+		return util.ChildNewtError(err)
+	}
+
 	var b = bytes.Buffer{}
 	w := bufio.NewWriter(&b)
 	defer CmakeFileHandle.Close()
 
 	targetBuilder, err := NewTargetBuilder(target)
 	if err != nil {
-		return util.NewNewtError(err.Error())
+		return err
 	}
 
 	targetCompiler, err := targetBuilder.NewCompiler("")
@@ -259,7 +257,7 @@ func CMakeTargetGenerate(target *target.Target) error {
 	CmakeHeaderWrite(w, targetCompiler)
 
 	if err := targetBuilder.CMakeTargetBuilderWrite(w, targetCompiler); err != nil {
-		return util.NewNewtError(err.Error())
+		return err
 	}
 
 	w.Flush()
