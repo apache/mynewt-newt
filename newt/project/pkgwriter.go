@@ -24,7 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
+	"path/filepath"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/downloader"
@@ -104,60 +104,129 @@ func (pw *PackageWriter) ConfigurePackage(template string, loc string) error {
 	return nil
 }
 
-func (pw *PackageWriter) cleanupPackageFile(pfile string) error {
-	data, err := ioutil.ReadFile(pfile)
+// Creates a table of search-replace pairs.  These pairs are simple
+// substitution rules (i.e., not regexes) that get applied to filenames,
+// directory names, and the contents of YAML files.
+func (pw *PackageWriter) replacementTable() [][]string {
+	pkgBase := path.Base(pw.fullName)
+
+	return [][]string{
+		{`$$pkgfullname`, pw.fullName},
+		{`$$pkgdir`, path.Dir(pw.fullName)},
+		{`$$pkgname`, path.Base(pw.fullName)},
+
+		// Legacy.
+		{`your-pkg-name`, `"` + pw.fullName + `"`},
+		{`your-path`, pkgBase},
+		{`your-source`, pkgBase},
+		{`your-file`, pkgBase},
+	}
+}
+
+// Applies all the substitution rules in the supplied table to a string.
+func replaceText(s string, table [][]string) string {
+	for _, r := range table {
+		s = strings.Replace(s, r[0], r[1], -1)
+	}
+
+	return s
+}
+
+// Applies all the substitution rules in the supplied table to the contents of
+// a file.  If the file contents change as a result, the file gets rewritten.
+func fixupFileText(path string, table [][]string) error {
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return util.ChildNewtError(err)
 	}
 
-	// Search & replace file contents
-	re := regexp.MustCompile("your-pkg-name")
-	res := re.ReplaceAllString(string(data), "\""+pw.fullName+"\"")
+	s1 := string(data)
+	s2 := replaceText(s1, table)
 
-	if err := ioutil.WriteFile(pfile, []byte(res), 0666); err != nil {
-		return util.ChildNewtError(err)
+	if s2 != s1 {
+		if err := ioutil.WriteFile(path, []byte(s2), 0666); err != nil {
+			return util.ChildNewtError(err)
+		}
 	}
 
 	return nil
 }
 
+// Retrieves the names of all child files and directories.
+//
+// @param path                  The root directory where the traversal starts.
+//
+// @return []string             All descendent files.
+//         []string             All descendent directories.
+//         error                Error
+func collectPaths(path string) ([]string, []string, error) {
+	files := []string{}
+	dirs := []string{}
+
+	collect := func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if f.IsDir() {
+			dirs = append(dirs, path)
+		} else {
+			files = append(files, path)
+		}
+		return nil
+	}
+	if err := filepath.Walk(path, collect); err != nil {
+		return nil, nil, util.ChildNewtError(err)
+	}
+
+	return files, dirs, nil
+}
+
+// Customizes a template package.  Renames generic files and directories and
+// substitutes text in YAML files.
 func (pw *PackageWriter) fixupPkg() error {
-	pkgBase := path.Base(pw.fullName)
+	table := pw.replacementTable()
+	pkgDir := pw.targetPath
 
-	// Move include file to name after package name
-	if err := util.MoveFile(pw.targetPath+"/include/your-path/your-file.h",
-		pw.targetPath+"/include/your-path/"+pkgBase+".h"); err != nil {
-
-		if !util.IsNotExist(err) {
-			return err
-		}
-	}
-
-	// Move source file
-	if err := util.MoveFile(pw.targetPath+"/src/your-source.c",
-		pw.targetPath+"/src/"+pkgBase+".c"); err != nil {
-
-		if !util.IsNotExist(err) {
-			return err
-		}
-	}
-
-	if err := util.CopyDir(pw.targetPath+"/include/your-path/",
-		pw.targetPath+"/include/"+pkgBase+"/"); err != nil {
-
-		if !util.IsNotExist(err) {
-			return err
-		}
-	}
-
-	if err := os.RemoveAll(pw.targetPath + "/include/your-path/"); err != nil {
-		if !util.IsNotExist(err) {
-			return util.ChildNewtError(err)
-		}
-	}
-
-	if err := pw.cleanupPackageFile(pw.targetPath + "/pkg.yml"); err != nil {
+	// Apply the replacement patterns to directory names.
+	_, dirs, err := collectPaths(pkgDir)
+	if err != nil {
 		return err
+	}
+	for _, d1 := range dirs {
+		d2 := replaceText(d1, table)
+		if d1 != d2 {
+			// Make parent directory to allow multiple replacements in path.
+			if err := os.MkdirAll(filepath.Dir(d2), os.ModePerm); err != nil {
+				return util.ChildNewtError(err)
+			}
+			if err := os.Rename(d1, d2); err != nil {
+				return util.ChildNewtError(err)
+			}
+		}
+	}
+
+	// Replace text inside YAML files.
+	files, _, err := collectPaths(pkgDir)
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f, ".yml") {
+			if err := fixupFileText(f, table); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Apply the replacement patterns to file names.
+	for _, f1 := range files {
+		f2 := replaceText(f1, table)
+		if f2 != f1 {
+			if err := os.Rename(f1, f2); err != nil {
+				return util.ChildNewtError(err)
+			}
+		}
 	}
 
 	return nil
