@@ -1,3 +1,4 @@
+# Use for building deb package. Needed by dpkg-buildpackage. 
 BIN=$(DESTDIR)/usr/bin
 TARGET=newt
 build:
