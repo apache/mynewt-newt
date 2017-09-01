@@ -312,6 +312,11 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 	return entries, nil
 }
 
+func (b *Builder) CollectCompileEntriesBpkg(bpkg *BuildPackage) (
+	[]toolchain.CompilerJob, error) {
+	return b.collectCompileEntriesBpkg(bpkg)
+}
+
 func (b *Builder) createArchive(c *toolchain.Compiler,
 	bpkg *BuildPackage) error {
 
@@ -448,8 +453,8 @@ func (b *Builder) PrepBuild() error {
 	baseCi.AddCompilerInfo(bspCi)
 
 	// All packages have access to the generated code header directory.
-	baseCi.Cflags = append(baseCi.Cflags,
-		"-I"+GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
+	baseCi.Includes = append(baseCi.Includes,
+		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
 
 	// Note: Compiler flags get added at the end, after the flags for library
 	// package being built are calculated.

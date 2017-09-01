@@ -226,6 +226,24 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func targetCmakeCmd(cmd *cobra.Command, args []string) {
+	TryGetProject()
+
+	// Verify and resolve each specified package.
+	targets, err := ResolveTargets(args...)
+	if err != nil {
+		NewtUsage(cmd, err)
+		return
+	}
+
+	if len(targets) != 1 {
+		NewtUsage(cmd, err)
+		return
+	}
+
+	builder.CMakeTargetGenerate(targets[0])
+}
+
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		NewtUsage(cmd,
@@ -844,6 +862,22 @@ func AddTargetCommands(cmd *cobra.Command) {
 	}
 	targetCmd.AddCommand(showCmd)
 	AddTabCompleteFn(showCmd, targetList)
+
+
+	cmakeHelpText := "Generate CMakeLists.txt for target specified " +
+		"by <target-name>."
+	cmakeHelpEx := "  newt target cmake <target-name>\n"
+	cmakeHelpEx += "  newt target cmake my_target1"
+
+	cmakeCmd := &cobra.Command{
+		Use:     "cmake",
+		Short:   "",
+		Long:    cmakeHelpText,
+		Example: cmakeHelpEx,
+		Run:     targetCmakeCmd,
+	}
+	targetCmd.AddCommand(cmakeCmd)
+	AddTabCompleteFn(cmakeCmd, targetList)
 
 	setHelpText := "Set a target variable (<var-name>) on target "
 	setHelpText += "<target-name> to value <value>.\n"

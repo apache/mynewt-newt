@@ -110,6 +110,30 @@ func (c *Compiler) GetCompileCommands() []CompileCommand {
 	return c.compileCommands
 }
 
+func (c *Compiler) GetCcPath() string {
+	return c.ccPath
+}
+
+func (c *Compiler) GetCppPath() string {
+	return c.cppPath
+}
+
+func (c *Compiler) GetAsPath() string {
+	return c.asPath
+}
+
+func (c *Compiler) GetArPath() string {
+	return c.arPath
+}
+
+func (c *Compiler) GetCompilerInfo() CompilerInfo {
+	return c.info
+}
+
+func (c *Compiler) GetLocalCompilerInfo() CompilerInfo {
+	return c.lclInfo
+}
+
 type CompilerJob struct {
 	Filename     string
 	Compiler     *Compiler
