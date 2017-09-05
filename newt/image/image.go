@@ -89,12 +89,13 @@ type ImageHdrV1 struct {
 
 type ImageHdr struct {
 	Magic uint32
-	Pad1  uint16
+	Pad1  uint32
 	HdrSz uint16
+	Pad2  uint16
 	ImgSz uint32
 	Flags uint32
 	Vers  ImageVersion
-	Pad2  [2]uint32
+	Pad3  uint32
 }
 
 type ImageTlvInfo struct {
@@ -465,7 +466,7 @@ func (image *Image) ReSign() error {
 	}
 	if hdr1.Magic == IMAGEv1_MAGIC {
 		if uint32(srcInfo.Size()) !=
-			uint32(hdr1.HdrSz)+hdr1.ImgSz+uint32(hdr1.TlvSz) { // XXXXX
+			uint32(hdr1.HdrSz)+hdr1.ImgSz+uint32(hdr1.TlvSz) {
 
 			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
 				image.SourceImg))
@@ -842,10 +843,11 @@ func (image *Image) generateV2(loader *Image) error {
 		Magic: IMAGE_MAGIC,
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
+		Pad2:  0,
 		ImgSz: uint32(binInfo.Size()) - uint32(image.SrcSkip),
 		Flags: 0,
 		Vers:  image.Version,
-		Pad2:  [2]uint32{0, 0},
+		Pad3:  0,
 	}
 
 	if loader != nil {
