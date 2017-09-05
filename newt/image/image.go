@@ -561,7 +561,7 @@ func (image *Image) Generate(loader *Image) error {
 			}
 		}
 		if nonZero {
-			log.Warnf("Skip requested of iamge %s, but image not preceeded by %d bytes of all zeros",
+			log.Warnf("Skip requested of image %s, but image not preceeded by %d bytes of all zeros",
 				image.SourceBin, image.SrcSkip)
 		}
 	}

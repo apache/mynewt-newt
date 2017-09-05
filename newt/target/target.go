@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/pkg"
@@ -34,6 +35,7 @@ import (
 
 const TARGET_FILENAME string = "target.yml"
 const DEFAULT_BUILD_PROFILE string = "default"
+const DEFAULT_HEADER_SIZE uint32 = 0x20
 
 var globalTargetMap map[string]*Target
 
@@ -44,6 +46,7 @@ type Target struct {
 	AppName      string
 	LoaderName   string
 	BuildProfile string
+	HeaderSize   uint32
 
 	// target.yml configuration structure
 	Vars map[string]string
@@ -79,16 +82,28 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	settings := v.AllSettings()
 	for k, v := range settings {
-		target.Vars[k] = v.(string)
+		var ok bool
+		target.Vars[k], ok = v.(string)
+		if !ok {
+			target.Vars[k] = strconv.Itoa(v.(int))
+		}
 	}
 
 	target.BspName = target.Vars["target.bsp"]
 	target.AppName = target.Vars["target.app"]
 	target.LoaderName = target.Vars["target.loader"]
-	target.BuildProfile = target.Vars["target.build_profile"]
 
+	target.BuildProfile = target.Vars["target.build_profile"]
 	if target.BuildProfile == "" {
 		target.BuildProfile = DEFAULT_BUILD_PROFILE
+	}
+
+	target.HeaderSize = DEFAULT_HEADER_SIZE
+	if target.Vars["target.header_size"] != "" {
+		hs, err := strconv.ParseUint(target.Vars["target.header_size"], 0, 32)
+		if err == nil {
+			target.HeaderSize = uint32(hs)
+		}
 	}
 
 	// Note: App not required in the case of unit tests.
