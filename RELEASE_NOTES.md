@@ -1,6 +1,6 @@
 # RELEASE NOTES
 
-7 March 2017 - Apache Newt v1.0.0
+5 September 2017 - Apache Newt v1.2.0
 
 For full release notes, please visit the
 [Apache Mynewt Wiki](https://cwiki.apache.org/confluence/display/MYNEWT/Release+Notes).
