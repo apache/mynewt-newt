@@ -91,7 +91,7 @@ func New(conf Config) *Client {
 		childArgs:     conf.ChildArgs,
 		maxMsgSz:      conf.MaxMsgSz,
 		FromChild:     make(chan []byte, conf.Depth),
-		ErrChild:      make(chan error),
+		ErrChild:      make(chan error, 1),
 		toChild:       make(chan []byte, conf.Depth),
 		acceptTimeout: conf.AcceptTimeout,
 		stop:          make(chan bool),
