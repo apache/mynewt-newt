@@ -50,6 +50,9 @@ import (
 // v1.5.  Eventually, this should be the default.
 var UseRsaPss = false
 
+// Use old image format
+var UseV1 = false
+
 type ImageVersion struct {
 	Major    uint8
 	Minor    uint8
@@ -71,7 +74,7 @@ type Image struct {
 	TotalSize  uint // Total size, in bytes, of the generated .img file.
 }
 
-type ImageHdr struct {
+type ImageHdrV1 struct {
 	Magic uint32
 	TlvSz uint16
 	KeyId uint8
@@ -84,6 +87,22 @@ type ImageHdr struct {
 	Pad3  uint32
 }
 
+type ImageHdr struct {
+	Magic uint32
+	Pad1  uint32
+	HdrSz uint16
+	Pad2  uint16
+	ImgSz uint32
+	Flags uint32
+	Vers  ImageVersion
+	Pad3  uint32
+}
+
+type ImageTlvInfo struct {
+	Magic     uint16
+	TlvTotLen uint16
+}
+
 type ImageTrailerTlv struct {
 	Type uint8
 	Pad  uint8
@@ -91,7 +110,9 @@ type ImageTrailerTlv struct {
 }
 
 const (
-	IMAGE_MAGIC = 0x96f3b83c /* Image header magic */
+	IMAGEv1_MAGIC       = 0x96f3b83c /* Image header magic */
+	IMAGE_MAGIC         = 0x96f3b83d /* Image header magic */
+	IMAGE_TRAILER_MAGIC = 0x6907     /* Image tlv info magic */
 )
 
 const (
@@ -102,23 +123,32 @@ const (
  * Image header flags.
  */
 const (
-	IMAGE_F_PIC                      = 0x00000001
-	IMAGE_F_SHA256                   = 0x00000002 /* Image contains hash TLV */
-	IMAGE_F_PKCS15_RSA2048_SHA256    = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
-	IMAGE_F_ECDSA224_SHA256          = 0x00000008 /* ECDSA224 over SHA256 */
-	IMAGE_F_NON_BOOTABLE             = 0x00000010 /* non bootable image */
-	IMAGE_F_ECDSA256_SHA256          = 0x00000020 /* ECDSA256 over SHA256 */
-	IMAGE_F_PKCS1_PSS_RSA2048_SHA256 = 0x00000040 /* RSA-PSS w/RSA2048 and SHA256 */
+	IMAGEv1_F_PIC                      = 0x00000001
+	IMAGEv1_F_SHA256                   = 0x00000002 /* Image contains hash TLV */
+	IMAGEv1_F_PKCS15_RSA2048_SHA256    = 0x00000004 /* PKCS15 w/RSA2048 and SHA256 */
+	IMAGEv1_F_ECDSA224_SHA256          = 0x00000008 /* ECDSA224 over SHA256 */
+	IMAGEv1_F_NON_BOOTABLE             = 0x00000010 /* non bootable image */
+	IMAGEv1_F_ECDSA256_SHA256          = 0x00000020 /* ECDSA256 over SHA256 */
+	IMAGEv1_F_PKCS1_PSS_RSA2048_SHA256 = 0x00000040 /* RSA-PSS w/RSA2048 and SHA256 */
+
+	IMAGE_F_PIC          = 0x00000001
+	IMAGE_F_NON_BOOTABLE = 0x00000002 /* non bootable image */
 )
 
 /*
  * Image trailer TLV types.
  */
 const (
-	IMAGE_TLV_SHA256   = 1
-	IMAGE_TLV_RSA2048  = 2
-	IMAGE_TLV_ECDSA224 = 3
-	IMAGE_TLV_ECDSA256 = 4
+	IMAGEv1_TLV_SHA256   = 1
+	IMAGEv1_TLV_RSA2048  = 2
+	IMAGEv1_TLV_ECDSA224 = 3
+	IMAGEv1_TLV_ECDSA256 = 4
+
+	IMAGE_TLV_KEYHASH  = 0x01
+	IMAGE_TLV_SHA256   = 0x10
+	IMAGE_TLV_RSA2048  = 0x20
+	IMAGE_TLV_ECDSA224 = 0x21
+	IMAGE_TLV_ECDSA256 = 0x22
 )
 
 /*
@@ -314,24 +344,45 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 	return nil
 }
 
-func (image *Image) sigHdrType() (uint32, error) {
+func (image *Image) sigHdrTypeV1() (uint32, error) {
 	if image.SigningRSA != nil {
 		if UseRsaPss {
-			return IMAGE_F_PKCS1_PSS_RSA2048_SHA256, nil
+			return IMAGEv1_F_PKCS1_PSS_RSA2048_SHA256, nil
 		} else {
-			return IMAGE_F_PKCS15_RSA2048_SHA256, nil
+			return IMAGEv1_F_PKCS15_RSA2048_SHA256, nil
 		}
 	} else if image.SigningEC != nil {
 		switch image.SigningEC.Curve.Params().Name {
 		case "P-224":
-			return IMAGE_F_ECDSA224_SHA256, nil
+			return IMAGEv1_F_ECDSA224_SHA256, nil
 		case "P-256":
-			return IMAGE_F_ECDSA256_SHA256, nil
+			return IMAGEv1_F_ECDSA256_SHA256, nil
 		default:
 			return 0, util.NewNewtError("Unsupported ECC curve")
 		}
 	} else {
 		return 0, nil
+	}
+}
+
+func (image *Image) sigKeyHash() ([]uint8, error) {
+	if image.SigningRSA != nil {
+		pubkey, _ := asn1.Marshal(image.SigningRSA.PublicKey)
+		sum := sha256.Sum256(pubkey)
+		return sum[:4], nil
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			fallthrough
+		case "P-256":
+			pubkey, _ := x509.MarshalPKIXPublicKey(&image.SigningEC.PublicKey)
+			sum := sha256.Sum256(pubkey)
+			return sum[:4], nil
+		default:
+			return []uint8{}, util.NewNewtError("Unsupported ECC curve")
+		}
+	} else {
+		return []uint8{}, util.NewNewtError("No public key to hash")
 	}
 }
 
@@ -344,6 +395,23 @@ func (image *Image) sigLen() uint16 {
 			return 68
 		case "P-256":
 			return 72
+		default:
+			return 0
+		}
+	} else {
+		return 0
+	}
+}
+
+func (image *Image) sigTlvTypeV1() uint8 {
+	if image.SigningRSA != nil {
+		return IMAGEv1_TLV_RSA2048
+	} else if image.SigningEC != nil {
+		switch image.SigningEC.Curve.Params().Name {
+		case "P-224":
+			return IMAGEv1_TLV_ECDSA224
+		case "P-256":
+			return IMAGEv1_TLV_ECDSA256
 		default:
 			return 0
 		}
@@ -382,24 +450,51 @@ func (image *Image) ReSign() error {
 			image.SourceImg, err.Error()))
 	}
 
-	var hdr ImageHdr
+	var hdr1 ImageHdrV1
+	var hdr2 ImageHdr
+	var hdrSz uint16
+	var imgSz uint32
 
-	err = binary.Read(srcImg, binary.LittleEndian, &hdr)
+	err = binary.Read(srcImg, binary.LittleEndian, &hdr1)
+	if err == nil {
+		srcImg.Seek(0, 0)
+		err = binary.Read(srcImg, binary.LittleEndian, &hdr2)
+	}
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Failing to access image %s: %s",
 			image.SourceImg, err.Error()))
 	}
+	if hdr1.Magic == IMAGEv1_MAGIC {
+		if uint32(srcInfo.Size()) !=
+			uint32(hdr1.HdrSz)+hdr1.ImgSz+uint32(hdr1.TlvSz) {
 
-	if uint32(srcInfo.Size()) != uint32(hdr.HdrSz)+hdr.ImgSz+uint32(hdr.TlvSz) ||
-		hdr.Magic != IMAGE_MAGIC {
+			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
+				image.SourceImg))
+		}
+		imgSz = hdr1.ImgSz
+		hdrSz = hdr1.HdrSz
+		image.Version = hdr1.Vers
 
+		log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
+			hdr1.Vers.Major, hdr1.Vers.Minor, hdr1.Vers.Rev,
+			hdr1.Vers.BuildNum)
+	} else if hdr2.Magic == IMAGE_MAGIC {
+		if uint32(srcInfo.Size()) < uint32(hdr2.HdrSz)+hdr2.ImgSz {
+			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
+				image.SourceImg))
+		}
+		imgSz = hdr2.ImgSz
+		hdrSz = hdr2.HdrSz
+		image.Version = hdr2.Vers
+
+		log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
+			hdr2.Vers.Major, hdr2.Vers.Minor, hdr2.Vers.Rev,
+			hdr2.Vers.BuildNum)
+	} else {
 		return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
 			image.SourceImg))
 	}
-	srcImg.Seek(int64(hdr.HdrSz), 0)
-
-	log.Debugf("Resigning %s (ver %d.%d.%d.%d)", image.SourceImg,
-		hdr.Vers.Major, hdr.Vers.Minor, hdr.Vers.Rev, hdr.Vers.BuildNum)
+	srcImg.Seek(int64(hdrSz), 0)
 
 	tmpBin, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -410,9 +505,8 @@ func (image *Image) ReSign() error {
 	defer os.Remove(tmpBinName)
 
 	log.Debugf("Extracting data from %s:%d-%d to %s\n",
-		image.SourceImg, int64(hdr.HdrSz), int64(hdr.HdrSz)+int64(hdr.ImgSz),
-		tmpBinName)
-	_, err = io.CopyN(tmpBin, srcImg, int64(hdr.ImgSz))
+		image.SourceImg, int64(hdrSz), int64(hdrSz)+int64(imgSz), tmpBinName)
+	_, err = io.CopyN(tmpBin, srcImg, int64(imgSz))
 	srcImg.Close()
 	tmpBin.Close()
 	if err != nil {
@@ -422,13 +516,292 @@ func (image *Image) ReSign() error {
 
 	image.SourceBin = tmpBinName
 	image.TargetImg = image.SourceImg
-	image.Version = hdr.Vers
-	image.HeaderSize = uint(hdr.HdrSz)
+	image.HeaderSize = uint(hdrSz)
 
 	return image.Generate(nil)
 }
 
-func (image *Image) Generate(loader *Image) error {
+func (image *Image) generateV1(loader *Image) error {
+	binFile, err := os.Open(image.SourceBin)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
+			err.Error()))
+	}
+	defer binFile.Close()
+
+	binInfo, err := binFile.Stat()
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Can't stat app binary %s: %s",
+			image.SourceBin, err.Error()))
+	}
+
+	imgFile, err := os.OpenFile(image.TargetImg,
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Can't open target image %s: %s",
+			image.TargetImg, err.Error()))
+	}
+	defer imgFile.Close()
+
+	/*
+	 * Compute hash while updating the file.
+	 */
+	hash := sha256.New()
+
+	if loader != nil {
+		err = binary.Write(hash, binary.LittleEndian, loader.Hash)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to seed hash: %s",
+				err.Error()))
+		}
+	}
+
+	/*
+	 * First the header
+	 */
+	hdr := &ImageHdrV1{
+		Magic: IMAGEv1_MAGIC,
+		TlvSz: 0,
+		KeyId: 0,
+		Pad1:  0,
+		HdrSz: IMAGE_HEADER_SIZE,
+		Pad2:  0,
+		ImgSz: uint32(binInfo.Size()) - uint32(image.SrcSkip),
+		Flags: 0,
+		Vers:  image.Version,
+		Pad3:  0,
+	}
+
+	hdr.Flags, err = image.sigHdrTypeV1()
+	if err != nil {
+		return err
+	}
+	if hdr.Flags != 0 {
+		/*
+		 * Signature present
+		 */
+		hdr.TlvSz = 4 + image.sigLen()
+		hdr.KeyId = image.KeyId
+	}
+
+	hdr.TlvSz += 4 + 32
+	hdr.Flags |= IMAGEv1_F_SHA256
+
+	if loader != nil {
+		hdr.Flags |= IMAGEv1_F_NON_BOOTABLE
+	}
+
+	if image.HeaderSize != 0 {
+		/*
+		 * Pad the header out to the given size.  There will
+		 * just be zeros between the header and the start of
+		 * the image when it is padded.
+		 */
+		if image.HeaderSize < IMAGE_HEADER_SIZE {
+			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+		}
+
+		hdr.HdrSz = uint16(image.HeaderSize)
+	}
+
+	err = binary.Write(imgFile, binary.LittleEndian, hdr)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
+			err.Error()))
+	}
+	err = binary.Write(hash, binary.LittleEndian, hdr)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
+			err.Error()))
+	}
+
+	if image.HeaderSize > IMAGE_HEADER_SIZE {
+		/*
+		 * Pad the image (and hash) with zero bytes to fill
+		 * out the buffer.
+		 */
+		buf := make([]byte, image.HeaderSize-IMAGE_HEADER_SIZE)
+
+		_, err = imgFile.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to write padding: %s",
+				err.Error()))
+		}
+
+		_, err = hash.Write(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to hash padding: %s",
+				err.Error()))
+		}
+	}
+
+	/*
+	 * Skip requested initial part of image.
+	 */
+	if image.SrcSkip > 0 {
+		buf := make([]byte, image.SrcSkip)
+		_, err = binFile.Read(buf)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
+				image.SourceBin, err.Error()))
+		}
+
+		nonZero := false
+		for _, b := range buf {
+			if b != 0 {
+				nonZero = true
+				break
+			}
+		}
+		if nonZero {
+			log.Warnf("Skip requested of image %s, but image not preceeded "+
+				"by %d bytes of all zeros",
+				image.SourceBin, image.SrcSkip)
+		}
+	}
+
+	/*
+	 * Followed by data.
+	 */
+	dataBuf := make([]byte, 1024)
+	for {
+		cnt, err := binFile.Read(dataBuf)
+		if err != nil && err != io.EOF {
+			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
+				image.SourceBin, err.Error()))
+		}
+		if cnt == 0 {
+			break
+		}
+		_, err = imgFile.Write(dataBuf[0:cnt])
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
+				image.TargetImg, err.Error()))
+		}
+		_, err = hash.Write(dataBuf[0:cnt])
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
+				err.Error()))
+		}
+	}
+
+	image.Hash = hash.Sum(nil)
+
+	/*
+	 * Trailer with hash of the data
+	 */
+	tlv := &ImageTrailerTlv{
+		Type: IMAGEv1_TLV_SHA256,
+		Pad:  0,
+		Len:  uint16(len(image.Hash)),
+	}
+	err = binary.Write(imgFile, binary.LittleEndian, tlv)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+			"trailer: %s", err.Error()))
+	}
+	_, err = imgFile.Write(image.Hash)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
+			err.Error()))
+	}
+
+	if image.SigningRSA != nil {
+		/*
+		 * If signing key was set, generate TLV for that.
+		 */
+		tlv := &ImageTrailerTlv{
+			Type: IMAGEv1_TLV_RSA2048,
+			Pad:  0,
+			Len:  256, /* 2048 bits */
+		}
+		var signature []byte
+		if UseRsaPss {
+			opts := rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthEqualsHash,
+			}
+			signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
+				crypto.SHA256, image.Hash, &opts)
+		} else {
+			signature, err = rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
+				crypto.SHA256, image.Hash)
+		}
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf(
+				"Failed to compute signature: %s", err))
+		}
+
+		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+				"trailer: %s", err.Error()))
+		}
+		_, err = imgFile.Write(signature)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
+				err.Error()))
+		}
+	}
+	if image.SigningEC != nil {
+		r, s, err := ecdsa.Sign(rand.Reader, image.SigningEC, image.Hash)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf(
+				"Failed to compute signature: %s", err))
+		}
+
+		sigLen := image.sigLen()
+
+		var ECDSA ECDSASig
+		ECDSA.R = r
+		ECDSA.S = s
+		signature, err := asn1.Marshal(ECDSA)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf(
+				"Failed to construct signature: %s", err))
+		}
+		if len(signature) > int(sigLen) {
+			return util.NewNewtError(fmt.Sprintf(
+				"Something is really wrong\n"))
+		}
+		tlv := &ImageTrailerTlv{
+			Type: image.sigTlvTypeV1(),
+			Pad:  0,
+			Len:  sigLen,
+		}
+		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+				"trailer: %s", err.Error()))
+		}
+		_, err = imgFile.Write(signature)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
+				err.Error()))
+		}
+		pad := make([]byte, int(sigLen)-len(signature))
+		_, err = imgFile.Write(pad)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+				"trailer: %s", err.Error()))
+		}
+	}
+
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Computed Hash for image %s as %s \n",
+		image.TargetImg, hex.EncodeToString(image.Hash))
+
+	// XXX: Replace "1" with io.SeekCurrent when go 1.7 becomes mainstream.
+	sz, err := imgFile.Seek(0, 1)
+	if err != nil {
+		return util.FmtNewtError("Failed to calculate file size of generated "+
+			"image %s: %s", image.TargetImg, err.Error())
+	}
+	image.TotalSize = uint(sz)
+
+	return nil
+}
+
+func (image *Image) generateV2(loader *Image) error {
 	binFile, err := os.Open(image.SourceBin)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
@@ -468,8 +841,6 @@ func (image *Image) Generate(loader *Image) error {
 	 */
 	hdr := &ImageHdr{
 		Magic: IMAGE_MAGIC,
-		TlvSz: 0,
-		KeyId: 0,
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
 		Pad2:  0,
@@ -478,21 +849,6 @@ func (image *Image) Generate(loader *Image) error {
 		Vers:  image.Version,
 		Pad3:  0,
 	}
-
-	hdr.Flags, err = image.sigHdrType()
-	if err != nil {
-		return err
-	}
-	if hdr.Flags != 0 {
-		/*
-		 * Signature present
-		 */
-		hdr.TlvSz = 4 + image.sigLen()
-		hdr.KeyId = image.KeyId
-	}
-
-	hdr.TlvSz += 4 + 32
-	hdr.Flags |= IMAGE_F_SHA256
 
 	if loader != nil {
 		hdr.Flags |= IMAGE_F_NON_BOOTABLE
@@ -505,7 +861,8 @@ func (image *Image) Generate(loader *Image) error {
 		 * the image when it is padded.
 		 */
 		if image.HeaderSize < IMAGE_HEADER_SIZE {
-			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+			return util.NewNewtError(fmt.Sprintf("Image header must be at "+
+				"least %d bytes", IMAGE_HEADER_SIZE))
 		}
 
 		hdr.HdrSz = uint16(image.HeaderSize)
@@ -594,6 +951,24 @@ func (image *Image) Generate(loader *Image) error {
 	image.Hash = hash.Sum(nil)
 
 	/*
+	 * Write TLV info.
+	 */
+	tlvInfo := &ImageTlvInfo{
+		Magic:     IMAGE_TRAILER_MAGIC,
+		TlvTotLen: 0,
+	}
+	tlvInfoOff, err := imgFile.Seek(0, 1)
+	if err != nil {
+		return util.FmtNewtError("Failed to calculate file size of generated "+
+			"image %s: %s", image.TargetImg, err.Error())
+	}
+	err = binary.Write(imgFile, binary.LittleEndian, tlvInfo)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
+			err.Error()))
+	}
+
+	/*
 	 * Trailer with hash of the data
 	 */
 	tlv := &ImageTrailerTlv{
@@ -612,6 +987,29 @@ func (image *Image) Generate(loader *Image) error {
 			err.Error()))
 	}
 
+	if image.SigningRSA != nil || image.SigningEC != nil {
+		keyHash, err := image.sigKeyHash()
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to compute hash " +
+				"of the public key"))
+		}
+
+		tlv = &ImageTrailerTlv{
+			Type: IMAGE_TLV_KEYHASH,
+			Pad:  0,
+			Len:  uint16(len(keyHash)),
+		}
+		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serial image "+
+				"trailer: %s", err.Error()))
+		}
+		_, err = imgFile.Write(keyHash)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to append "+
+				"key hash: %s", err.Error()))
+		}
+	}
 	if image.SigningRSA != nil {
 		/*
 		 * If signing key was set, generate TLV for that.
@@ -622,16 +1020,11 @@ func (image *Image) Generate(loader *Image) error {
 			Len:  256, /* 2048 bits */
 		}
 		var signature []byte
-		if UseRsaPss {
-			opts := rsa.PSSOptions{
-				SaltLength: rsa.PSSSaltLengthEqualsHash,
-			}
-			signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
-				crypto.SHA256, image.Hash, &opts)
-		} else {
-			signature, err = rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
-				crypto.SHA256, image.Hash)
+		opts := rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthEqualsHash,
 		}
+		signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
+			crypto.SHA256, image.Hash, &opts)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf(
 				"Failed to compute signature: %s", err))
@@ -704,7 +1097,31 @@ func (image *Image) Generate(loader *Image) error {
 	}
 	image.TotalSize = uint(sz)
 
+	tlvInfo.TlvTotLen = uint16(sz - tlvInfoOff)
+
+	/*
+	 * Go back and write tlv info total length
+	 */
+	_, err = imgFile.Seek(tlvInfoOff, 0)
+	if err != nil {
+		return util.FmtNewtError("Failed to move to tlvInfo offset %d "+
+			"image: %s", int(tlvInfoOff), err.Error())
+	}
+	err = binary.Write(imgFile, binary.LittleEndian, tlvInfo)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
+			err.Error()))
+	}
+
 	return nil
+}
+
+func (image *Image) Generate(loader *Image) error {
+	if UseV1 {
+		return image.generateV1(loader)
+	} else {
+		return image.generateV2(loader)
+	}
 }
 
 func CreateBuildId(app *Image, loader *Image) []byte {
