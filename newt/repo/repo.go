@@ -651,30 +651,20 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 	return repos, true, nil
 }
 
-// Download the repository description.
-func (r *Repo) DownloadDesc() error {
+func (r *Repo) downloadRepositoryYml() error {
 	dl := r.downloader
-
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
-		"repository description\n")
-
-	// Configuration path
-	cpath := r.repoFilePath()
-	if util.NodeNotExist(cpath) {
-		if err := os.MkdirAll(cpath, REPO_DEFAULT_PERMS); err != nil {
-			return util.NewNewtError(err.Error())
-		}
-	}
-
 	dl.SetBranch("master")
+
+	cpath := r.repoFilePath()
 	if err := dl.FetchFile(REPO_FILE_NAME,
 		cpath+"/"+REPO_FILE_NAME); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Download failed\n")
+
 		return err
 	}
 
 	// also create a directory to save diffs for sync
-	cpath = r.patchesFilePath()
+	cpath = r.repoFilePath()
 	if util.NodeNotExist(cpath) {
 		if err := os.MkdirAll(cpath, REPO_DEFAULT_PERMS); err != nil {
 			return util.NewNewtError(err.Error())
@@ -682,6 +672,34 @@ func (r *Repo) DownloadDesc() error {
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Download successful!\n")
+	return nil
+}
+
+// Download the repository description.
+func (r *Repo) DownloadDesc() error {
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
+		"repository description\n")
+
+	// Remember if the directory already exists.  If it doesn't, we'll create
+	// it.  If downloading fails, only remove the directory if we just created
+	// it.
+	createdDir := false
+
+	// Configuration path
+	cpath := r.repoFilePath()
+	if util.NodeNotExist(cpath) {
+		if err := os.MkdirAll(cpath, REPO_DEFAULT_PERMS); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+		createdDir = true
+	}
+
+	if err := r.downloadRepositoryYml(); err != nil {
+		if createdDir {
+			os.RemoveAll(cpath)
+		}
+		return err
+	}
 
 	return nil
 }

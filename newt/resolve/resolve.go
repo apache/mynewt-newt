@@ -143,7 +143,7 @@ func (r *Resolver) resolveDep(dep *pkg.Dependency, depender string) (*pkg.LocalP
 	return lpkg, nil
 }
 
-// @return                      true if rhe package's dependency list was
+// @return                      true if the package's dependency list was
 //                                  modified.
 func (rpkg *ResolvePackage) AddDep(apiPkg *ResolvePackage, api string) bool {
 	if dep := rpkg.Deps[apiPkg]; dep != nil {
