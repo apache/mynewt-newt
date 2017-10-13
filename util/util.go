@@ -272,6 +272,18 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 	}
 }
 
+func LogShellCmd(cmdStrs []string, env []string) {
+	envLogStr := ""
+	if len(env) > 0 {
+		envLogStr = strings.Join(env, " ") + " "
+	}
+	log.Debugf("%s%s", envLogStr, strings.Join(cmdStrs, " "))
+
+	if PrintShellCmds {
+		StatusMessage(VERBOSITY_DEFAULT, "%s\n", strings.Join(cmdStrs, " "))
+	}
+}
+
 // Execute the specified process and block until it completes.  Additionally,
 // the amount of combined stdout+stderr output to be logged to the debug log
 // can be restricted to a maximum number of characters.
@@ -280,6 +292,7 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 // @param env                   Additional key=value pairs to inject into the
 //                                  child process's environment.  Specify null
 //                                  to just inherit the parent environment.
+// @param logCmd                Whether to log the command being executed.
 // @param maxDbgOutputChrs      The maximum number of combined stdout+stderr
 //                                  characters to write to the debug log.
 //                                  Specify -1 for no limit; 0 for no output.
@@ -287,21 +300,17 @@ func ReadConfig(path string, name string) (*viper.Viper, error) {
 // @return []byte               Combined stdout and stderr output of process.
 // @return error                NewtError on failure.
 func ShellCommandLimitDbgOutput(
-	cmdStrs []string, env []string, maxDbgOutputChrs int) ([]byte, error) {
+	cmdStrs []string, env []string, logCmd bool, maxDbgOutputChrs int) (
+	[]byte, error) {
+
 	var name string
 	var args []string
 
-	envLogStr := ""
-	if env != nil {
-		envLogStr = strings.Join(env, " ") + " "
-	}
-	log.Debugf("%s%s", envLogStr, strings.Join(cmdStrs, " "))
-
-	if PrintShellCmds {
-		StatusMessage(VERBOSITY_SILENT, "%s\n", strings.Join(cmdStrs, " "))
+	if logCmd {
+		LogShellCmd(cmdStrs, env)
 	}
 
-	if ExecuteShell && ((runtime.GOOS == "linux") || (runtime.GOOS == "darwin")) {
+	if ExecuteShell && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
 		cmd := strings.Join(cmdStrs, " ")
 		name = "/bin/sh"
 		args = []string{"-c", strings.Replace(cmd, "\"", "\\\"", -1)}
@@ -347,7 +356,7 @@ func ShellCommandLimitDbgOutput(
 // @return []byte               Combined stdout and stderr output of process.
 // @return error                NewtError on failure.
 func ShellCommand(cmdStrs []string, env []string) ([]byte, error) {
-	return ShellCommandLimitDbgOutput(cmdStrs, env, -1)
+	return ShellCommandLimitDbgOutput(cmdStrs, env, true, -1)
 }
 
 // Run interactive shell command
