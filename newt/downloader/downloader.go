@@ -74,18 +74,26 @@ type LocalDownloader struct {
 	Path string
 }
 
-func executeGitCommand(dir string, cmd []string) ([]byte, error) {
+func gitPath() (string, error) {
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		return "", util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
+			err.Error()))
+	}
+
+	return filepath.ToSlash(gitPath), nil
+}
+
+func executeGitCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, util.NewNewtError(err.Error())
 	}
 
-	gitPath, err := exec.LookPath("git")
+	gp, err := gitPath()
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
-			err.Error()))
+		return nil, err
 	}
-	gitPath = filepath.ToSlash(gitPath)
 
 	if err := os.Chdir(dir); err != nil {
 		return nil, util.NewNewtError(err.Error())
@@ -93,9 +101,9 @@ func executeGitCommand(dir string, cmd []string) ([]byte, error) {
 
 	defer os.Chdir(wd)
 
-	gitCmd := []string{gitPath}
+	gitCmd := []string{gp}
 	gitCmd = append(gitCmd, cmd...)
-	output, err := util.ShellCommand(gitCmd, nil)
+	output, err := util.ShellCommandLimitDbgOutput(gitCmd, nil, logCmd, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +113,18 @@ func executeGitCommand(dir string, cmd []string) ([]byte, error) {
 
 func isTag(repoDir string, branchName string) bool {
 	cmd := []string{"tag", "--list"}
-	output, _ := executeGitCommand(repoDir, cmd)
+	output, _ := executeGitCommand(repoDir, cmd, true)
 	return strings.Contains(string(output), branchName)
 }
 
 func branchExists(repoDir string, branchName string) bool {
-	cmd := []string{"show-ref", "--verify", "--quiet", "refs/heads/" + branchName}
-	_, err := executeGitCommand(repoDir, cmd)
+	cmd := []string{
+		"show-ref",
+		"--verify",
+		"--quiet",
+		"refs/heads/" + branchName,
+	}
+	_, err := executeGitCommand(repoDir, cmd, true)
 	return err == nil
 }
 
@@ -137,7 +150,7 @@ func checkout(repoDir string, commit string) error {
 			commit,
 		}
 	}
-	_, err := executeGitCommand(repoDir, cmd)
+	_, err := executeGitCommand(repoDir, cmd, true)
 	return err
 }
 
@@ -150,30 +163,25 @@ func mergeBranches(repoDir string) {
 		if err != nil {
 			continue
 		}
-		_, err = executeGitCommand(repoDir, []string{"merge", "origin/" + branch})
+		_, err = executeGitCommand(
+			repoDir, []string{"merge", "origin/" + branch}, true)
 		if err != nil {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "Merging changes from origin/%s: %s\n",
-				branch, err)
+			util.StatusMessage(util.VERBOSITY_VERBOSE,
+				"Merging changes from origin/%s: %s\n", branch, err)
 		} else {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "Merging changes from origin/%s\n",
-				branch)
+			util.StatusMessage(util.VERBOSITY_VERBOSE,
+				"Merging changes from origin/%s\n", branch)
 		}
 		// XXX: ignore error, probably resulting from a branch not available at
 		//      origin anymore.
 	}
 }
 
-func fetch(repoDir string) error {
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Fetching new remote branches/tags\n")
-	_, err := executeGitCommand(repoDir, []string{"fetch", "--tags"})
-	return err
-}
-
 // stash saves current changes locally and returns if a new stash was
 // created (if there where no changes, there's no need to stash)
 func stash(repoDir string) (bool, error) {
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Stashing local changes\n")
-	output, err := executeGitCommand(repoDir, []string{"stash"})
+	output, err := executeGitCommand(repoDir, []string{"stash"}, true)
 	if err != nil {
 		return false, err
 	}
@@ -182,12 +190,12 @@ func stash(repoDir string) (bool, error) {
 
 func stashPop(repoDir string) error {
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Un-stashing local changes\n")
-	_, err := executeGitCommand(repoDir, []string{"stash", "pop"})
+	_, err := executeGitCommand(repoDir, []string{"stash", "pop"}, true)
 	return err
 }
 
 func clean(repoDir string) error {
-	_, err := executeGitCommand(repoDir, []string{"clean", "-f"})
+	_, err := executeGitCommand(repoDir, []string{"clean", "-f"}, true)
 	return err
 }
 
@@ -204,6 +212,13 @@ func (gd *GenericDownloader) TempDir() (string, error) {
 	return dir, err
 }
 
+func (gd *GithubDownloader) fetch(repoDir string) error {
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Fetching new remote branches/tags\n")
+	_, err := gd.authenticatedCommand(repoDir, []string{"fetch", "--tags"})
+	return err
+}
+
 func (gd *GithubDownloader) password() string {
 	if gd.Password != "" {
 		return gd.Password
@@ -214,14 +229,28 @@ func (gd *GithubDownloader) password() string {
 	}
 }
 
+func (gd *GithubDownloader) authenticatedCommand(path string,
+	args []string) ([]byte, error) {
+
+	if err := gd.setRemoteAuth(path); err != nil {
+		return nil, err
+	}
+	defer gd.clearRemoteAuth(path)
+
+	return executeGitCommand(path, args, true)
+}
+
 func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 	var url string
 	if gd.Server != "" {
 		// Use the github API
-		url = fmt.Sprintf("https://%s/api/v3/repos/%s/%s/%s?ref=%s", gd.Server, gd.User, gd.Repo, name, gd.Branch())
+		url = fmt.Sprintf("https://%s/api/v3/repos/%s/%s/%s?ref=%s",
+			gd.Server, gd.User, gd.Repo, name, gd.Branch())
 	} else {
-		// The public github API is ratelimited. Avoid rate limit issues with the raw endpoint.
-		url = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", gd.User, gd.Repo, gd.Branch(), name)
+		// The public github API is ratelimited. Avoid rate limit issues with
+		// the raw endpoint.
+		url = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s",
+			gd.User, gd.Repo, gd.Branch(), name)
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -268,12 +297,12 @@ func (gd *GithubDownloader) FetchFile(name string, dest string) error {
 
 func (gd *GithubDownloader) CurrentBranch(path string) (string, error) {
 	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
-	branch, err := executeGitCommand(path, cmd)
+	branch, err := executeGitCommand(path, cmd, true)
 	return strings.Trim(string(branch), "\r\n"), err
 }
 
 func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
-	err := fetch(path)
+	err := gd.fetch(path)
 	if err != nil {
 		return err
 	}
@@ -314,18 +343,10 @@ func (gd *GithubDownloader) CleanupRepo(path string, branchName string) error {
 }
 
 func (gd *GithubDownloader) LocalDiff(path string) ([]byte, error) {
-	return executeGitCommand(path, []string{"diff"})
+	return executeGitCommand(path, []string{"diff"}, true)
 }
 
-func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
-	// Get a temporary directory, and copy the repository into that directory.
-	tmpdir, err := ioutil.TempDir("", "newt-repo")
-	if err != nil {
-		return "", err
-	}
-
-	// Currently only the master branch is supported.
-	branch := "master"
+func (gd *GithubDownloader) remoteUrls() (string, string) {
 	server := "github.com"
 
 	if gd.Server != "" {
@@ -333,33 +354,82 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	}
 
 	var auth string
-	var publicAuth string
 	if gd.Login != "" {
 		pw := gd.password()
 		auth = fmt.Sprintf("%s:%s@", gd.Login, pw)
-		if pw == "" {
-			publicAuth = auth
-		} else {
-			publicAuth = fmt.Sprintf("%s:<password-hidden>@", gd.Login)
+	}
+
+	url := fmt.Sprintf("https://%s%s/%s/%s.git", auth, server, gd.User,
+		gd.Repo)
+	publicUrl := fmt.Sprintf("https://%s/%s/%s.git", server, gd.User, gd.Repo)
+
+	return url, publicUrl
+}
+
+func (gd *GithubDownloader) setOriginUrl(path string, url string) error {
+	genCmdStrs := func(urlStr string) []string {
+		return []string{
+			"remote",
+			"set-url",
+			"origin",
+			urlStr,
 		}
 	}
-	url := fmt.Sprintf("https://%s%s/%s/%s.git", auth, server, gd.User, gd.Repo)
-	publicUrl := fmt.Sprintf("https://%s%s/%s/%s.git", publicAuth, server, gd.User, gd.Repo)
+
+	// Hide password in logged command.
+	safeUrl := url
+	pw := gd.password()
+	if pw != "" {
+		safeUrl = strings.Replace(safeUrl, pw, "<password-hidden>", -1)
+	}
+	util.LogShellCmd(genCmdStrs(safeUrl), nil)
+
+	_, err := executeGitCommand(path, genCmdStrs(url), false)
+	return err
+}
+
+func (gd *GithubDownloader) clearRemoteAuth(path string) error {
+	url, publicUrl := gd.remoteUrls()
+	if url == publicUrl {
+		return nil
+	}
+
+	return gd.setOriginUrl(path, publicUrl)
+}
+
+func (gd *GithubDownloader) setRemoteAuth(path string) error {
+	url, publicUrl := gd.remoteUrls()
+	if url == publicUrl {
+		return nil
+	}
+
+	return gd.setOriginUrl(path, url)
+}
+
+func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
+	// Currently only the master branch is supported.
+	branch := "master"
+
+	// Get a temporary directory, and copy the repository into that directory.
+	tmpdir, err := ioutil.TempDir("", "newt-repo")
+	if err != nil {
+		return "", err
+	}
+
+	url, publicUrl := gd.remoteUrls()
+
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
 		commit, publicUrl)
 
-	gitPath, err := exec.LookPath("git")
+	gp, err := gitPath()
 	if err != nil {
-		os.RemoveAll(tmpdir)
-		return "", util.NewNewtError(fmt.Sprintf("Can't find git binary: %s\n",
-			err.Error()))
+		return "", err
 	}
-	gitPath = filepath.ToSlash(gitPath)
 
 	// Clone the repository.
 	cmd := []string{
-		gitPath,
+		gp,
 		"clone",
 		"-b",
 		branch,
@@ -368,18 +438,20 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
-		if err := util.ShellInteractiveCommand(cmd, nil); err != nil {
-			os.RemoveAll(tmpdir)
-			return "", err
-		}
+		err = util.ShellInteractiveCommand(cmd, nil)
 	} else {
-		if _, err := util.ShellCommand(cmd, nil); err != nil {
-			return "", err
-		}
+		_, err = util.ShellCommand(cmd, nil)
 	}
+	if err != nil {
+		os.RemoveAll(tmpdir)
+		return "", err
+	}
+
+	defer gd.clearRemoteAuth(tmpdir)
 
 	// Checkout the specified commit.
 	if err := checkout(tmpdir, commit); err != nil {
+		os.RemoveAll(tmpdir)
 		return "", err
 	}
 
@@ -403,7 +475,7 @@ func (ld *LocalDownloader) FetchFile(name string, dest string) error {
 
 func (ld *LocalDownloader) CurrentBranch(path string) (string, error) {
 	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
-	branch, err := executeGitCommand(path, cmd)
+	branch, err := executeGitCommand(path, cmd, true)
 	return strings.Trim(string(branch), "\r\n"), err
 }
 
@@ -419,7 +491,7 @@ func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
 }
 
 func (ld *LocalDownloader) LocalDiff(path string) ([]byte, error) {
-	return executeGitCommand(path, []string{"diff"})
+	return executeGitCommand(path, []string{"diff"}, true)
 }
 
 func (ld *LocalDownloader) DownloadRepo(commit string) (string, error) {
