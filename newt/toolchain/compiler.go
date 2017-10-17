@@ -464,7 +464,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	cmd = append(cmd, c.includesStrings()...)
 	cmd = append(cmd, []string{"-MM", "-MG", srcPath}...)
 
-	o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
+	o, err := util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
 	if err != nil {
 		return err
 	}
@@ -972,7 +972,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 			"-wxdS",
 			elfFilename,
 		}
-		o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
+		o, err := util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
 		if err != nil {
 			// XXX: gobjdump appears to always crash.  Until we get that sorted
 			// out, don't fail the link process if lst generation fails.
@@ -992,7 +992,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 				sect,
 				elfFilename,
 			}
-			o, err := util.ShellCommandLimitDbgOutput(cmd, nil, 0)
+			o, err := util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
 			if err != nil {
 				if _, err := f.Write(o); err != nil {
 					return util.NewNewtError(err.Error())
@@ -1004,7 +1004,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 			c.osPath,
 			elfFilename,
 		}
-		o, err = util.ShellCommandLimitDbgOutput(cmd, nil, 0)
+		o, err = util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
 		if err != nil {
 			return err
 		}
