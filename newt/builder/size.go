@@ -224,6 +224,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 			}
 
 			array := strings.Fields(scanner.Text())
+
 			switch len(array) {
 			case 1:
 				/*
@@ -308,12 +309,18 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 			if size == 0 {
 				continue
 			}
+
+			// srcFile might be : mylib.a(object_file.o) or object_file.o
 			tmpStrArr := strings.Split(srcFile, "(")
 			srcLib := tmpStrArr[0]
 			objName := ""
 			if srcLib != "*fill*" {
-				tmpStrArr = strings.Split(tmpStrArr[1], ")")
-				objName = tmpStrArr[0]
+				if len(tmpStrArr) > 1 {
+					tmpStrArr = strings.Split(tmpStrArr[1], ")")
+					objName = tmpStrArr[0]
+				} else {
+					objName = filepath.Base(tmpStrArr[0])
+				}
 			}
 			tmpStrArr = strings.Split(symName, ".")
 			if len(tmpStrArr) > 2 {
