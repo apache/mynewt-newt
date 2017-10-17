@@ -424,13 +424,15 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 	r.ReadDesc()
 
 	rvers := proj.projState.GetInstalledVersion(rname)
-	code, msg := r.CheckNewtCompatibility(rvers, newtutil.NewtVersion)
-	switch code {
-	case compat.NEWT_COMPAT_GOOD:
-	case compat.NEWT_COMPAT_WARN:
-		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
-	case compat.NEWT_COMPAT_ERROR:
-		return util.NewNewtError(msg)
+	if rvers != nil {
+		code, msg := r.CheckNewtCompatibility(rvers, newtutil.NewtVersion)
+		switch code {
+		case compat.NEWT_COMPAT_GOOD:
+		case compat.NEWT_COMPAT_WARN:
+			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+		case compat.NEWT_COMPAT_ERROR:
+			return util.NewNewtError(msg)
+		}
 	}
 
 	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
