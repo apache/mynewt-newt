@@ -569,7 +569,13 @@ func SortFields(wsSepStrings ...string) []string {
 	return slice
 }
 
-func AtoiNoOct(s string) (int, error) {
+// Converts the specified string to an integer.  The string can be in base-10
+// or base-16.  This is equivalent to the "0" base used in the standard
+// conversion functions, except octal is not supported (a leading zero implies
+// decimal).
+//
+// The second return value is true on success.
+func AtoiNoOctTry(s string) (int, bool) {
 	var runLen int
 	for runLen = 0; runLen < len(s)-1; runLen++ {
 		if s[runLen] != '0' || s[runLen+1] == 'x' {
@@ -583,10 +589,23 @@ func AtoiNoOct(s string) (int, error) {
 
 	i, err := strconv.ParseInt(s, 0, 0)
 	if err != nil {
-		return 0, NewNewtError(err.Error())
+		return 0, false
 	}
 
-	return int(i), nil
+	return int(i), true
+}
+
+// Converts the specified string to an integer.  The string can be in base-10
+// or base-16.  This is equivalent to the "0" base used in the standard
+// conversion functions, except octal is not supported (a leading zero implies
+// decimal).
+func AtoiNoOct(s string) (int, error) {
+	val, success := AtoiNoOctTry(s)
+	if !success {
+		return 0, FmtNewtError("Invalid number: \"%s\"", s)
+	}
+
+	return val, nil
 }
 
 func IsNotExist(err error) bool {

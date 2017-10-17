@@ -128,17 +128,15 @@ func NewCfg() Cfg {
 	}
 }
 
+// Determines if a syscfg value is "true".  Only "" and a string representing 0
+// are considered false; everything else is true.
 func ValueIsTrue(val string) bool {
 	if val == "" {
 		return false
 	}
 
-	i, err := util.AtoiNoOct(val)
-	if err == nil && i == 0 {
-		return false
-	}
-
-	return true
+	i, success := util.AtoiNoOctTry(val)
+	return !success || i != 0
 }
 
 func (cfg *Cfg) Features() map[string]bool {
