@@ -20,7 +20,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -77,7 +76,7 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	if err := proj.Install(false, newtutil.NewtForce); err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 }
 
@@ -86,7 +85,7 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	if err := proj.Upgrade(newtutil.NewtForce); err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
 	}
 }
 
@@ -157,31 +156,31 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	var failedRepos []string
+	var anyFails bool
 	for _, repo := range repos {
-		var exists bool
-		var updated bool
 		if repo.IsLocal() {
 			continue
 		}
 		vers := ps.GetInstalledVersion(repo.Name())
 		if vers == nil {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"No installed version of %s found, skipping\n\n",
+				"No installed version of %s found, skipping\n",
 				repo.Name())
-		}
-		exists, updated, err = repo.Sync(vers, newtutil.NewtForce)
-		if exists && !updated {
-			failedRepos = append(failedRepos, repo.Name())
+		} else {
+			if _, err := repo.Sync(vers, newtutil.NewtForce); err != nil {
+				util.StatusMessage(util.VERBOSITY_QUIET,
+					"Failed to sync repo \"%s\": %s\n",
+					repo.Name(), err.Error())
+				anyFails = true
+			}
 		}
 	}
-	if len(failedRepos) > 0 {
+	if anyFails {
 		var forceMsg string
 		if !newtutil.NewtForce {
-			forceMsg = " To force resync, add the -f (force) option."
+			forceMsg = ".  To force resync, add the -f (force) option."
 		}
-		err = util.NewNewtError(fmt.Sprintf("Failed for repos: %v."+
-			forceMsg, failedRepos))
+		err := util.FmtNewtError("Failed to sync%s", forceMsg)
 		NewtUsage(nil, err)
 	}
 }
