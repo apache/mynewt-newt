@@ -45,6 +45,10 @@ func (ps *ProjectState) Replace(rname string, rvers *repo.Version) {
 	ps.installedRepos[rname] = rvers
 }
 
+func (ps *ProjectState) Delete(rname string) {
+	delete(ps.installedRepos, rname)
+}
+
 func (ps *ProjectState) StateFile() string {
 	return interfaces.GetProject().Path() + "/" + PROJECT_STATE_FILE
 }
@@ -74,8 +78,8 @@ func (ps *ProjectState) Init() error {
 
 	path := ps.StateFile()
 
-	// Read project state file.  If doesn't exist, it will be empty until somebody
-	// installs a repo
+	// Read project state file.  If doesn't exist, it will be empty until
+	// somebody installs a repo
 	if util.NodeNotExist(path) {
 		return nil
 	}

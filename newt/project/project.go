@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -151,6 +152,21 @@ func (proj *Project) Repos() map[string]*repo.Repo {
 	return proj.repos
 }
 
+func (proj *Project) SortedRepos() []*repo.Repo {
+	names := make([]string, 0, len(proj.repos))
+	for n, _ := range proj.repos {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	repos := make([]*repo.Repo, len(names))
+	for i, n := range names {
+		repos[i] = proj.repos[n]
+	}
+
+	return repos
+}
+
 func (proj *Project) FindRepo(rname string) *repo.Repo {
 	if rname == repo.REPO_NAME_LOCAL {
 		return proj.LocalRepo()
@@ -177,8 +193,11 @@ func (proj *Project) Warnings() []string {
 	return proj.warnings
 }
 
+// @return bool                 True if upgrade should be skipped;
+//                              False if upgrade should occur.
 func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	force bool) (bool, error) {
+
 	rdesc, err := r.GetRepoDesc()
 	if err != nil {
 		return false, err
@@ -190,14 +209,14 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 			"No matching version to upgrade to "+
 				"found for %s.  Please check your project requirements.",
 			r.Name())
-		return false, util.NewNewtError(fmt.Sprintf("Cannot find a "+
-			"version of repository %s that matches project requirements.",
-			r.Name()))
+		return false,
+			util.FmtNewtError("Cannot find a version of repository %s that "+
+				"matches project requirements.", r.Name())
 	}
 
-	// If the change between the old repository and the new repository would cause
-	// and upgrade.  Then prompt for an upgrade response, unless the force option
-	// is present.
+	// If the change between the old repository and the new repository would
+	// cause an upgrade.  Then prompt for an upgrade response, unless the force
+	// option is present.
 	if vers.CompareVersions(newVers, vers) != 0 ||
 		vers.Stability() != newVers.Stability() {
 		if !force {
@@ -206,7 +225,8 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 				str += "(" + branch + ")"
 			}
 
-			fmt.Printf("Would you like to upgrade repository %s from %s to %s %s? [Yn] ",
+			fmt.Printf("Would you like to upgrade repository %s from %s "+
+				"to %s %s? [Yn] ",
 				r.Name(), vers.String(), newVers.String(), str)
 			line, more, err := bufio.NewReader(os.Stdin).ReadLine()
 			if more || err != nil {
@@ -232,7 +252,9 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	return false, nil
 }
 
-func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force bool) (bool, error) {
+func (proj *Project) checkVersionRequirements(
+	r *repo.Repo, upgrade bool, force bool) (bool, error) {
+
 	rdesc, err := r.GetRepoDesc()
 	if err != nil {
 		return false, err
@@ -244,15 +266,17 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 	if vers != nil {
 		ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
 		if !ok && !upgrade {
-			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: Installed "+
-				"version %s of repository %s does not match desired "+
-				"version %s in project file.  You can fix this by either upgrading"+
-				" your repository, or modifying the project.yml file.\n",
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"WARNING: Installed version %s of repository %s does not "+
+					"match desired version %s in project file.  You can fix "+
+					"this by either upgrading your repository, or modifying "+
+					"the project.yml file.\n",
 				vers, rname, r.VersionRequirementsString())
-			return true, err
+			return true, nil
 		} else {
 			if !upgrade {
-				util.StatusMessage(util.VERBOSITY_VERBOSE, "%s correct version already installed\n", r.Name())
+				util.StatusMessage(util.VERBOSITY_VERBOSE,
+					"%s correct version already installed\n", r.Name())
 				return true, nil
 			} else {
 				skip, err := proj.upgradeCheck(r, vers, force)
@@ -265,9 +289,10 @@ func (proj *Project) checkVersionRequirements(r *repo.Repo, upgrade bool, force 
 		// that can satisfy.
 		_, _, ok := rdesc.Match(r)
 		if !ok {
-			fmt.Printf("WARNING: No matching repository version found for repository "+
-				"%s specified in project.\n", r.Name())
-			return true, err
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"WARNING: No matching repository version found for "+
+					"repository %s specified in project.\n", r.Name())
+			return true, nil
 		}
 	}
 
@@ -318,27 +343,43 @@ func (proj *Project) UpdateRepos() error {
 }
 
 func (proj *Project) Install(upgrade bool, force bool) error {
-	repoList := proj.Repos()
+	repoList := proj.SortedRepos()
 
-	for rname, _ := range repoList {
-		// Ignore the local repo on install
-		if rname == repo.REPO_NAME_LOCAL {
-			continue
-		}
+	var verb string
+	if upgrade {
+		verb = "upgraded"
+	} else {
+		verb = "installed"
+	}
 
-		// First thing we do is update repository description.  This
-		// will get us available branches and versions in the repository.
-		if err := proj.UpdateRepos(); err != nil {
-			return err
+	// For a forced install, delete all existing repos.
+	if !upgrade && force {
+		for _, r := range repoList {
+			// Don't delete the local project directory!
+			if !r.IsLocal() {
+				util.StatusMessage(util.VERBOSITY_DEFAULT,
+					"Removing old copy of \"%s\" (%s)\n", r.Name(), r.Path())
+				os.RemoveAll(r.Path())
+				proj.projState.Delete(r.Name())
+			}
 		}
 	}
 
-	// Get repository list, and print every repo and it's dependencies.
-	if err := repo.CheckDeps(upgrade, proj.Repos()); err != nil {
+	// Fetch "origin" for all repos and copy the current version of
+	// `repository.yml`.
+	if err := proj.UpdateRepos(); err != nil {
 		return err
 	}
 
-	for rname, r := range proj.Repos() {
+	// Now that all repos have been successfully fetched, we can finish the
+	// install procedure locally.
+
+	// Get repository list and print every repo and its dependencies.
+	if err := repo.CheckDeps(proj.Repos()); err != nil {
+		return err
+	}
+
+	for _, r := range repoList {
 		if r.IsLocal() {
 			continue
 		}
@@ -349,25 +390,35 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 			return err
 		}
 		if skip {
-			continue
-		}
-
-		// Do the hard work of actually copying and installing the repository.
-		rvers, err := r.Install(upgrade || force)
-		if err != nil {
-			return err
-		}
-
-		if upgrade {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s successfully upgraded to version %s\n",
-				r.Name(), rvers.String())
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"Skipping \"%s\": already %s\n", r.Name(), verb)
 		} else {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s successfully installed version %s\n",
-				r.Name(), rvers.String())
-		}
+			var rvers *repo.Version
 
-		// Update the project state with the new repository version information.
-		proj.projState.Replace(rname, rvers)
+			if upgrade {
+				rvers, err = r.Upgrade(force)
+				if err != nil {
+					return err
+				}
+
+				util.StatusMessage(util.VERBOSITY_DEFAULT,
+					"%s successfully upgraded to version %s\n",
+					r.Name(), rvers.String())
+			} else {
+				rvers, err = r.Install(force)
+				if err != nil {
+					return err
+				}
+
+				util.StatusMessage(util.VERBOSITY_DEFAULT,
+					"%s successfully installed version %s\n",
+					r.Name(), rvers)
+			}
+
+			// Update the project state with the new repository version
+			// information.
+			proj.projState.Replace(r.Name(), rvers)
+		}
 	}
 
 	// Save the project state, including any updates or changes to the project

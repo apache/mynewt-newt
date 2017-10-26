@@ -199,7 +199,7 @@ func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
 	}
 }
 
-func CheckDeps(upgrade bool, checkRepos map[string]*Repo) error {
+func CheckDeps(checkRepos map[string]*Repo) error {
 	// For each dependency, get it's version
 	depArray := map[string][]*Version{}
 
@@ -436,8 +436,8 @@ func (r *Repo) downloadRepo(branchName string) error {
 	// Download the git repo, returns the git repo, checked out to that branch
 	tmpdir, err := dl.DownloadRepo(branchName)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Error download repository %s, : %s",
-			r.Name(), err.Error()))
+		return util.FmtNewtError("Error download repository %s, : %s",
+			r.Name(), err.Error())
 	}
 
 	// Copy the Git repo into the the desired local path of the repo
@@ -459,7 +459,7 @@ func (r *Repo) updateRepo(branchName string) error {
 	dl := r.downloader
 	err := dl.UpdateRepo(r.Path(), branchName)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Error updating\n"))
+		return util.NewNewtError("Error updating\n")
 	}
 	return nil
 }
@@ -468,7 +468,7 @@ func (r *Repo) cleanupRepo(branchName string) error {
 	dl := r.downloader
 	err := dl.CleanupRepo(r.Path(), branchName)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Error cleaning and updating\n"))
+		return util.NewNewtError("Error cleaning and updating\n")
 	}
 	return nil
 }
@@ -477,8 +477,8 @@ func (r *Repo) saveLocalDiff() (string, error) {
 	dl := r.downloader
 	diff, err := dl.LocalDiff(r.Path())
 	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf(
-			"Error creating diff for \"%s\" : %s", r.Name(), err.Error()))
+		return "", util.FmtNewtError("Error creating diff for \"%s\" : %s",
+			r.Name(), err.Error())
 	}
 
 	// NOTE: date was not a typo: https://golang.org/pkg/time/#Time.Format
@@ -487,15 +487,15 @@ func (r *Repo) saveLocalDiff() (string, error) {
 
 	f, err := os.Create(filename)
 	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf(
-			"Error creating repo diff file \"%s\"", filename))
+		return "",
+			util.FmtNewtError("Error creating repo diff file \"%s\"", filename)
 	}
 	defer f.Close()
 
 	_, err = f.Write(diff)
 	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf(
-			"Error writing repo diff file \"%s\"", filename))
+		return "",
+			util.FmtNewtError("Error writing repo diff file \"%s\"", filename)
 	}
 
 	return filename, nil
@@ -505,126 +505,121 @@ func (r *Repo) currentBranch() (string, error) {
 	dl := r.downloader
 	branch, err := dl.CurrentBranch(r.Path())
 	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Error finding current branch for \"%s\" : %s",
-			r.Name(), err.Error()))
+		return "",
+			util.FmtNewtError("Error finding current branch for \"%s\" : %s",
+				r.Name(), err.Error())
 	}
 	return filepath.Base(branch), nil
 }
 
 func (r *Repo) Install(force bool) (*Version, error) {
-	exists := util.NodeExist(r.Path())
-	if exists && !force {
-		return nil, util.NewNewtError(fmt.Sprintf(
-			"Repository %s already exists, provide the -f option "+
-				"to overwrite", r.Name()))
-	}
-
 	branchName, vers, found := r.rdesc.Match(r)
 	if !found {
-		return nil, util.NewNewtError(fmt.Sprintf("No repository "+
-			"matching description %s found", r.rdesc.String()))
+		return nil, util.FmtNewtError("No repository "+
+			"matching description %s found", r.rdesc.String())
 	}
 
-	// if the repo is already cloned, try to cleanup and checkout the requested branch
-	if exists {
-		err := r.cleanupRepo(branchName)
-		if err == nil {
-			return vers, nil
-		}
-
-		// cleanup failed, so remove current copy and let download clone again...
-		if err := os.RemoveAll(r.Path()); err != nil {
-			return nil, util.NewNewtError(err.Error())
-		}
-	}
-
-	// repo was not already cloned or cleanup failed...
-	if err := r.downloadRepo(branchName); err != nil {
+	if err := r.updateRepo(branchName); err != nil {
 		return nil, err
 	}
 
 	return vers, nil
 }
 
-func (r *Repo) Sync(vers *Version, force bool) (bool, bool, error) {
-	var exists bool
+func (r *Repo) Upgrade(force bool) (*Version, error) {
+	branchName, vers, found := r.rdesc.Match(r)
+	if !found {
+		return nil, util.FmtNewtError("No repository "+
+			"matching description %s found", r.rdesc.String())
+	}
+
+	changes, err := r.downloader.AreChanges(r.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	if changes && !force {
+		return nil, util.FmtNewtError(
+			"Repository \"%s\" contains local changes.  Provide the "+
+				"-f option to attempt a merge.", r.Name())
+	}
+
+	if err := r.downloader.UpdateRepo(r.Path(), branchName); err != nil {
+		return nil, err
+	}
+
+	return vers, nil
+}
+
+func (r *Repo) Sync(vers *Version, force bool) (bool, error) {
 	var err error
 	var currBranch string
 
-	exists = r.checkExists()
-
 	// Update the repo description
 	if _, updated, err := r.UpdateDesc(); updated != true || err != nil {
-		return exists, false, util.NewNewtError("Cannot update repository description.")
+		return false, util.NewNewtError("Cannot update repository description.")
 	}
 
 	branchName, _, found := r.rdesc.MatchVersion(vers)
 	if found == false {
-		return exists, false, util.NewNewtError(fmt.Sprintf(
+		return false, util.NewNewtError(fmt.Sprintf(
 			"Branch description for %s not found", r.Name()))
 	}
 
-	if exists {
-		// Here assuming that if the branch was changed by the user,
-		// the user must know what he's doing...
-		// but, if -f is passed let's just save the work and re-clone
-		currBranch, err = r.currentBranch()
+	// Here assuming that if the branch was changed by the user,
+	// the user must know what he's doing...
+	// but, if -f is passed let's just save the work and re-clone
+	currBranch, err = r.currentBranch()
 
-		// currBranch == HEAD means we're dettached from HEAD, so
-		// ignore and move to "new" tag
-		if err != nil {
-			return exists, false, err
-		} else if currBranch != "HEAD" && currBranch != branchName {
-			msg := "Unexpected local branch for %s: \"%s\" != \"%s\"\n"
-			if force {
-				util.StatusMessage(util.VERBOSITY_VERBOSE,
-					msg, r.rdesc.name, currBranch, branchName)
-			} else {
-				err = util.NewNewtError(
-					fmt.Sprintf(msg, r.rdesc.name, currBranch, branchName))
-				return exists, false, err
-			}
-		}
-
-		// Don't try updating if on an invalid branch...
-		if currBranch == "HEAD" || currBranch == branchName {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "Updating repository...\n")
-			err = r.updateRepo(branchName)
-			if err == nil {
-				util.StatusMessage(util.VERBOSITY_VERBOSE, "Update successful!\n")
-				return exists, true, err
-			} else {
-				util.StatusMessage(util.VERBOSITY_VERBOSE, "Update failed!\n")
-				if !force {
-					return exists, false, err
-				}
-			}
-		}
-
-		filename, err := r.saveLocalDiff()
-		if err != nil {
-			return exists, false, err
-		}
-		wd, _ := os.Getwd()
-		filename, _ = filepath.Rel(wd, filename)
-
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Saved local diff: "+
-			"\"%s\"\n", filename)
-
-		err = r.cleanupRepo(branchName)
-		if err != nil {
-			return exists, false, err
-		}
-
-	} else {
-		// fresh or updating was unsuccessfull and force was given...
-		err = r.downloadRepo(branchName)
-		if err != nil {
-			return exists, false, err
+	// currBranch == HEAD means we're dettached from HEAD, so
+	// ignore and move to "new" tag
+	if err != nil {
+		return false, err
+	} else if currBranch != "HEAD" && currBranch != branchName {
+		msg := "Unexpected local branch for %s: \"%s\" != \"%s\""
+		if force {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				msg+"\n", r.rdesc.name, currBranch, branchName)
+		} else {
+			err = util.FmtNewtError(
+				msg, r.rdesc.name, currBranch, branchName)
+			return false, err
 		}
 	}
 
-	return exists, true, nil
+	// Don't try updating if on an invalid branch...
+	if currBranch == "HEAD" || currBranch == branchName {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Updating repository \"%s\"... ", r.Name())
+		err = r.updateRepo(branchName)
+		if err == nil {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "success\n")
+			return true, err
+		} else {
+			util.StatusMessage(util.VERBOSITY_QUIET, "failed: %s\n",
+				err.Error())
+			if !force {
+				return false, err
+			}
+		}
+	}
+
+	filename, err := r.saveLocalDiff()
+	if err != nil {
+		return false, err
+	}
+	wd, _ := os.Getwd()
+	filename, _ = filepath.Rel(wd, filename)
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Saved local diff: "+
+		"\"%s\"\n", filename)
+
+	err = r.cleanupRepo(branchName)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
@@ -655,9 +650,13 @@ func (r *Repo) downloadRepositoryYml() error {
 	dl := r.downloader
 	dl.SetBranch("master")
 
+	// Clone the repo if it doesn't exist.
+	if util.NodeNotExist(r.localPath) {
+		r.downloadRepo("master")
+	}
+
 	cpath := r.repoFilePath()
-	if err := dl.FetchFile(REPO_FILE_NAME,
-		cpath+"/"+REPO_FILE_NAME); err != nil {
+	if err := dl.FetchFile(r.localPath, REPO_FILE_NAME, cpath); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Download failed\n")
 
 		return err
