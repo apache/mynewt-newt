@@ -107,7 +107,6 @@ var newtrc *viper.Viper
 func readNewtrc() *viper.Viper {
 	usr, err := user.Current()
 	if err != nil {
-		log.Warn("Failed to obtain user name")
 		return viper.New()
 	}
 
