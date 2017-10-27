@@ -294,8 +294,7 @@ func (pkg *LocalPackage) Save() error {
 	return nil
 }
 
-// Load reads everything that isn't identity specific into the
-// package
+// Load reads everything that isn't identity specific into the package
 func (pkg *LocalPackage) Load() error {
 	// Load configuration
 	log.Debugf("Loading configuration for package %s", pkg.basePath)
@@ -311,6 +310,11 @@ func (pkg *LocalPackage) Load() error {
 
 	// Set package name from the package
 	pkg.name = pkg.PkgV.GetString("pkg.name")
+	if pkg.name == "" {
+		return util.FmtNewtError(
+			"Package \"%s\" missing \"pkg.name\" field in its `pkg.yml` file",
+			pkg.basePath)
+	}
 
 	typeString := pkg.PkgV.GetString("pkg.type")
 	pkg.packageType = PACKAGE_TYPE_LIB
@@ -387,6 +391,11 @@ func (pkg *LocalPackage) Clone(newRepo *repo.Repo,
 func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {
 	pkg := NewLocalPackage(repo, pkgDir)
 	err := pkg.Load()
+	if err != nil {
+		err = util.FmtNewtError("%s; ignoring package.", err.Error())
+		return nil, err
+	}
+
 	return pkg, err
 }
 
