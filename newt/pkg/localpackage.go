@@ -294,6 +294,17 @@ func (pkg *LocalPackage) Save() error {
 	return nil
 }
 
+func matchNamePath(name, path string) bool {
+	// assure that name and path use the same path separator...
+	names := filepath.SplitList(name)
+	name = filepath.Join(names...)
+
+	if strings.HasSuffix(path, name) {
+		return true
+	}
+	return false
+}
+
 // Load reads everything that isn't identity specific into the package
 func (pkg *LocalPackage) Load() error {
 	// Load configuration
@@ -314,6 +325,12 @@ func (pkg *LocalPackage) Load() error {
 		return util.FmtNewtError(
 			"Package \"%s\" missing \"pkg.name\" field in its `pkg.yml` file",
 			pkg.basePath)
+	}
+
+	if !matchNamePath(pkg.name, pkg.basePath) {
+		return util.FmtNewtError(
+			"Package \"%s\" has incorrect \"pkg.name\" field in its "+
+				"`pkg.yml` file (pkg.name=%s)", pkg.basePath, pkg.name)
 	}
 
 	typeString := pkg.PkgV.GetString("pkg.type")
