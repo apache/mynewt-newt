@@ -22,8 +22,6 @@ package newtutil
 import (
 	"fmt"
 	"io/ioutil"
-	"os/user"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -40,9 +38,6 @@ var NewtVersionStr string = "Apache Newt version: 1.3.0"
 var NewtBlinkyTag string = "mynewt_1_3_0_tag"
 var NewtNumJobs int
 var NewtForce bool
-
-const NEWTRC_DIR string = ".newt"
-const REPOS_FILENAME string = "repos.yml"
 
 const CORE_REPO_NAME string = "apache-mynewt-core"
 const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"
@@ -100,34 +95,6 @@ func VerCmp(v1 Version, v2 Version) int64 {
 	}
 
 	return 0
-}
-
-// Contains general newt settings read from $HOME/.newt
-var newtrc *viper.Viper
-
-func readNewtrc() *viper.Viper {
-	usr, err := user.Current()
-	if err != nil {
-		return viper.New()
-	}
-
-	dir := usr.HomeDir + "/" + NEWTRC_DIR
-	v, err := util.ReadConfig(dir, strings.TrimSuffix(REPOS_FILENAME, ".yml"))
-	if err != nil {
-		log.Debugf("Failed to read %s/%s file", dir, REPOS_FILENAME)
-		return viper.New()
-	}
-
-	return v
-}
-
-func Newtrc() *viper.Viper {
-	if newtrc != nil {
-		return newtrc
-	}
-
-	newtrc = readNewtrc()
-	return newtrc
 }
 
 func GetSliceFeatures(v *viper.Viper, features map[string]bool,
