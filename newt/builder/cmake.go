@@ -41,7 +41,7 @@ func CmakeListsPath() string {
 }
 
 func EscapeName(name string) string {
-	return strings.Replace(name, "/","_", -1)
+	return strings.Replace(name, "/", "_", -1)
 }
 
 func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
@@ -200,7 +200,7 @@ func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *too
 
 	targetCompiler.LinkerScripts = t.bspPkg.LinkerScripts
 
-	if err := t.bspPkg.Reload(t.AppBuilder.cfg.Features()); err != nil {
+	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 

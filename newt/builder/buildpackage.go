@@ -128,20 +128,17 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	features := b.cfg.FeaturesForLpkg(bpkg.rpkg.Lpkg)
+	settings := b.cfg.SettingsForLpkg(bpkg.rpkg.Lpkg)
 
 	// Read each set of flags and expand repo designators ("@<repo-nme>") into
 	// paths.
-	ci.Cflags = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV, features,
-		"pkg.cflags")
+	ci.Cflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
 	expandFlags(ci.Cflags)
 
-	ci.Lflags = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV, features,
-		"pkg.lflags")
+	ci.Lflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
 	expandFlags(ci.Lflags)
 
-	ci.Aflags = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV, features,
-		"pkg.aflags")
+	ci.Aflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
 	expandFlags(ci.Aflags)
 
 	// Package-specific injected settings get specified as C flags on the
@@ -151,8 +148,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
-	ignPats := newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV,
-		features, "pkg.ign_files")
+	ignPats := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.ign_files", settings)
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -163,8 +159,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
-	ignPats = newtutil.GetStringSliceFeatures(bpkg.rpkg.Lpkg.PkgV,
-		features, "pkg.ign_dirs")
+	ignPats = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.ign_dirs", settings)
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -174,9 +169,8 @@ func (bpkg *BuildPackage) CompilerInfo(
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
-	bpkg.SourceDirectories = newtutil.GetStringSliceFeatures(
-		bpkg.rpkg.Lpkg.PkgV,
-		features, "pkg.src_dirs")
+	bpkg.SourceDirectories = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+		"pkg.src_dirs", settings)
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {

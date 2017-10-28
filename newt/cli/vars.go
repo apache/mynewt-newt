@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -57,7 +58,7 @@ func settingValues(settingName string) ([]string, error) {
 	packs := project.GetProject().PackagesOfType(-1)
 	for _, pack := range packs {
 		settings :=
-			pack.(*pkg.LocalPackage).PkgV.GetStringSlice(settingName)
+			pack.(*pkg.LocalPackage).PkgY.GetValStringSlice(settingName, nil)
 
 		for _, setting := range settings {
 			settingMap[setting] = struct{}{}
@@ -78,7 +79,7 @@ func buildProfileValues() ([]string, error) {
 
 	packs := project.GetProject().PackagesOfType(pkg.PACKAGE_TYPE_COMPILER)
 	for _, pack := range packs {
-		v, err := util.ReadConfig(pack.(*pkg.LocalPackage).BasePath(),
+		v, err := newtutil.ReadConfig(pack.(*pkg.LocalPackage).BasePath(),
 			"compiler")
 		if err != nil {
 			return nil, err

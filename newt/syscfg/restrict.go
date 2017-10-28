@@ -17,12 +17,49 @@
  * under the License.
  */
 
+// Currently, two forms of restrictions are supported:
+// 1. "$notnull"
+// 2. expression
+//
+// The "$notnull" string indicates that the setting must be set to something
+// other than the empty string.
+//
+// An expression string can take two forms:
+// 1. Full expression
+// 2. Shorthand
+//
+// A full expression has the same syntax as syscfg expressions.
+//
+// A shorthand expression has one of the following forms:
+//     [!]<req-setting>
+//     (DEPRECATED) [!]<req-setting> if <base-val>
+//     (DEPRECATED) [!]<req-setting> if <expression>
+//
+// Examples:
+//     # Can't enable this setting unless LOG_FCB is enabled.
+//     # (shorthand)
+//     pkg.restrictions:
+//         - LOG_FCB
+//
+//     # Can't enable this setting unless LOG_FCB is disabled.
+//     # (shorthand)
+//     pkg.restrictions:
+//         - !LOG_FCB
+//
+//     # Can't enable this setting (`MYSETTING`) unless LOG_FCB is enabled and
+//     # CONSOLE_UART is set to "uart0".
+//     # (full expression)
+//     pkg.restrictions:
+//         - '(LOG_FCB && CONSOLE_UART == "uart0") || !MYSETTING
+
 package syscfg
 
 import (
 	"fmt"
-	"strings"
 
+	log "github.com/Sirupsen/logrus"
+
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -37,85 +74,12 @@ var cfgRestrictionNameCodeMap = map[string]CfgRestrictionCode{
 	"$notnull": CFG_RESTRICTION_CODE_NOTNULL,
 }
 
-type CfgRestrictionExpr struct {
-	ReqSetting string
-	ReqVal     bool
-	BaseVal    bool
-}
 type CfgRestriction struct {
 	BaseSetting string
 	Code        CfgRestrictionCode
 
 	// Only used if Code is CFG_RESTRICTION_CODE_EXPR
-	Expr CfgRestrictionExpr
-}
-
-func parseRestrictionExprConsequent(field string) (string, bool) {
-	var val bool
-	var name string
-
-	if strings.HasPrefix(field, "!") {
-		val = false
-		name = strings.TrimPrefix(field, "!")
-	} else {
-		val = true
-		name = field
-	}
-
-	return name, val
-}
-
-// Parses a restriction value.
-//
-// Currently, two forms of restrictions are supported:
-// 1. "$notnull"
-// 2. expression
-//
-// The "$notnull" string indicates that the setting must be set to something
-// other than the empty string.
-//
-// An expression string indicates dependencies on other settings.  It would be
-// better to have a real expression parser.  For now, only very simple
-// expressions are supported.  A restriction expression must be of the
-// following form:
-//     [!]<req-setting> [if <base-val>]
-//
-// All setting values are interpreted as booleans.  If a setting is "0", "",
-// or undefined, it is false; otherwise it is true.
-//
-// Examples:
-//     # Can't enable this setting unless LOG_FCB is enabled.
-//	   pkg.restrictions:
-//         LOG_FCB
-//
-//     # Can't enable this setting unless LOG_FCB is disabled.
-//	   pkg.restrictions:
-//         !LOG_FCB
-//
-//     # Can't disable this setting unless LOG_FCB is enabled.
-//	   pkg.restrictions:
-//         LOG_FCB if 0
-func readRestrictionExpr(text string) (CfgRestrictionExpr, error) {
-	e := CfgRestrictionExpr{}
-
-	fields := strings.Fields(text)
-	switch len(fields) {
-	case 1:
-		e.ReqSetting, e.ReqVal = parseRestrictionExprConsequent(fields[0])
-		e.BaseVal = true
-
-	case 3:
-		if fields[1] != "if" {
-			return e, util.FmtNewtError("invalid restriction: %s", text)
-		}
-		e.ReqSetting, e.ReqVal = parseRestrictionExprConsequent(fields[0])
-		e.BaseVal = ValueIsTrue(fields[2])
-
-	default:
-		return e, util.FmtNewtError("invalid restriction: %s", text)
-	}
-
-	return e, nil
+	Expr string
 }
 
 func readRestriction(baseSetting string, text string) (CfgRestriction, error) {
@@ -128,70 +92,107 @@ func readRestriction(baseSetting string, text string) (CfgRestriction, error) {
 		// If the restriction text isn't a defined string, parse it as an
 		// expression.
 		r.Code = CFG_RESTRICTION_CODE_EXPR
-
-		var err error
-		if r.Expr, err = readRestrictionExpr(text); err != nil {
-			return r, err
-		}
+		r.Expr = text
 	}
 
 	return r, nil
 }
 
+func translateShorthandExpr(expr string, baseSetting string) string {
+	tokens, err := parse.Lex(expr)
+	if err != nil {
+		return ""
+	}
+
+	ifi := -1
+	var ift *parse.Token
+	for i, t := range tokens {
+		if t.Code == parse.TOKEN_IDENT && t.Text == "if" {
+			ifi = i
+			ift = &t
+			break
+		}
+	}
+
+	if ifi == 0 || ifi == len(tokens)-1 {
+		return ""
+	}
+
+	if ifi == -1 {
+		if parse.FindBinaryToken(tokens) == -1 {
+			// [!]<req-setting>
+			return fmt.Sprintf("(%s) || !%s", expr, baseSetting)
+		} else {
+			// Full expression
+			return ""
+		}
+	}
+
+	if parse.FindBinaryToken(tokens[ifi+1:]) == -1 {
+		// [!]<req-setting> if <base-val>
+		return fmt.Sprintf("(%s) || %s != (%s)",
+			expr[:ift.Offset], baseSetting, expr[tokens[ifi+1].Offset:])
+	} else {
+		// [!]<req-setting> if <expression>
+		return fmt.Sprintf("(%s) || !(%s)",
+			expr[:ift.Offset], expr[tokens[ifi+1].Offset:])
+	}
+}
+
+func normalizeExpr(expr string, baseSetting string) string {
+	shexpr := translateShorthandExpr(expr, baseSetting)
+	if shexpr != "" {
+		log.Debugf("Translating shorthand restriction: `%s` ==> `%s`",
+			expr, shexpr)
+		expr = shexpr
+	}
+
+	return expr
+}
+
 func (cfg *Cfg) violationText(entry CfgEntry, r CfgRestriction) string {
+	prefix := fmt.Sprintf("%s(%s) ", entry.Name, entry.Value)
 	if r.Code == CFG_RESTRICTION_CODE_NOTNULL {
-		return entry.Name + " must not be null"
-	}
-
-	str := fmt.Sprintf("%s=%s ", entry.Name, entry.Value)
-	if r.Expr.ReqVal {
-		str += fmt.Sprintf("requires %s be set", r.Expr.ReqSetting)
+		return prefix + "must not be null"
 	} else {
-		str += fmt.Sprintf("requires %s not be set", r.Expr.ReqSetting)
+		return prefix + "requires: " + r.Expr
 	}
-
-	str += fmt.Sprintf(", but %s", r.Expr.ReqSetting)
-	reqEntry, ok := cfg.Settings[r.Expr.ReqSetting]
-	if !ok {
-		str += "undefined"
-	} else {
-		str += fmt.Sprintf("=%s", reqEntry.Value)
-	}
-
-	return str
 }
 
 func (r *CfgRestriction) relevantSettingNames() []string {
-	switch r.Code {
-	case CFG_RESTRICTION_CODE_NOTNULL:
-		return []string{r.BaseSetting}
+	names := []string{r.BaseSetting}
 
-	case CFG_RESTRICTION_CODE_EXPR:
-		return []string{r.BaseSetting, r.Expr.ReqSetting}
-
-	default:
-		panic("Invalid restriction code: " + string(r.Code))
+	if r.Code == CFG_RESTRICTION_CODE_EXPR {
+		tokens, _ := parse.Lex(normalizeExpr(r.Expr, r.BaseSetting))
+		for _, token := range tokens {
+			if token.Code == parse.TOKEN_IDENT {
+				names = append(names, token.Text)
+			}
+		}
 	}
+
+	return names
 }
 
-func (cfg *Cfg) restrictionMet(r CfgRestriction) bool {
+func (cfg *Cfg) restrictionMet(
+	r CfgRestriction, settings map[string]string) bool {
+
 	baseEntry := cfg.Settings[r.BaseSetting]
-	baseVal := baseEntry.IsTrue()
 
 	switch r.Code {
 	case CFG_RESTRICTION_CODE_NOTNULL:
 		return baseEntry.Value != ""
 
 	case CFG_RESTRICTION_CODE_EXPR:
-		if baseVal != r.Expr.BaseVal {
-			// Restriction does not apply.
+		expr := normalizeExpr(r.Expr, r.BaseSetting)
+		val, err := parse.ParseAndEval(expr, settings)
+		if err != nil {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"WARNING: ignoring illegal expression for setting \"%s\": "+
+					"`%s` %s\n", r.BaseSetting, r.Expr, err.Error())
 			return true
 		}
-
-		reqEntry, ok := cfg.Settings[r.Expr.ReqSetting]
-		reqVal := ok && reqEntry.IsTrue()
-
-		return reqVal == r.Expr.ReqVal
+		return val
 
 	default:
 		panic("Invalid restriction code: " + string(r.Code))

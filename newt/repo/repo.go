@@ -36,8 +36,8 @@ import (
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
 const REPO_NAME_LOCAL = "local"
@@ -710,7 +710,7 @@ func (r *Repo) DownloadDesc() error {
 	return nil
 }
 
-func (r *Repo) readDepRepos(v *viper.Viper) ([]*Repo, error) {
+func (r *Repo) readDepRepos(yc ycfg.YCfg) ([]*Repo, error) {
 	rdesc := r.rdesc
 	repos := []*Repo{}
 
@@ -723,7 +723,7 @@ func (r *Repo) readDepRepos(v *viper.Viper) ([]*Repo, error) {
 
 	repoTag := fmt.Sprintf("%s.repositories", branch)
 
-	repoList := v.GetStringMap(repoTag)
+	repoList := yc.GetValStringMap(repoTag, nil)
 	for repoName, repoItf := range repoList {
 		repoVars := cast.ToStringMapString(repoItf)
 
@@ -757,14 +757,14 @@ func (r *Repo) ReadDesc() (*RepoDesc, []*Repo, error) {
 			util.NewNewtError("No configuration exists for repository " + r.name)
 	}
 
-	v, err := util.ReadConfig(r.repoFilePath(),
+	yc, err := newtutil.ReadConfig(r.repoFilePath(),
 		strings.TrimSuffix(REPO_FILE_NAME, ".yml"))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	name := v.GetString("repo.name")
-	versMap := v.GetStringMapString("repo.versions")
+	name := yc.GetValString("repo.name", nil)
+	versMap := yc.GetValStringMapString("repo.versions", nil)
 
 	rdesc, err := NewRepoDesc(name, versMap)
 	if err != nil {
@@ -772,13 +772,13 @@ func (r *Repo) ReadDesc() (*RepoDesc, []*Repo, error) {
 	}
 	r.rdesc = rdesc
 
-	repos, err := r.readDepRepos(v)
+	repos, err := r.readDepRepos(yc)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Read the newt version compatibility map.
-	r.ncMap, err = compat.ReadNcMap(v)
+	r.ncMap, err = compat.ReadNcMap(yc)
 	if err != nil {
 		return nil, nil, err
 	}

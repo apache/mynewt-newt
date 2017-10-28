@@ -27,8 +27,8 @@ import (
 	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
 type NewtCompatCode int
@@ -104,9 +104,9 @@ func ParseNcTable(strMap map[string]string) (NewtCompatTable, error) {
 	return tbl, nil
 }
 
-func ReadNcMap(v *viper.Viper) (NewtCompatMap, error) {
+func ReadNcMap(yc ycfg.YCfg) (NewtCompatMap, error) {
 	mp := NewtCompatMap{}
-	ncMap := v.GetStringMap("repo.newt_compatibility")
+	ncMap := yc.GetValStringMap("repo.newt_compatibility", nil)
 
 	for k, v := range ncMap {
 		repoVer, err := newtutil.ParseVersion(k)

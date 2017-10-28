@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
@@ -73,7 +74,7 @@ func (target *Target) Init(basePkg *pkg.LocalPackage) {
 }
 
 func (target *Target) Load(basePkg *pkg.LocalPackage) error {
-	v, err := util.ReadConfig(basePkg.BasePath(),
+	yc, err := newtutil.ReadConfig(basePkg.BasePath(),
 		strings.TrimSuffix(TARGET_FILENAME, ".yml"))
 	if err != nil {
 		return err
@@ -81,8 +82,7 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	target.Vars = map[string]string{}
 
-	settings := v.AllSettings()
-	for k, v := range settings {
+	for k, v := range yc.AllSettings() {
 		target.Vars[k] = fmt.Sprintf("%v", v)
 	}
 

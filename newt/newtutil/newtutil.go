@@ -22,15 +22,14 @@ package newtutil
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/spf13/cast"
-
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
+	"mynewt.apache.org/newt/yaml"
 )
 
 var NewtVersion Version = Version{1, 3, 0}
@@ -95,115 +94,6 @@ func VerCmp(v1 Version, v2 Version) int64 {
 	}
 
 	return 0
-}
-
-func GetSliceFeatures(v *viper.Viper, features map[string]bool,
-	key string) []interface{} {
-
-	val := v.Get(key)
-	vals := []interface{}{val}
-
-	// Process the features in alphabetical order to ensure consistent
-	// results across repeated runs.
-	featureKeys := make([]string, 0, len(features))
-	for feature, _ := range features {
-		featureKeys = append(featureKeys, feature)
-	}
-	sort.Strings(featureKeys)
-
-	for _, feature := range featureKeys {
-		overwriteVal := v.Get(key + "." + feature + ".OVERWRITE")
-		if overwriteVal != nil {
-			return []interface{}{overwriteVal}
-		}
-
-		appendVal := v.Get(key + "." + feature)
-		if appendVal != nil {
-			vals = append(vals, appendVal)
-		}
-	}
-
-	return vals
-}
-
-func GetStringMapFeatures(v *viper.Viper, features map[string]bool,
-	key string) map[string]interface{} {
-
-	result := map[string]interface{}{}
-
-	slice := GetSliceFeatures(v, features, key)
-	for _, itf := range slice {
-		sub := cast.ToStringMap(itf)
-		for k, v := range sub {
-			result[k] = v
-		}
-	}
-
-	return result
-}
-
-func GetStringFeatures(v *viper.Viper, features map[string]bool,
-	key string) string {
-	val := v.GetString(key)
-
-	// Process the features in alphabetical order to ensure consistent
-	// results across repeated runs.
-	var featureKeys []string
-	for feature, _ := range features {
-		featureKeys = append(featureKeys, feature)
-	}
-	sort.Strings(featureKeys)
-
-	for _, feature := range featureKeys {
-		overwriteVal := v.GetString(key + "." + feature + ".OVERWRITE")
-		if overwriteVal != "" {
-			val = strings.Trim(overwriteVal, "\n")
-			break
-		}
-
-		appendVal := v.GetString(key + "." + feature)
-		if appendVal != "" {
-			val += " " + strings.Trim(appendVal, "\n")
-		}
-	}
-	return strings.TrimSpace(val)
-}
-
-func GetBoolFeaturesDflt(v *viper.Viper, features map[string]bool,
-	key string, dflt bool) (bool, error) {
-
-	s := GetStringFeatures(v, features, key)
-	if s == "" {
-		return dflt, nil
-	}
-
-	b, err := strconv.ParseBool(s)
-	if err != nil {
-		return dflt, util.FmtNewtError("invalid bool value for %s: %s",
-			key, s)
-	}
-
-	return b, nil
-}
-
-func GetBoolFeatures(v *viper.Viper, features map[string]bool,
-	key string) (bool, error) {
-
-	return GetBoolFeaturesDflt(v, features, key, false)
-}
-
-func GetStringSliceFeatures(v *viper.Viper, features map[string]bool,
-	key string) []string {
-
-	vals := GetSliceFeatures(v, features, key)
-
-	strVals := []string{}
-	for _, v := range vals {
-		subVals := cast.ToStringSlice(v)
-		strVals = append(strVals, subVals...)
-	}
-
-	return strVals
 }
 
 // Parses a string of the following form:
@@ -283,4 +173,21 @@ func MakeTempRepoDir() (string, error) {
 	}
 
 	return tmpdir, nil
+}
+
+// Read in the configuration file specified by name, in path
+// return a new viper config object if successful, and error if not
+func ReadConfig(path string, name string) (ycfg.YCfg, error) {
+	file, err := ioutil.ReadFile(path + "/" + name + ".yml")
+	if err != nil {
+		return nil, util.NewNewtError(fmt.Sprintf("Error reading %s.yml: %s",
+			filepath.Join(path, name), err.Error()))
+	}
+
+	settings := map[string]interface{}{}
+	if err := yaml.Unmarshal(file, &settings); err != nil {
+		return nil, err
+	}
+
+	return ycfg.NewYCfg(settings)
 }

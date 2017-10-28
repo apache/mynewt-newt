@@ -35,8 +35,8 @@ import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 	"mynewt.apache.org/newt/yaml"
 )
 
@@ -70,10 +70,10 @@ type LocalPackage struct {
 	injectedSettings map[string]string
 
 	// Settings read from pkg.yml.
-	PkgV *viper.Viper
+	PkgY ycfg.YCfg
 
 	// Settings read from syscfg.yml.
-	SyscfgV *viper.Viper
+	SyscfgY ycfg.YCfg
 
 	// Names of all source yml files; used to determine if rebuild required.
 	cfgFilenames []string
@@ -82,8 +82,8 @@ type LocalPackage struct {
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 	pkg := &LocalPackage{
 		desc:             &PackageDesc{},
-		PkgV:             viper.New(),
-		SyscfgV:          viper.New(),
+		PkgY:             ycfg.YCfg{},
+		SyscfgY:          ycfg.YCfg{},
 		repo:             r,
 		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
 		init:             map[string]int{},
@@ -128,8 +128,6 @@ func (pkg *LocalPackage) Desc() *PackageDesc {
 
 func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
-	// XXX: Also set "pkg.name" in viper object (possibly just remove cached
-	// variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetBasePath(basePath string) {
@@ -138,14 +136,10 @@ func (pkg *LocalPackage) SetBasePath(basePath string) {
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
-	// XXX: Also set "pkg.type" in viper object (possibly just remove cached
-	// variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
 	pkg.desc = desc
-	// XXX: Also set desc fields in viper object (possibly just remove cached
-	// variable from code entirely).
 }
 
 func (pkg *LocalPackage) SetRepo(r *repo.Repo) {
@@ -192,13 +186,13 @@ func (pkg *LocalPackage) AddCfgFilename(cfgFilename string) {
 	pkg.cfgFilenames = append(pkg.cfgFilenames, cfgFilename)
 }
 
-func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
+func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 	pdesc := &PackageDesc{}
 
-	pdesc.Author = v.GetString("pkg.author")
-	pdesc.Homepage = v.GetString("pkg.homepage")
-	pdesc.Description = v.GetString("pkg.description")
-	pdesc.Keywords = v.GetStringSlice("pkg.keywords")
+	pdesc.Author = yc.GetValString("pkg.author", nil)
+	pdesc.Homepage = yc.GetValString("pkg.homepage", nil)
+	pdesc.Description = yc.GetValString("pkg.description", nil)
+	pdesc.Keywords = yc.GetValStringSlice("pkg.keywords", nil)
 
 	return pdesc, nil
 }
@@ -206,8 +200,8 @@ func (pkg *LocalPackage) readDesc(v *viper.Viper) (*PackageDesc, error) {
 func (pkg *LocalPackage) sequenceString(key string) string {
 	var buffer bytes.Buffer
 
-	if pkg.PkgV != nil {
-		for _, f := range pkg.PkgV.GetStringSlice(key) {
+	if pkg.PkgY != nil {
+		for _, f := range pkg.PkgY.GetValStringSlice(key, nil) {
 			buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
 		}
 	}
@@ -227,7 +221,7 @@ func (lpkg *LocalPackage) SaveSyscfgVals() error {
 
 	filepath := dirpath + "/" + SYSCFG_YAML_FILENAME
 
-	syscfgVals := lpkg.SyscfgV.GetStringMapString("syscfg.vals")
+	syscfgVals := lpkg.SyscfgY.GetValStringMapString("syscfg.vals", nil)
 	if syscfgVals == nil || len(syscfgVals) == 0 {
 		os.Remove(filepath)
 		return nil
@@ -273,7 +267,7 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString("### Package: " + pkg.Name() + "\n")
 
-	// XXX: Just iterate viper object's settings rather than calling out
+	// XXX: Just iterate ycfg object's settings rather than calling out
 	// cached settings individually.
 	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
 	file.WriteString("pkg.type: " +
@@ -312,7 +306,7 @@ func (pkg *LocalPackage) Load() error {
 
 	var err error
 
-	pkg.PkgV, err = util.ReadConfig(pkg.basePath,
+	pkg.PkgY, err = newtutil.ReadConfig(pkg.basePath,
 		strings.TrimSuffix(PACKAGE_FILE_NAME, ".yml"))
 	if err != nil {
 		return err
@@ -320,7 +314,7 @@ func (pkg *LocalPackage) Load() error {
 	pkg.AddCfgFilename(pkg.basePath + "/" + PACKAGE_FILE_NAME)
 
 	// Set package name from the package
-	pkg.name = pkg.PkgV.GetString("pkg.name")
+	pkg.name = pkg.PkgY.GetValString("pkg.name", nil)
 	if pkg.name == "" {
 		return util.FmtNewtError(
 			"Package \"%s\" missing \"pkg.name\" field in its `pkg.yml` file",
@@ -333,7 +327,7 @@ func (pkg *LocalPackage) Load() error {
 				"`pkg.yml` file (pkg.name=%s)", pkg.basePath, pkg.name)
 	}
 
-	typeString := pkg.PkgV.GetString("pkg.type")
+	typeString := pkg.PkgY.GetValString("pkg.type", nil)
 	pkg.packageType = PACKAGE_TYPE_LIB
 	for t, n := range PackageTypeNames {
 		if typeString == n {
@@ -342,7 +336,7 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
-	init := pkg.PkgV.GetStringMapString("pkg.init")
+	init := pkg.PkgY.GetValStringMapString("pkg.init", nil)
 	for name, stageStr := range init {
 		stage, err := strconv.ParseInt(stageStr, 10, 64)
 		if err != nil {
@@ -351,22 +345,22 @@ func (pkg *LocalPackage) Load() error {
 		}
 		pkg.init[name] = int(stage)
 	}
-	initFnName := pkg.PkgV.GetString("pkg.init_function")
-	initStage := pkg.PkgV.GetInt("pkg.init_stage")
+	initFnName := pkg.PkgY.GetValString("pkg.init_function", nil)
+	initStage := pkg.PkgY.GetValInt("pkg.init_stage", nil)
 
 	if initFnName != "" {
 		pkg.init[initFnName] = initStage
 	}
 
 	// Read the package description from the file
-	pkg.desc, err = pkg.readDesc(pkg.PkgV)
+	pkg.desc, err = pkg.readDesc(pkg.PkgY)
 	if err != nil {
 		return err
 	}
 
 	// Load syscfg settings.
 	if util.NodeExist(pkg.basePath + "/" + SYSCFG_YAML_FILENAME) {
-		pkg.SyscfgV, err = util.ReadConfig(pkg.basePath,
+		pkg.SyscfgY, err = newtutil.ReadConfig(pkg.basePath,
 			strings.TrimSuffix(SYSCFG_YAML_FILENAME, ".yml"))
 		if err != nil {
 			return err

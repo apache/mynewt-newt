@@ -192,9 +192,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 
 	warningText := strings.TrimSpace(t.res.WarningText())
 	if warningText != "" {
-		for _, line := range strings.Split(warningText, "\n") {
-			log.Debugf(line)
-		}
+		log.Debug(warningText)
 	}
 
 	if err := syscfg.EnsureWritten(t.res.Cfg,
@@ -312,7 +310,7 @@ func (t *TargetBuilder) buildLoader() error {
 	/* rebuild the loader */
 	project.ResetDeps(t.LoaderList)
 
-	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.Features()); err != nil {
+	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 
@@ -357,7 +355,7 @@ func (t *TargetBuilder) Build() error {
 	/* Build the Apps */
 	project.ResetDeps(t.AppList)
 
-	if err := t.bspPkg.Reload(t.AppBuilder.cfg.Features()); err != nil {
+	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 
@@ -572,7 +570,8 @@ func (t *TargetBuilder) createManifest() error {
 	for _, k := range keys {
 		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
 	}
-	syscfgKV := t.GetTarget().Package().SyscfgV.GetStringMapString("syscfg.vals")
+	syscfgKV := t.GetTarget().Package().SyscfgY.GetValStringMapString(
+		"syscfg.vals", nil)
 	if len(syscfgKV) > 0 {
 		tgtSyscfg := fmt.Sprintf("target.syscfg=%s",
 			syscfg.KeyValueToStr(syscfgKV))
@@ -793,7 +792,7 @@ func (t *TargetBuilder) CreateImages(version string,
 			t.LoaderBuilder.AppHexPath(),
 			tgtArea.Offset)
 		err = c.ConvertBinToHex(t.LoaderBuilder.AppImgPath(),
-				t.LoaderBuilder.AppHexPath(), tgtArea.Offset)
+			t.LoaderBuilder.AppHexPath(), tgtArea.Offset)
 		if err != nil {
 			log.Errorf("Can't convert to hexfile %s\n", err.Error())
 		}
@@ -807,7 +806,7 @@ func (t *TargetBuilder) CreateImages(version string,
 	flashTargetArea := ""
 	if t.LoaderBuilder == nil {
 		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_0
-	} else  {
+	} else {
 		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_1
 	}
 	tgtArea := t.bspPkg.FlashMap.Areas[flashTargetArea]
@@ -817,7 +816,7 @@ func (t *TargetBuilder) CreateImages(version string,
 			t.AppBuilder.AppHexPath(),
 			tgtArea.Offset)
 		err = c.ConvertBinToHex(t.AppBuilder.AppImgPath(),
-				t.AppBuilder.AppHexPath(), tgtArea.Offset)
+			t.AppBuilder.AppHexPath(), tgtArea.Offset)
 		if err != nil {
 			log.Errorf("Can't convert to hexfile %s\n", err.Error())
 		}

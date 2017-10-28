@@ -36,6 +36,7 @@ import (
 	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"
 )
@@ -128,44 +129,29 @@ func NewCfg() Cfg {
 	}
 }
 
-// Determines if a syscfg value is "true".  Only "" and a string representing 0
-// are considered false; everything else is true.
-func ValueIsTrue(val string) bool {
-	if val == "" {
-		return false
-	}
-
-	i, success := util.AtoiNoOctTry(val)
-	return !success || i != 0
-}
-
-func (cfg *Cfg) Features() map[string]bool {
-	features := map[string]bool{}
+func (cfg *Cfg) SettingValues() map[string]string {
+	values := make(map[string]string, len(cfg.Settings))
 	for k, v := range cfg.Settings {
-		if v.IsTrue() {
-			features[k] = true
-		}
+		values[k] = v.Value
 	}
 
-	return features
+	return values
 }
 
-func (cfg *Cfg) FeaturesForLpkg(lpkg *pkg.LocalPackage) map[string]bool {
-	features := cfg.Features()
+func (cfg *Cfg) SettingsForLpkg(lpkg *pkg.LocalPackage) map[string]string {
+	settings := cfg.SettingValues()
 
 	for k, v := range lpkg.InjectedSettings() {
-		_, ok := features[k]
+		_, ok := settings[k]
 		if ok {
 			log.Warnf("Attempt to override syscfg setting %s with "+
 				"injected feature from package %s", k, lpkg.Name())
 		} else {
-			if ValueIsTrue(v) {
-				features[k] = true
-			}
+			settings[k] = v
 		}
 	}
 
-	return features
+	return settings
 }
 
 func (point CfgPoint) Name() string {
@@ -181,7 +167,7 @@ func (point CfgPoint) IsInjected() bool {
 }
 
 func (entry *CfgEntry) IsTrue() bool {
-	return ValueIsTrue(entry.Value)
+	return parse.ValueIsTrue(entry.Value)
 }
 
 func (entry *CfgEntry) appendValue(lpkg *pkg.LocalPackage, value interface{}) {
@@ -192,6 +178,10 @@ func (entry *CfgEntry) appendValue(lpkg *pkg.LocalPackage, value interface{}) {
 }
 
 func historyToString(history []CfgPoint) string {
+	if len(history) == 0 {
+		return "(undefined)"
+	}
+
 	str := "["
 	for i, _ := range history {
 		if i != 0 {
@@ -316,24 +306,22 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 }
 
 func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
-	features map[string]bool) error {
-	v := lpkg.SyscfgV
+	settings map[string]string) error {
+	yc := lpkg.SyscfgY
 
-	lfeatures := cfg.FeaturesForLpkg(lpkg)
-	for k, v := range features {
-		if v {
-			lfeatures[k] = true
-		}
+	lsettings := cfg.SettingsForLpkg(lpkg)
+	for k, v := range settings {
+		lsettings[k] = v
 	}
-	for k, _ := range lfeatures {
-		if _, ok := features[k]; ok == false {
-			delete(lfeatures, k)
+	for k, _ := range lsettings {
+		if _, ok := settings[k]; ok == false {
+			delete(lsettings, k)
 		}
 	}
 
-	settings := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.defs")
-	if settings != nil {
-		for k, v := range settings {
+	defs := yc.GetValStringMap("syscfg.defs", lsettings)
+	if defs != nil {
+		for k, v := range defs {
 			vals := v.(map[interface{}]interface{})
 			entry, err := readSetting(k, lpkg, vals)
 			if err != nil {
@@ -361,22 +349,20 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 }
 
 func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
-	features map[string]bool) error {
-	v := lpkg.SyscfgV
+	settings map[string]string) error {
+	yc := lpkg.SyscfgY
 
-	lfeatures := cfg.FeaturesForLpkg(lpkg)
-	for k, v := range features {
-		if v {
-			lfeatures[k] = true
-		}
+	lsettings := cfg.SettingsForLpkg(lpkg)
+	for k, v := range settings {
+		lsettings[k] = v
 	}
-	for k, _ := range lfeatures {
-		if _, ok := features[k]; ok == false {
-			delete(lfeatures, k)
+	for k, _ := range lsettings {
+		if _, ok := settings[k]; ok == false {
+			delete(lsettings, k)
 		}
 	}
 
-	values := newtutil.GetStringMapFeatures(v, lfeatures, "syscfg.vals")
+	values := yc.GetValStringMap("syscfg.vals", lsettings)
 	for k, v := range values {
 		entry, ok := cfg.Settings[k]
 		if ok {
@@ -439,10 +425,11 @@ func (cfg *Cfg) settingsOfType(typ CfgSettingType) []CfgEntry {
 }
 
 func (cfg *Cfg) detectViolations() {
+	settings := cfg.SettingValues()
 	for _, entry := range cfg.Settings {
 		var ev []CfgRestriction
 		for _, r := range entry.Restrictions {
-			if !cfg.restrictionMet(r) {
+			if !cfg.restrictionMet(r, settings) {
 				ev = append(ev, r)
 			}
 		}
@@ -683,20 +670,20 @@ func categorizePkgs(
 }
 
 func (cfg *Cfg) readDefsForPkgType(lpkgs []*pkg.LocalPackage,
-	features map[string]bool) error {
+	settings map[string]string) error {
 
 	for _, lpkg := range lpkgs {
-		if err := cfg.readDefsOnce(lpkg, features); err != nil {
+		if err := cfg.readDefsOnce(lpkg, settings); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func (cfg *Cfg) readValsForPkgType(lpkgs []*pkg.LocalPackage,
-	features map[string]bool) error {
+	settings map[string]string) error {
 
 	for _, lpkg := range lpkgs {
-		if err := cfg.readValsOnce(lpkg, features); err != nil {
+		if err := cfg.readValsOnce(lpkg, settings); err != nil {
 			return err
 		}
 	}
@@ -713,7 +700,7 @@ func (cfg *Cfg) detectAmbiguities() {
 }
 
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
-	injectedSettings map[string]string, features map[string]bool,
+	injectedSettings map[string]string, settings map[string]string,
 	flashMap flash.FlashMap) (Cfg, error) {
 
 	cfg := NewCfg()
@@ -728,9 +715,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 			}},
 		}
 
-		if ValueIsTrue(v) {
-			features[k] = true
-		}
+		settings[k] = v
 	}
 
 	// Read system configuration files.  In case of conflicting settings, the
@@ -751,7 +736,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		pkg.PACKAGE_TYPE_APP,
 		pkg.PACKAGE_TYPE_TARGET,
 	} {
-		if err := cfg.readDefsForPkgType(lpkgMap[ptype], features); err != nil {
+		if err := cfg.readDefsForPkgType(lpkgMap[ptype], settings); err != nil {
 			return cfg, err
 		}
 	}
@@ -763,7 +748,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		pkg.PACKAGE_TYPE_APP,
 		pkg.PACKAGE_TYPE_TARGET,
 	} {
-		if err := cfg.readValsForPkgType(lpkgMap[ptype], features); err != nil {
+		if err := cfg.readValsForPkgType(lpkgMap[ptype], settings); err != nil {
 			return cfg, err
 		}
 	}

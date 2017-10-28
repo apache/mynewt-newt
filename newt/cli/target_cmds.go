@@ -36,8 +36,8 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
 var targetForce bool = false
@@ -81,11 +81,11 @@ func targetContainsUserFiles(t *target.Target) (bool, error) {
 }
 
 func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
-	features := pack.PkgV.GetStringSlice(key)
-	sort.Strings(features)
+	vals := pack.PkgY.GetValStringSlice(key, nil)
+	sort.Strings(vals)
 	var buffer bytes.Buffer
-	for _, f := range features {
-		buffer.WriteString(f)
+	for _, v := range vals {
+		buffer.WriteString(v)
 		buffer.WriteString(" ")
 	}
 	return buffer.String()
@@ -95,7 +95,7 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 func amendSysCfg(value string, t *target.Target) error {
 
 	// Get the current syscfg.vals name-value pairs
-	sysVals := t.Package().SyscfgV.GetStringMapString("syscfg.vals")
+	sysVals := t.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil)
 
 	// Convert the input syscfg into name-value pairs
 	amendSysVals, err := syscfg.KeyValueFromStr(value)
@@ -119,14 +119,14 @@ func amendSysCfg(value string, t *target.Target) error {
 			sysVals = amendSysVals
 		}
 	}
-	t.Package().SyscfgV.Set("syscfg.vals", sysVals)
+	t.Package().SyscfgY.Replace("syscfg.vals", sysVals)
 	return nil
 }
 
 //Process amend command for aflags, cflags, and lflags target variables.
 func amendBuildFlags(kv []string, t *target.Target) error {
-	pkg_var := "pkg." + kv[0]
-	curFlags := t.Package().PkgV.GetStringSlice(pkg_var)
+	pkgVar := "pkg." + kv[0]
+	curFlags := t.Package().PkgY.GetValStringSlice(pkgVar, nil)
 	amendFlags := strings.Fields(kv[1])
 
 	newFlags := []string{}
@@ -164,7 +164,7 @@ func amendBuildFlags(kv []string, t *target.Target) error {
 			}
 		}
 	}
-	t.Package().PkgV.Set(pkg_var, newFlags)
+	t.Package().PkgY.Replace(pkgVar, newFlags)
 	return nil
 }
 
@@ -206,7 +206,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 
 		// A few variables come from the base package rather than the target.
 		kvPairs["syscfg"] = syscfg.KeyValueToStr(
-			target.Package().SyscfgV.GetStringMapString("syscfg.vals"))
+			target.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil))
 		kvPairs["cflags"] = pkgVarSliceString(target.Package(), "pkg.cflags")
 		kvPairs["lflags"] = pkgVarSliceString(target.Package(), "pkg.lflags")
 		kvPairs["aflags"] = pkgVarSliceString(target.Package(), "pkg.aflags")
@@ -300,13 +300,13 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		// A few variables are special cases; they get set in the base package
 		// instead of the target.
 		if kv[0] == "target.syscfg" {
-			t.Package().SyscfgV = viper.New()
+			t.Package().SyscfgY = ycfg.YCfg{}
 			kv, err := syscfg.KeyValueFromStr(kv[1])
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
 
-			t.Package().SyscfgV.Set("syscfg.vals", kv)
+			t.Package().SyscfgY.Replace("syscfg.vals", kv)
 		} else if kv[0] == "target.cflags" ||
 			kv[0] == "target.lflags" ||
 			kv[0] == "target.aflags" {
@@ -314,9 +314,9 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 			kv[0] = "pkg." + strings.TrimPrefix(kv[0], "target.")
 			if kv[1] == "" {
 				// User specified empty value; delete variable.
-				t.Package().PkgV.Set(kv[0], nil)
+				t.Package().PkgY.Replace(kv[0], nil)
 			} else {
-				t.Package().PkgV.Set(kv[0], strings.Fields(kv[1]))
+				t.Package().PkgY.Replace(kv[0], strings.Fields(kv[1]))
 			}
 		} else {
 			if kv[1] == "" {
@@ -653,9 +653,7 @@ func targetBuilderConfigResolve(b *builder.TargetBuilder) *resolve.Resolution {
 
 	warningText := strings.TrimSpace(res.WarningText())
 	if warningText != "" {
-		for _, line := range strings.Split(warningText, "\n") {
-			log.Warn(line)
-		}
+		log.Warn(warningText)
 	}
 
 	return res
