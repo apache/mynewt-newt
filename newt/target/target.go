@@ -20,6 +20,7 @@
 package target
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -82,11 +83,7 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	settings := v.AllSettings()
 	for k, v := range settings {
-		var ok bool
-		target.Vars[k], ok = v.(string)
-		if !ok {
-			target.Vars[k] = strconv.Itoa(v.(int))
-		}
+		target.Vars[k] = fmt.Sprintf("%v", v)
 	}
 
 	target.BspName = target.Vars["target.bsp"]
