@@ -555,7 +555,7 @@ func (image *Image) generateV1(loader *Image) error {
 	}
 
 	imgFile, err := os.OpenFile(image.TargetImg,
-		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't open target image %s: %s",
 			image.TargetImg, err.Error()))
@@ -835,7 +835,7 @@ func (image *Image) generateV2(loader *Image) error {
 	}
 
 	imgFile, err := os.OpenFile(image.TargetImg,
-		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
 		return util.NewNewtError(fmt.Sprintf("Can't open target image %s: %s",
 			image.TargetImg, err.Error()))
