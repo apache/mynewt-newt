@@ -335,6 +335,25 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 		}
 		image.SigningEC = privateKey
 	}
+	if block != nil && block.Type == "PRIVATE KEY" {
+		// This indicates a PKCS#8 unencrypted private key.
+		// The particular type of key will be indicated within
+		// the key itself.
+		privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Private key parsing "+
+				"failed: %s", err))
+		}
+
+		switch priv := privateKey.(type) {
+		case *rsa.PrivateKey:
+			image.SigningRSA = priv
+		case *ecdsa.PrivateKey:
+			image.SigningEC = priv
+		default:
+			return util.NewNewtError("Unknown private key format")
+		}
+	}
 	if image.SigningEC == nil && image.SigningRSA == nil {
 		return util.NewNewtError("Unknown private key format, EC/RSA private " +
 			"key in PEM format only.")
