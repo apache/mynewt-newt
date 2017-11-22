@@ -25,6 +25,18 @@ func TestPlainEcdsaPkcs8(t *testing.T) {
 	signatureTest(t, ecdsaPkcs8Private)
 }
 
+func TestEncryptedRSA(t *testing.T) {
+	image.KeyPassword = []byte("sample")
+	signatureTest(t, rsaEncryptedPrivate)
+	image.KeyPassword = []byte{}
+}
+
+func TestEncryptedEcdsa(t *testing.T) {
+	image.KeyPassword = []byte("sample")
+	signatureTest(t, ecdsaEncryptedPrivate)
+	image.KeyPassword = []byte{}
+}
+
 func signatureTest(t *testing.T, privateKey []byte) {
 	tmpdir, err := ioutil.TempDir("", "newttest")
 	if err != nil {
@@ -167,4 +179,49 @@ MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgHKeDq4UU6M+c+pMm
 j0AQZlBs7f4r67668eDCUB8aDR2hRANCAATyZPzsx+xn9JtlxdspevTrYisiMTjl
 YuBJCrV1FZj2HkplEgO+ZIMuD7eRvyTEBS2bw6F1aCeKOMUmYVImAbpc
 -----END PRIVATE KEY-----
+`)
+
+// A password-protected RSA private key in PKCS#5/8 format.  The
+// password for this key is "sample".
+var rsaEncryptedPrivate = []byte(`-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIIFHzBJBgkqhkiG9w0BBQ0wPDAbBgkqhkiG9w0BBQwwDgQIRMifqJThk8kCAggA
+MB0GCWCGSAFlAwQBKgQQTMUBoFpzjJ5UNRnCIeqf4QSCBNDkQvXnUNmss8erKiDo
+Uqs2tf9ZD8MjDThLBmF/gV1dg1q6aDY+3fI2E4yLXJb2PmKcUq82YZ0FDeoCvJRJ
+BCurzM9slur5akpNBTFoFwtFsdHz7nKNS4MHUul22rGBnVFUUNTySmpjl/m+dxWO
+fa6tWpGTAr7tsCy9gF5PxpSw7NR/NpIL0PmpydHWhTs1tl2csqBqK6Tp014Kefi/
+pmmeb2eRl5cmprxW32rW2QBMtv4z91SsbnlVdz4r8txTG+3S4td9v9jD5kqcIiC2
+KQHrbH9y7okUk/ISsp9ANKPJt10fbYDxORiMK57XssXy1enGjpkIIrUGz1TMydkD
+USfwqkmPuIrrzOXnbxU4ef2wC/pA/h9Smby3WWYo8725/1kZyIediNDcgi/Qgrs4
+1VQAYzsD6duwyUNSo+tgmYVFGvZhsottus3fMWe/Ay1biJ6z6Vk8gqKWI1VV/REJ
+zK/I9hgKGxj2N2Ff6E/YkcwQenHWj/iDWLjvokyOBnPFNqzzM2Qqo1XFpzj4EO5D
+0WD4EzZYvUhk3lZZNydvXiuy8RrCVLLJMS08XgOqQaiFqqxj2hjRwv3nBesk7iA8
+5Tv8GMa5QkNrISCnp4/uGBh+v/CjwVRqPTcK3/mctPN2nLhI6H4pF4Y6apXkz1TN
+NMQqxaxmVVg8fyLaS4/xfUr8LAmiEtOwvs0XOhcqCTvvlsO4N+yec4VD4gmsTDY9
+/2b/+YwSlGMpA+GQQbg0FraaF8NyJRG1mSER6WiUGGM1cuKK44nzBbykQbZwzDSA
+kkhjDaadkhv/NPKAUR3sNy2GXVaNL/ItCpQUHRKKcIPp0HhdXsl0YebuwRlHjw/6
+UOdzNYe23e40X/Xl3vmOKRbzhLP/qO2DV21o0wI4ujF8Xu5h1h8s49HPp58G1ldy
+/hJ6durYKX8T5khiR2iXYewoy0YObuccV//Ov1/ySOp/x0/QuCl/swvs8Jf7awnu
+rpRrHPArpCvMmXmt5Y+TFYXFjkJGwsxTew5TcwBebBlIET2XNbo2pbz4WqJ3eVlK
+CNZVDEZ8mMrGT00FBi759Vfw9rhrnqXnLlNtJZ5VCXFUw8Tos302sLaQWXzHYyf8
+4awM8G9PSu5Q9lFcN9od4H95YrAAv/l8F+pcGgEKD8ZuzsgFIalqgx5wzmUMDcPM
+NKV5u9mtHjI92ru6NB8rGesM6sy6kBGvpotsDWawpV2SoCrkbyEkk+kXaGS+fsG7
+D2H37GfktN8R5Ktc0Uf/JJiNfDzq8lk1J4r7LBQlWUbhKbfGMYxt+7Xo0GsqAsLp
+PKSUwx+hTZb3BmW6s4Q6vivI1MdQbWVT1zh41StvfRSNlo70iOFxOM0lU1jjY989
+UKo+gcolddvZbMNwip0ILPO3dsa+he1jJ/gbo9qBHLy7plfsBLLakZP1Nu6xdlqQ
+TSSobaE8uxUMZk+wMWClA9AOZ1TcUr2yRV5GVj/bxG9ab+H37vF9F8vFE+jjJ7yN
+6pjdohm4gXeSVx7ON4SeZLsVwNYkCVYS89E81qLx1jP9F57+6IUGDZN5EMC0aJLT
+ny75MCCLT00KD7BFsb0KDLXxp++eu/L2hinorT3p6dXp/9mUoxmy6wJqEyqCFniZ
+N2GZN7+LDTIbHUxCijVWamU2DQ==
+-----END ENCRYPTED PRIVATE KEY-----
+`)
+
+// A password-protected ECDSA private key in PKCS#5/8 format.  The
+// password for this key is "sample"
+var ecdsaEncryptedPrivate = []byte(`-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIHeMEkGCSqGSIb3DQEFDTA8MBsGCSqGSIb3DQEFDDAOBAjlKrDSKNg9QQICCAAw
+HQYJYIZIAWUDBAEqBBDliPNzQTNpdlppTcYpmuhWBIGQVhfWaVSzUvi/qIZLiZVn
+Nulfw5jDOlbn3UBX9kp/Z9Pro582Q0kjzLfm5UahvDINEJWxL4pc/28UnGQTBr0Q
+nSEg+RbqpuD099C38H0Gq/YkIM+RDG4aiQrkmzHXyVsHshIbG+z2LsLTIwmU69/Z
+v0nX6/hGErVR8YWcrOne086rCvfJVrxyO5+EUqrkLhEr
+-----END ENCRYPTED PRIVATE KEY-----
 `)

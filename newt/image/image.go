@@ -345,13 +345,22 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 				"failed: %s", err))
 		}
 
-		switch priv := privateKey.(type) {
-		case *rsa.PrivateKey:
-			image.SigningRSA = priv
-		case *ecdsa.PrivateKey:
-			image.SigningEC = priv
-		default:
-			return util.NewNewtError("Unknown private key format")
+		err = image.storeKey(privateKey)
+		if err != nil {
+			return err
+		}
+	}
+	if block != nil && block.Type == "ENCRYPTED PRIVATE KEY" {
+		// This indicates a PKCS#8 key wrapped with PKCS#5
+		// encryption.
+		privateKey, err := parseEncryptedPrivateKey(block.Bytes)
+		if err != nil {
+			return util.FmtNewtError("Unable to decode encrypted private key: %s", err)
+		}
+
+		err = image.storeKey(privateKey)
+		if err != nil {
+			return err
 		}
 	}
 	if image.SigningEC == nil && image.SigningRSA == nil {
@@ -359,6 +368,21 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 			"key in PEM format only.")
 	}
 	image.KeyId = keyId
+
+	return nil
+}
+
+// Store the given key in this image, determining the type of key and
+// storing it in the appropriate field.
+func (image *Image) storeKey(key interface{}) (err error) {
+	switch priv := key.(type) {
+	case *rsa.PrivateKey:
+		image.SigningRSA = priv
+	case *ecdsa.PrivateKey:
+		image.SigningEC = priv
+	default:
+		return util.NewNewtError("Unknown private key format")
+	}
 
 	return nil
 }
