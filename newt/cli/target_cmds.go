@@ -667,6 +667,8 @@ func targetConfigShowCmd(cmd *cobra.Command, args []string) {
 			util.NewNewtError("Must specify target or unittest name"))
 	}
 
+	TryGetProject()
+
 	for _, arg := range args {
 		b, err := TargetBuilderForTargetOrUnittest(arg)
 		if err != nil {
@@ -690,6 +692,8 @@ func targetConfigInitCmd(cmd *cobra.Command, args []string) {
 		b      *builder.TargetBuilder
 		exists bool
 	}
+
+	TryGetProject()
 
 	anyExist := false
 	entries := make([]entry, len(args))
@@ -862,7 +866,6 @@ func AddTargetCommands(cmd *cobra.Command) {
 	}
 	targetCmd.AddCommand(showCmd)
 	AddTabCompleteFn(showCmd, targetList)
-
 
 	cmakeHelpText := "Generate CMakeLists.txt for target specified " +
 		"by <target-name>."
