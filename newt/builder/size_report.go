@@ -35,7 +35,7 @@ func runNmCommand(elfFilePath string) ([]byte, error) {
 		err    error
 	)
 	cmdName := "arm-none-eabi-nm"
-	cmdArgs := []string{elfFilePath, "-S", "-l", "--size-sort", "--radix=d"}
+	cmdArgs := []string{elfFilePath, "-S", "-l", "--size-sort"}
 
 	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
 		fmt.Fprintln(os.Stderr, "There was an error running nm command: ", err)
@@ -61,6 +61,22 @@ func runObjdumpCommand(elfFilePath string, params string) ([]byte, error) {
 	return cmdOut, err
 }
 
+func runAddr2lineCommand(elfFilePath string, address string) ([]byte, error) {
+	var (
+		cmdOut []byte
+		err    error
+	)
+	cmdName := "arm-none-eabi-addr2line"
+	cmdArgs := []string{"-e", elfFilePath, address}
+
+	cmdOut, err = exec.Command(cmdName, cmdArgs...).Output()
+
+	/* This can fail and it's not a critical error */
+
+	return cmdOut, err
+}
+
+
 func loadSymbolsAndPaths(elfFilePath, pathToStrip string) (map[string]string,
 	error) {
 	symbolsPath := make(map[string]string)
@@ -80,7 +96,13 @@ func loadSymbolsAndPaths(elfFilePath, pathToStrip string) (map[string]string,
 		var path string
 
 		if len(fields) < 5 {
-			path = "(other)"
+			addr2lineOut, err := runAddr2lineCommand(elfFilePath, fields[0])
+			if err != nil {
+				path = "(other)"
+			} else {
+				aline := strings.Split(string(addr2lineOut), "\n")[0]
+				path = strings.Split(aline, ":")[0]
+			}
 		} else {
 			path = strings.Split(fields[4], ":")[0]
 		}
