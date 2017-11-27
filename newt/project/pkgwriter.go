@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/newt/downloader"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -242,8 +243,13 @@ func (pw *PackageWriter) WritePackage() error {
 		"Download package template for package type %s.\n",
 		strings.ToLower(pw.template))
 
-	tmpdir, err := dl.DownloadRepo(pw.repo.branch)
+	tmpdir, err := newtutil.MakeTempRepoDir()
 	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpdir)
+
+	if err := dl.DownloadRepo(pw.repo.branch, tmpdir); err != nil {
 		return err
 	}
 

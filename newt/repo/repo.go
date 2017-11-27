@@ -433,10 +433,15 @@ func (r *Repo) patchesFilePath() string {
 func (r *Repo) downloadRepo(branchName string) error {
 	dl := r.downloader
 
-	// Download the git repo, returns the git repo, checked out to that branch
-	tmpdir, err := dl.DownloadRepo(branchName)
+	tmpdir, err := newtutil.MakeTempRepoDir()
 	if err != nil {
-		return util.FmtNewtError("Error download repository %s, : %s",
+		return err
+	}
+	defer os.RemoveAll(tmpdir)
+
+	// Download the git repo, returns the git repo, checked out to that branch
+	if err := dl.DownloadRepo(branchName, tmpdir); err != nil {
+		return util.FmtNewtError("Error downloading repository %s, : %s",
 			r.Name(), err.Error())
 	}
 

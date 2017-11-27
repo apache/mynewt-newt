@@ -51,15 +51,20 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	dl.User = "apache"
 	dl.Repo = "mynewt-blinky"
 
-	dir, err := dl.DownloadRepo(newtutil.NewtBlinkyTag)
+	tmpdir, err := newtutil.MakeTempRepoDir()
 	if err != nil {
-		NewtUsage(cmd, err)
+		NewtUsage(nil, err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	if err := dl.DownloadRepo(newtutil.NewtBlinkyTag, tmpdir); err != nil {
+		NewtUsage(nil, err)
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Installing "+
 		"skeleton in %s...\n", newDir)
 
-	if err := util.CopyDir(dir, newDir); err != nil {
+	if err := util.CopyDir(tmpdir, newDir); err != nil {
 		NewtUsage(cmd, err)
 	}
 
