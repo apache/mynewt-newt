@@ -80,4 +80,4 @@ ln -s "$installdir" "$repodir"
 )
 
 ### Delete the temporary directory.
-rm -r "$godir"
+rm -rf "$godir"
