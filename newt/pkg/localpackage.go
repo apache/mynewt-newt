@@ -296,8 +296,8 @@ func (pkg *LocalPackage) Save() error {
 
 func matchNamePath(name, path string) bool {
 	// assure that name and path use the same path separator...
-	names := filepath.SplitList(name)
-	name = filepath.Join(names...)
+	names := strings.Split(name, "/")
+	name = strings.Join(names, "/")
 
 	if strings.HasSuffix(path, name) {
 		return true
