@@ -32,8 +32,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-const VERSION_FORMAT = "%d.%d.%d-%s"
-
 const (
 	VERSION_STABILITY_NONE   = "none"
 	VERSION_STABILITY_STABLE = "stable"
@@ -41,6 +39,10 @@ const (
 	VERSION_STABILITY_LATEST = "latest"
 	VERSION_STABILITY_TAG    = "tag"
 )
+
+// Represents an unspecified part in a version.  For example, in "1-latest",
+// the minor and revision parts are floating.
+const VERSION_FLOATING = -1
 
 type VersionMatch struct {
 	compareType string
@@ -109,8 +111,8 @@ func (v *Version) CompareVersions(vers1 interfaces.VersionInterface,
 }
 
 func (v *Version) SatisfiesVersion(versMatches []interfaces.VersionReqInterface) bool {
-	if versMatches == nil {
-		return true
+	if len(versMatches) == 0 {
+		return false
 	}
 
 	for _, match := range versMatches {
@@ -154,7 +156,18 @@ func (vers *Version) String() string {
 	if vers.tag != "" {
 		return fmt.Sprintf("%s-tag", vers.tag)
 	}
-	return fmt.Sprintf(VERSION_FORMAT, vers.Major(), vers.Minor(), vers.Revision(), vers.Stability())
+
+	s := fmt.Sprintf("%d", vers.Major())
+	if vers.Minor() != VERSION_FLOATING {
+		s += fmt.Sprintf(".%d", vers.Minor())
+	}
+	if vers.Revision() != VERSION_FLOATING {
+		s += fmt.Sprintf(".%d", vers.Revision())
+	}
+
+	s += fmt.Sprintf("-%s", vers.Stability())
+
+	return s
 }
 
 func (vers *Version) ToNuVersion() newtutil.Version {
@@ -182,20 +195,25 @@ func LoadVersion(versStr string) (*Version, error) {
 			fallthrough
 		case VERSION_STABILITY_LATEST:
 		default:
-			return nil, util.NewNewtError(
-				fmt.Sprintf("Unknown stability (%s) in version ", stability) + versStr)
+			return nil, util.FmtNewtError(
+				"Unknown stability (%s) in version %s", stability, versStr)
 		}
 	}
 	parts := strings.Split(sparts[0], ".")
 	if len(parts) > 3 {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid version string: %s", versStr))
+		return nil, util.FmtNewtError("Invalid version string: %s", versStr)
 	}
 
 	if strings.Trim(parts[0], " ") == "" || strings.Trim(parts[0], " ") == "none" {
 		return nil, nil
 	}
 
-	vers := &Version{}
+	// Assume no parts of the version are specified.
+	vers := &Version{
+		major:    VERSION_FLOATING,
+		minor:    VERSION_FLOATING,
+		revision: VERSION_FLOATING,
+	}
 	vers.stability = stability
 
 	// convert first string to an int
