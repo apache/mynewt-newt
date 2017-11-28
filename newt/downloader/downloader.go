@@ -669,6 +669,11 @@ func NewLocalDownloader() *LocalDownloader {
 	return &LocalDownloader{}
 }
 
+func loadError(format string, args ...interface{}) error {
+	return util.NewNewtError(
+		"error loading project.yml: " + fmt.Sprintf(format, args...))
+}
+
 func LoadDownloader(repoName string, repoVars map[string]string) (
 	Downloader, error) {
 
@@ -707,6 +712,10 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 	case "git":
 		gd := NewGitDownloader()
 		gd.Url = repoVars["url"]
+		if gd.Url == "" {
+			return nil, loadError("repo \"%s\" missing required field \"url\"",
+				repoName)
+		}
 		return gd, nil
 
 	case "local":
@@ -715,7 +724,6 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 		return ld, nil
 
 	default:
-		return nil, util.FmtNewtError("Invalid repository type: %s",
-			repoVars["type"])
+		return nil, loadError("invalid repository type: %s", repoVars["type"])
 	}
 }
