@@ -37,7 +37,7 @@ type Downloader interface {
 	FetchFile(path string, filename string, dstDir string) error
 	Branch() string
 	SetBranch(branch string)
-	DownloadRepo(branch string) (string, error)
+	DownloadRepo(commit string, dstPath string) error
 	CurrentBranch(path string) (string, error)
 	UpdateRepo(path string, branchName string) error
 	CleanupRepo(path string, branchName string) error
@@ -433,15 +433,9 @@ func (gd *GithubDownloader) setRemoteAuth(path string) error {
 	return gd.setOriginUrl(path, url)
 }
 
-func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
+func (gd *GithubDownloader) DownloadRepo(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
-
-	// Get a temporary directory, and copy the repository into that directory.
-	tmpdir, err := ioutil.TempDir("", "newt-repo")
-	if err != nil {
-		return "", err
-	}
 
 	url, publicUrl := gd.remoteUrls()
 
@@ -451,7 +445,7 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 
 	gp, err := gitPath()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// Clone the repository.
@@ -461,7 +455,7 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 		"-b",
 		branch,
 		url,
-		tmpdir,
+		dstPath,
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
@@ -470,19 +464,17 @@ func (gd *GithubDownloader) DownloadRepo(commit string) (string, error) {
 		_, err = util.ShellCommand(cmd, nil)
 	}
 	if err != nil {
-		os.RemoveAll(tmpdir)
-		return "", err
+		return err
 	}
 
-	defer gd.clearRemoteAuth(tmpdir)
+	defer gd.clearRemoteAuth(dstPath)
 
 	// Checkout the specified commit.
-	if err := checkout(tmpdir, commit); err != nil {
-		os.RemoveAll(tmpdir)
-		return "", err
+	if err := checkout(dstPath, commit); err != nil {
+		return err
 	}
 
-	return tmpdir, nil
+	return nil
 }
 
 func NewGithubDownloader() *GithubDownloader {
@@ -569,22 +561,16 @@ func (gd *GitDownloader) AreChanges(path string) (bool, error) {
 	return areChanges(path)
 }
 
-func (gd *GitDownloader) DownloadRepo(commit string) (string, error) {
+func (gd *GitDownloader) DownloadRepo(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
-
-	// Get a temporary directory, and copy the repository into that directory.
-	tmpdir, err := ioutil.TempDir("", "newt-repo")
-	if err != nil {
-		return "", err
-	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository %s (branch: %s; commit: %s)\n", gd.Url, branch, commit)
 
 	gp, err := gitPath()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// Clone the repository.
@@ -594,7 +580,7 @@ func (gd *GitDownloader) DownloadRepo(commit string) (string, error) {
 		"-b",
 		branch,
 		gd.Url,
-		tmpdir,
+		dstPath,
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
@@ -603,17 +589,15 @@ func (gd *GitDownloader) DownloadRepo(commit string) (string, error) {
 		_, err = util.ShellCommand(cmd, nil)
 	}
 	if err != nil {
-		os.RemoveAll(tmpdir)
-		return "", err
+		return err
 	}
 
 	// Checkout the specified commit.
-	if err := checkout(tmpdir, commit); err != nil {
-		os.RemoveAll(tmpdir)
-		return "", err
+	if err := checkout(dstPath, commit); err != nil {
+		return err
 	}
 
-	return tmpdir, nil
+	return nil
 }
 
 func NewGitDownloader() *GitDownloader {
@@ -647,8 +631,14 @@ func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
 
 func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
 	os.RemoveAll(path)
-	_, err := ld.DownloadRepo(branchName)
-	return err
+
+	tmpdir, err := newtutil.MakeTempRepoDir()
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpdir)
+
+	return ld.DownloadRepo(branchName, tmpdir)
 }
 
 func (ld *LocalDownloader) LocalDiff(path string) ([]byte, error) {
@@ -659,26 +649,20 @@ func (ld *LocalDownloader) AreChanges(path string) (bool, error) {
 	return areChanges(path)
 }
 
-func (ld *LocalDownloader) DownloadRepo(commit string) (string, error) {
-	// Get a temporary directory, and copy the repository into that directory.
-	tmpdir, err := ioutil.TempDir("", "newt-repo")
-	if err != nil {
-		return "", err
-	}
-
+func (ld *LocalDownloader) DownloadRepo(commit string, dstPath string) error {
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Downloading local repository %s\n", ld.Path)
 
-	if err := util.CopyDir(ld.Path, tmpdir); err != nil {
-		return "", err
+	if err := util.CopyDir(ld.Path, dstPath); err != nil {
+		return err
 	}
 
 	// Checkout the specified commit.
-	if err := checkout(tmpdir, commit); err != nil {
-		return "", err
+	if err := checkout(dstPath, commit); err != nil {
+		return err
 	}
 
-	return tmpdir, nil
+	return nil
 }
 
 func NewLocalDownloader() *LocalDownloader {
