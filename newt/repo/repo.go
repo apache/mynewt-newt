@@ -441,7 +441,7 @@ func (r *Repo) downloadRepo(branchName string) error {
 
 	// Download the git repo, returns the git repo, checked out to that branch
 	if err := dl.DownloadRepo(branchName, tmpdir); err != nil {
-		return util.FmtNewtError("Error downloading repository %s, : %s",
+		return util.FmtNewtError("Error downloading repository %s: %s",
 			r.Name(), err.Error())
 	}
 
@@ -657,7 +657,9 @@ func (r *Repo) downloadRepositoryYml() error {
 
 	// Clone the repo if it doesn't exist.
 	if util.NodeNotExist(r.localPath) {
-		r.downloadRepo("master")
+		if err := r.downloadRepo("master"); err != nil {
+			return err
+		}
 	}
 
 	cpath := r.repoFilePath()
