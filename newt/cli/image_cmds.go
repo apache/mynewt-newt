@@ -145,10 +145,10 @@ func AddImageCommands(cmd *cobra.Command) {
 
 	createImageHelpText += "Default image format is version 1.\n"
 
-	createImageHelpEx := "  newt create-image my_target1 1.2.0\n"
-	createImageHelpEx += "  newt create-image my_target1 1.2.0.3\n"
-	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem\n"
-	createImageHelpEx += "  newt create-image my_target1 1.2.0.3 private.pem 5\n"
+	createImageHelpEx := "  newt create-image my_target1 1.3.0\n"
+	createImageHelpEx += "  newt create-image my_target1 1.3.0.3\n"
+	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 private.pem\n"
+	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 private.pem 5\n"
 
 	createImageCmd := &cobra.Command{
 		Use:     "create-image <target-name> <version> [signing-key [key-id]]",
