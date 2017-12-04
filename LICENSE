@@ -305,3 +305,7 @@ For details, see:
 This product bundles go-coap which is available under the MIT license.
 For details, see:
     * newtmgr/vendor/github.com/dustin/go-coap/LICENSE
+
+This product bundles go-homedir which is available under the MIT license.
+For details, see:
+    * newtmgr/vendor/github.com/mitchellh/go-homedir/LICENSE
