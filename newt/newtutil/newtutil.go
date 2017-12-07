@@ -36,7 +36,7 @@ import (
 )
 
 var NewtVersion Version = Version{1, 3, 0}
-var NewtVersionStr string = "Apache Newt version: 1.3.0-dev"
+var NewtVersionStr string = "Apache Newt version: 1.3.0"
 var NewtBlinkyTag string = "mynewt_1_3_0_tag"
 var NewtNumJobs int
 var NewtForce bool
