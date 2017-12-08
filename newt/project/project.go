@@ -633,10 +633,12 @@ func (proj *Project) ResolvePackage(
 	var repo interfaces.RepoInterface
 	if repoName == "" {
 		repo = dfltRepo
-	} else {
+	} else if proj.repos[repoName] != nil {
 		repo = proj.repos[repoName]
+	} else {
+		return nil, util.FmtNewtError("invalid package name: %s (unkwn repo %s)",
+			name, repoName)
 	}
-
 	dep, err := pkg.NewDependency(repo, pkgName)
 	if err != nil {
 		return nil, util.FmtNewtError("invalid package name: %s (%s)", name,
