@@ -79,7 +79,9 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 			return nil, err
 		}
 
-		paths = append(paths, path)
+		if path != "" {
+			paths = append(paths, path)
+		}
 	} else {
 		proj := interfaces.GetProject()
 
@@ -92,7 +94,9 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 					bsp.Name(), key)
 			}
 
-			paths = append(paths, path)
+			if path != "" {
+				paths = append(paths, path)
+			}
 		}
 	}
 
