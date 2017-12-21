@@ -24,20 +24,25 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"hash"
 
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
-	oidPbes2     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
-	oidPbkdf2    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 12}
-	oidAes128CBC = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 2}
-	oidAes256CBC = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 42}
+	oidPbes2          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
+	oidPbkdf2         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 12}
+	oidHmacWithSha1   = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 7}
+	oidHmacWithSha224 = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 8}
+	oidHmacWithSha256 = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 9}
+	oidAes128CBC      = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 2}
+	oidAes256CBC      = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 42}
 )
 
 // We only support a narrow set of possible key types, namely the type
@@ -65,8 +70,11 @@ type pbes2 struct {
 type pbkdf2Param struct {
 	Salt      []byte
 	IterCount int
+	HashFunc  pkix.AlgorithmIdentifier
 	// Optional and default values omitted, and unsupported.
 }
+
+type hashFunc func() hash.Hash
 
 func parseEncryptedPrivateKey(der []byte) (key interface{}, err error) {
 	var wrapper pkcs5
@@ -90,6 +98,18 @@ func parseEncryptedPrivateKey(der []byte) (key interface{}, err error) {
 		return nil, err
 	}
 
+	var hashNew hashFunc
+	switch {
+	case kdfParam.HashFunc.Algorithm.Equal(oidHmacWithSha1):
+		hashNew = sha1.New
+	case kdfParam.HashFunc.Algorithm.Equal(oidHmacWithSha224):
+		hashNew = sha256.New224
+	case kdfParam.HashFunc.Algorithm.Equal(oidHmacWithSha256):
+		hashNew = sha256.New
+	default:
+		return nil, fmt.Errorf("pkcs5: Unsupported hash: %v", pbparm.EncryptionScheme.Algorithm)
+	}
+
 	// Get the encryption used.
 	size := 0
 	var iv []byte
@@ -108,15 +128,15 @@ func parseEncryptedPrivateKey(der []byte) (key interface{}, err error) {
 		return nil, fmt.Errorf("pkcs5: Unsupported cipher: %v", pbparm.EncryptionScheme.Algorithm)
 	}
 
-	return unwrapPbes2Pbkdf2(&kdfParam, size, iv, wrapper.Encrypted)
+	return unwrapPbes2Pbkdf2(&kdfParam, size, iv, hashNew, wrapper.Encrypted)
 }
 
-func unwrapPbes2Pbkdf2(param *pbkdf2Param, size int, iv []byte, encrypted []byte) (key interface{}, err error) {
+func unwrapPbes2Pbkdf2(param *pbkdf2Param, size int, iv []byte, hashNew hashFunc, encrypted []byte) (key interface{}, err error) {
 	pass, err := getPassword()
 	if err != nil {
 		return nil, err
 	}
-	cryptoKey := pbkdf2.Key(pass, param.Salt, param.IterCount, size, sha1.New)
+	cryptoKey := pbkdf2.Key(pass, param.Salt, param.IterCount, size, hashNew)
 
 	block, err := aes.NewCipher(cryptoKey)
 	if err != nil {
