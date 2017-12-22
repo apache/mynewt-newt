@@ -510,7 +510,7 @@ func (b *Builder) Size() error {
 	return nil
 }
 
-func (t *TargetBuilder) SizeReport(ram, flash bool) error {
+func (t *TargetBuilder) SizeReport(sectionName string) error {
 
 	err := t.PrepBuild()
 
@@ -519,21 +519,21 @@ func (t *TargetBuilder) SizeReport(ram, flash bool) error {
 	}
 
 	fmt.Printf("Size of Application Image: %s\n", t.AppBuilder.buildName)
-	err = t.AppBuilder.SizeReport(ram, flash)
+	err = t.AppBuilder.SizeReport(sectionName)
 
 	if err == nil {
 		if t.LoaderBuilder != nil {
 			fmt.Printf("Size of Loader Image: %s\n", t.LoaderBuilder.buildName)
-			err = t.LoaderBuilder.SizeReport(ram, flash)
+			err = t.LoaderBuilder.SizeReport(sectionName)
 		}
 	}
 
 	return err
 }
 
-func (b *Builder) SizeReport(ram, flash bool) error {
+func (b *Builder) SizeReport(sectionName string) error {
 	srcBase := b.targetBuilder.GetTarget().App().Repo().Path() + "/"
-	err := SizeReport(b.AppElfPath(), srcBase, ram, flash)
+	err := SizeReport(b.AppElfPath(), srcBase, sectionName)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
