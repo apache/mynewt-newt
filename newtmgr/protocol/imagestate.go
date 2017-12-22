@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type ImageStateEntry struct {
@@ -121,7 +121,7 @@ func DecodeImageStateResponse(data []byte) (*ImageStateRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&rsp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return rsp, nil

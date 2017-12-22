@@ -26,7 +26,7 @@ import (
 	"github.com/dustin/go-coap"
 	"github.com/ugorji/go/codec"
 
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type OicRsp struct {
@@ -43,7 +43,7 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 	req := coap.Message{}
 	err := req.UnmarshalBinary(data)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf(
+		return nil, NewNewtError(fmt.Sprintf(
 			"Oicmgr request invalid %s", err.Error()))
 	}
 	if req.Code == coap.GET || req.Code == coap.PUT {
@@ -52,14 +52,14 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 	if req.Code != coap.Created && req.Code != coap.Deleted &&
 		req.Code != coap.Valid && req.Code != coap.Changed &&
 		req.Code != coap.Content {
-		return nil, util.NewNewtError(fmt.Sprintf(
+		return nil, NewNewtError(fmt.Sprintf(
 			"OIC error rsp: %s", req.Code.String()))
 	}
 
 	var rsp OicRsp
 	err = codec.NewDecoderBytes(req.Payload, new(codec.CborHandle)).Decode(&rsp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	log.Debugf("Deserialized response %+v", rsp)
@@ -78,7 +78,7 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 		nmr.Op = NMGR_OP_WRITE_RSP
 	}
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Internal error: %s",
+		return nil, NewNewtError(fmt.Sprintf("Internal error: %s",
 			err.Error()))
 	}
 
@@ -115,7 +115,7 @@ func (nmr *NmgrReq) SerializeOmgrRequest(data []byte) ([]byte, error) {
 
 	data, err := req.MarshalBinary()
 	if err != nil {
-		return nil, util.NewNewtError(
+		return nil, NewNewtError(
 			fmt.Sprintf("Failed to encode: %s\n", err.Error()))
 	}
 	return data, nil

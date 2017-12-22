@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type Crash struct {
@@ -64,7 +64,7 @@ func DecodeCrashResponse(data []byte) (*Crash, error) {
 
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	if err := dec.Decode(&c); err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid response: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid response: %s",
 			err.Error()))
 	}
 	return c, nil

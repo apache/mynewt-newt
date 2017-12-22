@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 const (
@@ -85,7 +85,7 @@ func DecodeRunTestResponse(data []byte) (*RunTestRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid response: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid response: %s",
 			                          err.Error()))
 	}
 
@@ -140,7 +140,7 @@ func DecodeRunListResponse(data []byte) (*RunListRsp, error) {
     err := dec.Decode(&resp)
     if err != nil {
         return nil,
-        util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+        NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
                                       err.Error()))
     }
 

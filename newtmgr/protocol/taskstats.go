@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type TaskStatsReadReq struct {
@@ -62,7 +62,7 @@ func DecodeTaskStatsReadResponse(data []byte) (*TaskStatsReadRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&tsr)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 

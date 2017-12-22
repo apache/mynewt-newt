@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 const (
@@ -132,7 +132,7 @@ func DecodeLogsListResponse(data []byte) (*LogsListRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -167,7 +167,7 @@ func DecodeLogsLevelListResponse(data []byte) (*LogsLevelListRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -201,7 +201,7 @@ func DecodeLogsModuleListResponse(data []byte) (*LogsModuleListRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -238,7 +238,7 @@ func DecodeLogsShowResponse(data []byte) (*LogsShowRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -285,7 +285,7 @@ func DecodeLogsClearResponse(data []byte) (*LogsClearRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 
@@ -334,7 +334,7 @@ func DecodeLogsAppendResponse(data []byte) (*LogsAppendRsp, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 

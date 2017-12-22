@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type ImageErase struct {
@@ -57,7 +57,7 @@ func DecodeImageEraseResponse(data []byte) (*ImageErase, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&ie)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	return ie, nil

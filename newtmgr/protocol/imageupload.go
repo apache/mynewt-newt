@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type ImageUpload struct {
@@ -90,11 +90,11 @@ func DecodeImageUploadResponse(data []byte) (*ImageUpload, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if i.ReturnCode != 0 {
-		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
+		return nil, NewNewtError(fmt.Sprintf("Target error: %d",
 			i.ReturnCode))
 	}
 	return i, nil

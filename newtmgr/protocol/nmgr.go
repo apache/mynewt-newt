@@ -23,9 +23,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
+	// log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type NmgrReq struct {
@@ -63,7 +63,7 @@ func NewNmgrReq() (*NmgrReq, error) {
 
 func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 	if len(data) < 8 {
-		return nil, util.NewNewtError(fmt.Sprintf(
+		return nil, NewNewtError(fmt.Sprintf(
 			"Newtmgr request buffer too small %d bytes", len(data)))
 	}
 
@@ -79,7 +79,7 @@ func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 	data = data[8:]
 	nmr.Data = data
 
-	log.Debugf("Deserialized response %+v", nmr)
+	// log.Debugf("Deserialized response %+v", nmr)
 
 	return nmr, nil
 }
@@ -102,6 +102,6 @@ func (nmr *NmgrReq) SerializeRequest(data []byte) ([]byte, error) {
 
 	data = append(data, nmr.Data...)
 
-	log.Debugf("Serializing request %+v into buffer %+v", nmr, data)
+	// log.Debugf("Serializing request %+v into buffer %+v", nmr, data)
 	return data, nil
 }

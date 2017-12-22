@@ -24,7 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 const (
@@ -61,7 +61,7 @@ func (sm SplitStatus) String() string {
 func HashDecode(src string) (string, error) {
 	imgHex, err := base64.StdEncoding.DecodeString(src)
 	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash decode error: %s",
+		return "", NewNewtError(fmt.Sprintf("Hash decode error: %s",
 			err.Error()))
 	}
 	return hex.EncodeToString(imgHex), nil
@@ -70,7 +70,7 @@ func HashDecode(src string) (string, error) {
 func HashEncode(src string) (string, error) {
 	imgHex, err := hex.DecodeString(src)
 	if err != nil {
-		return "", util.NewNewtError(fmt.Sprintf("Hash encode error: %s",
+		return "", NewNewtError(fmt.Sprintf("Hash encode error: %s",
 			err.Error()))
 	}
 	return base64.StdEncoding.EncodeToString(imgHex), nil

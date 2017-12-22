@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type FileDownload struct {
@@ -82,15 +82,15 @@ func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
 			err.Error()))
 	}
 	if resp.ReturnCode != 0 {
-		return nil, util.NewNewtError(fmt.Sprintf("Target error: %d",
+		return nil, NewNewtError(fmt.Sprintf("Target error: %d",
 			resp.ReturnCode))
 	}
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
 			err.Error()))
 	}
 	f := &FileDownload{

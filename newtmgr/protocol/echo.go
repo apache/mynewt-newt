@@ -24,7 +24,7 @@ import (
 	"strconv"
 
 	"github.com/ugorji/go/codec"
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type Echo struct {
@@ -41,7 +41,7 @@ func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	if err := enc.Encode(e); err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Failed to encode message %s",
+		return nil, NewNewtError(fmt.Sprintf("Failed to encode message %s",
 			err.Error()))
 	}
 
@@ -67,7 +67,7 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 
 	integer, err := strconv.Atoi(e.Message)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid echo ctrl setting %s",
+		return nil, NewNewtError(fmt.Sprintf("Invalid echo ctrl setting %s",
 			err.Error()))
 	}
 	echoCtl := &SerialEchoCtl{
@@ -87,7 +87,7 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	if err := enc.Encode(echoCtl); err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Failed to encode message %s",
+		return nil, NewNewtError(fmt.Sprintf("Failed to encode message %s",
 			err.Error()))
 	}
 	nmr.Len = uint16(len(data))
@@ -103,7 +103,7 @@ func DecodeEchoResponse(data []byte) (*Echo, error) {
 	dec := codec.NewDecoderBytes(data, cborCodec)
 
 	if err := dec.Decode(e); err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Invalid response\n"))
+		return nil, NewNewtError(fmt.Sprintf("Invalid response\n"))
 	}
 	return e, nil
 }
