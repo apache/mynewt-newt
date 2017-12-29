@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/ugorji/go/codec"
 	// "mynewt.apache.org/newt/util"
@@ -90,12 +90,16 @@ func DecodeImageUploadResponse(data []byte) (*ImageUpload, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-			err.Error()))
+			// 	return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+			// err.Error()))
+
+		return nil, NewNewtError("Invalid incoming cbor: ")
 	}
 	if i.ReturnCode != 0 {
-		return nil, NewNewtError(fmt.Sprintf("Target error: %d",
-			i.ReturnCode))
+		return nil, NewNewtError("Target error: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Target error: %d",
+		// 	i.ReturnCode))
 	}
 	return i, nil
 }

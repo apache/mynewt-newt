@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/ugorji/go/codec"
 	// "mynewt.apache.org/newt/util"
@@ -82,16 +82,22 @@ func DecodeFileDownloadResponse(data []byte) (*FileDownload, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid incoming cbor: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		// 	err.Error()))
 	}
 	if resp.ReturnCode != 0 {
-		return nil, NewNewtError(fmt.Sprintf("Target error: %d",
-			resp.ReturnCode))
+		return nil, NewNewtError("Target error: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Target error: %d",
+		// 	resp.ReturnCode))
 	}
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid incoming json: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid incoming json: %s",
+		// 	err.Error()))
 	}
 	f := &FileDownload{
 		Offset: resp.Off,

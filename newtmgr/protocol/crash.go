@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/ugorji/go/codec"
 	// "mynewt.apache.org/newt/util"
@@ -43,7 +43,7 @@ func (c *Crash) EncodeWriteRequest() (*NmgrReq, error) {
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	enc.Encode(c)
 
-	fmt.Printf("crashtype:%s\n", c.CrashType)
+	// fmt.Printf("crashtype:%s\n", c.CrashType)
 	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
@@ -64,8 +64,10 @@ func DecodeCrashResponse(data []byte) (*Crash, error) {
 
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	if err := dec.Decode(&c); err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid response: %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid response: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid response: %s",
+		// 	err.Error()))
 	}
 	return c, nil
 }

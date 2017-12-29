@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/ugorji/go/codec"
 	// "mynewt.apache.org/newt/util"
@@ -57,8 +57,10 @@ func DecodeCoreListResponse(data []byte) (*CoreList, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&cl)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid incoming cbor: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		// 	err.Error()))
 	}
 	return cl, nil
 }

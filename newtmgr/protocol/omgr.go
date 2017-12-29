@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dustin/go-coap"
@@ -43,8 +43,10 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 	req := coap.Message{}
 	err := req.UnmarshalBinary(data)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf(
-			"Oicmgr request invalid %s", err.Error()))
+		return nil, NewNewtError("Oicmgr request invalid ")
+
+		// return nil, NewNewtError(fmt.Sprintf(
+		// 	"Oicmgr request invalid %s", err.Error()))
 	}
 	if req.Code == coap.GET || req.Code == coap.PUT {
 		return nil, nil
@@ -52,15 +54,19 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 	if req.Code != coap.Created && req.Code != coap.Deleted &&
 		req.Code != coap.Valid && req.Code != coap.Changed &&
 		req.Code != coap.Content {
-		return nil, NewNewtError(fmt.Sprintf(
-			"OIC error rsp: %s", req.Code.String()))
+			// return nil, NewNewtError(fmt.Sprintf(
+			// 	"OIC error rsp: %s", req.Code.String()))
+
+		return nil, NewNewtError("OIC error rsp: ")
 	}
 
 	var rsp OicRsp
 	err = codec.NewDecoderBytes(req.Payload, new(codec.CborHandle)).Decode(&rsp)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid incoming cbor: %s")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		// 	err.Error()))
 	}
 	log.Debugf("Deserialized response %+v", rsp)
 
@@ -78,8 +84,10 @@ func DeserializeOmgrReq(data []byte) (*NmgrReq, error) {
 		nmr.Op = NMGR_OP_WRITE_RSP
 	}
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Internal error: %s",
-			err.Error()))
+				return nil, NewNewtError("Internal error: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Internal error: %s",
+		// 	err.Error()))
 	}
 
 	nmr.Len = uint16(len(ndata))
@@ -106,8 +114,8 @@ func (nmr *NmgrReq) SerializeOmgrRequest(data []byte) ([]byte, error) {
 		req.Code = coap.PUT
 	}
 	req.SetPathString("/omgr")
-	req.AddOption(coap.URIQuery, fmt.Sprintf("gr=%d", nmr.Group))
-	req.AddOption(coap.URIQuery, fmt.Sprintf("id=%d", nmr.Id))
+	// req.AddOption(coap.URIQuery, fmt.Sprintf("gr=%d", nmr.Group))
+	// req.AddOption(coap.URIQuery, fmt.Sprintf("id=%d", nmr.Id))
 
 	req.Payload = nmr.Data
 
@@ -115,8 +123,9 @@ func (nmr *NmgrReq) SerializeOmgrRequest(data []byte) ([]byte, error) {
 
 	data, err := req.MarshalBinary()
 	if err != nil {
-		return nil, NewNewtError(
-			fmt.Sprintf("Failed to encode: %s\n", err.Error()))
+		return nil, NewNewtError("Failed to encode: \n")
+
+			// fmt.Sprintf("Failed to encode: %s\n", err.Error()))
 	}
 	return data, nil
 }

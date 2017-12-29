@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 	"strconv"
 
 	"github.com/ugorji/go/codec"
@@ -41,8 +41,10 @@ func (e *Echo) EncodeWriteRequest() (*NmgrReq, error) {
 	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	if err := enc.Encode(e); err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Failed to encode message %s",
-			err.Error()))
+		return nil, NewNewtError("Failed to encode message ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Failed to encode message %s",
+		// 	err.Error()))
 	}
 
 	nmr, err := NewNmgrReq()
@@ -67,8 +69,10 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 
 	integer, err := strconv.Atoi(e.Message)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid echo ctrl setting %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid echo ctrl setting ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid echo ctrl setting %s",
+		// 	err.Error()))
 	}
 	echoCtl := &SerialEchoCtl{
 		Echo: integer,
@@ -87,8 +91,10 @@ func (e *Echo) EncodeEchoCtrl() (*NmgrReq, error) {
 	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 	if err := enc.Encode(echoCtl); err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Failed to encode message %s",
-			err.Error()))
+		return nil, NewNewtError("Failed to encode message ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Failed to encode message %s",
+		// 	err.Error()))
 	}
 	nmr.Len = uint16(len(data))
 	nmr.Data = data
@@ -103,7 +109,9 @@ func DecodeEchoResponse(data []byte) (*Echo, error) {
 	dec := codec.NewDecoderBytes(data, cborCodec)
 
 	if err := dec.Decode(e); err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid response\n"))
+		return nil, NewNewtError("Invalid response\n")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid response\n"))
 	}
 	return e, nil
 }

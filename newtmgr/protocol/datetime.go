@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/ugorji/go/codec"
 	// "mynewt.apache.org/newt/util"
@@ -70,8 +70,10 @@ func DecodeDateTimeResponse(data []byte) (*DateTime, error) {
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&i)
 	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-			err.Error()))
+		return nil, NewNewtError("Invalid incoming cbor: ")
+
+		// return nil, NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+		// 	err.Error()))
 	}
 	return i, nil
 }

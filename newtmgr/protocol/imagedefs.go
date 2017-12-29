@@ -22,7 +22,7 @@ package protocol
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
+	// "fmt"
 
 	// "mynewt.apache.org/newt/util"
 )
@@ -61,8 +61,10 @@ func (sm SplitStatus) String() string {
 func HashDecode(src string) (string, error) {
 	imgHex, err := base64.StdEncoding.DecodeString(src)
 	if err != nil {
-		return "", NewNewtError(fmt.Sprintf("Hash decode error: %s",
-			err.Error()))
+		return "", NewNewtError("Hash decode error: ")
+
+		// return "", NewNewtError(fmt.Sprintf("Hash decode error: %s",
+		// 	err.Error()))
 	}
 	return hex.EncodeToString(imgHex), nil
 }
@@ -70,8 +72,10 @@ func HashDecode(src string) (string, error) {
 func HashEncode(src string) (string, error) {
 	imgHex, err := hex.DecodeString(src)
 	if err != nil {
-		return "", NewNewtError(fmt.Sprintf("Hash encode error: %s",
-			err.Error()))
+		return "", NewNewtError("Hash encode error: ")
+
+		// return "", NewNewtError(fmt.Sprintf("Hash encode error: %s",
+		// 	err.Error()))
 	}
 	return base64.StdEncoding.EncodeToString(imgHex), nil
 }

@@ -21,7 +21,7 @@ package protocol
 
 import (
 	"encoding/binary"
-	"fmt"
+	// "fmt"
 
 	// log "github.com/Sirupsen/logrus"
 
@@ -63,8 +63,10 @@ func NewNmgrReq() (*NmgrReq, error) {
 
 func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
 	if len(data) < 8 {
-		return nil, NewNewtError(fmt.Sprintf(
-			"Newtmgr request buffer too small %d bytes", len(data)))
+		return nil, NewNewtError("Newtmgr request buffer too small bytes")
+
+		// return nil, NewNewtError(fmt.Sprintf(
+		// 	"Newtmgr request buffer too small %d bytes", len(data)))
 	}
 
 	nmr := &NmgrReq{}
