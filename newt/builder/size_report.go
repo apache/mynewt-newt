@@ -179,18 +179,18 @@ func loadSymbolsAndSections(elfFilePath string) (map[string]*Symbol, error) {
 	return symbols, nil
 }
 
-func generateMemoryRegions(elfFilePath string) (*MemoryRegion, *MemoryRegion,
+func getMemoryRegion(elfFilePath string, sectionName string) (*MemoryRegion,
 	error) {
 
 	mapFile := elfFilePath + ".map"
-	flashRegion, ramRegion, err := parseMapFileRegions(mapFile)
+	sectionRegion, err := parseMapFileRegions(mapFile, sectionName)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	objdumpOut, err := runObjdumpCommand(elfFilePath, "-hw")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	lines := strings.Split(string(objdumpOut), "\n")
@@ -208,38 +208,30 @@ func generateMemoryRegions(elfFilePath string) (*MemoryRegion, *MemoryRegion,
 			continue
 		}
 
-		if flashRegion.PartOf(address) {
-			flashRegion.TotalSize += size
-			flashRegion.SectionNames[fields[1]] = struct{}{}
-			flashRegion.NamesSizes[fields[1]] = size
-			continue
-		}
-
-		if ramRegion.PartOf(address) {
-			ramRegion.TotalSize += size
-			ramRegion.SectionNames[fields[1]] = struct{}{}
-			ramRegion.NamesSizes[fields[1]] = size
+		if sectionRegion.PartOf(address) {
+			sectionRegion.TotalSize += size
+			sectionRegion.SectionNames[fields[1]] = struct{}{}
+			sectionRegion.NamesSizes[fields[1]] = size
 			continue
 		}
 	}
 
-	return flashRegion, ramRegion, nil
+	return sectionRegion, nil
 }
 
 /*
  * Go through GCC generated mapfile, and collect info about symbol sizes
  */
-func parseMapFileRegions(fileName string) (*MemoryRegion, *MemoryRegion,
+func parseMapFileRegions(fileName string, sectionName string) (*MemoryRegion,
 	error) {
 	var state int = 0
 
 	file, err := os.Open(fileName)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	flashRegion := MakeMemoryRegion()
-	ramRegion := MakeMemoryRegion()
+	sectionRegion := MakeMemoryRegion()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -266,52 +258,39 @@ func parseMapFileRegions(fileName string) (*MemoryRegion, *MemoryRegion,
 			if err != nil {
 				continue
 			}
-			if strings.EqualFold(array[0], "flash") {
-				flashRegion.Name = array[0]
-				flashRegion.Offset = offset
-				flashRegion.EndOff = offset + size
-			} else if strings.EqualFold(array[0], "ram") {
-				ramRegion.Name = array[0]
-				ramRegion.Offset = offset
-				ramRegion.EndOff = offset + size
+
+			if strings.EqualFold(array[0], sectionName) {
+				sectionRegion.Name = array[0]
+				sectionRegion.Offset = offset
+				sectionRegion.EndOff = offset + size
 			}
 		case 3:
 			fallthrough
 		default:
-			return flashRegion, ramRegion, nil
+			return sectionRegion, nil
 		}
 
 	}
-	return flashRegion, flashRegion, nil
+	return sectionRegion, nil
 }
 
-func logMemoryRegionStats(flashRegion, ramRegion *MemoryRegion) {
+func logMemoryRegionStats(memRegion *MemoryRegion, sectionName string) {
+	memName := fmt.Sprintf("Mem %s:", sectionName)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "%-10s 0x%08x-0x%08x\n",
-		"Mem FLASH:", flashRegion.Offset, flashRegion.EndOff)
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "%-10s 0x%08x-0x%08x\n",
-		"Mem RAM:", ramRegion.Offset, ramRegion.EndOff)
+		memName, memRegion.Offset, memRegion.EndOff)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "\n")
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Mem: FLASH\n")
+	util.StatusMessage(util.VERBOSITY_VERBOSE, "Mem: %s\n", sectionName)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "%-20s %10s\n", "Name", "Size")
-	for sectionName, size := range flashRegion.NamesSizes {
+	for sectionName, size := range memRegion.NamesSizes {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "%-20s %10d\n",
 			sectionName, size)
 	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "%-20s %10d\n", "Total",
-		flashRegion.TotalSize)
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "\n")
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Mem: RAM\n")
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "%-20s %10s\n", "Name", "Size")
-	for sectionName, size := range ramRegion.NamesSizes {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "%-20s %10d\n",
-			sectionName, size)
-	}
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "%-20s %10d\n", "Total",
-		ramRegion.TotalSize)
+		memRegion.TotalSize)
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "\n")
 }
 
-func SizeReport(elfFilePath, srcBase string, ram bool, flash bool) error {
+func SizeReport(elfFilePath, srcBase string, sectionName string) error {
 	symbolsPath, err := loadSymbolsAndPaths(elfFilePath, srcBase)
 	if err != nil {
 		return err
@@ -320,35 +299,22 @@ func SizeReport(elfFilePath, srcBase string, ram bool, flash bool) error {
 	if err != nil {
 		return err
 	}
-	flashRegion, ramRegion, err := generateMemoryRegions(elfFilePath)
+	sectionRegion, err := getMemoryRegion(elfFilePath, sectionName)
 	if err != nil {
 		return err
 	}
 
-	logMemoryRegionStats(flashRegion, ramRegion)
+	logMemoryRegionStats(sectionRegion, sectionName)
 
 	startPath := "."
 
-	if flash {
-		flashNodes := newFolder(startPath)
-		for _, symbol := range loadedSectionSizes {
-			if _, ok := flashRegion.SectionNames[symbol.Section]; ok {
-				flashNodes.addSymbol(symbol, symbolsPath[symbol.Name])
-			}
+	sectionNodes := newFolder(startPath)
+	for _, symbol := range loadedSectionSizes {
+		if _, ok := sectionRegion.SectionNames[symbol.Section]; ok {
+			sectionNodes.addSymbol(symbol, symbolsPath[symbol.Name])
 		}
-		fmt.Println("FLASH report:")
-		fmt.Printf("%v", flashNodes.ToString(flashRegion.TotalSize))
 	}
-
-	if ram {
-		ramNodes := newFolder(startPath)
-		for _, symbol := range loadedSectionSizes {
-			if _, ok := ramRegion.SectionNames[symbol.Section]; ok {
-				ramNodes.addSymbol(symbol, symbolsPath[symbol.Name])
-			}
-		}
-		fmt.Println("RAM report:")
-		fmt.Printf("%v", ramNodes.ToString(ramRegion.TotalSize))
-	}
+	fmt.Printf("%s report:\n", sectionName)
+	fmt.Printf("%v", sectionNodes.ToString(sectionRegion.TotalSize))
 	return nil
 }
