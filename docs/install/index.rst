@@ -2,7 +2,7 @@ Install
 -----------------
 
 .. toctree::
-   :titlesonly:
+   :maxdepth: 2
 
    newt_mac
    newt_linux
