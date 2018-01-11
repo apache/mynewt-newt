@@ -24,7 +24,7 @@ See :doc:`prev_releases` to install an earlier version of newt.
 1704. Earlier Ubuntu versions (for example: Ubuntu 14) may have incompatibility with the repository. You can manually
 download and install the Debian binary package.
 
-**Note:** See :doc:`../../faq/go_env` if you want to:
+**Note:** See :doc:`../../misc/go_env` if you want to:
 
 - Use the newt tool with the latest updates from the master branch. The master branch may be unstable and we recommend
   that you use the latest stable release version.
