@@ -456,8 +456,11 @@ func (b *Builder) PrepBuild() error {
 	baseCi.Includes = append(baseCi.Includes,
 		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
 
-	// Note: Compiler flags get added at the end, after the flags for library
-	// package being built are calculated.
+	// Let multiplatform libraries know that a Mynewt binary is being build.
+	baseCi.Cflags = append(baseCi.Cflags, "-DMYNEWT=1")
+
+	// Note: The compiler package's flags get added at the end, after the flags
+	// for library package being built are calculated.
 	b.compilerInfo = baseCi
 
 	return nil
