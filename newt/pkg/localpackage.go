@@ -429,7 +429,7 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 
 	dirList, err := repo.FilteredSearchList(pkgName, searchedMap)
 	if err != nil {
-		return warnings, util.NewNewtError(err.Error())
+		return append(warnings, err.Error()), nil
 	}
 
 	for _, name := range dirList {
@@ -445,9 +445,7 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 		}
 	}
 
-	if util.NodeNotExist(filepath.Join(basePath, pkgName,
-		PACKAGE_FILE_NAME)) {
-
+	if util.NodeNotExist(filepath.Join(basePath, pkgName, PACKAGE_FILE_NAME)) {
 		return warnings, nil
 	}
 
