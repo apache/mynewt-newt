@@ -8,9 +8,9 @@ package remote
 
 import (
 	"bytes"
-	"mynewt.apache.org/newt/viper"
 	crypt "github.com/xordataexchange/crypt/config"
 	"io"
+	"mynewt.apache.org/newt/viper"
 	"os"
 )
 

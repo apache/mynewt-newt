@@ -41,7 +41,7 @@ func CmakeListsPath() string {
 }
 
 func EscapeName(name string) string {
-	return strings.Replace(name, "/","_", -1)
+	return strings.Replace(name, "/", "_", -1)
 }
 
 func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {

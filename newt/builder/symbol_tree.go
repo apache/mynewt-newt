@@ -149,7 +149,7 @@ func (f *File) String(indent string, level int, total uint64) string {
 		percent := 100 * float64(size) / float64(total)
 		if f.Symbols[sym].Size > 0 {
 			str += fmt.Sprintf(outputFormatting,
-				strings.Repeat(indent, level+1)+ f.Symbols[sym].Name,
+				strings.Repeat(indent, level+1)+f.Symbols[sym].Name,
 				size, percent)
 		}
 	}

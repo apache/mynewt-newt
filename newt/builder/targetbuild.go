@@ -793,7 +793,7 @@ func (t *TargetBuilder) CreateImages(version string,
 			t.LoaderBuilder.AppHexPath(),
 			tgtArea.Offset)
 		err = c.ConvertBinToHex(t.LoaderBuilder.AppImgPath(),
-				t.LoaderBuilder.AppHexPath(), tgtArea.Offset)
+			t.LoaderBuilder.AppHexPath(), tgtArea.Offset)
 		if err != nil {
 			log.Errorf("Can't convert to hexfile %s\n", err.Error())
 		}
@@ -807,7 +807,7 @@ func (t *TargetBuilder) CreateImages(version string,
 	flashTargetArea := ""
 	if t.LoaderBuilder == nil {
 		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_0
-	} else  {
+	} else {
 		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_1
 	}
 	tgtArea := t.bspPkg.FlashMap.Areas[flashTargetArea]
@@ -817,7 +817,7 @@ func (t *TargetBuilder) CreateImages(version string,
 			t.AppBuilder.AppHexPath(),
 			tgtArea.Offset)
 		err = c.ConvertBinToHex(t.AppBuilder.AppImgPath(),
-				t.AppBuilder.AppHexPath(), tgtArea.Offset)
+			t.AppBuilder.AppHexPath(), tgtArea.Offset)
 		if err != nil {
 			log.Errorf("Can't convert to hexfile %s\n", err.Error())
 		}

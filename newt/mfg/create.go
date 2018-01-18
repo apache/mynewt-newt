@@ -44,8 +44,8 @@ type mfgManifest struct {
 }
 
 type mfgSection struct {
-	offset     int
-	blob       []byte
+	offset int
+	blob   []byte
 }
 
 type createState struct {

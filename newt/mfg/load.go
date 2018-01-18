@@ -289,7 +289,7 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 		return nil, mi.loadError(err.Error())
 	}
 	mi.compiler, err = toolchain.NewCompiler(compilerPkg.BasePath(), "",
-							target.DEFAULT_BUILD_PROFILE)
+		target.DEFAULT_BUILD_PROFILE)
 	if err != nil {
 		return nil, mi.loadError(err.Error())
 	}

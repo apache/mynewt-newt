@@ -27,8 +27,8 @@ import (
 )
 
 const (
-    RUN_NMGR_OP_TEST        = 0
-    RUN_NMGR_OP_LIST        = 1
+	RUN_NMGR_OP_TEST = 0
+	RUN_NMGR_OP_LIST = 1
 )
 
 /*
@@ -40,18 +40,18 @@ const (
  * test infrastructure.
  */
 type RunTestReq struct {
-    Testname        string `codec:"testname"`
-    Token           string `codec:"token"`
+	Testname string `codec:"testname"`
+	Token    string `codec:"token"`
 }
 
 func NewRunTestReq() (*RunTestReq, error) {
-    s := &RunTestReq{}
+	s := &RunTestReq{}
 
-    return s, nil
+	return s, nil
 }
 
 func (sr *RunTestReq) Encode() (*NmgrReq, error) {
-    nmr, err := NewNmgrReq()
+	nmr, err := NewNmgrReq()
 	if err != nil {
 		return nil, err
 	}
@@ -59,34 +59,34 @@ func (sr *RunTestReq) Encode() (*NmgrReq, error) {
 	nmr.Op = NMGR_OP_WRITE
 	nmr.Flags = 0
 	nmr.Group = NMGR_GROUP_ID_RUN
-    nmr.Id = RUN_NMGR_OP_TEST
-    req := &RunTestReq{
-        Testname: sr.Testname,
-        Token: sr.Token,
-    }
+	nmr.Id = RUN_NMGR_OP_TEST
+	req := &RunTestReq{
+		Testname: sr.Testname,
+		Token:    sr.Token,
+	}
 
-    data := make([]byte, 0)
+	data := make([]byte, 0)
 	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
 
 	enc.Encode(req)
 	nmr.Data = data
 	nmr.Len = uint16(len(data))
 
-    return nmr, nil
+	return nmr, nil
 }
 
 type RunTestRsp struct {
-    ReturnCode int      `codec:"rc"`
+	ReturnCode int `codec:"rc"`
 }
 
 func DecodeRunTestResponse(data []byte) (*RunTestRsp, error) {
-    var resp RunTestRsp
+	var resp RunTestRsp
 
 	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
 	err := dec.Decode(&resp)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Invalid response: %s",
-			                          err.Error()))
+			err.Error()))
 	}
 
 	return &resp, nil
@@ -100,49 +100,49 @@ type RunListReq struct {
 }
 
 type RunListRsp struct {
-    ReturnCode int      `codec:"rc"`
-    List       []string `codec:"run_list"`
+	ReturnCode int      `codec:"rc"`
+	List       []string `codec:"run_list"`
 }
 
 func NewRunListReq() (*RunListReq, error) {
-    s := &RunListReq{}
+	s := &RunListReq{}
 
-    return s, nil
+	return s, nil
 }
 
 func (sr *RunListReq) Encode() (*NmgrReq, error) {
-    nmr, err := NewNmgrReq()
-    if err != nil {
-        return nil, err
-    }
+	nmr, err := NewNmgrReq()
+	if err != nil {
+		return nil, err
+	}
 
-    nmr.Op = NMGR_OP_READ
-    nmr.Flags = 0
-    nmr.Group = NMGR_GROUP_ID_RUN
-    nmr.Id = RUN_NMGR_OP_LIST
+	nmr.Op = NMGR_OP_READ
+	nmr.Flags = 0
+	nmr.Group = NMGR_GROUP_ID_RUN
+	nmr.Id = RUN_NMGR_OP_LIST
 
-    req := &RunListReq{}
+	req := &RunListReq{}
 
-    data := make([]byte, 0)
-    enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
-    enc.Encode(req)
+	data := make([]byte, 0)
+	enc := codec.NewEncoderBytes(&data, new(codec.CborHandle))
+	enc.Encode(req)
 
-    nmr.Data = data
-    nmr.Len = uint16(len(data))
+	nmr.Data = data
+	nmr.Len = uint16(len(data))
 
-    return nmr, nil
+	return nmr, nil
 }
 
 func DecodeRunListResponse(data []byte) (*RunListRsp, error) {
-    var resp RunListRsp
+	var resp RunListRsp
 
-    dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
-    err := dec.Decode(&resp)
-    if err != nil {
-        return nil,
-        util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
-                                      err.Error()))
-    }
+	dec := codec.NewDecoderBytes(data, new(codec.CborHandle))
+	err := dec.Decode(&resp)
+	if err != nil {
+		return nil,
+			util.NewNewtError(fmt.Sprintf("Invalid incoming cbor: %s",
+				err.Error()))
+	}
 
-    return &resp, nil
+	return &resp, nil
 }

@@ -558,7 +558,6 @@ func imageEraseCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-
 func imageCmd() *cobra.Command {
 	imageCmd := &cobra.Command{
 		Use:   "image",
