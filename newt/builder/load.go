@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -116,10 +117,10 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 	if extraJtagCmd != "" {
 		envSettings["EXTRA_JTAG_CMD"] = extraJtagCmd
 	}
-	features := b.cfg.Features()
+	settings := b.cfg.SettingValues()
 
 	var flashTargetArea string
-	if _, ok := features["BOOT_LOADER"]; ok {
+	if parse.ValueIsTrue(settings["BOOT_LOADER"]) {
 		envSettings["BOOT_LOADER"] = "1"
 
 		flashTargetArea = "FLASH_AREA_BOOTLOADER"

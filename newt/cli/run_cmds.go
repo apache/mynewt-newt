@@ -25,6 +25,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -72,9 +73,11 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				NewtUsage(nil, err)
 			}
-			features := res.Cfg.Features()
+			settings := res.Cfg.SettingValues()
 
-			if !features["BOOT_LOADER"] && !features["BSP_SIMULATED"] {
+			if !parse.ValueIsTrue(settings["BOOT_LOADER"]) &&
+				!parse.ValueIsTrue(settings["BSP_SIMULATED"]) {
+
 				version = "0"
 				fmt.Println("Enter image version(default 0):")
 				fmt.Scanf("%s\n", &version)

@@ -26,6 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/resolve"
 )
 
@@ -36,10 +37,12 @@ func TestTargetName(testPkgName string) string {
 func (b *Builder) FeatureString() string {
 	var buffer bytes.Buffer
 
-	featureMap := b.cfg.Features()
-	featureSlice := make([]string, 0, len(featureMap))
-	for k, _ := range featureMap {
-		featureSlice = append(featureSlice, k)
+	settingMap := b.cfg.SettingValues()
+	featureSlice := make([]string, 0, len(settingMap))
+	for k, v := range settingMap {
+		if parse.ValueIsTrue(v) {
+			featureSlice = append(featureSlice, k)
+		}
 	}
 	sort.Strings(featureSlice)
 

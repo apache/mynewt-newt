@@ -38,8 +38,8 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/symbol"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
 const COMPILER_FILENAME string = "compiler.yml"
@@ -246,17 +246,13 @@ func NewCompiler(compilerDir string, dstDir string,
 	return c, nil
 }
 
-func loadFlags(v *viper.Viper, features map[string]bool,
-	key string) []string {
-
+func loadFlags(yc ycfg.YCfg, settings map[string]string, key string) []string {
 	flags := []string{}
 
-	rawFlags := newtutil.GetStringSliceFeatures(v, features, key)
+	rawFlags := yc.GetValStringSlice(key, settings)
 	for _, rawFlag := range rawFlags {
 		if strings.HasPrefix(rawFlag, key) {
-			expandedFlags := newtutil.GetStringSliceFeatures(v, features,
-				rawFlag)
-
+			expandedFlags := yc.GetValStringSlice(rawFlag, settings)
 			flags = append(flags, expandedFlags...)
 		} else {
 			flags = append(flags, strings.Trim(rawFlag, "\n"))
@@ -267,45 +263,32 @@ func loadFlags(v *viper.Viper, features map[string]bool,
 }
 
 func (c *Compiler) load(compilerDir string, buildProfile string) error {
-	v, err := util.ReadConfig(compilerDir, "compiler")
+	yc, err := newtutil.ReadConfig(compilerDir, "compiler")
 	if err != nil {
 		return err
 	}
 
-	features := map[string]bool{
-		buildProfile:                  true,
-		strings.ToUpper(runtime.GOOS): true,
+	settings := map[string]string{
+		buildProfile:                  "1",
+		strings.ToUpper(runtime.GOOS): "1",
 	}
 
-	c.ccPath = newtutil.GetStringFeatures(v, features, "compiler.path.cc")
-	c.cppPath = newtutil.GetStringFeatures(v, features, "compiler.path.cpp")
-	c.asPath = newtutil.GetStringFeatures(v, features, "compiler.path.as")
-	c.arPath = newtutil.GetStringFeatures(v, features, "compiler.path.archive")
-	c.odPath = newtutil.GetStringFeatures(v, features, "compiler.path.objdump")
-	c.osPath = newtutil.GetStringFeatures(v, features, "compiler.path.objsize")
-	c.ocPath = newtutil.GetStringFeatures(v, features, "compiler.path.objcopy")
+	c.ccPath = yc.GetValString("compiler.path.cc", settings)
+	c.cppPath = yc.GetValString("compiler.path.cpp", settings)
+	c.asPath = yc.GetValString("compiler.path.as", settings)
+	c.arPath = yc.GetValString("compiler.path.archive", settings)
+	c.odPath = yc.GetValString("compiler.path.objdump", settings)
+	c.osPath = yc.GetValString("compiler.path.objsize", settings)
+	c.ocPath = yc.GetValString("compiler.path.objcopy", settings)
 
-	c.lclInfo.Cflags = loadFlags(v, features, "compiler.flags")
-	c.lclInfo.Lflags = loadFlags(v, features, "compiler.ld.flags")
-	c.lclInfo.Aflags = loadFlags(v, features, "compiler.as.flags")
+	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags")
+	c.lclInfo.Lflags = loadFlags(yc, settings, "compiler.ld.flags")
+	c.lclInfo.Aflags = loadFlags(yc, settings, "compiler.as.flags")
 
-	c.ldResolveCircularDeps, err = newtutil.GetBoolFeatures(v, features,
-		"compiler.ld.resolve_circular_deps")
-	if err != nil {
-		return err
-	}
-
-	c.ldMapFile, err = newtutil.GetBoolFeatures(v, features,
-		"compiler.ld.mapfile")
-	if err != nil {
-		return err
-	}
-
-	c.ldBinFile, err = newtutil.GetBoolFeaturesDflt(v, features,
-		"compiler.ld.binfile", true)
-	if err != nil {
-		return err
-	}
+	c.ldResolveCircularDeps = yc.GetValBool(
+		"compiler.ld.resolve_circular_deps", settings)
+	c.ldMapFile = yc.GetValBool("compiler.ld.mapfile", settings)
+	c.ldBinFile = yc.GetValBoolDflt("compiler.ld.binfile", settings, true)
 
 	if len(c.lclInfo.Cflags) == 0 {
 		// Assume no Cflags implies an unsupported build profile.

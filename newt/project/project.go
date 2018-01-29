@@ -36,8 +36,8 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/repo"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
 var globalProject *Project = nil
@@ -66,7 +66,7 @@ type Project struct {
 
 	localRepo *repo.Repo
 
-	v *viper.Viper
+	yc ycfg.YCfg
 }
 
 func initProject(dir string) error {
@@ -434,10 +434,10 @@ func (proj *Project) Upgrade(force bool) error {
 	return proj.Install(true, force)
 }
 
-func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
+func (proj *Project) loadRepo(rname string, yc ycfg.YCfg) error {
 	varName := fmt.Sprintf("repository.%s", rname)
 
-	repoVars := v.GetStringMapString(varName)
+	repoVars := yc.GetValStringMapString(varName, nil)
 	if len(repoVars) == 0 {
 		return util.NewNewtError(fmt.Sprintf("Missing configuration for "+
 			"repository %s.", rname))
@@ -494,7 +494,7 @@ func (proj *Project) loadRepo(rname string, v *viper.Viper) error {
 }
 
 func (proj *Project) checkNewtVer() error {
-	compatSms := proj.v.GetStringMapString("project.newt_compatibility")
+	compatSms := proj.yc.GetValStringMapString("project.newt_compatibility", nil)
 	// If this project doesn't have a newt compatibility map, just assume there
 	// is no incompatibility.
 	if len(compatSms) == 0 {
@@ -524,7 +524,7 @@ func (proj *Project) checkNewtVer() error {
 }
 
 func (proj *Project) loadConfig() error {
-	v, err := util.ReadConfig(proj.BasePath,
+	yc, err := newtutil.ReadConfig(proj.BasePath,
 		strings.TrimSuffix(PROJECT_FILE_NAME, ".yml"))
 	if err != nil {
 		return util.NewNewtError(err.Error())
@@ -532,14 +532,14 @@ func (proj *Project) loadConfig() error {
 	// Store configuration object for access to future values,
 	// this avoids keeping every string around as a project variable when
 	// we need to process it later.
-	proj.v = v
+	proj.yc = yc
 
 	proj.projState, err = LoadProjectState()
 	if err != nil {
 		return err
 	}
 
-	proj.name = v.GetString("project.name")
+	proj.name = yc.GetValString("project.name", nil)
 
 	// Local repository always included in initialization
 	r, err := repo.NewLocalRepo(proj.name)
@@ -553,14 +553,14 @@ func (proj *Project) loadConfig() error {
 		r.AddIgnoreDir(ignDir)
 	}
 
-	rstrs := v.GetStringSlice("project.repositories")
+	rstrs := yc.GetValStringSlice("project.repositories", nil)
 	for _, repoName := range rstrs {
-		if err := proj.loadRepo(repoName, v); err != nil {
+		if err := proj.loadRepo(repoName, yc); err != nil {
 			return err
 		}
 	}
 
-	ignoreDirs := v.GetStringSlice("project.ignore_dirs")
+	ignoreDirs := yc.GetValStringSlice("project.ignore_dirs", nil)
 	for _, ignDir := range ignoreDirs {
 		repoName, dirName, err := newtutil.ParsePackageString(ignDir)
 		if err != nil {

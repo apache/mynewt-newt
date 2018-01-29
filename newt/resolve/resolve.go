@@ -27,19 +27,39 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/flash"
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
 )
 
+// Represents a supplied API.
+type resolveApi struct {
+	// The package which supplies the API.
+	rpkg *ResolvePackage
+
+	// The expression which enabled this API.
+	expr string
+}
+
+// Represents a required API.
+type resolveReqApi struct {
+	// Whether the API requirement has been satisfied by a hard dependency.
+	satisfied bool
+
+	// The expression which enabled this API requirement.
+	expr string
+}
+
 type Resolver struct {
-	apis             map[string]*ResolvePackage
+	apis             map[string]resolveApi
 	pkgMap           map[*pkg.LocalPackage]*ResolvePackage
 	injectedSettings map[string]string
 	flashMap         flash.FlashMap
 	cfg              syscfg.Cfg
+
+	// [api-name][api-supplier]
+	apiConflicts map[string]map[*ResolvePackage]struct{}
 }
 
 type ResolveDep struct {
@@ -49,7 +69,8 @@ type ResolveDep struct {
 	// Name of API that generated the dependency; "" if a hard dependency.
 	Api string
 
-	// XXX: slice of syscfg settings that generated this dependency.
+	// Text of syscfg expression that generated this dependency; "" for none.
+	Expr string
 }
 
 type ResolvePackage struct {
@@ -57,10 +78,11 @@ type ResolvePackage struct {
 	Deps map[*ResolvePackage]*ResolveDep
 
 	// Keeps track of API requirements and whether they are satisfied.
-	reqApiMap map[string]bool
+	reqApiMap map[string]resolveReqApi
 
 	depsResolved  bool
 	apisSatisfied bool
+	refCount      int
 }
 
 type ResolveSet struct {
@@ -71,11 +93,17 @@ type ResolveSet struct {
 	Rpkgs []*ResolvePackage
 }
 
+type ApiConflict struct {
+	Api  string
+	Pkgs []*ResolvePackage
+}
+
 // The result of resolving a target's configuration, APIs, and dependencies.
 type Resolution struct {
 	Cfg             syscfg.Cfg
 	ApiMap          map[string]*ResolvePackage
 	UnsatisfiedApis map[string][]*ResolvePackage
+	ApiConflicts    []ApiConflict
 
 	LpkgRpkgMap map[*pkg.LocalPackage]*ResolvePackage
 
@@ -92,11 +120,12 @@ func newResolver(
 	flashMap flash.FlashMap) *Resolver {
 
 	r := &Resolver{
-		apis:             map[string]*ResolvePackage{},
+		apis:             map[string]resolveApi{},
 		pkgMap:           map[*pkg.LocalPackage]*ResolvePackage{},
 		injectedSettings: injectedSettings,
 		flashMap:         flashMap,
 		cfg:              syscfg.NewCfg(),
+		apiConflicts:     map[string]map[*ResolvePackage]struct{}{},
 	}
 
 	if injectedSettings == nil {
@@ -126,7 +155,7 @@ func newResolution() *Resolution {
 func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 	return &ResolvePackage{
 		Lpkg:      lpkg,
-		reqApiMap: map[string]bool{},
+		reqApiMap: map[string]resolveReqApi{},
 		Deps:      map[*ResolvePackage]*ResolveDep{},
 	}
 }
@@ -145,7 +174,9 @@ func (r *Resolver) resolveDep(dep *pkg.Dependency, depender string) (*pkg.LocalP
 
 // @return                      true if the package's dependency list was
 //                                  modified.
-func (rpkg *ResolvePackage) AddDep(apiPkg *ResolvePackage, api string) bool {
+func (rpkg *ResolvePackage) AddDep(
+	apiPkg *ResolvePackage, api string, expr string) bool {
+
 	if dep := rpkg.Deps[apiPkg]; dep != nil {
 		if dep.Api != "" && api == "" {
 			dep.Api = api
@@ -157,6 +188,7 @@ func (rpkg *ResolvePackage) AddDep(apiPkg *ResolvePackage, api string) bool {
 		rpkg.Deps[apiPkg] = &ResolveDep{
 			Rpkg: apiPkg,
 			Api:  api,
+			Expr: expr,
 		}
 		return true
 	}
@@ -197,23 +229,42 @@ func (r *Resolver) addPkg(lpkg *pkg.LocalPackage) (*ResolvePackage, bool) {
 
 	rpkg := NewResolvePkg(lpkg)
 	r.pkgMap[lpkg] = rpkg
+	rpkg.refCount = 1
 	return rpkg, true
 }
 
 // @return bool                 true if this is a new API.
-func (r *Resolver) addApi(apiString string, rpkg *ResolvePackage) bool {
-	curRpkg := r.apis[apiString]
-	if curRpkg == nil {
-		r.apis[apiString] = rpkg
+func (r *Resolver) addApi(
+	apiString string, rpkg *ResolvePackage, expr string) bool {
+
+	api := r.apis[apiString]
+	if api.rpkg == nil {
+		r.apis[apiString] = resolveApi{
+			rpkg: rpkg,
+			expr: expr,
+		}
 		return true
 	} else {
-		if curRpkg != rpkg {
-			util.StatusMessage(util.VERBOSITY_QUIET,
-				"Warning: API conflict: %s (%s <-> %s)\n", apiString,
-				curRpkg.Lpkg.Name(), rpkg.Lpkg.Name())
+		if api.rpkg != rpkg {
+			if r.apiConflicts[apiString] == nil {
+				r.apiConflicts[apiString] = map[*ResolvePackage]struct{}{}
+			}
+			r.apiConflicts[apiString][api.rpkg] = struct{}{}
+			r.apiConflicts[apiString][rpkg] = struct{}{}
 		}
 		return false
 	}
+}
+
+func joinExprs(expr1 string, expr2 string) string {
+	if expr1 == "" {
+		return expr2
+	}
+	if expr2 == "" {
+		return expr1
+	}
+
+	return expr1 + "," + expr2
 }
 
 // Searches for a package which can satisfy bpkg's API requirement.  If such a
@@ -221,21 +272,26 @@ func (r *Resolver) addApi(apiString string, rpkg *ResolvePackage) bool {
 // package is added to bpkg's dependency list.
 //
 // @return bool                 true if the API is now satisfied.
-func (r *Resolver) satisfyApi(rpkg *ResolvePackage, reqApi string) bool {
-	depRpkg := r.apis[reqApi]
-	if depRpkg == nil {
-		// Insert nil to indicate an unsatisfied API.
-		r.apis[reqApi] = nil
+func (r *Resolver) satisfyApi(
+	rpkg *ResolvePackage, reqApi string, expr string) bool {
+
+	api := r.apis[reqApi]
+	if api.rpkg == nil {
+		// Insert null entry to indicate an unsatisfied API.
+		r.apis[reqApi] = resolveApi{}
 		return false
 	}
 
-	rpkg.reqApiMap[reqApi] = true
+	rpkg.reqApiMap[reqApi] = resolveReqApi{
+		satisfied: true,
+		expr:      expr,
+	}
 
 	// This package now has a new unresolved dependency.
 	rpkg.depsResolved = false
 
-	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s)",
-		rpkg.Lpkg.Name(), reqApi, depRpkg.Lpkg.FullName())
+	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s) expr=(%s)",
+		rpkg.Lpkg.Name(), reqApi, api.rpkg.Lpkg.FullName(), expr)
 
 	return true
 }
@@ -249,24 +305,27 @@ func (r *Resolver) satisfyApis(rpkg *ResolvePackage) bool {
 	rpkg.apisSatisfied = true
 	newDeps := false
 
-	features := r.cfg.FeaturesForLpkg(rpkg.Lpkg)
+	settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
 
 	// Determine if any of the package's API requirements can now be satisfied.
 	// If so, another full iteration is required.
-	reqApis := newtutil.GetStringSliceFeatures(rpkg.Lpkg.PkgV, features,
-		"pkg.req_apis")
-	for _, reqApi := range reqApis {
-		reqStatus := rpkg.reqApiMap[reqApi]
-		if !reqStatus {
-			apiSatisfied := r.satisfyApi(rpkg, reqApi)
-			if apiSatisfied {
-				// An API was satisfied; the package now has a new dependency
-				// that needs to be resolved.
-				newDeps = true
-				reqStatus = true
-			} else {
-				rpkg.reqApiMap[reqApi] = false
-				rpkg.apisSatisfied = false
+	reqApiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.req_apis", settings)
+	for _, entry := range reqApiEntries {
+		apiStr, ok := entry.Value.(string)
+		if ok && apiStr != "" {
+			if !rpkg.reqApiMap[apiStr].satisfied {
+				apiSatisfied := r.satisfyApi(rpkg, apiStr, entry.Expr)
+				if apiSatisfied {
+					// An API was satisfied; the package now has a new
+					// dependency that needs to be resolved.
+					newDeps = true
+				} else {
+					rpkg.reqApiMap[apiStr] = resolveReqApi{
+						satisfied: false,
+						expr:      "",
+					}
+					rpkg.apisSatisfied = false
+				}
 			}
 		}
 	}
@@ -279,36 +338,53 @@ func (r *Resolver) satisfyApis(rpkg *ResolvePackage) bool {
 //                                  in this case.
 //         error                non-nil on failure.
 func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
-	features := r.cfg.FeaturesForLpkg(rpkg.Lpkg)
+	settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
 
 	changed := false
-	newDeps := newtutil.GetStringSliceFeatures(rpkg.Lpkg.PkgV, features,
-		"pkg.deps")
+
+	depEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.deps", settings)
 	depender := rpkg.Lpkg.Name()
-	for _, newDepStr := range newDeps {
-		newDep, err := pkg.NewDependency(rpkg.Lpkg.Repo(), newDepStr)
-		if err != nil {
-			return false, err
-		}
 
-		lpkg, err := r.resolveDep(newDep, depender)
-		if err != nil {
-			return false, err
-		}
+	seen := make(map[*ResolvePackage]struct{}, len(rpkg.Deps))
 
-		depRpkg, _ := r.addPkg(lpkg)
-		if rpkg.AddDep(depRpkg, "") {
+	for _, entry := range depEntries {
+		depStr, ok := entry.Value.(string)
+		if ok && depStr != "" {
+			newDep, err := pkg.NewDependency(rpkg.Lpkg.Repo(), depStr)
+			if err != nil {
+				return false, err
+			}
+
+			lpkg, err := r.resolveDep(newDep, depender)
+			if err != nil {
+				return false, err
+			}
+
+			depRpkg, _ := r.addPkg(lpkg)
+			if rpkg.AddDep(depRpkg, "", entry.Expr) {
+				changed = true
+			}
+			seen[depRpkg] = struct{}{}
+		}
+	}
+
+	for rpkg, _ := range rpkg.Deps {
+		if _, ok := seen[rpkg]; !ok {
+			delete(rpkg.Deps, rpkg)
+			rpkg.refCount--
 			changed = true
 		}
 	}
 
 	// Determine if this package supports any APIs that we haven't seen
 	// yet.  If so, another full iteration is required.
-	apis := newtutil.GetStringSliceFeatures(rpkg.Lpkg.PkgV, features,
-		"pkg.apis")
-	for _, api := range apis {
-		if r.addApi(api, rpkg) {
-			changed = true
+	apiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.apis", settings)
+	for _, entry := range apiEntries {
+		apiStr, ok := entry.Value.(string)
+		if ok && apiStr != "" {
+			if r.addApi(apiStr, rpkg, entry.Expr) {
+				changed = true
+			}
 		}
 	}
 
@@ -352,11 +428,11 @@ func (r *Resolver) reloadCfg() (bool, error) {
 	lpkgs := RpkgSliceToLpkgSlice(r.rpkgSlice())
 	apis := r.apiSlice()
 
-	// Determine which features have been detected so far.  The feature map is
-	// required for reloading syscfg, as features may unlock additional
+	// Determine which settings have been detected so far.  The feature map is
+	// required for reloading syscfg, as settings may unlock additional
 	// settings.
-	features := r.cfg.Features()
-	cfg, err := syscfg.Read(lpkgs, apis, r.injectedSettings, features,
+	settings := r.cfg.SettingValues()
+	cfg, err := syscfg.Read(lpkgs, apis, r.injectedSettings, settings,
 		r.flashMap)
 	if err != nil {
 		return false, err
@@ -451,6 +527,13 @@ func (r *Resolver) resolveDepsAndCfg() error {
 		return err
 	}
 
+	// Remove orphaned packages.
+	for lpkg, rpkg := range r.pkgMap {
+		if rpkg.refCount == 0 {
+			delete(r.pkgMap, lpkg)
+		}
+	}
+
 	// Log the final syscfg.
 	r.cfg.Log()
 
@@ -462,10 +545,11 @@ func (r *Resolver) resolveDepsAndCfg() error {
 // corresponding dependecy to each package which requires the API.
 func (r *Resolver) resolveApiDeps() error {
 	for _, rpkg := range r.pkgMap {
-		for api, _ := range rpkg.reqApiMap {
-			apiPkg := r.apis[api]
-			if apiPkg != nil {
-				rpkg.AddDep(apiPkg, api)
+		for apiString, reqApi := range rpkg.reqApiMap {
+			api := r.apis[apiString]
+			if api.rpkg != nil {
+				rpkg.AddDep(api.rpkg, apiString,
+					joinExprs(api.expr, reqApi.expr))
 			}
 		}
 	}
@@ -479,22 +563,22 @@ func (r *Resolver) apiResolution() (
 
 	apiMap := make(map[string]*ResolvePackage, len(r.apis))
 	anyUnsatisfied := false
-	for api, rpkg := range r.apis {
-		if rpkg == nil {
+	for name, api := range r.apis {
+		if api.rpkg == nil {
 			anyUnsatisfied = true
 		} else {
-			apiMap[api] = rpkg
+			apiMap[name] = api.rpkg
 		}
 	}
 
 	unsatisfied := map[string][]*ResolvePackage{}
 	if anyUnsatisfied {
 		for _, rpkg := range r.pkgMap {
-			for api, satisfied := range rpkg.reqApiMap {
-				if !satisfied {
-					slice := unsatisfied[api]
+			for name, reqApi := range rpkg.reqApiMap {
+				if !reqApi.satisfied {
+					slice := unsatisfied[name]
 					slice = append(slice, rpkg)
-					unsatisfied[api] = slice
+					unsatisfied[name] = slice
 				}
 			}
 		}
@@ -532,6 +616,17 @@ func ResolveFull(
 	// unsatisfied.
 	apiMap := map[string]*ResolvePackage{}
 	apiMap, res.UnsatisfiedApis = r.apiResolution()
+
+	for api, m := range r.apiConflicts {
+		c := ApiConflict{
+			Api: api,
+		}
+		for rpkg, _ := range m {
+			c.Pkgs = append(c.Pkgs, rpkg)
+		}
+
+		res.ApiConflicts = append(res.ApiConflicts, c)
+	}
 
 	res.LpkgRpkgMap = r.pkgMap
 
@@ -627,5 +722,17 @@ func (res *Resolution) ErrorText() string {
 }
 
 func (res *Resolution) WarningText() string {
-	return res.Cfg.WarningText()
+	text := ""
+
+	for _, c := range res.ApiConflicts {
+		text += fmt.Sprintf("Warning: API conflict: %s (", c.Api)
+		for i, rpkg := range c.Pkgs {
+			if i != 0 {
+				text += " <-> "
+			}
+			text += rpkg.Lpkg.Name()
+		}
+	}
+
+	return text + res.Cfg.WarningText()
 }

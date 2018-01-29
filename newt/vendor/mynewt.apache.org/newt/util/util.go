@@ -37,8 +37,6 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-
-	"mynewt.apache.org/newt/viper"
 )
 
 var Verbosity int
@@ -253,23 +251,6 @@ func Init(logLevel log.Level, logFile string, verbosity int) error {
 	ExecuteShell = false
 
 	return nil
-}
-
-// Read in the configuration file specified by name, in path
-// return a new viper config object if successful, and error if not
-func ReadConfig(path string, name string) (*viper.Viper, error) {
-	v := viper.New()
-	v.SetConfigType("yaml")
-	v.SetConfigName(name)
-	v.AddConfigPath(path)
-
-	err := v.ReadInConfig()
-	if err != nil {
-		return nil, NewNewtError(fmt.Sprintf("Error reading %s.yml: %s",
-			filepath.Join(path, name), err.Error()))
-	} else {
-		return v, nil
-	}
 }
 
 func LogShellCmd(cmdStrs []string, env []string) {

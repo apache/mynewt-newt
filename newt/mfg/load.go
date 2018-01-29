@@ -28,6 +28,7 @@ import (
 
 	"github.com/spf13/cast"
 
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
@@ -220,7 +221,7 @@ func (mi *MfgImage) detectOverlaps() error {
 }
 
 func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
-	v, err := util.ReadConfig(basePkg.BasePath(),
+	v, err := newtutil.ReadConfig(basePkg.BasePath(),
 		strings.TrimSuffix(MFG_YAML_FILENAME, ".yml"))
 	if err != nil {
 		return nil, err
@@ -230,7 +231,7 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 		basePkg: basePkg,
 	}
 
-	bootName := v.GetString("mfg.bootloader")
+	bootName := v.GetValString("mfg.bootloader", nil)
 	if bootName == "" {
 		return nil, mi.loadError("mfg.bootloader field required")
 	}
@@ -239,7 +240,7 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 		return nil, err
 	}
 
-	imgNames := v.GetStringSlice("mfg.images")
+	imgNames := v.GetValStringSlice("mfg.images", nil)
 	if imgNames != nil {
 		for _, imgName := range imgNames {
 			imgTarget, err := mi.loadTarget(imgName)
@@ -256,7 +257,7 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 			len(mi.images))
 	}
 
-	itf := v.Get("mfg.raw")
+	itf := v.GetFirstVal("mfg.raw", nil)
 	slice := cast.ToSlice(itf)
 	if slice != nil {
 		for i, entryItf := range slice {
@@ -289,7 +290,7 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 		return nil, mi.loadError(err.Error())
 	}
 	mi.compiler, err = toolchain.NewCompiler(compilerPkg.BasePath(), "",
-							target.DEFAULT_BUILD_PROFILE)
+		target.DEFAULT_BUILD_PROFILE)
 	if err != nil {
 		return nil, mi.loadError(err.Error())
 	}

@@ -22,6 +22,7 @@ package builder
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/resolve"
 )
@@ -111,8 +112,18 @@ func revdepGraph(rs *resolve.ResolveSet) (DepGraph, error) {
 
 func depString(dep *resolve.ResolveDep) string {
 	s := fmt.Sprintf("%s", dep.Rpkg.Lpkg.FullName())
+
+	var reasons []string
 	if dep.Api != "" {
-		s += fmt.Sprintf("(api:%s)", dep.Api)
+		reasons = append(reasons, fmt.Sprintf("api:%s", dep.Api))
+	}
+
+	if dep.Expr != "" {
+		reasons = append(reasons, fmt.Sprintf("syscfg:%s", dep.Expr))
+	}
+
+	if len(reasons) > 0 {
+		s += fmt.Sprintf("(%s)", strings.Join(reasons, " "))
 	}
 
 	return s

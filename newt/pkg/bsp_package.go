@@ -26,8 +26,8 @@ import (
 	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/viper"
 )
 
 const BSP_YAML_FILENAME = "bsp.yml"
@@ -41,15 +41,15 @@ type BspPackage struct {
 	DownloadScript     string
 	DebugScript        string
 	FlashMap           flash.FlashMap
-	BspV               *viper.Viper
+	BspV               ycfg.YCfg
 }
 
 func (bsp *BspPackage) resolvePathSetting(
-	features map[string]bool, key string) (string, error) {
+	settings map[string]string, key string) (string, error) {
 
 	proj := interfaces.GetProject()
 
-	val := newtutil.GetStringFeatures(bsp.BspV, features, key)
+	val := bsp.BspV.GetValString(key, settings)
 	if val == "" {
 		return "", nil
 	}
@@ -65,21 +65,23 @@ func (bsp *BspPackage) resolvePathSetting(
 // Interprets a setting as either a single linker script or a list of linker
 // scripts.
 func (bsp *BspPackage) resolveLinkerScriptSetting(
-	features map[string]bool, key string) ([]string, error) {
+	settings map[string]string, key string) ([]string, error) {
 
 	paths := []string{}
 
 	// Assume config file specifies a list of scripts.
-	vals := newtutil.GetStringSliceFeatures(bsp.BspV, features, key)
+	vals := bsp.BspV.GetValStringSlice(key, settings)
 	if vals == nil {
 		// Couldn't read a list of scripts; try to interpret setting as a
 		// single script.
-		path, err := bsp.resolvePathSetting(features, key)
+		path, err := bsp.resolvePathSetting(settings, key)
 		if err != nil {
 			return nil, err
 		}
 
-		paths = append(paths, path)
+		if path != "" {
+			paths = append(paths, path)
+		}
 	} else {
 		proj := interfaces.GetProject()
 
@@ -92,55 +94,52 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 					bsp.Name(), key)
 			}
 
-			paths = append(paths, path)
+			if path != "" {
+				paths = append(paths, path)
+			}
 		}
 	}
 
 	return paths, nil
 }
 
-func (bsp *BspPackage) Reload(features map[string]bool) error {
+func (bsp *BspPackage) Reload(settings map[string]string) error {
 	var err error
 
-	if features == nil {
-		features = map[string]bool{
-			strings.ToUpper(runtime.GOOS): true,
-		}
-	} else {
-		features[strings.ToUpper(runtime.GOOS)] = true
+	if settings == nil {
+		settings = map[string]string{}
 	}
-	bsp.BspV, err = util.ReadConfig(bsp.BasePath(),
+	settings[strings.ToUpper(runtime.GOOS)] = "1"
+
+	bsp.BspV, err = newtutil.ReadConfig(bsp.BasePath(),
 		strings.TrimSuffix(BSP_YAML_FILENAME, ".yml"))
 	if err != nil {
 		return err
 	}
 	bsp.AddCfgFilename(bsp.BasePath() + BSP_YAML_FILENAME)
 
-	bsp.CompilerName = newtutil.GetStringFeatures(bsp.BspV,
-		features, "bsp.compiler")
-
-	bsp.Arch = newtutil.GetStringFeatures(bsp.BspV,
-		features, "bsp.arch")
+	bsp.CompilerName = bsp.BspV.GetValString("bsp.compiler", settings)
+	bsp.Arch = bsp.BspV.GetValString("bsp.arch", settings)
 
 	bsp.LinkerScripts, err = bsp.resolveLinkerScriptSetting(
-		features, "bsp.linkerscript")
+		settings, "bsp.linkerscript")
 	if err != nil {
 		return err
 	}
 
 	bsp.Part2LinkerScripts, err = bsp.resolveLinkerScriptSetting(
-		features, "bsp.part2linkerscript")
+		settings, "bsp.part2linkerscript")
 	if err != nil {
 		return err
 	}
 
 	bsp.DownloadScript, err = bsp.resolvePathSetting(
-		features, "bsp.downloadscript")
+		settings, "bsp.downloadscript")
 	if err != nil {
 		return err
 	}
 	bsp.DebugScript, err = bsp.resolvePathSetting(
-		features, "bsp.debugscript")
+		settings, "bsp.debugscript")
 	if err != nil {
 		return err
 	}
@@ -154,8 +153,7 @@ func (bsp *BspPackage) Reload(features map[string]bool) error {
 			"(bsp.arch)")
 	}
 
-	ymlFlashMap := newtutil.GetStringMapFeatures(bsp.BspV, features,
-		"bsp.flash_map")
+	ymlFlashMap := bsp.BspV.GetValStringMap("bsp.flash_map", settings)
 	if ymlFlashMap == nil {
 		return util.NewNewtError("BSP does not specify a flash map " +
 			"(bsp.flash_map)")
@@ -173,7 +171,7 @@ func NewBspPackage(lpkg *LocalPackage) (*BspPackage, error) {
 		CompilerName:   "",
 		DownloadScript: "",
 		DebugScript:    "",
-		BspV:           viper.New(),
+		BspV:           ycfg.YCfg{},
 	}
 	lpkg.Load()
 	bsp.LocalPackage = lpkg
