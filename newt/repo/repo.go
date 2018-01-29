@@ -464,7 +464,7 @@ func (r *Repo) updateRepo(branchName string) error {
 	dl := r.downloader
 	err := dl.UpdateRepo(r.Path(), branchName)
 	if err != nil {
-		return util.NewNewtError("Error updating\n")
+		return util.FmtNewtError("Error updating: %s", err.Error())
 	}
 	return nil
 }
@@ -473,7 +473,7 @@ func (r *Repo) cleanupRepo(branchName string) error {
 	dl := r.downloader
 	err := dl.CleanupRepo(r.Path(), branchName)
 	if err != nil {
-		return util.NewNewtError("Error cleaning and updating\n")
+		return util.FmtNewtError("Error cleaning and updating: %s", err.Error())
 	}
 	return nil
 }
@@ -493,14 +493,14 @@ func (r *Repo) saveLocalDiff() (string, error) {
 	f, err := os.Create(filename)
 	if err != nil {
 		return "",
-			util.FmtNewtError("Error creating repo diff file \"%s\"", filename)
+			util.FmtNewtError("Error creating repo diff file \"%s\": %s", filename, err.Error())
 	}
 	defer f.Close()
 
 	_, err = f.Write(diff)
 	if err != nil {
 		return "",
-			util.FmtNewtError("Error writing repo diff file \"%s\"", filename)
+			util.FmtNewtError("Error writing repo diff file \"%s\": %s", filename, err.Error())
 	}
 
 	return filename, nil
@@ -567,8 +567,8 @@ func (r *Repo) Sync(vers *Version, force bool) (bool, error) {
 
 	branchName, _, found := r.rdesc.MatchVersion(vers)
 	if found == false {
-		return false, util.NewNewtError(fmt.Sprintf(
-			"Branch description for %s not found", r.Name()))
+		return false, util.FmtNewtError(
+			"Branch description for %s not found", r.Name())
 	}
 
 	// Here assuming that if the branch was changed by the user,
@@ -642,7 +642,6 @@ func (r *Repo) UpdateDesc() ([]*Repo, bool, error) {
 
 	_, repos, err := r.ReadDesc()
 	if err != nil {
-		fmt.Printf("ReadDesc: %v\n", err)
 		return nil, false, err
 	}
 
@@ -717,8 +716,8 @@ func (r *Repo) readDepRepos(yc ycfg.YCfg) ([]*Repo, error) {
 	branch, _, ok := rdesc.Match(r)
 	if !ok {
 		// No matching branch, barf!
-		return nil, util.NewNewtError(fmt.Sprintf("No "+
-			"matching branch for %s repo", r.Name()))
+		return nil, util.FmtNewtError("No "+
+			"matching branch for %s repo", r.Name())
 	}
 
 	repoTag := fmt.Sprintf("%s.repositories", branch)
