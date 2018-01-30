@@ -61,7 +61,7 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 		dbpkg := b.PkgMap[dep.Rpkg]
 		if dbpkg == nil {
 			return util.FmtNewtError("Package not found %s; required by %s",
-				dbpkg.rpkg.Lpkg.Name(), bpkg.rpkg.Lpkg.Name())
+				dep.Rpkg.Lpkg.Name(), bpkg.rpkg.Lpkg.Name())
 		}
 
 		if err := dbpkg.collectDepsAux(b, set); err != nil {

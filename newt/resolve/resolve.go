@@ -368,10 +368,10 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 		}
 	}
 
-	for rpkg, _ := range rpkg.Deps {
-		if _, ok := seen[rpkg]; !ok {
-			delete(rpkg.Deps, rpkg)
-			rpkg.refCount--
+	for rdep, _ := range rpkg.Deps {
+		if _, ok := seen[rdep]; !ok {
+			delete(rpkg.Deps, rdep)
+			rdep.refCount--
 			changed = true
 		}
 	}
