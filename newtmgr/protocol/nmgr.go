@@ -20,12 +20,12 @@
 package protocol
 
 import (
-	"encoding/binary"
-	"fmt"
+	// "encoding/binary"
+	// "fmt"
 
-	log "github.com/Sirupsen/logrus"
+	// log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/util"
+	// "mynewt.apache.org/newt/util"
 )
 
 type NmgrReq struct {
@@ -62,46 +62,48 @@ func NewNmgrReq() (*NmgrReq, error) {
 }
 
 func DeserializeNmgrReq(data []byte) (*NmgrReq, error) {
-	if len(data) < 8 {
-		return nil, util.NewNewtError(fmt.Sprintf(
-			"Newtmgr request buffer too small %d bytes", len(data)))
-	}
+	// if len(data) < 8 {
+	// 	return nil, NewNewtError("Newtmgr request buffer too small bytes")
+
+	// 	// return nil, NewNewtError(fmt.Sprintf(
+	// 	// 	"Newtmgr request buffer too small %d bytes", len(data)))
+	// }
 
 	nmr := &NmgrReq{}
 
 	nmr.Op = uint8(data[0])
 	nmr.Flags = uint8(data[1])
-	nmr.Len = binary.BigEndian.Uint16(data[2:4])
-	nmr.Group = binary.BigEndian.Uint16(data[4:6])
+	// nmr.Len = binary.BigEndian.Uint16(data[2:4])
+	// nmr.Group = binary.BigEndian.Uint16(data[4:6])
 	nmr.Seq = uint8(data[6])
 	nmr.Id = uint8(data[7])
 
 	data = data[8:]
 	nmr.Data = data
 
-	log.Debugf("Deserialized response %+v", nmr)
+	// log.Debugf("Deserialized response %+v", nmr)
 
 	return nmr, nil
 }
 
 func (nmr *NmgrReq) SerializeRequest(data []byte) ([]byte, error) {
 
-	u16b := make([]byte, 2)
+	// u16b := make([]byte, 2)
 
 	data = append(data, byte(nmr.Op))
 	data = append(data, byte(nmr.Flags))
 
-	binary.BigEndian.PutUint16(u16b, nmr.Len)
-	data = append(data, u16b...)
+	// binary.BigEndian.PutUint16(u16b, nmr.Len)
+	// data = append(data, u16b...)
 
-	binary.BigEndian.PutUint16(u16b, nmr.Group)
-	data = append(data, u16b...)
+	// binary.BigEndian.PutUint16(u16b, nmr.Group)
+	// data = append(data, u16b...)
 
 	data = append(data, byte(nmr.Seq))
 	data = append(data, byte(nmr.Id))
 
 	data = append(data, nmr.Data...)
 
-	log.Debugf("Serializing request %+v into buffer %+v", nmr, data)
+	// log.Debugf("Serializing request %+v into buffer %+v", nmr, data)
 	return data, nil
 }
