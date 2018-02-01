@@ -11,7 +11,7 @@ import (
 // ident    ::= <printable-char> { <printable-char> }
 // literal  ::= """ <printable-char> { <printable-char> } """
 // unary    ::= "!"
-// binary   ::= "=" | "!=" | "&" | "|" | "^"
+// binary   ::= "==" | "!=" | "&&" | "||" | "^^"
 
 type ParseCode int
 
