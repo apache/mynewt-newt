@@ -66,6 +66,7 @@ type ProjectInterface interface {
 	ResolvePath(basePath string, name string) (string, error)
 	PackageList() PackageList
 	FindRepoPath(rname string) string
+	RepoIsInstalled(rname string) bool
 }
 
 var globalProject ProjectInterface

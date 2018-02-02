@@ -117,8 +117,15 @@ func (repo *Repo) FilteredSearchList(
 	path := filepath.Join(repo.Path(), curPath)
 	dirList, err := ioutil.ReadDir(path)
 	if err != nil {
-		return list, util.FmtNewtError("failed to read repo \"%s\": %s",
-			repo.Name(), err.Error())
+		// The repo could not be found in the `repos` directory.  Display a
+		// warning if the `project.state` file indicates that the repo has been
+		// installed.
+		var warning error
+		if interfaces.GetProject().RepoIsInstalled(repo.Name()) {
+			warning = util.FmtNewtError("failed to read repo \"%s\": %s",
+				repo.Name(), err.Error())
+		}
+		return list, warning
 	}
 
 	for _, dirEnt := range dirList {

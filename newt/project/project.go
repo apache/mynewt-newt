@@ -185,6 +185,11 @@ func (proj *Project) FindRepoPath(rname string) string {
 	return r.Path()
 }
 
+// Indicates whether the specified repo is present in the `project.state` file.
+func (proj *Project) RepoIsInstalled(rname string) bool {
+	return proj.projState.GetInstalledVersion(rname) != nil
+}
+
 func (proj *Project) LocalRepo() *repo.Repo {
 	return proj.localRepo
 }
