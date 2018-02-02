@@ -347,7 +347,8 @@ func (c *Compiler) includesStrings() []string {
 		return nil
 	}
 
-	includes := util.SortFields(c.info.Includes...)
+	includes := util.UniqueStrings(c.info.Includes)
+	sort.Strings(includes)
 
 	tokens := make([]string, len(includes))
 	for i, s := range includes {
