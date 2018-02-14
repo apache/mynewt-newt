@@ -223,6 +223,83 @@ func (yc YCfg) GetSlice(key string, settings map[string]string) []YCfgEntry {
 	return result
 }
 
+func (yc YCfg) GetValSlice(
+	key string, settings map[string]string) []interface{} {
+
+	entries := yc.GetSlice(key, settings)
+	if len(entries) == 0 {
+		return nil
+	}
+
+	vals := make([]interface{}, len(entries))
+	for i, e := range entries {
+		vals[i] = e.Value
+	}
+
+	return vals
+}
+
+func (yc YCfg) GetStringSlice(key string,
+	settings map[string]string) []YCfgEntry {
+
+	sliceEntries := yc.Get(key, settings)
+	if len(sliceEntries) == 0 {
+		return nil
+	}
+
+	result := []YCfgEntry{}
+	for _, sliceEntry := range sliceEntries {
+		if sliceEntry.Value != nil {
+			slice, err := cast.ToStringSliceE(sliceEntry.Value)
+			if err != nil {
+				// Not a slice.  Put the single value in a new slice.
+				slice = []string{cast.ToString(sliceEntry.Value)}
+			}
+			for _, v := range slice {
+				entry := YCfgEntry{
+					Value: v,
+					Expr:  sliceEntry.Expr,
+				}
+				result = append(result, entry)
+			}
+		}
+	}
+
+	return result
+}
+
+func (yc YCfg) GetValStringSlice(
+	key string, settings map[string]string) []string {
+
+	entries := yc.GetStringSlice(key, settings)
+	if len(entries) == 0 {
+		return nil
+	}
+
+	vals := make([]string, len(entries))
+	for i, e := range entries {
+		if e.Value != nil {
+			vals[i] = cast.ToString(e.Value)
+		}
+	}
+
+	return vals
+}
+
+func (yc YCfg) GetValStringSliceNonempty(
+	key string, settings map[string]string) []string {
+
+	strs := yc.GetValStringSlice(key, settings)
+	filtered := make([]string, 0, len(strs))
+	for _, s := range strs {
+		if s != "" {
+			filtered = append(filtered, s)
+		}
+	}
+
+	return filtered
+}
+
 func (yc YCfg) GetStringMap(
 	key string, settings map[string]string) map[string]YCfgEntry {
 
@@ -314,42 +391,35 @@ func (yc YCfg) GetValBool(key string, settings map[string]string) bool {
 	return yc.GetValBoolDflt(key, settings, false)
 }
 
-func (yc YCfg) GetValStringSlice(
-	key string, settings map[string]string) []string {
+func (yc YCfg) GetStringMapString(key string,
+	settings map[string]string) map[string]YCfgEntry {
 
-	entries := yc.GetSlice(key, settings)
-	if len(entries) == 0 {
+	mapEntries := yc.Get(key, settings)
+	if len(mapEntries) == 0 {
 		return nil
 	}
 
-	vals := make([]string, len(entries))
-	for i, e := range entries {
-		if e.Value != nil {
-			vals[i] = cast.ToString(e.Value)
+	result := map[string]YCfgEntry{}
+
+	for _, mapEntry := range mapEntries {
+		for k, v := range cast.ToStringMapString(mapEntry.Value) {
+			entry := YCfgEntry{
+				Value: v,
+				Expr:  mapEntry.Expr,
+			}
+
+			// XXX: Report collisions?
+			result[k] = entry
 		}
 	}
 
-	return vals
-}
-
-func (yc YCfg) GetValStringSliceNonempty(
-	key string, settings map[string]string) []string {
-
-	strs := yc.GetValStringSlice(key, settings)
-	filtered := make([]string, 0, len(strs))
-	for _, s := range strs {
-		if s != "" {
-			filtered = append(filtered, s)
-		}
-	}
-
-	return filtered
+	return result
 }
 
 func (yc YCfg) GetValStringMapString(key string,
 	settings map[string]string) map[string]string {
 
-	entryMap := yc.GetStringMap(key, settings)
+	entryMap := yc.GetStringMapString(key, settings)
 
 	valMap := make(map[string]string, len(entryMap))
 	for k, v := range entryMap {
