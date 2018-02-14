@@ -802,9 +802,9 @@ func calcPriorities(cfg Cfg, settingType CfgSettingType, max int,
 						return util.FmtNewtError(
 							"duplicate priority value: setting1=%s "+
 								"setting2=%s pkg1=%s pkg2=%s value=%s",
-							oldEntry.Name, entry.Name, entry.Value,
+							oldEntry.Name, entry.Name,
 							oldEntry.History[0].Name(),
-							entry.History[0].Name())
+							entry.History[0].Name(), entry.Value)
 					}
 				}
 
