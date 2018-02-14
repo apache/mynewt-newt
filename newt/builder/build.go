@@ -372,6 +372,13 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 			archiveNames[i] = filepath.ToSlash(archiveName)
 		}
 		pkgNames = append(pkgNames, archiveNames...)
+
+		// Collect lflags from all constituent packages.
+		ci, err := bpkg.CompilerInfo(b)
+		if err != nil {
+			return err
+		}
+		c.AddInfo(ci)
 	}
 
 	c.LinkerScripts = linkerScripts
