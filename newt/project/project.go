@@ -558,10 +558,15 @@ func (proj *Project) loadConfig() error {
 		r.AddIgnoreDir(ignDir)
 	}
 
-	rstrs := yc.GetValStringSlice("project.repositories", nil)
-	for _, repoName := range rstrs {
-		if err := proj.loadRepo(repoName, yc); err != nil {
-			return err
+	// Assume every item starting with "repository." is a repository descriptor
+	// and try to load it.
+	for k, _ := range yc.AllSettings() {
+		repoName := strings.TrimPrefix(k, "repository.")
+		if repoName != k {
+			if err := proj.loadRepo(repoName, yc); err != nil {
+				util.StatusMessage(util.VERBOSITY_QUIET,
+					"* Warning: %s\n", err.Error())
+			}
 		}
 	}
 
