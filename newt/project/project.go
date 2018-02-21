@@ -318,7 +318,7 @@ func (proj *Project) checkDeps(r *repo.Repo) error {
 		curRepo, ok := proj.repos[newRepo.Name()]
 		if !ok {
 			proj.repos[newRepo.Name()] = newRepo
-			return proj.UpdateRepos()
+			return proj.updateRepos(proj.SortedRepos())
 		} else {
 			// Add any dependencies we might have found here.
 			for _, dep := range newRepo.Deps() {
@@ -332,9 +332,23 @@ func (proj *Project) checkDeps(r *repo.Repo) error {
 	return nil
 }
 
-func (proj *Project) UpdateRepos() error {
-	repoList := proj.Repos()
-	for _, r := range repoList {
+// Selects repositories from the global state that satisfy the specified
+// predicate.
+func (proj *Project) SelectRepos(pred func(r *repo.Repo) bool) []*repo.Repo {
+	all := proj.SortedRepos()
+	var filtered []*repo.Repo
+
+	for _, r := range all {
+		if pred(r) {
+			filtered = append(filtered, r)
+		}
+	}
+
+	return filtered
+}
+
+func (proj *Project) updateRepos(repos []*repo.Repo) error {
+	for _, r := range repos {
 		if r.IsLocal() {
 			continue
 		}
@@ -347,8 +361,8 @@ func (proj *Project) UpdateRepos() error {
 	return nil
 }
 
-func (proj *Project) Install(upgrade bool, force bool) error {
-	repoList := proj.SortedRepos()
+func (proj *Project) InstallIf(upgrade bool, force bool, predicate func(r *repo.Repo) bool) error {
+	repoList := proj.SelectRepos(predicate)
 
 	var verb string
 	if upgrade {
@@ -370,9 +384,9 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 		}
 	}
 
-	// Fetch "origin" for all repos and copy the current version of
+	// Fetch "origin" for specified repos and copy the current version of
 	// `repository.yml`.
-	if err := proj.UpdateRepos(); err != nil {
+	if err := proj.updateRepos(repoList); err != nil {
 		return err
 	}
 
@@ -380,7 +394,7 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 	// install procedure locally.
 
 	// Get repository list and print every repo and its dependencies.
-	if err := repo.CheckDeps(proj.Repos()); err != nil {
+	if err := repo.CheckDeps(repoList); err != nil {
 		return err
 	}
 
@@ -433,10 +447,6 @@ func (proj *Project) Install(upgrade bool, force bool) error {
 	}
 
 	return nil
-}
-
-func (proj *Project) Upgrade(force bool) error {
-	return proj.Install(true, force)
 }
 
 func (proj *Project) loadRepo(rname string, yc ycfg.YCfg) error {

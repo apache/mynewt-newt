@@ -29,6 +29,7 @@ import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -76,11 +77,32 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 		"Project %s successfully created.\n", newDir)
 }
 
+// Builds a repo selection predicate based on the specified names.  If no names
+// are specified, the resulting function selects all non-local repos.
+// Otherwise, the function selects each non-local repo whose name is specified.
+func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
+	if len(repoNames) == 0 {
+		return func(r *repo.Repo) bool { return !r.IsLocal() }
+	}
+
+	return func(r *repo.Repo) bool {
+		if !r.IsLocal() {
+			for _, arg := range repoNames {
+				if r.Name() == arg {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
 func installRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Install(false, newtutil.NewtForce); err != nil {
+	pred := makeRepoPredicate(args)
+	if err := proj.InstallIf(false, newtutil.NewtForce, pred); err != nil {
 		NewtUsage(nil, err)
 	}
 }
@@ -89,7 +111,8 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	interfaces.SetProject(proj)
 
-	if err := proj.Upgrade(newtutil.NewtForce); err != nil {
+	pred := makeRepoPredicate(args)
+	if err := proj.InstallIf(true, newtutil.NewtForce, pred); err != nil {
 		NewtUsage(nil, err)
 	}
 }
@@ -154,7 +177,8 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 
 func syncRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
-	repos := proj.Repos()
+	pred := makeRepoPredicate(args)
+	repos := proj.SelectRepos(pred)
 
 	ps, err := project.LoadProjectState()
 	if err != nil {
@@ -163,9 +187,6 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 
 	var anyFails bool
 	for _, repo := range repos {
-		if repo.IsLocal() {
-			continue
-		}
 		vers := ps.GetInstalledVersion(repo.Name())
 		if vers == nil {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -192,9 +213,12 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 
 func AddProjectCommands(cmd *cobra.Command) {
 	installHelpText := ""
-	installHelpEx := ""
+	installHelpEx := "  newt install\n"
+	installHelpEx += "    Installs all repositories specified in project.yml.\n\n"
+	installHelpEx += "  newt install apache-mynewt-core\n"
+	installHelpEx += "    Installs the apache-mynewt-core repository."
 	installCmd := &cobra.Command{
-		Use:     "install",
+		Use:     "install [repo-1] [repo-2] [...]",
 		Short:   "Install project dependencies",
 		Long:    installHelpText,
 		Example: installHelpEx,
@@ -208,9 +232,12 @@ func AddProjectCommands(cmd *cobra.Command) {
 	cmd.AddCommand(installCmd)
 
 	upgradeHelpText := ""
-	upgradeHelpEx := ""
+	upgradeHelpEx := "  newt upgrade\n"
+	upgradeHelpEx += "    Upgrades all repositories specified in project.yml.\n\n"
+	upgradeHelpEx += "  newt upgrade apache-mynewt-core\n"
+	upgradeHelpEx += "    Upgrades the apache-mynewt-core repository."
 	upgradeCmd := &cobra.Command{
-		Use:     "upgrade",
+		Use:     "upgrade [repo-1] [repo-2] [...]",
 		Short:   "Upgrade project dependencies",
 		Long:    upgradeHelpText,
 		Example: upgradeHelpEx,
@@ -223,9 +250,12 @@ func AddProjectCommands(cmd *cobra.Command) {
 	cmd.AddCommand(upgradeCmd)
 
 	syncHelpText := ""
-	syncHelpEx := ""
+	syncHelpEx := "  newt sync\n"
+	syncHelpEx += "    Syncs all repositories specified in project.yml.\n\n"
+	syncHelpEx += "  newt sync apache-mynewt-core\n"
+	syncHelpEx += "    Syncs the apache-mynewt-core repository."
 	syncCmd := &cobra.Command{
-		Use:     "sync",
+		Use:     "sync [repo-1] [repo-2] [...]",
 		Short:   "Synchronize project dependencies",
 		Long:    syncHelpText,
 		Example: syncHelpEx,
