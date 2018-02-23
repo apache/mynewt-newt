@@ -206,13 +206,18 @@ func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
 	}
 }
 
-func CheckDeps(checkRepos map[string]*Repo) error {
+func CheckDeps(repos []*Repo) error {
+	repoMap := map[string]*Repo{}
+	for _, r := range repos {
+		repoMap[r.Name()] = r
+	}
+
 	// For each dependency, get it's version
 	depArray := map[string][]*Version{}
 
-	for _, checkRepo := range checkRepos {
+	for _, checkRepo := range repoMap {
 		for _, rd := range checkRepo.Deps() {
-			lookupRepo := checkRepos[rd.Name()]
+			lookupRepo := repoMap[rd.Name()]
 
 			_, vers, ok := lookupRepo.rdesc.Match(rd.Storerepo)
 			if !ok {
@@ -242,7 +247,7 @@ func CheckDeps(checkRepos map[string]*Repo) error {
 			}
 		}
 		if pickVer {
-			newArray, err := pickVersion(checkRepos[repoName],
+			newArray, err := pickVersion(repoMap[repoName],
 				depArray[repoName])
 			depArray[repoName] = newArray
 			if err != nil {

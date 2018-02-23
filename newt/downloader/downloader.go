@@ -625,9 +625,9 @@ func (ld *LocalDownloader) CurrentBranch(path string) (string, error) {
 	return strings.Trim(string(branch), "\r\n"), err
 }
 
-// NOTE: intentionally always error...
 func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
-	return util.NewNewtError(fmt.Sprintf("Can't pull from a local repo\n"))
+	// Nothing to update in a local repo.
+	return nil
 }
 
 func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
