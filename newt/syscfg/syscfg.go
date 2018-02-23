@@ -330,12 +330,13 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 			}
 
 			if oldEntry, exists := cfg.Settings[k]; exists {
-				// Setting already defined.  Allow this only if the setting is
-				// injected, in which case the injected value takes precedence.
+				// Setting already defined.  Warn the user and keep the
+				// original definition.
 				point := mostRecentPoint(oldEntry)
 				if !point.IsInjected() {
-					// XXX: Better error message.
-					return util.FmtNewtError("setting %s redefined", k)
+					util.StatusMessage(util.VERBOSITY_QUIET,
+						"* Warning: setting %s redefined (pkg1=%s pkg2=%s)\n",
+						k, point.Source.Name(), lpkg.Name())
 				}
 
 				entry.History = append(entry.History, oldEntry.History...)
