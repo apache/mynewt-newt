@@ -102,7 +102,7 @@ Run the ``newt mfg create`` command to collect all the manufacturing snapshot fi
 
 .. code-block:: console
 
-    $ newt mfg create rb_blinky_rsa
+    $ newt mfg create rb_blinky_rsa 0.0.1
     Creating a manufacturing image from the following files:
     <snip>
     Generated the following files:
