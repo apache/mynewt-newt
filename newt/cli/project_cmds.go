@@ -193,7 +193,7 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 				"No installed version of %s found, skipping\n",
 				repo.Name())
 		} else {
-			if _, err := repo.Sync(vers, newtutil.NewtForce); err != nil {
+			if _, err := repo.Sync(*vers, newtutil.NewtForce); err != nil {
 				util.StatusMessage(util.VERBOSITY_QUIET,
 					"Failed to sync repo \"%s\": %s\n",
 					repo.Name(), err.Error())

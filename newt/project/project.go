@@ -200,7 +200,7 @@ func (proj *Project) Warnings() []string {
 
 // @return bool                 True if upgrade should be skipped;
 //                              False if upgrade should occur.
-func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
+func (proj *Project) upgradeCheck(r *repo.Repo, vers newtutil.RepoVersion,
 	force bool) (bool, error) {
 
 	rdesc, err := r.GetRepoDesc()
@@ -209,7 +209,7 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	}
 
 	branch, newVers, _ := rdesc.Match(r)
-	if newVers == nil {
+	if branch == "" {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"No matching version to upgrade to "+
 				"found for %s.  Please check your project requirements.",
@@ -222,11 +222,11 @@ func (proj *Project) upgradeCheck(r *repo.Repo, vers *repo.Version,
 	// If the change between the old repository and the new repository would
 	// cause an upgrade.  Then prompt for an upgrade response, unless the force
 	// option is present.
-	if vers.CompareVersions(newVers, vers) != 0 ||
-		vers.Stability() != newVers.Stability() {
+	if newtutil.CompareRepoVersions(newVers, vers) != 0 ||
+		vers.Stability != newVers.Stability {
 		if !force {
 			str := ""
-			if newVers.Stability() != repo.VERSION_STABILITY_NONE {
+			if newVers.Stability != newtutil.VERSION_STABILITY_NONE {
 				str += "(" + branch + ")"
 			}
 
@@ -269,7 +269,7 @@ func (proj *Project) checkVersionRequirements(
 
 	vers := proj.projState.GetInstalledVersion(rname)
 	if vers != nil {
-		ok := rdesc.SatisfiesVersion(vers, r.VersionRequirements())
+		ok := rdesc.SatisfiesVersion(*vers, r.VersionRequirements())
 		if !ok && !upgrade {
 			util.StatusMessage(util.VERBOSITY_QUIET,
 				"WARNING: Installed version %s of repository %s does not "+
@@ -284,7 +284,7 @@ func (proj *Project) checkVersionRequirements(
 					"%s correct version already installed\n", r.Name())
 				return true, nil
 			} else {
-				skip, err := proj.upgradeCheck(r, vers, force)
+				skip, err := proj.upgradeCheck(r, *vers, force)
 				return skip, err
 			}
 		}
@@ -412,7 +412,7 @@ func (proj *Project) InstallIf(upgrade bool, force bool, predicate func(r *repo.
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"Skipping \"%s\": already %s\n", r.Name(), verb)
 		} else {
-			var rvers *repo.Version
+			var rvers newtutil.RepoVersion
 
 			if upgrade {
 				rvers, err = r.Upgrade(force)
@@ -491,7 +491,7 @@ func (proj *Project) loadRepo(rname string, yc ycfg.YCfg) error {
 
 	rvers := proj.projState.GetInstalledVersion(rname)
 	if rvers != nil {
-		code, msg := r.CheckNewtCompatibility(rvers, newtutil.NewtVersion)
+		code, msg := r.CheckNewtCompatibility(*rvers, newtutil.NewtVersion)
 		switch code {
 		case compat.NEWT_COMPAT_GOOD:
 		case compat.NEWT_COMPAT_WARN:
@@ -731,7 +731,7 @@ func (proj *Project) loadPackageList() error {
 			 * warning if the project state indicates that this repo should be
 			 * installed.
 			 */
-			if proj.projState.installedRepos[name] != nil {
+			if proj.projState.GetInstalledVersion(name) != nil {
 				util.StatusMessage(util.VERBOSITY_QUIET, err.Error()+"\n")
 			}
 		} else {

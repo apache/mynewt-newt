@@ -50,7 +50,7 @@ type Repo struct {
 	name       string
 	downloader downloader.Downloader
 	localPath  string
-	versreq    []interfaces.VersionReqInterface
+	versreq    []newtutil.RepoVersionReq
 	rdesc      *RepoDesc
 	deps       []*RepoDependency
 	ignDirs    []string
@@ -61,11 +61,11 @@ type Repo struct {
 
 type RepoDesc struct {
 	name string
-	vers map[*Version]string
+	vers map[newtutil.RepoVersion]string
 }
 
 type RepoDependency struct {
-	versreq   []interfaces.VersionReqInterface
+	versreq   []newtutil.RepoVersionReq
 	name      string
 	Storerepo *Repo
 }
@@ -75,9 +75,9 @@ func (rd *RepoDependency) String() string {
 
 	for idx, vr := range rd.versreq {
 		if idx != 0 {
-			rstr = rstr + " " + vr.Version().String()
+			rstr = rstr + " " + vr.Ver.String()
 		} else {
-			rstr = rstr + vr.Version().String()
+			rstr = rstr + vr.Ver.String()
 		}
 	}
 	rstr = rstr + ">"
@@ -171,7 +171,7 @@ func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
 	var err error
 
 	rd := &RepoDependency{}
-	rd.versreq, err = LoadVersionMatches(verstr)
+	rd.versreq, err = newtutil.ParseRepoVersionReqs(verstr)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func NewRepoDependency(rname string, verstr string) (*RepoDependency, error) {
 	return rd, nil
 }
 
-func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
+func pickVersion(repo *Repo, versions []newtutil.RepoVersion) ([]newtutil.RepoVersion, error) {
 	fmt.Printf("Dependency list for %s contains a specific commit tag, "+
 		"so normal version number/stability comparison cannot be done.\n",
 		repo.Name())
@@ -200,8 +200,8 @@ func pickVersion(repo *Repo, versions []*Version) ([]*Version, error) {
 		if err != nil {
 			fmt.Printf("Error: could not parse the response.\n")
 		} else {
-			repo.versreq, err = LoadVersionMatches(versions[idx].String())
-			return []*Version{versions[idx]}, nil
+			repo.versreq, err = newtutil.ParseRepoVersionReqs(versions[idx].String())
+			return []newtutil.RepoVersion{versions[idx]}, nil
 		}
 	}
 }
@@ -213,7 +213,7 @@ func CheckDeps(repos []*Repo) error {
 	}
 
 	// For each dependency, get it's version
-	depArray := map[string][]*Version{}
+	depArray := map[string][]newtutil.RepoVersion{}
 
 	for _, checkRepo := range repoMap {
 		for _, rd := range checkRepo.Deps() {
@@ -228,7 +228,7 @@ func CheckDeps(repos []*Repo) error {
 
 			_, ok = depArray[rd.Name()]
 			if !ok {
-				depArray[rd.Name()] = []*Version{}
+				depArray[rd.Name()] = []newtutil.RepoVersion{}
 			}
 			depArray[rd.Name()] = append(depArray[rd.Name()], vers)
 		}
@@ -241,7 +241,7 @@ func CheckDeps(repos []*Repo) error {
 
 		pickVer := false
 		for _, depVers := range depVersList {
-			if depVers.Tag() != "" {
+			if depVers.Tag != "" {
 				pickVer = true
 				break
 			}
@@ -258,8 +258,8 @@ func CheckDeps(repos []*Repo) error {
 	for repoName, depVersList := range depArray {
 		for _, depVers := range depVersList {
 			for _, curVers := range depVersList {
-				if depVers.CompareVersions(depVers, curVers) != 0 ||
-					depVers.Stability() != curVers.Stability() {
+				if newtutil.CompareRepoVersions(depVers, curVers) != 0 ||
+					depVers.Stability != curVers.Stability {
 					return util.NewNewtError(fmt.Sprintf(
 						"Conflict detected.  Repository %s has multiple dependency versions on %s. "+
 							"Notion of repository version is %s, whereas required is %s ",
@@ -272,37 +272,37 @@ func CheckDeps(repos []*Repo) error {
 	return nil
 }
 
-func (rd *RepoDesc) MatchVersion(searchVers *Version) (string, *Version, bool) {
+func (rd *RepoDesc) MatchVersion(searchVers newtutil.RepoVersion) (string, newtutil.RepoVersion, bool) {
 	for vers, curBranch := range rd.vers {
-		if vers.CompareVersions(vers, searchVers) == 0 &&
-			searchVers.Stability() == vers.Stability() {
+		if newtutil.CompareRepoVersions(vers, searchVers) == 0 &&
+			searchVers.Stability == vers.Stability {
 			return curBranch, vers, true
 		}
 	}
-	return "", nil, false
+	return "", newtutil.RepoVersion{}, false
 }
 
-func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
+func (rd *RepoDesc) Match(r *Repo) (string, newtutil.RepoVersion, bool) {
 	log.Debugf("Requires repository version %s for %s\n", r.VersionRequirements(),
 		r.Name())
 	for vers, branch := range rd.vers {
-		if vers.SatisfiesVersion(r.VersionRequirements()) {
+		if vers.SatisfiesAll(r.VersionRequirements()) {
 			log.Debugf("Found matching version %s for repo %s",
 				vers.String(), r.Name())
-			if vers.Stability() != VERSION_STABILITY_NONE {
+			if vers.Stability != newtutil.VERSION_STABILITY_NONE {
 				// Load the branch as a version, and search for it
-				searchVers, err := LoadVersion(branch)
+				searchVers, err := newtutil.ParseRepoVersion(branch)
 				if err != nil {
-					return "", nil, false
+					return "", newtutil.RepoVersion{}, false
 				}
 				// Need to match the NONE stability in order to find the right
 				// branch.
-				searchVers.stability = VERSION_STABILITY_NONE
+				searchVers.Stability = newtutil.VERSION_STABILITY_NONE
 
 				var ok bool
 				branch, vers, ok = rd.MatchVersion(searchVers)
 				if !ok {
-					return "", nil, false
+					return "", newtutil.RepoVersion{}, false
 				}
 				log.Debugf("Founding matching version %s for search version %s, related branch is %s\n",
 					vers, searchVers, branch)
@@ -321,51 +321,48 @@ func (rd *RepoDesc) Match(r *Repo) (string, *Version, bool) {
 	 * If so, then return that as the branch.
 	 */
 	for _, versreq := range r.VersionRequirements() {
-		tag := versreq.Version().Tag()
+		tag := versreq.Ver.Tag
 		if tag != "" {
 			log.Debugf("Requirements for %s have a tag option %s\n",
 				r.Name(), tag)
-			return tag, NewTag(tag), true
+			return tag, newtutil.NewTag(tag), true
 		}
 	}
-	return "", nil, false
+	return "", newtutil.RepoVersion{}, false
 }
 
-func (rd *RepoDesc) SatisfiesVersion(vers *Version, versReqs []interfaces.VersionReqInterface) bool {
+func (rd *RepoDesc) SatisfiesVersion(vers newtutil.RepoVersion, versReqs []newtutil.RepoVersionReq) bool {
 	var err error
-	versMatches := []interfaces.VersionReqInterface{}
+	versMatches := []newtutil.RepoVersionReq{}
 	for _, versReq := range versReqs {
-		versMatch := &VersionMatch{}
-		versMatch.compareType = versReq.CompareType()
-
-		if versReq.Version().Stability() != VERSION_STABILITY_NONE {
+		if versReq.Ver.Stability != newtutil.VERSION_STABILITY_NONE {
 			// Look up this item in the RepoDescription, and get a version
-			searchVers := versReq.Version().(*Version)
+			searchVers := versReq.Ver
 			branch, _, ok := rd.MatchVersion(searchVers)
 			if !ok {
 				return false
 			}
-			versMatch.Vers, err = LoadVersion(branch)
+			versReq.Ver, err = newtutil.ParseRepoVersion(branch)
 			if err != nil {
 				return false
 			}
 		} else {
-			versMatch.Vers = versReq.Version().(*Version)
+			versReq.Ver = versReq.Ver
 		}
 
-		versMatches = append(versMatches, versMatch)
+		versMatches = append(versMatches, versReq)
 	}
 
-	return vers.SatisfiesVersion(versMatches)
+	return vers.SatisfiesAll(versMatches)
 }
 
 func (rd *RepoDesc) Init(name string, versBranchMap map[string]string) error {
 	rd.name = name
-	rd.vers = map[*Version]string{}
+	rd.vers = map[newtutil.RepoVersion]string{}
 
 	for versStr, branch := range versBranchMap {
 		log.Debugf("Printing version %s for remote repo %s", versStr, name)
-		vers, err := LoadVersion(versStr)
+		vers, err := newtutil.ParseRepoVersion(versStr)
 		if err != nil {
 			return err
 		}
@@ -419,7 +416,7 @@ func (r *Repo) IsLocal() bool {
 	return r.local
 }
 
-func (r *Repo) VersionRequirements() []interfaces.VersionReqInterface {
+func (r *Repo) VersionRequirements() []newtutil.RepoVersionReq {
 	return r.versreq
 }
 
@@ -529,46 +526,46 @@ func (r *Repo) currentBranch() (string, error) {
 	return filepath.Base(branch), nil
 }
 
-func (r *Repo) Install(force bool) (*Version, error) {
+func (r *Repo) Install(force bool) (newtutil.RepoVersion, error) {
 	branchName, vers, found := r.rdesc.Match(r)
 	if !found {
-		return nil, util.FmtNewtError("No repository "+
+		return newtutil.RepoVersion{}, util.FmtNewtError("No repository "+
 			"matching description %s found", r.rdesc.String())
 	}
 
 	if err := r.updateRepo(branchName); err != nil {
-		return nil, err
+		return newtutil.RepoVersion{}, err
 	}
 
 	return vers, nil
 }
 
-func (r *Repo) Upgrade(force bool) (*Version, error) {
+func (r *Repo) Upgrade(force bool) (newtutil.RepoVersion, error) {
 	branchName, vers, found := r.rdesc.Match(r)
 	if !found {
-		return nil, util.FmtNewtError("No repository "+
+		return newtutil.RepoVersion{}, util.FmtNewtError("No repository "+
 			"matching description %s found", r.rdesc.String())
 	}
 
 	changes, err := r.downloader.AreChanges(r.Path())
 	if err != nil {
-		return nil, err
+		return newtutil.RepoVersion{}, err
 	}
 
 	if changes && !force {
-		return nil, util.FmtNewtError(
+		return newtutil.RepoVersion{}, util.FmtNewtError(
 			"Repository \"%s\" contains local changes.  Provide the "+
 				"-f option to attempt a merge.", r.Name())
 	}
 
 	if err := r.downloader.UpdateRepo(r.Path(), branchName); err != nil {
-		return nil, err
+		return newtutil.RepoVersion{}, err
 	}
 
 	return vers, nil
 }
 
-func (r *Repo) Sync(vers *Version, force bool) (bool, error) {
+func (r *Repo) Sync(vers newtutil.RepoVersion, force bool) (bool, error) {
 	var err error
 	var currBranch string
 
@@ -803,7 +800,7 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 	r.name = repoName
 	r.downloader = d
 	r.deps = []*RepoDependency{}
-	r.versreq, err = LoadVersionMatches(rversreq)
+	r.versreq, err = newtutil.ParseRepoVersionReqs(rversreq)
 	if err != nil {
 		return err
 	}
@@ -819,7 +816,8 @@ func (r *Repo) Init(repoName string, rversreq string, d downloader.Downloader) e
 	return nil
 }
 
-func (r *Repo) CheckNewtCompatibility(rvers *Version, nvers newtutil.Version) (
+func (r *Repo) CheckNewtCompatibility(
+	rvers newtutil.RepoVersion, nvers newtutil.Version) (
 	compat.NewtCompatCode, string) {
 
 	// If this repo doesn't have a newt compatibility map, just assume there is
@@ -846,7 +844,9 @@ func (r *Repo) CheckNewtCompatibility(rvers *Version, nvers newtutil.Version) (
 		nvers.String(), r.name, rnuver.String(), text)
 }
 
-func NewRepo(repoName string, rversreq string, d downloader.Downloader) (*Repo, error) {
+func NewRepo(repoName string, rversreq string,
+	d downloader.Downloader) (*Repo, error) {
+
 	r := &Repo{
 		local: false,
 	}
