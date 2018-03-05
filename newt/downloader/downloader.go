@@ -316,8 +316,8 @@ func (gd *GenericDownloader) cachedFetch(fn func() error) error {
 
 func (gd *GithubDownloader) fetch(repoDir string) error {
 	return gd.cachedFetch(func() error {
-		util.StatusMessage(util.VERBOSITY_VERBOSE,
-			"Fetching new remote branches/tags\n")
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Fetching repo %s\n",
+			gd.Repo)
 
 		_, err := gd.authenticatedCommand(repoDir, []string{"fetch", "--tags"})
 		return err
@@ -481,9 +481,9 @@ func (gd *GithubDownloader) DownloadRepo(commit string, dstPath string) error {
 
 	url, publicUrl := gd.remoteUrls()
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
-		"repository %s (branch: %s; commit: %s) at %s\n", gd.Repo, branch,
-		commit, publicUrl)
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Downloading repository %s (commit: %s) from %s\n",
+		gd.Repo, commit, publicUrl)
 
 	gp, err := gitPath()
 	if err != nil {
@@ -525,8 +525,8 @@ func NewGithubDownloader() *GithubDownloader {
 
 func (gd *GitDownloader) fetch(repoDir string) error {
 	return gd.cachedFetch(func() error {
-		util.StatusMessage(util.VERBOSITY_VERBOSE,
-			"Fetching new remote branches/tags\n")
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Fetching repo %s\n",
+			gd.Url)
 		_, err := executeGitCommand(repoDir, []string{"fetch", "--tags"}, true)
 		return err
 	})
@@ -607,8 +607,8 @@ func (gd *GitDownloader) DownloadRepo(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
-		"repository %s (branch: %s; commit: %s)\n", gd.Url, branch, commit)
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Downloading repository %s (commit: %s)\n", gd.Url, commit)
 
 	gp, err := gitPath()
 	if err != nil {
@@ -692,7 +692,7 @@ func (ld *LocalDownloader) AreChanges(path string) (bool, error) {
 }
 
 func (ld *LocalDownloader) DownloadRepo(commit string, dstPath string) error {
-	util.StatusMessage(util.VERBOSITY_VERBOSE,
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Downloading local repository %s\n", ld.Path)
 
 	if err := util.CopyDir(ld.Path, dstPath); err != nil {

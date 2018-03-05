@@ -36,6 +36,7 @@ var NewtVersionStr string = "Apache Newt version: 1.3.0"
 var NewtBlinkyTag string = "mynewt_1_3_0_tag"
 var NewtNumJobs int
 var NewtForce bool
+var NewtAsk bool
 
 const CORE_REPO_NAME string = "apache-mynewt-core"
 const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"

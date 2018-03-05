@@ -31,6 +31,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/compat"
+	"mynewt.apache.org/newt/newt/deprepo"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -60,14 +61,35 @@ type Project struct {
 
 	projState *ProjectState
 
-	// Repositories configured on this project
-	repos    map[string]*repo.Repo
-	warnings []string
+	// Contains all the repos that form this project.  Each repo is in one of
+	// two states:
+	//    * description: Only the repo's basic description fields have been
+	//                   read from `project.yml` or from a dependent repo's
+	//                   `repository.yml` file.  This repo's `repository.yml`
+	//                   file still needs to be read.
+	//    * complete: The repo's `repository.yml` file exists and has been
+	//                read.
+	repos deprepo.RepoMap
 
+	// The local repository at the top-level of the project.  This repo is
+	// excluded from most repo operations.
 	localRepo *repo.Repo
+
+	// Required versions of installed repos, as read from `project.yml`.
+	rootRepoReqs deprepo.RequirementMap
+
+	warnings []string
 
 	yc ycfg.YCfg
 }
+
+type installOp int
+
+const (
+	INSTALL_OP_INSTALL installOp = iota
+	INSTALL_OP_UPGRADE
+	INSTALL_OP_SYNC
+)
 
 func initProject(dir string) error {
 	var err error
@@ -152,21 +174,6 @@ func (proj *Project) Repos() map[string]*repo.Repo {
 	return proj.repos
 }
 
-func (proj *Project) SortedRepos() []*repo.Repo {
-	names := make([]string, 0, len(proj.repos))
-	for n, _ := range proj.repos {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-
-	repos := make([]*repo.Repo, len(names))
-	for i, n := range names {
-		repos[i] = proj.repos[n]
-	}
-
-	return repos
-}
-
 func (proj *Project) FindRepo(rname string) *repo.Repo {
 	if rname == repo.REPO_NAME_LOCAL {
 		return proj.LocalRepo()
@@ -190,6 +197,10 @@ func (proj *Project) RepoIsInstalled(rname string) bool {
 	return proj.projState.GetInstalledVersion(rname) != nil
 }
 
+func (proj *Project) RepoIsRoot(rname string) bool {
+	return proj.rootRepoReqs[rname] != nil
+}
+
 func (proj *Project) LocalRepo() *repo.Repo {
 	return proj.localRepo
 }
@@ -198,144 +209,10 @@ func (proj *Project) Warnings() []string {
 	return proj.warnings
 }
 
-// @return bool                 True if upgrade should be skipped;
-//                              False if upgrade should occur.
-func (proj *Project) upgradeCheck(r *repo.Repo, vers newtutil.RepoVersion,
-	force bool) (bool, error) {
-
-	rdesc, err := r.GetRepoDesc()
-	if err != nil {
-		return false, err
-	}
-
-	branch, newVers, _ := rdesc.Match(r)
-	if branch == "" {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"No matching version to upgrade to "+
-				"found for %s.  Please check your project requirements.",
-			r.Name())
-		return false,
-			util.FmtNewtError("Cannot find a version of repository %s that "+
-				"matches project requirements.", r.Name())
-	}
-
-	// If the change between the old repository and the new repository would
-	// cause an upgrade.  Then prompt for an upgrade response, unless the force
-	// option is present.
-	if newtutil.CompareRepoVersions(newVers, vers) != 0 ||
-		vers.Stability != newVers.Stability {
-		if !force {
-			str := ""
-			if newVers.Stability != newtutil.VERSION_STABILITY_NONE {
-				str += "(" + branch + ")"
-			}
-
-			fmt.Printf("Would you like to upgrade repository %s from %s "+
-				"to %s %s? [Yn] ",
-				r.Name(), vers.String(), newVers.String(), str)
-			line, more, err := bufio.NewReader(os.Stdin).ReadLine()
-			if more || err != nil {
-				return false, util.NewNewtError(fmt.Sprintf(
-					"Couldn't read upgrade response: %s\n", err.Error()))
-			}
-
-			// Anything but no means yes.
-			answer := strings.ToUpper(strings.Trim(string(line), " "))
-			if answer == "N" || answer == "NO" {
-				fmt.Printf("User says don't upgrade, skipping upgrade of %s\n",
-					r.Name())
-				return true, nil
-			}
-		}
-	} else {
-		util.StatusMessage(util.VERBOSITY_VERBOSE,
-			"Repository %s doesn't need to be upgraded, latest "+
-				"version installed.\n", r.Name())
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (proj *Project) checkVersionRequirements(
-	r *repo.Repo, upgrade bool, force bool) (bool, error) {
-
-	rdesc, err := r.GetRepoDesc()
-	if err != nil {
-		return false, err
-	}
-
-	rname := r.Name()
-
-	vers := proj.projState.GetInstalledVersion(rname)
-	if vers != nil {
-		ok := rdesc.SatisfiesVersion(*vers, r.VersionRequirements())
-		if !ok && !upgrade {
-			util.StatusMessage(util.VERBOSITY_QUIET,
-				"WARNING: Installed version %s of repository %s does not "+
-					"match desired version %s in project file.  You can fix "+
-					"this by either upgrading your repository, or modifying "+
-					"the project.yml file.\n",
-				vers, rname, r.VersionRequirementsString())
-			return true, nil
-		} else {
-			if !upgrade {
-				util.StatusMessage(util.VERBOSITY_VERBOSE,
-					"%s correct version already installed\n", r.Name())
-				return true, nil
-			} else {
-				skip, err := proj.upgradeCheck(r, *vers, force)
-				return skip, err
-			}
-		}
-	} else {
-		// Fallthrough and perform the installation.
-		// Check to make sure that this repository contains a version
-		// that can satisfy.
-		_, _, ok := rdesc.Match(r)
-		if !ok {
-			util.StatusMessage(util.VERBOSITY_QUIET,
-				"WARNING: No matching repository version found for "+
-					"repository %s specified in project.\n", r.Name())
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (proj *Project) checkDeps(r *repo.Repo) error {
-	repos, updated, err := r.UpdateDesc()
-	if err != nil {
-		return err
-	}
-
-	if !updated {
-		return nil
-	}
-
-	for _, newRepo := range repos {
-		curRepo, ok := proj.repos[newRepo.Name()]
-		if !ok {
-			proj.repos[newRepo.Name()] = newRepo
-			return proj.updateRepos(proj.SortedRepos())
-		} else {
-			// Add any dependencies we might have found here.
-			for _, dep := range newRepo.Deps() {
-				newRepo.DownloadDesc()
-				newRepo.ReadDesc()
-				curRepo.AddDependency(dep)
-			}
-		}
-	}
-
-	return nil
-}
-
 // Selects repositories from the global state that satisfy the specified
 // predicate.
 func (proj *Project) SelectRepos(pred func(r *repo.Repo) bool) []*repo.Repo {
-	all := proj.SortedRepos()
+	all := proj.repos.Sorted()
 	var filtered []*repo.Repo
 
 	for _, r := range all {
@@ -347,28 +224,335 @@ func (proj *Project) SelectRepos(pred func(r *repo.Repo) bool) []*repo.Repo {
 	return filtered
 }
 
-func (proj *Project) updateRepos(repos []*repo.Repo) error {
-	for _, r := range repos {
-		if r.IsLocal() {
-			continue
-		}
+// Indicates whether a repo should be installed.  A repo should be installed if
+// it is not currently installed.
+func (proj *Project) shouldInstallRepo(repoName string) bool {
+	return proj.projState.GetInstalledVersion(repoName) == nil
+}
 
-		err := proj.checkDeps(r)
-		if err != nil {
-			return err
+// Indicates whether a repo should be upgraded to the specified version.  A
+// repo should be upgraded if it is not currently installed, or if a version
+// other than the desired one is installed.
+func (proj *Project) shouldUpgradeRepo(repoName string,
+	destVer newtutil.RepoVersion) bool {
+
+	r := proj.repos[repoName]
+	if r == nil {
+		return false
+	}
+
+	stateVer := proj.projState.GetInstalledVersion(repoName)
+	if stateVer == nil {
+		return true
+	}
+
+	return !r.VersionsEqual(*stateVer, destVer)
+}
+
+// Removes repos that shouldn't be installed from the specified list.  A repo
+// should not be installed if it is already installed (any version).
+//
+// @param repos                 The list of repos to filter.
+//
+// @return []*Repo              The filtered list of repos.
+func (proj *Project) filterInstallList(repos []*repo.Repo) []*repo.Repo {
+	keep := []*repo.Repo{}
+
+	for _, r := range repos {
+		curVer := proj.projState.GetInstalledVersion(r.Name())
+		if curVer == nil {
+			keep = append(keep, r)
+		} else {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"Skipping \"%s\": already installed (%s)\n",
+				r.Name(), curVer.String())
 		}
 	}
+
+	return keep
+}
+
+// Removes repos that shouldn't be upgraded from the specified list.  A repo
+// should not be upgraded if the desired version is already installed.
+//
+// @param repos                 The list of repos to filter.
+// @param vm                    Specifies the desired version of each repo.
+//
+// @return []*Repo              The filtered list of repos.
+func (proj *Project) filterUpgradeList(
+	repos []*repo.Repo, vm deprepo.VersionMap) []*repo.Repo {
+
+	keep := []*repo.Repo{}
+
+	for _, r := range repos {
+		destVer := vm[r.Name()]
+		if proj.shouldUpgradeRepo(r.Name(), destVer) {
+			keep = append(keep, r)
+		} else {
+			curVer := proj.projState.GetInstalledVersion(r.Name())
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"Skipping \"%s\": already upgraded (%s)\n",
+				r.Name(), curVer.String())
+		}
+	}
+
+	return keep
+}
+
+// Determines if the `project.yml` file specifies a nonexistent repo version.
+// Only the repos in the specified slice are considered.
+//
+// @param repos                 The list of repos to consider during the check.
+// @param m                     A matrix containing all versions of the
+//                                  specified repos.
+//
+// @return error                Error if any repo requirement is invalid.
+func (proj *Project) detectIllegalRepoReqs(
+	repos []*repo.Repo, m deprepo.Matrix) error {
+
+	var lines []string
+	for _, r := range repos {
+		reqs, ok := proj.rootRepoReqs[r.Name()]
+		if ok {
+			row := m.FindRow(r.Name())
+			if row == nil {
+				return util.FmtNewtError(
+					"internal error; repo \"%s\" missing from matrix", r.Name())
+			}
+
+			r := proj.repos[r.Name()]
+			nreqs, err := r.NormalizeVerReqs(reqs)
+			if err != nil {
+				return err
+			}
+
+			anySatisfied := false
+			for _, ver := range row.Vers {
+				if ver.SatisfiesAll(nreqs) {
+					anySatisfied = true
+					break
+				}
+			}
+			if !anySatisfied {
+				line := fmt.Sprintf("    %s,%s", r.Name(),
+					newtutil.RepoVerReqsString(nreqs))
+				lines = append(lines, line)
+			}
+		}
+	}
+
+	if len(lines) > 0 {
+		sort.Strings(lines)
+		return util.NewNewtError(
+			"project.yml file specifies nonexistent repo versions:\n" +
+				strings.Join(lines, "\n"))
+	}
+
 	return nil
 }
 
-func (proj *Project) InstallIf(upgrade bool, force bool, predicate func(r *repo.Repo) bool) error {
-	repoList := proj.SelectRepos(predicate)
+// Installs or upgrades a single repo to the specified version.
+func (proj *Project) installRepo(r *repo.Repo, ver newtutil.RepoVersion,
+	upgrade bool, force bool) error {
+
+	// Install the acceptable version.
+	if upgrade {
+		if err := r.Upgrade(ver, force); err != nil {
+			return err
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"%s successfully upgraded to version %s\n",
+			r.Name(), ver.String())
+	} else {
+		if err := r.Install(ver); err != nil {
+			return err
+		}
+
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"%s successfully installed version %s\n",
+			r.Name(), ver.String())
+	}
+
+	// Update the project state with the new repository version
+	// information.
+	proj.projState.Replace(r.Name(), ver)
+
+	return nil
+}
+
+func (proj *Project) installMessageOneRepo(
+	repoName string, op installOp, force bool, curVer *newtutil.RepoVersion,
+	destVer newtutil.RepoVersion) (string, error) {
+
+	// If the repo isn't installed yet, this is an install, not an upgrade.
+	if op == INSTALL_OP_UPGRADE && curVer == nil {
+		op = INSTALL_OP_INSTALL
+	}
 
 	var verb string
-	if upgrade {
-		verb = "upgraded"
+	switch op {
+	case INSTALL_OP_INSTALL:
+		if !force {
+			verb = "install"
+		} else {
+			verb = "reinstall"
+		}
+
+	case INSTALL_OP_UPGRADE:
+		verb = "upgrade"
+
+	case INSTALL_OP_SYNC:
+		verb = "sync"
+
+	default:
+		return "", util.FmtNewtError(
+			"internal error: invalid install op: %v", op)
+	}
+
+	msg := fmt.Sprintf("    %s %s ", verb, repoName)
+	if curVer != nil {
+		msg += fmt.Sprintf("(%s --> %s)", curVer.String(), destVer.String())
 	} else {
-		verb = "installed"
+		msg += fmt.Sprintf("(%s)", destVer.String())
+	}
+
+	return msg, nil
+}
+
+// Describes an imminent repo operation to the user.  In addition, prompts the
+// user for confirmation if the `-a` (ask) option was specified.
+func (proj *Project) installPrompt(repoList []*repo.Repo,
+	vm deprepo.VersionMap, op installOp, force bool, ask bool) (bool, error) {
+
+	if len(repoList) == 0 {
+		return true, nil
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Making the following changes to the project:\n")
+
+	for _, r := range repoList {
+		curVer := proj.projState.GetInstalledVersion(r.Name())
+		destVer := vm[r.Name()]
+
+		msg, err := proj.installMessageOneRepo(
+			r.Name(), op, force, curVer, destVer)
+		if err != nil {
+			return false, err
+		}
+
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", msg)
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+
+	if !ask {
+		return true, nil
+	}
+
+	for {
+		fmt.Printf("Proceed? [Y/n] ")
+		line, more, err := bufio.NewReader(os.Stdin).ReadLine()
+		if more || err != nil {
+			return false, util.ChildNewtError(err)
+		}
+
+		trimmed := strings.ToLower(strings.TrimSpace(string(line)))
+		if len(trimmed) == 0 || strings.HasPrefix(trimmed, "y") {
+			// User wants to proceed.
+			return true, nil
+		}
+
+		if strings.HasPrefix(trimmed, "n") {
+			// User wants to cancel.
+			return false, nil
+		}
+
+		// Invalid response.
+		fmt.Printf("Invalid response.\n")
+	}
+}
+
+// Installs or upgrades repos matching the specified predicate.
+func (proj *Project) InstallIf(
+	upgrade bool, force bool, ask bool,
+	predicate func(r *repo.Repo) bool) error {
+
+	// Make sure we have an up to date copy of all `repository.yml` files.
+	if err := proj.downloadRepositoryYmlFiles(); err != nil {
+		return err
+	}
+
+	// Now that all repos have been successfully fetched, we can finish the
+	// install procedure locally.
+
+	// Determine which repos the user wants to install or upgrade.
+	specifiedRepoList := proj.SelectRepos(predicate)
+
+	// Repos that depend on any specified repos must also be considered during
+	// the install / upgrade operation.
+	repoList := proj.ensureDepsInList(specifiedRepoList, nil)
+
+	// Construct a table of all published repo versions.
+	m, err := deprepo.BuildMatrix(
+		repoList, proj.projState.AllInstalledVersions())
+	if err != nil {
+		return err
+	}
+
+	// If the `project.yml` file specifies an invalid repo version, abort now.
+	if err := proj.detectIllegalRepoReqs(repoList, m); err != nil {
+		return err
+	}
+
+	// Remove blocked repo versions from the table.
+	if err := deprepo.PruneMatrix(
+		&m, proj.repos, proj.rootRepoReqs); err != nil {
+
+		return err
+	}
+
+	// Construct a repo dependency graph from the `project.yml` version
+	// requirements and from each repo's dependency list.
+	dg, err := deprepo.BuildDepGraph(proj.repos, proj.rootRepoReqs)
+	if err != nil {
+		return err
+	}
+
+	// Try to find a version set that satisfies the dependency graph.  If no
+	// such set exists, report the conflicts and abort.
+	vm, conflicts := deprepo.FindAcceptableVersions(m, dg)
+	if vm == nil {
+		return deprepo.ConflictError(conflicts)
+	}
+
+	// Now that we know which repo versions we want, we can eliminate some
+	// false-positives from the repo list.
+	repoList = proj.ensureDepsInList(specifiedRepoList, vm)
+
+	// Perform some additional filtering on the list of repos to process.
+	if upgrade {
+		// Don't upgrade a repo if we already have the desired version.
+		repoList = proj.filterUpgradeList(repoList, vm)
+	} else if !force {
+		// Don't install a repo if it is already installed (any version).  We
+		// skip this filter for forced reinstalls.
+		repoList = proj.filterInstallList(repoList)
+	}
+
+	// Notify the user of what install operations are about to happen, and
+	// prompt if the `-a` (ask) option was specified.
+	var op installOp
+	if upgrade {
+		op = INSTALL_OP_UPGRADE
+	} else {
+		op = INSTALL_OP_INSTALL
+	}
+	proceed, err := proj.installPrompt(repoList, vm, op, force, ask)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
 	}
 
 	// For a forced install, delete all existing repos.
@@ -384,59 +568,11 @@ func (proj *Project) InstallIf(upgrade bool, force bool, predicate func(r *repo.
 		}
 	}
 
-	// Fetch "origin" for specified repos and copy the current version of
-	// `repository.yml`.
-	if err := proj.updateRepos(repoList); err != nil {
-		return err
-	}
-
-	// Now that all repos have been successfully fetched, we can finish the
-	// install procedure locally.
-
-	// Get repository list and print every repo and its dependencies.
-	if err := repo.CheckDeps(repoList); err != nil {
-		return err
-	}
-
+	// Install or upgrade each repo in the list.
 	for _, r := range repoList {
-		if r.IsLocal() {
-			continue
-		}
-		// Check the version requirements on this repository, and see
-		// whether or not we need to install/upgrade it.
-		skip, err := proj.checkVersionRequirements(r, upgrade, force)
-		if err != nil {
+		destVer := vm[r.Name()]
+		if err := proj.installRepo(r, destVer, upgrade, force); err != nil {
 			return err
-		}
-		if skip {
-			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"Skipping \"%s\": already %s\n", r.Name(), verb)
-		} else {
-			var rvers newtutil.RepoVersion
-
-			if upgrade {
-				rvers, err = r.Upgrade(force)
-				if err != nil {
-					return err
-				}
-
-				util.StatusMessage(util.VERBOSITY_DEFAULT,
-					"%s successfully upgraded to version %s\n",
-					r.Name(), rvers.String())
-			} else {
-				rvers, err = r.Install(force)
-				if err != nil {
-					return err
-				}
-
-				util.StatusMessage(util.VERBOSITY_DEFAULT,
-					"%s successfully installed version %s\n",
-					r.Name(), rvers)
-			}
-
-			// Update the project state with the new repository version
-			// information.
-			proj.projState.Replace(r.Name(), rvers)
 		}
 	}
 
@@ -449,67 +585,128 @@ func (proj *Project) InstallIf(upgrade bool, force bool, predicate func(r *repo.
 	return nil
 }
 
-func (proj *Project) loadRepo(rname string, yc ycfg.YCfg) error {
-	varName := fmt.Sprintf("repository.%s", rname)
+// Syncs (i.e., git pulls) repos matching the specified predicate.
+func (proj *Project) SyncIf(
+	force bool, ask bool, predicate func(r *repo.Repo) bool) error {
 
-	repoVars := yc.GetValStringMapString(varName, nil)
-	if len(repoVars) == 0 {
-		return util.NewNewtError(fmt.Sprintf("Missing configuration for "+
-			"repository %s.", rname))
-	}
-	if repoVars["type"] == "" {
-		return util.NewNewtError(fmt.Sprintf("Missing type for repository " +
-			rname))
-	}
-
-	dl, err := downloader.LoadDownloader(rname, repoVars)
-	if err != nil {
+	// Make sure we have an up to date copy of all `repository.yml` files.
+	if err := proj.downloadRepositoryYmlFiles(); err != nil {
 		return err
 	}
 
-	rversreq := repoVars["vers"]
-	r, err := repo.NewRepo(rname, rversreq, dl)
+	// A sync operation never changes repo versions in the state file, so we
+	// can proceed with the currently-installed versions.
+	vm := proj.projState.AllInstalledVersions()
+
+	// Determine which repos the user wants to sync.
+	repoList := proj.SelectRepos(predicate)
+
+	// Repos that depend on any specified repos must also be considered during
+	// the sync operation.
+	repoList = proj.ensureDepsInList(repoList, vm)
+
+	// Notify the user of what install operations are about to happen, and
+	// prompt if the `-a` (ask) option was specified.
+	proceed, err := proj.installPrompt(
+		repoList, vm, INSTALL_OP_SYNC, force, ask)
 	if err != nil {
 		return err
+	}
+	if !proceed {
+		return nil
+	}
+
+	// Sync each repo in the list.
+	var anyFails bool
+	for _, r := range repoList {
+		ver, ok := vm[r.Name()]
+		if !ok {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"No installed version of %s found, skipping\n",
+				r.Name())
+		} else {
+			if _, err := r.Sync(ver, force); err != nil {
+				util.StatusMessage(util.VERBOSITY_QUIET,
+					"Failed to sync repo \"%s\": %s\n",
+					r.Name(), err.Error())
+				anyFails = true
+			}
+		}
+	}
+
+	if anyFails {
+		var forceMsg string
+		if !force {
+			forceMsg = ".  To force resync, add the -f (force) option."
+		}
+		return util.FmtNewtError("Failed to sync%s", forceMsg)
+	}
+
+	return nil
+}
+
+// Loads a complete repo definition from the appropriate `repository.yml` file.
+// The supplied fields form a basic repo description as read from `project.yml`
+// or from another repo's dependency list.
+//
+// @param name                  The name of the repo to read.
+// @param fields                Fields containing the basic repo description.
+//
+// @return *Repo                The fully-read repo on success; nil on failure.
+// @return error                Error on failure.
+func (proj *Project) loadRepo(name string, fields map[string]string) (
+	*repo.Repo, error) {
+
+	// First, read the repo description from the supplied fields.
+	if fields["type"] == "" {
+		return nil,
+			util.FmtNewtError("Missing type for repository %s", name)
+	}
+
+	dl, err := downloader.LoadDownloader(name, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a new repo object from the basic description information.
+	r, err := repo.NewRepo(name, dl)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, ignDir := range ignoreSearchDirs {
 		r.AddIgnoreDir(ignDir)
 	}
 
-	rd, err := repo.NewRepoDependency(rname, rversreq)
-	if err != nil {
-		return err
+	// Read the full repo definition from its `repository.yml` file.
+	if err := r.Read(); err != nil {
+		return r, err
 	}
-	rd.Storerepo = r
 
-	proj.localRepo.AddDependency(rd)
-
-	// Read the repo's descriptor file so that we have its newt version
-	// compatibility map.
-	r.ReadDesc()
-
-	rvers := proj.projState.GetInstalledVersion(rname)
-	if rvers != nil {
-		code, msg := r.CheckNewtCompatibility(*rvers, newtutil.NewtVersion)
+	// Warn the user about incompatibilities with this version of newt.
+	ver := proj.projState.GetInstalledVersion(name)
+	if ver != nil {
+		code, msg := r.CheckNewtCompatibility(*ver, newtutil.NewtVersion)
 		switch code {
 		case compat.NEWT_COMPAT_GOOD:
 		case compat.NEWT_COMPAT_WARN:
 			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
 		case compat.NEWT_COMPAT_ERROR:
-			return util.NewNewtError(msg)
+			return nil, util.NewNewtError(msg)
 		}
 	}
 
-	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", rname,
-		repoVars["type"], repoVars["user"], repoVars["repo"])
+	// XXX: This log message assumes a "github" type repo.
+	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", name,
+		fields["type"], fields["user"], fields["repo"])
 
-	proj.repos[r.Name()] = r
-	return nil
+	return r, nil
 }
 
 func (proj *Project) checkNewtVer() error {
-	compatSms := proj.yc.GetValStringMapString("project.newt_compatibility", nil)
+	compatSms := proj.yc.GetValStringMapString(
+		"project.newt_compatibility", nil)
+
 	// If this project doesn't have a newt compatibility map, just assume there
 	// is no incompatibility.
 	if len(compatSms) == 0 {
@@ -536,6 +733,123 @@ func (proj *Project) checkNewtVer() error {
 	default:
 		return nil
 	}
+}
+
+// Loads the `repository.yml` file for each depended-on repo.  This
+func (proj *Project) loadRepoDeps(download bool) error {
+	seen := map[string]struct{}{}
+
+	loadDeps := func(r *repo.Repo) ([]*repo.Repo, error) {
+		var newRepos []*repo.Repo
+
+		depMap := r.BranchDepMap()
+		for _, depSlice := range depMap {
+			for _, dep := range depSlice {
+				if _, ok := seen[dep.Name]; !ok {
+					seen[r.Name()] = struct{}{}
+
+					depRepo := proj.repos[dep.Name]
+					if depRepo == nil {
+						depRepo, _ = proj.loadRepo(dep.Name, dep.Fields)
+						proj.repos[dep.Name] = depRepo
+					}
+					newRepos = append(newRepos, depRepo)
+
+					if download {
+						if _, err := depRepo.UpdateDesc(); err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+		}
+
+		return newRepos, nil
+	}
+
+	curRepos := proj.repos.Sorted()
+	for len(curRepos) > 0 {
+		var nextRepos []*repo.Repo
+
+		for _, r := range curRepos {
+			depRepos, err := loadDeps(r)
+			if err != nil {
+				return err
+			}
+
+			nextRepos = append(nextRepos, depRepos...)
+		}
+
+		curRepos = nextRepos
+	}
+
+	return nil
+}
+
+func (proj *Project) downloadRepositoryYmlFiles() error {
+	// Download the `repository.yml` file for each root-level repo (those
+	// specified in the `project.yml` file).
+	for _, r := range proj.repos.Sorted() {
+		if !r.IsLocal() {
+			if _, err := r.UpdateDesc(); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Download the `repository.yml` file for each depended-on repo.
+	if err := proj.loadRepoDeps(true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Given a slice of repos, recursively appends all depended-on repos, ensuring
+// each element is unique.
+//
+// @param repos                 The list of dependent repos to process.
+// @param vm                    Indicates the version of each repo to consider.
+//                                  Pass nil to consider all versions of all
+//                                  repos.
+//
+// @return []*repo.Repo         The original list, augmented with all
+//                                  depended-on repos.
+func (proj *Project) ensureDepsInList(repos []*repo.Repo,
+	vm deprepo.VersionMap) []*repo.Repo {
+
+	seen := map[string]struct{}{}
+
+	var recurse func(r *repo.Repo) []*repo.Repo
+	recurse = func(r *repo.Repo) []*repo.Repo {
+		// Don't process this repo a second time.
+		if _, ok := seen[r.Name()]; ok {
+			return nil
+		}
+		seen[r.Name()] = struct{}{}
+
+		result := []*repo.Repo{r}
+
+		var deps []*repo.RepoDependency
+		if vm == nil {
+			deps = r.AllDeps()
+		} else {
+			deps = r.DepsForVersion(vm[r.Name()])
+		}
+		for _, d := range deps {
+			depRepo := proj.repos[d.Name]
+			result = append(result, recurse(depRepo)...)
+		}
+
+		return result
+	}
+
+	deps := []*repo.Repo{}
+	for _, r := range repos {
+		deps = append(deps, recurse(r)...)
+	}
+
+	return deps
 }
 
 func (proj *Project) loadConfig() error {
@@ -573,11 +887,26 @@ func (proj *Project) loadConfig() error {
 	for k, _ := range yc.AllSettings() {
 		repoName := strings.TrimPrefix(k, "repository.")
 		if repoName != k {
-			if err := proj.loadRepo(repoName, yc); err != nil {
-				util.StatusMessage(util.VERBOSITY_QUIET,
-					"* Warning: %s\n", err.Error())
+			fields := yc.GetValStringMapString(k, nil)
+			r, _ := proj.loadRepo(repoName, fields)
+
+			verReqs, err := newtutil.ParseRepoVersionReqs(fields["vers"])
+			if err != nil {
+				return util.FmtNewtError(
+					"Repo \"%s\" contains invalid version requirement: %s (%s)",
+					repoName, fields["vers"], err.Error())
 			}
+
+			proj.repos[repoName] = r
+			proj.rootRepoReqs[repoName] = verReqs
 		}
+	}
+
+	// Read `repository.yml` files belonging to dependee repos from disk.
+	// These repos might not be specified in the `project.yml` file, but they
+	// are still part of the project.
+	if err := proj.loadRepoDeps(false); err != nil {
+		return err
 	}
 
 	ignoreDirs := yc.GetValStringSlice("project.ignore_dirs", nil)
@@ -612,6 +941,7 @@ func (proj *Project) Init(dir string) error {
 	interfaces.SetProject(proj)
 
 	proj.repos = map[string]*repo.Repo{}
+	proj.rootRepoReqs = map[string][]newtutil.RepoVersionReq{}
 
 	// Load Project configuration
 	if err := proj.loadConfig(); err != nil {
@@ -731,7 +1061,7 @@ func (proj *Project) loadPackageList() error {
 			 * warning if the project state indicates that this repo should be
 			 * installed.
 			 */
-			if proj.projState.GetInstalledVersion(name) != nil {
+			if _, ok := proj.projState.installedRepos[name]; ok {
 				util.StatusMessage(util.VERBOSITY_QUIET, err.Error()+"\n")
 			}
 		} else {

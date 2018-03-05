@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/deprepo"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
@@ -33,17 +34,19 @@ import (
 const PROJECT_STATE_FILE = "project.state"
 
 type ProjectState struct {
-	installedRepos map[string]newtutil.RepoVersion
+	installedRepos deprepo.VersionMap
 }
 
-func (ps *ProjectState) GetInstalledVersion(
-	rname string) *newtutil.RepoVersion {
-
+func (ps *ProjectState) GetInstalledVersion(rname string) *newtutil.RepoVersion {
 	v, ok := ps.installedRepos[rname]
 	if !ok {
 		return nil
 	}
 	return &v
+}
+
+func (ps *ProjectState) AllInstalledVersions() deprepo.VersionMap {
+	return ps.installedRepos
 }
 
 func (ps *ProjectState) Replace(rname string, rvers newtutil.RepoVersion) {
