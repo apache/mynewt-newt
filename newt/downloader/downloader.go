@@ -667,8 +667,8 @@ func (ld *LocalDownloader) CurrentBranch(path string) (string, error) {
 }
 
 func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
-	// Nothing to update in a local repo.
-	return nil
+	os.RemoveAll(path)
+	return ld.DownloadRepo(branchName, path)
 }
 
 func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
