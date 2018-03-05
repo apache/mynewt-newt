@@ -22,7 +22,6 @@ package newtutil
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -178,15 +177,18 @@ func MakeTempRepoDir() (string, error) {
 // Read in the configuration file specified by name, in path
 // return a new viper config object if successful, and error if not
 func ReadConfig(path string, name string) (ycfg.YCfg, error) {
-	file, err := ioutil.ReadFile(path + "/" + name + ".yml")
+	fullPath := path + "/" + name + ".yml"
+
+	file, err := ioutil.ReadFile(fullPath)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Error reading %s.yml: %s",
-			filepath.Join(path, name), err.Error()))
+		return nil, util.NewNewtError(fmt.Sprintf("Error reading %s: %s",
+			fullPath, err.Error()))
 	}
 
 	settings := map[string]interface{}{}
 	if err := yaml.Unmarshal(file, &settings); err != nil {
-		return nil, err
+		return nil, util.FmtNewtError("Failure parsing \"%s\": %s",
+			fullPath, err.Error())
 	}
 
 	return ycfg.NewYCfg(settings)
