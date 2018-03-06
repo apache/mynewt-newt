@@ -194,10 +194,10 @@ func checkout(repoDir string, commit string) error {
 	// repo from being in a modified "(new commits)" state immediately after
 	// switching branches.  If the submodules have already been updated, this
 	// does not generate any network activity.
-	if err := initSubmodules(path); err != nil {
+	if err := initSubmodules(repoDir); err != nil {
 		return err
 	}
-	if err := updateSubmodules(path); err != nil {
+	if err := updateSubmodules(repoDir); err != nil {
 		return err
 	}
 
