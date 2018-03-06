@@ -136,6 +136,34 @@ func branchExists(repoDir string, branchName string) bool {
 	return err == nil
 }
 
+func initSubmodules(path string) error {
+	cmd := []string{
+		"submodule",
+		"init",
+	}
+
+	_, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateSubmodules(path string) error {
+	cmd := []string{
+		"submodule",
+		"update",
+	}
+
+	_, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // checkout does checkout a branch, or create a new branch from a tag name
 // if the commit supplied is a tag. sha1 based commits have no special
 // handling and result in dettached from HEAD state.
@@ -158,8 +186,22 @@ func checkout(repoDir string, commit string) error {
 			commit,
 		}
 	}
-	_, err := executeGitCommand(repoDir, cmd, true)
-	return err
+	if _, err := executeGitCommand(repoDir, cmd, true); err != nil {
+		return err
+	}
+
+	// Always initialize and update submodules on checkout.  This prevents the
+	// repo from being in a modified "(new commits)" state immediately after
+	// switching branches.  If the submodules have already been updated, this
+	// does not generate any network activity.
+	if err := initSubmodules(path); err != nil {
+		return err
+	}
+	if err := updateSubmodules(path); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // mergeBranches applies upstream changes to the local copy and must be
@@ -338,8 +380,7 @@ func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
 	// anymore.
 	mergeBranch(path, branchName)
 
-	err = checkout(path, branchName)
-	if err != nil {
+	if err := checkout(path, branchName); err != nil {
 		return err
 	}
 
