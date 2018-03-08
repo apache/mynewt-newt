@@ -81,8 +81,11 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 // are specified, the resulting function selects all non-local repos.
 // Otherwise, the function selects each non-local repo whose name is specified.
 func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
+	// If the user didn't specify any repo names, apply the operation to all
+	// repos in `project.yml`.
 	if len(repoNames) == 0 {
-		return func(r *repo.Repo) bool { return !r.IsLocal() }
+		proj := project.GetProject()
+		return func(r *repo.Repo) bool { return proj.RepoIsRoot(r.Name()) }
 	}
 
 	return func(r *repo.Repo) bool {
@@ -102,7 +105,9 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	pred := makeRepoPredicate(args)
-	if err := proj.InstallIf(false, newtutil.NewtForce, pred); err != nil {
+	if err := proj.InstallIf(
+		false, newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+
 		NewtUsage(nil, err)
 	}
 }
@@ -112,7 +117,9 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	pred := makeRepoPredicate(args)
-	if err := proj.InstallIf(true, newtutil.NewtForce, pred); err != nil {
+	if err := proj.InstallIf(
+		true, newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+
 		NewtUsage(nil, err)
 	}
 }
@@ -178,35 +185,10 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 func syncRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	pred := makeRepoPredicate(args)
-	repos := proj.SelectRepos(pred)
 
-	ps, err := project.LoadProjectState()
-	if err != nil {
-		NewtUsage(nil, err)
-	}
+	if err := proj.SyncIf(
+		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
 
-	var anyFails bool
-	for _, repo := range repos {
-		vers := ps.GetInstalledVersion(repo.Name())
-		if vers == nil {
-			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"No installed version of %s found, skipping\n",
-				repo.Name())
-		} else {
-			if _, err := repo.Sync(vers, newtutil.NewtForce); err != nil {
-				util.StatusMessage(util.VERBOSITY_QUIET,
-					"Failed to sync repo \"%s\": %s\n",
-					repo.Name(), err.Error())
-				anyFails = true
-			}
-		}
-	}
-	if anyFails {
-		var forceMsg string
-		if !newtutil.NewtForce {
-			forceMsg = ".  To force resync, add the -f (force) option."
-		}
-		err := util.FmtNewtError("Failed to sync%s", forceMsg)
 		NewtUsage(nil, err)
 	}
 }
@@ -228,6 +210,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 		"force", "f", false,
 		"Force install of the repositories in project, regardless of what "+
 			"exists in repos directory")
+	installCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
+		"ask", "a", false, "Prompt user before installing any repos")
 
 	cmd.AddCommand(installCmd)
 
@@ -246,6 +230,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 	upgradeCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
 		"Force upgrade of the repositories to latest state in project.yml")
+	upgradeCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
+		"ask", "a", false, "Prompt user before upgrading any repos")
 
 	cmd.AddCommand(upgradeCmd)
 
@@ -264,6 +250,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 	syncCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
 		"Force overwrite of existing remote repositories.")
+	syncCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
+		"ask", "a", false, "Prompt user before syncing any repos")
 	cmd.AddCommand(syncCmd)
 
 	newHelpText := ""

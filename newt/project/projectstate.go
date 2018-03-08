@@ -25,23 +25,31 @@ import (
 	"os"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/deprepo"
 	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/newt/repo"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
 const PROJECT_STATE_FILE = "project.state"
 
 type ProjectState struct {
-	installedRepos map[string]*repo.Version
+	installedRepos deprepo.VersionMap
 }
 
-func (ps *ProjectState) GetInstalledVersion(rname string) *repo.Version {
-	v, _ := ps.installedRepos[rname]
-	return v
+func (ps *ProjectState) GetInstalledVersion(rname string) *newtutil.RepoVersion {
+	v, ok := ps.installedRepos[rname]
+	if !ok {
+		return nil
+	}
+	return &v
 }
 
-func (ps *ProjectState) Replace(rname string, rvers *repo.Version) {
+func (ps *ProjectState) AllInstalledVersions() deprepo.VersionMap {
+	return ps.installedRepos
+}
+
+func (ps *ProjectState) Replace(rname string, rvers newtutil.RepoVersion) {
 	ps.installedRepos[rname] = rvers
 }
 
@@ -62,10 +70,10 @@ func (ps *ProjectState) Save() error {
 
 	for k, v := range ps.installedRepos {
 		str := ""
-		if v.Tag() == "" {
-			str = fmt.Sprintf("%s,%d.%d.%d\n", k, v.Major(), v.Minor(), v.Revision())
+		if v.Tag == "" {
+			str = fmt.Sprintf("%s,%d.%d.%d\n", k, v.Major, v.Minor, v.Revision)
 		} else {
-			str = fmt.Sprintf("%s,%s-tag\n", k, v.Tag())
+			str = fmt.Sprintf("%s,%s-tag\n", k, v.Tag)
 		}
 		file.WriteString(str)
 	}
@@ -74,7 +82,7 @@ func (ps *ProjectState) Save() error {
 }
 
 func (ps *ProjectState) Init() error {
-	ps.installedRepos = map[string]*repo.Version{}
+	ps.installedRepos = map[string]newtutil.RepoVersion{}
 
 	path := ps.StateFile()
 
@@ -99,7 +107,7 @@ func (ps *ProjectState) Init() error {
 		}
 
 		repoName := line[0]
-		repoVers, err := repo.LoadVersion(line[1])
+		repoVers, err := newtutil.ParseRepoVersion(line[1])
 		if err != nil {
 			return err
 		}
