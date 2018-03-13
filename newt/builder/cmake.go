@@ -131,7 +131,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 		}
 	}
 
-	elfName := "lib" + filepath.Base(b.AppElfPath())
+	elfName := "cmake_" + filepath.Base(b.AppElfPath())
 	fmt.Fprintf(w, "# Generating code for %s\n\n", elfName)
 
 	var targetObjectsBuffer bytes.Buffer
