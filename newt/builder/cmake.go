@@ -25,9 +25,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"path/filepath"
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
@@ -85,8 +86,18 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 
 	files := []string{}
 	for _, s := range entries {
+		filename := filepath.ToSlash(s.Filename)
+		if s.Compiler.ShouldIgnoreFile(filename) {
+			log.Infof("Ignoring %s because package dictates it.\n", filename)
+			continue
+		}
+
 		CmakeSourceObjectWrite(w, s)
 		files = append(files, s.Filename)
+	}
+
+	if len(files) <= 0 {
+		return nil, nil
 	}
 
 	pkgName := bpkg.rpkg.Lpkg.Name()
