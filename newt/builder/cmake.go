@@ -145,7 +145,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	fmt.Fprintf(w, "file(WRITE %s \"\")\n", filepath.Join(elfOutputDir, "null.c"))
 	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName, filepath.Join(elfOutputDir, "null.c"))
 
-	fmt.Fprintf(w, " target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
+	fmt.Fprintf(w, "target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
 		elfName, targetObjectsBuffer.String())
 
 	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
@@ -163,8 +163,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	}
 
 	lFlags = append(lFlags, c.GetLocalCompilerInfo().Cflags...)
-	fmt.Fprintf(w, `
-	set_target_properties(%s
+	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
 							ARCHIVE_OUTPUT_DIRECTORY %s
 							LIBRARY_OUTPUT_DIRECTORY %s
@@ -202,8 +201,7 @@ func getLibsFromLinkerFlags(lflags []string) []string {
 func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage, cj toolchain.CompilerJob) {
 	c := cj.Compiler
 
-	fmt.Fprintf(w, `
-	set_target_properties(%s
+	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
 							ARCHIVE_OUTPUT_DIRECTORY %s
 							LIBRARY_OUTPUT_DIRECTORY %s
