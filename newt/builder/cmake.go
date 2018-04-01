@@ -151,6 +151,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 		lFlags = append(lFlags, "-T"+ld)
 	}
 
+	lFlags = append(lFlags, c.GetLocalCompilerInfo().Cflags...)
 	fmt.Fprintf(w, `
 	set_target_properties(%s
 							PROPERTIES
