@@ -27,11 +27,12 @@ import (
 	"os"
 	"strings"
 
+	"path/filepath"
+
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
-	"path/filepath"
 )
 
 const CMAKELISTS_FILENAME string = "CMakeLists.txt"
