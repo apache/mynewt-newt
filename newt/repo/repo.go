@@ -219,12 +219,19 @@ func (r *Repo) checkExists() bool {
 }
 
 func (r *Repo) updateRepo(branchName string) error {
-	dl := r.downloader
-	err := dl.UpdateRepo(r.Path(), branchName)
+	err := r.downloader.UpdateRepo(r.Path(), branchName)
 	if err != nil {
-		return util.FmtNewtError("Error updating \"%s\": %s",
-			r.Name(), err.Error())
+		// If the update failed because the repo directory has been deleted,
+		// clone the repo again.
+		if util.IsNotExist(err) {
+			err = r.downloadRepo(branchName)
+		}
+		if err != nil {
+			return util.FmtNewtError(
+				"Error updating \"%s\": %s", r.Name(), err.Error())
+		}
 	}
+
 	return nil
 }
 

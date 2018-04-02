@@ -104,7 +104,7 @@ func executeGitCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
 	}
 
 	if err := os.Chdir(dir); err != nil {
-		return nil, util.NewNewtError(err.Error())
+		return nil, util.ChildNewtError(err)
 	}
 
 	defer os.Chdir(wd)
