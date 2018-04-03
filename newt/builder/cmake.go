@@ -46,10 +46,40 @@ func EscapeName(name string) string {
 	return strings.Replace(name, "/", "_", -1)
 }
 
-func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
+func extractIncludes(flags *[]string, includes *[]string, other *[]string) {
+	for _, f := range *flags {
+		if strings.HasPrefix(f, "-I") {
+			*includes = append(*includes, strings.TrimPrefix(f, "-I"))
+		} else {
+			*other = append(*other, f)
+		}
+	}
+}
+
+func removeDuplicates(elements []string) []string {
+	// Use map to record duplicates as we find them.
+	encountered := map[string]bool{}
+	result := []string{}
+
+	for v := range elements {
+		if encountered[elements[v]] == true {
+			// Do not add duplicate.
+		} else {
+			// Record this element as an encountered element.
+			encountered[elements[v]] = true
+			// Append to result slice.
+			result = append(result, elements[v])
+		}
+	}
+	// Return the new slice.
+	return result
+}
+
+func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *[]string) {
 	c := cj.Compiler
 
 	compileFlags := []string{}
+	otherFlags := []string{}
 
 	switch cj.CompilerType {
 	case toolchain.COMPILER_TYPE_C:
@@ -65,12 +95,14 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
 	}
 
+	extractIncludes(&compileFlags, includeDirs, &otherFlags)
+
 	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
 														PROPERTY
 														COMPILE_FLAGS
 														"%s")`,
 		cj.Filename,
-		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\\\\\"", -1))
+		strings.Replace(strings.Join(otherFlags, " "), "\"", "\\\\\\\"", -1))
 	fmt.Fprintln(w)
 }
 
@@ -84,7 +116,9 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		return nil, nil
 	}
 
+	otherIncludes := []string{}
 	files := []string{}
+
 	for _, s := range entries {
 		filename := filepath.ToSlash(s.Filename)
 		if s.Compiler.ShouldIgnoreFile(filename) {
@@ -92,7 +126,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 			continue
 		}
 
-		CmakeSourceObjectWrite(w, s)
+		CmakeSourceObjectWrite(w, s, &otherIncludes)
 		files = append(files, s.Filename)
 	}
 
@@ -109,7 +143,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		strings.Join(files, " "))
 
 	archivePath, _ := filepath.Abs(filepath.Dir(b.ArchivePath(bpkg)))
-	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0])
+	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
 
 	return bpkg, nil
 }
@@ -198,8 +232,17 @@ func getLibsFromLinkerFlags(lflags []string) []string {
 	return libs
 }
 
-func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage, cj toolchain.CompilerJob) {
+func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
+	cj toolchain.CompilerJob, otherIncludes []string) {
 	c := cj.Compiler
+
+	var includes []string
+
+	includes = append(includes, c.GetCompilerInfo().Includes...)
+	includes = append(includes, c.GetLocalCompilerInfo().Includes...)
+	includes = append(includes, otherIncludes...)
+
+	includes = removeDuplicates(includes)
 
 	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
@@ -212,10 +255,9 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 		archiveFile,
 	)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s %s)\n\n",
+	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s)\n\n",
 		EscapeName(bpkg.rpkg.Lpkg.Name()),
-		strings.Join(c.GetCompilerInfo().Includes, " "),
-		strings.Join(c.GetLocalCompilerInfo().Includes, " "))
+		strings.Join(includes, " "))
 }
 
 func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
