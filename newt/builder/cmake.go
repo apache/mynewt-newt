@@ -27,11 +27,12 @@ import (
 	"os"
 	"strings"
 
+	"path/filepath"
+
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
-	"path/filepath"
 )
 
 const CMAKELISTS_FILENAME string = "CMakeLists.txt"
@@ -150,6 +151,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 		lFlags = append(lFlags, "-T"+ld)
 	}
 
+	lFlags = append(lFlags, c.GetLocalCompilerInfo().Cflags...)
 	fmt.Fprintf(w, `
 	set_target_properties(%s
 							PROPERTIES
@@ -166,7 +168,24 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 
 	fmt.Fprintln(w)
 
+	libs := strings.Join(getLibsFromLinkerFlags(lFlags), " ")
+	fmt.Fprintf(w, "# Workaround for gcc linker woes\n")
+	fmt.Fprintf(w, "set(CMAKE_C_LINK_EXECUTABLE \"${CMAKE_C_LINK_EXECUTABLE} %s\")\n", libs)
+	fmt.Fprintln(w)
+
 	return nil
+}
+
+func getLibsFromLinkerFlags(lflags []string) []string {
+	libs := []string{}
+
+	for _, flag := range lflags {
+		if strings.HasPrefix(flag, "-l") {
+			libs = append(libs, flag)
+		}
+	}
+
+	return libs
 }
 
 func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage, cj toolchain.CompilerJob) {
