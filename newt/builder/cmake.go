@@ -25,9 +25,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"path/filepath"
+	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
@@ -45,10 +46,40 @@ func EscapeName(name string) string {
 	return strings.Replace(name, "/", "_", -1)
 }
 
-func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
+func extractIncludes(flags *[]string, includes *[]string, other *[]string) {
+	for _, f := range *flags {
+		if strings.HasPrefix(f, "-I") {
+			*includes = append(*includes, strings.TrimPrefix(f, "-I"))
+		} else {
+			*other = append(*other, f)
+		}
+	}
+}
+
+func removeDuplicates(elements []string) []string {
+	// Use map to record duplicates as we find them.
+	encountered := map[string]bool{}
+	result := []string{}
+
+	for v := range elements {
+		if encountered[elements[v]] == true {
+			// Do not add duplicate.
+		} else {
+			// Record this element as an encountered element.
+			encountered[elements[v]] = true
+			// Append to result slice.
+			result = append(result, elements[v])
+		}
+	}
+	// Return the new slice.
+	return result
+}
+
+func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *[]string) {
 	c := cj.Compiler
 
 	compileFlags := []string{}
+	otherFlags := []string{}
 
 	switch cj.CompilerType {
 	case toolchain.COMPILER_TYPE_C:
@@ -64,12 +95,14 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob) {
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
 	}
 
+	extractIncludes(&compileFlags, includeDirs, &otherFlags)
+
 	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
 														PROPERTY
 														COMPILE_FLAGS
 														"%s")`,
 		cj.Filename,
-		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\\\\\"", -1))
+		strings.Replace(strings.Join(otherFlags, " "), "\"", "\\\\\\\"", -1))
 	fmt.Fprintln(w)
 }
 
@@ -83,10 +116,22 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		return nil, nil
 	}
 
+	otherIncludes := []string{}
 	files := []string{}
+
 	for _, s := range entries {
-		CmakeSourceObjectWrite(w, s)
+		filename := filepath.ToSlash(s.Filename)
+		if s.Compiler.ShouldIgnoreFile(filename) {
+			log.Infof("Ignoring %s because package dictates it.\n", filename)
+			continue
+		}
+
+		CmakeSourceObjectWrite(w, s, &otherIncludes)
 		files = append(files, s.Filename)
+	}
+
+	if len(files) <= 0 {
+		return nil, nil
 	}
 
 	pkgName := bpkg.rpkg.Lpkg.Name()
@@ -98,7 +143,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		strings.Join(files, " "))
 
 	archivePath, _ := filepath.Abs(filepath.Dir(b.ArchivePath(bpkg)))
-	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0])
+	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
 
 	return bpkg, nil
 }
@@ -120,7 +165,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 		}
 	}
 
-	elfName := "lib" + filepath.Base(b.AppElfPath())
+	elfName := "cmake_" + filepath.Base(b.AppElfPath())
 	fmt.Fprintf(w, "# Generating code for %s\n\n", elfName)
 
 	var targetObjectsBuffer bytes.Buffer
@@ -134,7 +179,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	fmt.Fprintf(w, "file(WRITE %s \"\")\n", filepath.Join(elfOutputDir, "null.c"))
 	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName, filepath.Join(elfOutputDir, "null.c"))
 
-	fmt.Fprintf(w, " target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
+	fmt.Fprintf(w, "target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
 		elfName, targetObjectsBuffer.String())
 
 	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
@@ -152,8 +197,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	}
 
 	lFlags = append(lFlags, c.GetLocalCompilerInfo().Cflags...)
-	fmt.Fprintf(w, `
-	set_target_properties(%s
+	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
 							ARCHIVE_OUTPUT_DIRECTORY %s
 							LIBRARY_OUTPUT_DIRECTORY %s
@@ -188,11 +232,19 @@ func getLibsFromLinkerFlags(lflags []string) []string {
 	return libs
 }
 
-func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage, cj toolchain.CompilerJob) {
+func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
+	cj toolchain.CompilerJob, otherIncludes []string) {
 	c := cj.Compiler
 
-	fmt.Fprintf(w, `
-	set_target_properties(%s
+	var includes []string
+
+	includes = append(includes, c.GetCompilerInfo().Includes...)
+	includes = append(includes, c.GetLocalCompilerInfo().Includes...)
+	includes = append(includes, otherIncludes...)
+
+	includes = removeDuplicates(includes)
+
+	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
 							ARCHIVE_OUTPUT_DIRECTORY %s
 							LIBRARY_OUTPUT_DIRECTORY %s
@@ -203,10 +255,9 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 		archiveFile,
 	)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s %s)\n\n",
+	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s)\n\n",
 		EscapeName(bpkg.rpkg.Lpkg.Name()),
-		strings.Join(c.GetCompilerInfo().Includes, " "),
-		strings.Join(c.GetLocalCompilerInfo().Includes, " "))
+		strings.Join(includes, " "))
 }
 
 func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
@@ -243,10 +294,10 @@ func CmakeCompilerWrite(w io.Writer, c *toolchain.Compiler) {
 	fmt.Fprintln(w)
 }
 
-func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler) {
+func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler, targetName string) {
 	fmt.Fprintln(w, "cmake_minimum_required(VERSION 3.7)\n")
 	CmakeCompilerWrite(w, c)
-	fmt.Fprintln(w, "project(Mynewt VERSION 0.0.0 LANGUAGES C ASM)\n")
+	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C ASM)\n\n", targetName)
 	fmt.Fprintln(w, "SET(CMAKE_C_FLAGS_BACKUP  \"${CMAKE_C_FLAGS}\")")
 	fmt.Fprintln(w, "SET(CMAKE_CXX_FLAGS_BACKUP  \"${CMAKE_CXX_FLAGS}\")")
 	fmt.Fprintln(w, "SET(CMAKE_ASM_FLAGS_BACKUP  \"${CMAKE_ASM_FLAGS}\")")
@@ -273,7 +324,7 @@ func CMakeTargetGenerate(target *target.Target) error {
 		return err
 	}
 
-	CmakeHeaderWrite(w, targetCompiler)
+	CmakeHeaderWrite(w, targetCompiler, target.ShortName())
 
 	if err := targetBuilder.CMakeTargetBuilderWrite(w, targetCompiler); err != nil {
 		return err

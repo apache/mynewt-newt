@@ -561,8 +561,9 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	return nil
 }
 
-func (c *Compiler) shouldIgnoreFile(file string) bool {
+func (c *Compiler) ShouldIgnoreFile(file string) bool {
 	file = strings.TrimPrefix(file, c.srcDir)
+	file = strings.TrimLeft(file, "/\\")
 	for _, re := range c.info.IgnoreFiles {
 		if match := re.MatchString(file); match {
 			return true
@@ -592,7 +593,7 @@ func compilerTypeToExts(compilerType int) ([]string, error) {
 func (c *Compiler) CompileC(filename string) error {
 	filename = filepath.ToSlash(filename)
 
-	if c.shouldIgnoreFile(filename) {
+	if c.ShouldIgnoreFile(filename) {
 		log.Infof("Ignoring %s because package dictates it.", filename)
 		return nil
 	}
@@ -618,7 +619,7 @@ func (c *Compiler) CompileC(filename string) error {
 func (c *Compiler) CompileCpp(filename string) error {
 	filename = filepath.ToSlash(filename)
 
-	if c.shouldIgnoreFile(filename) {
+	if c.ShouldIgnoreFile(filename) {
 		log.Infof("Ignoring %s because package dictates it.", filename)
 		return nil
 	}
@@ -649,7 +650,7 @@ func (c *Compiler) CompileCpp(filename string) error {
 func (c *Compiler) CompileAs(filename string) error {
 	filename = filepath.ToSlash(filename)
 
-	if c.shouldIgnoreFile(filename) {
+	if c.ShouldIgnoreFile(filename) {
 		log.Infof("Ignoring %s because package dictates it.", filename)
 		return nil
 	}
@@ -678,7 +679,7 @@ func (c *Compiler) CompileAs(filename string) error {
 func (c *Compiler) CopyArchive(filename string) error {
 	filename = filepath.ToSlash(filename)
 
-	if c.shouldIgnoreFile(filename) {
+	if c.ShouldIgnoreFile(filename) {
 		log.Infof("Ignoring %s because package dictates it.", filename)
 		return nil
 	}
