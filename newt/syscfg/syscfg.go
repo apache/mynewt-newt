@@ -143,8 +143,25 @@ func (cfg *Cfg) SettingValues() map[string]string {
 	return values
 }
 
-func (cfg *Cfg) SettingsForLpkg(lpkg *pkg.LocalPackage) map[string]string {
-	settings := cfg.SettingValues()
+// If the specified package has any injected settings, returns a new map
+// consisting of the union of the injected settings and the provided base
+// settings.
+//
+// Else (no injected settings), returns the base settings unmodified.
+func (cfg *Cfg) settingsForLpkg(lpkg *pkg.LocalPackage,
+	baseSettings map[string]string) map[string]string {
+
+	var settings map[string]string
+
+	injected := lpkg.InjectedSettings()
+	if len(injected) == 0 {
+		return baseSettings
+	}
+
+	settings = make(map[string]string, len(baseSettings))
+	for k, v := range baseSettings {
+		settings[k] = v
+	}
 
 	for k, v := range lpkg.InjectedSettings() {
 		_, ok := settings[k]
@@ -157,6 +174,10 @@ func (cfg *Cfg) SettingsForLpkg(lpkg *pkg.LocalPackage) map[string]string {
 	}
 
 	return settings
+}
+
+func (cfg *Cfg) AllSettingsForLpkg(lpkg *pkg.LocalPackage) map[string]string {
+	return cfg.settingsForLpkg(lpkg, cfg.SettingValues())
 }
 
 func (point CfgPoint) Name() string {
@@ -361,15 +382,7 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 	settings map[string]string) error {
 	yc := lpkg.SyscfgY
 
-	lsettings := cfg.SettingsForLpkg(lpkg)
-	for k, v := range settings {
-		lsettings[k] = v
-	}
-	for k, _ := range lsettings {
-		if _, ok := settings[k]; ok == false {
-			delete(lsettings, k)
-		}
-	}
+	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
 	defs := yc.GetValStringMap("syscfg.defs", lsettings)
 	if defs != nil {
@@ -423,17 +436,9 @@ func (cfg *Cfg) addOrphan(settingName string, value string,
 
 func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 	settings map[string]string) error {
-	yc := lpkg.SyscfgY
 
-	lsettings := cfg.SettingsForLpkg(lpkg)
-	for k, v := range settings {
-		lsettings[k] = v
-	}
-	for k, _ := range lsettings {
-		if _, ok := settings[k]; ok == false {
-			delete(lsettings, k)
-		}
-	}
+	yc := lpkg.SyscfgY
+	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
 	values := yc.GetValStringMap("syscfg.vals", lsettings)
 	for k, v := range values {
