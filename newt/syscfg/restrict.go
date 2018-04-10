@@ -150,8 +150,8 @@ func normalizeExpr(expr string, baseSetting string) string {
 	return expr
 }
 
-func (cfg *Cfg) violationText(entry CfgEntry, r CfgRestriction) string {
-	prefix := fmt.Sprintf("%s(%s) ", entry.Name, entry.Value)
+func (cfg *Cfg) settingViolationText(entry CfgEntry, r CfgRestriction) string {
+	prefix := fmt.Sprintf("Setting %s(%s) ", entry.Name, entry.Value)
 	if r.Code == CFG_RESTRICTION_CODE_NOTNULL {
 		return prefix + "must not be null"
 	} else {
@@ -159,8 +159,16 @@ func (cfg *Cfg) violationText(entry CfgEntry, r CfgRestriction) string {
 	}
 }
 
+func (cfg *Cfg) packageViolationText(pkgName string, r CfgRestriction) string {
+	return fmt.Sprintf("Package %s requires: %s", pkgName, r.Expr)
+}
+
 func (r *CfgRestriction) relevantSettingNames() []string {
-	names := []string{r.BaseSetting}
+	var names []string
+
+	if r.BaseSetting != "" {
+		names = append(names, r.BaseSetting)
+	}
 
 	if r.Code == CFG_RESTRICTION_CODE_EXPR {
 		tokens, _ := parse.Lex(normalizeExpr(r.Expr, r.BaseSetting))
@@ -184,7 +192,13 @@ func (cfg *Cfg) restrictionMet(
 		return baseEntry.Value != ""
 
 	case CFG_RESTRICTION_CODE_EXPR:
-		expr := normalizeExpr(r.Expr, r.BaseSetting)
+		var expr string
+		if r.BaseSetting != "" {
+			expr = normalizeExpr(r.Expr, r.BaseSetting)
+		} else {
+			expr = r.Expr
+		}
+
 		val, err := parse.ParseAndEval(expr, settings)
 		if err != nil {
 			util.StatusMessage(util.VERBOSITY_QUIET,

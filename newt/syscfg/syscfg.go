@@ -101,6 +101,9 @@ type CfgFlashConflict struct {
 type Cfg struct {
 	Settings map[string]CfgEntry
 
+	// Restrictions at the package level (i.e. "syscfg.restrictions").
+	PackageRestrictions map[string][]CfgRestriction
+
 	//// Errors
 	// Overrides of undefined settings.
 	Orphans map[string][]CfgPoint
@@ -109,12 +112,16 @@ type Cfg struct {
 	// values; not overridden by higher priority package.
 	Ambiguities map[string][]CfgPoint
 
-	// Setting restrictions not met.
-	Violations map[string][]CfgRestriction
+	// Setting-level restrictions not met.
+	SettingViolations map[string][]CfgRestriction
+
+	// Package-level restrictions not met.
+	PackageViolations map[string][]CfgRestriction
 
 	// Attempted override by bottom-priority packages (libraries).
 	PriorityViolations []CfgPriority
 
+	// Two or more flash areas overlap.
 	FlashConflicts []CfgFlashConflict
 
 	// Multiple packages defining the same setting.
@@ -124,13 +131,15 @@ type Cfg struct {
 
 func NewCfg() Cfg {
 	return Cfg{
-		Settings:           map[string]CfgEntry{},
-		Orphans:            map[string][]CfgPoint{},
-		Ambiguities:        map[string][]CfgPoint{},
-		Violations:         map[string][]CfgRestriction{},
-		PriorityViolations: []CfgPriority{},
-		FlashConflicts:     []CfgFlashConflict{},
-		Redefines:          map[string]map[*pkg.LocalPackage]struct{}{},
+		Settings:            map[string]CfgEntry{},
+		PackageRestrictions: map[string][]CfgRestriction{},
+		Orphans:             map[string][]CfgPoint{},
+		Ambiguities:         map[string][]CfgPoint{},
+		SettingViolations:   map[string][]CfgRestriction{},
+		PackageViolations:   map[string][]CfgRestriction{},
+		PriorityViolations:  []CfgPriority{},
+		FlashConflicts:      []CfgFlashConflict{},
+		Redefines:           map[string]map[*pkg.LocalPackage]struct{}{},
 	}
 }
 
@@ -434,10 +443,29 @@ func (cfg *Cfg) addOrphan(settingName string, value string,
 	})
 }
 
-func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
+func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 	settings map[string]string) error {
 
 	yc := lpkg.SyscfgY
+	lsettings := cfg.settingsForLpkg(lpkg, settings)
+
+	restrictionStrings := yc.GetValStringSlice("syscfg.restrictions", lsettings)
+	for _, rstring := range restrictionStrings {
+		r, err := readRestriction("", rstring)
+		if err != nil {
+			return util.PreNewtError(err, "error parsing restriction: %s", rstring)
+		}
+		cfg.PackageRestrictions[lpkg.Name()] =
+			append(cfg.PackageRestrictions[lpkg.Name()], r)
+	}
+
+	return nil
+}
+
+func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
+	settings map[string]string) error {
+	yc := lpkg.SyscfgY
+
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
 	values := yc.GetValStringMap("syscfg.vals", lsettings)
@@ -545,15 +573,34 @@ func (cfg *Cfg) settingsOfType(typ CfgSettingType) []CfgEntry {
 func (cfg *Cfg) detectViolations() {
 	settings := cfg.SettingValues()
 	for _, entry := range cfg.Settings {
-		var ev []CfgRestriction
+		var sv []CfgRestriction
 		for _, r := range entry.Restrictions {
 			if !cfg.restrictionMet(r, settings) {
-				ev = append(ev, r)
+				sv = append(sv, r)
 			}
 		}
 
-		if ev != nil {
-			cfg.Violations[entry.Name] = ev
+		if sv != nil {
+			cfg.SettingViolations[entry.Name] = sv
+		}
+	}
+
+	pkgNames := make([]string, 0, len(cfg.PackageRestrictions))
+	for n, _ := range cfg.PackageRestrictions {
+		pkgNames = append(pkgNames, n)
+	}
+	sort.Strings(pkgNames)
+
+	for _, n := range pkgNames {
+		var pv []CfgRestriction
+		for _, r := range cfg.PackageRestrictions[n] {
+			if !cfg.restrictionMet(r, settings) {
+				pv = append(pv, r)
+			}
+		}
+
+		if pv != nil {
+			cfg.PackageViolations[n] = pv
 		}
 	}
 }
@@ -684,9 +731,9 @@ func (cfg *Cfg) ErrorText() string {
 	}
 
 	// Violation errors.
-	if len(cfg.Violations) > 0 {
+	if len(cfg.SettingViolations) > 0 || len(cfg.PackageViolations) > 0 {
 		str += "Syscfg restriction violations detected:\n"
-		for settingName, rslice := range cfg.Violations {
+		for settingName, rslice := range cfg.SettingViolations {
 			baseEntry := cfg.Settings[settingName]
 			historyMap[settingName] = baseEntry.History
 			for _, r := range rslice {
@@ -694,7 +741,16 @@ func (cfg *Cfg) ErrorText() string {
 					reqEntry := cfg.Settings[name]
 					historyMap[name] = reqEntry.History
 				}
-				str += "    " + cfg.violationText(baseEntry, r) + "\n"
+				str += "    " + cfg.settingViolationText(baseEntry, r) + "\n"
+			}
+		}
+		for pkgName, rslice := range cfg.PackageViolations {
+			for _, r := range rslice {
+				for _, name := range r.relevantSettingNames() {
+					reqEntry := cfg.Settings[name]
+					historyMap[name] = reqEntry.History
+				}
+				str += "    " + cfg.packageViolationText(pkgName, r) + "\n"
 			}
 		}
 	}
@@ -904,6 +960,12 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		pkg.PACKAGE_TYPE_TARGET,
 	} {
 		if err := cfg.readValsForPkgType(lpkgMap[ptype], settings); err != nil {
+			return cfg, err
+		}
+	}
+
+	for _, lpkg := range lpkgs {
+		if err := cfg.readRestrictions(lpkg, settings); err != nil {
 			return cfg, err
 		}
 	}
