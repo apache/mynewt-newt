@@ -350,22 +350,23 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 		}
 	}
 
+	// This iteration may have deleted some dependency relationships (e.g., if
+	// a new syscfg setting was discovered which causes this package's
+	// dependency list to be overwritten).  Detect and delete these
+	// relationships.
 	for rdep, _ := range rpkg.Deps {
 		if _, ok := seen[rdep]; !ok {
 			delete(rpkg.Deps, rdep)
 			rdep.refCount--
 			changed = true
-		}
-	}
 
-	// Determine if this package supports any APIs that we haven't seen
-	// yet.  If so, another full iteration is required.
-	apiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.apis", settings)
-	for _, entry := range apiEntries {
-		apiStr, ok := entry.Value.(string)
-		if ok && apiStr != "" {
-			if r.addApi(apiStr, rpkg, entry.Expr) {
-				changed = true
+			// If we just deleted the last reference to a package, remove the
+			// package entirely from the resolver and syscfg.
+			if rdep.refCount == 0 {
+				delete(r.pkgMap, rdep.Lpkg)
+
+				// Delete the package from syscfg.
+				r.cfg.DeletePkg(rdep.Lpkg)
 			}
 		}
 	}
@@ -519,13 +520,6 @@ func (r *Resolver) resolveDepsAndCfg() error {
 	// Satisfy API requirements.
 	if err := r.resolveApiDeps(); err != nil {
 		return err
-	}
-
-	// Remove orphaned packages.
-	for lpkg, rpkg := range r.pkgMap {
-		if rpkg.refCount == 0 {
-			delete(r.pkgMap, lpkg)
-		}
 	}
 
 	// Log the final syscfg.
