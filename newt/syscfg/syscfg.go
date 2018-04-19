@@ -467,6 +467,64 @@ func (cfg *Cfg) Log() {
 	}
 }
 
+// Removes all traces of a package from syscfg.
+func (cfg *Cfg) DeletePkg(lpkg *pkg.LocalPackage) {
+	log.Debugf("Deleting package from syscfg: %s", lpkg.FullName())
+
+	// First, check if the specified package contributes to a redefinition
+	// error.  If so, the deletion of this package might resolve the error.
+	for name, m := range cfg.Redefines {
+		delete(m, lpkg)
+		if len(m) == 1 {
+			// Only one package defines this setting now; the redefinition
+			// error is resolved.
+			delete(cfg.Redefines, name)
+
+			//Loop through the map `m` just to get access to its only element.
+			var source *pkg.LocalPackage
+			for lp, _ := range m {
+				source = lp
+			}
+
+			// Replace the setting's source with the one remaining package that
+			// defines the setting.
+			entry := cfg.Settings[name]
+			entry.replaceSource(source)
+
+			// Update the master settings map.
+			cfg.Settings[name] = entry
+
+			log.Debugf("Resolved syscfg redefine; setting=%s pkg=%s",
+				name, source.FullName())
+		}
+	}
+
+	// Next, delete the specified package from the master settings map.
+	for name, entry := range cfg.Settings {
+		if entry.PackageDef == lpkg {
+			// The package-to-delete is this setting's source.  All overrides
+			// become orphans.
+			for i := 1; i < len(entry.History); i++ {
+				p := entry.History[i]
+				cfg.addOrphan(name, stringValue(p.Value), p.Source)
+			}
+			delete(cfg.Settings, name)
+		} else {
+			// Remove any overrides created by the deleted package.
+			for i := 1; i < len(entry.History); /* i inc. in loop body */ {
+				if entry.History[i].Source == lpkg {
+					entry.History = append(
+						entry.History[:i], entry.History[i+1:]...)
+
+					cfg.Settings[name] = entry
+				} else {
+					i++
+				}
+			}
+		}
+	}
+}
+
 func (cfg *Cfg) settingsOfType(typ CfgSettingType) []CfgEntry {
 	entries := []CfgEntry{}
 
