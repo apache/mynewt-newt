@@ -79,7 +79,10 @@ type ResolvePackage struct {
 	reqApiMap map[string]resolveReqApi
 
 	depsResolved bool
-	refCount     int
+
+	// Tracks this package's number of dependents.  If this number reaches 0,
+	// this package can be deleted from the resolver.
+	refCount int
 }
 
 type ResolveSet struct {
@@ -480,6 +483,10 @@ func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 	return rpkgs, nil
 }
 
+// Performs a set of resolution actions:
+// 1. Calculates the system configuration (syscfg).
+// 2. Determines which packages satisfy which API requirements.
+// 3. Resolves package dependencies by populating the resolver's package map.
 func (r *Resolver) resolveDepsAndCfg() error {
 	if _, err := r.resolveDepsOnce(); err != nil {
 		return err

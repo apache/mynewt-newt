@@ -561,6 +561,7 @@ func (cfg *Cfg) detectPriorityViolations() {
 	}
 }
 
+// Detects all flash conflict errors in the syscfg and records them internally.
 func (cfg *Cfg) detectFlashConflicts(flashMap flash.FlashMap) {
 	entries := cfg.settingsOfType(CFG_SETTING_TYPE_FLASH_OWNER)
 
@@ -677,6 +678,7 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Violation errors.
 	if len(cfg.Violations) > 0 {
 		str += "Syscfg restriction violations detected:\n"
 		for settingName, rslice := range cfg.Violations {
@@ -692,6 +694,7 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Ambiguity errors.
 	if len(cfg.Ambiguities) > 0 {
 		str += "Syscfg ambiguities detected:\n"
 
@@ -708,6 +711,7 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Priority violation errors.
 	if len(cfg.PriorityViolations) > 0 {
 		str += "Priority violations detected (Packages can only override " +
 			"settings defined by packages of lower priority):\n"
