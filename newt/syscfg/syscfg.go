@@ -150,7 +150,7 @@ func (cfg *Cfg) SettingsForLpkg(lpkg *pkg.LocalPackage) map[string]string {
 		_, ok := settings[k]
 		if ok {
 			log.Warnf("Attempt to override syscfg setting %s with "+
-				"injected feature from package %s", k, lpkg.Name())
+				"injected feature from package %s", k, lpkg.FullName())
 		} else {
 			settings[k] = v
 		}
@@ -163,7 +163,7 @@ func (point CfgPoint) Name() string {
 	if point.Source == nil {
 		return "newt"
 	} else {
-		return point.Source.Name()
+		return point.Source.FullName()
 	}
 }
 
@@ -256,7 +256,7 @@ func (entry *CfgEntry) ambiguityText() string {
 			str += ", "
 		}
 
-		str += p.Source.Name()
+		str += p.Source.FullName()
 	}
 	str += "]"
 
@@ -715,8 +715,10 @@ func (cfg *Cfg) ErrorText() string {
 			entry := cfg.Settings[priority.SettingName]
 			historyMap[priority.SettingName] = entry.History
 
-			str += fmt.Sprintf("    Package: %s overriding setting: %s defined by %s\n",
-				priority.PackageSrc.Name(), priority.SettingName, priority.PackageDef.Name())
+			str += fmt.Sprintf(
+				"    Package: %s overriding setting: %s defined by %s\n",
+				priority.PackageSrc.FullName(), priority.SettingName,
+				priority.PackageDef.FullName())
 		}
 	}
 
@@ -732,11 +734,9 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
-	if str == "" {
-		return ""
+	if len(historyMap) > 0 {
+		str += "\n" + historyText(historyMap)
 	}
-
-	str += "\n" + historyText(historyMap)
 
 	return str
 }
@@ -762,11 +762,9 @@ func (cfg *Cfg) WarningText() string {
 		}
 	}
 
-	if str == "" {
-		return ""
+	if len(historyMap) > 0 {
+		str += "\n" + historyText(historyMap)
 	}
-
-	str += "\n" + historyText(historyMap)
 
 	return str
 }
