@@ -30,6 +30,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
@@ -44,6 +45,18 @@ func CmakeListsPath() string {
 
 func EscapeName(name string) string {
 	return strings.Replace(name, "/", "_", -1)
+}
+
+func trimProjectPath(path string) string {
+	proj := interfaces.GetProject()
+	path = strings.TrimPrefix(path, proj.Path()+"/")
+	return path
+}
+
+func trimProjectPathSlice(elements []string) {
+	for e := range elements {
+		elements[e] = trimProjectPath(elements[e])
+	}
 }
 
 func extractIncludes(flags *[]string, includes *[]string, other *[]string) {
@@ -96,6 +109,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *
 	}
 
 	extractIncludes(&compileFlags, includeDirs, &otherFlags)
+	cj.Filename = trimProjectPath(cj.Filename)
 
 	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
 														PROPERTY
@@ -127,6 +141,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		}
 
 		CmakeSourceObjectWrite(w, s, &otherIncludes)
+		s.Filename = trimProjectPath(s.Filename)
 		files = append(files, s.Filename)
 	}
 
@@ -142,7 +157,8 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		EscapeName(pkgName),
 		strings.Join(files, " "))
 
-	archivePath, _ := filepath.Abs(filepath.Dir(b.ArchivePath(bpkg)))
+	archivePath := filepath.Dir(b.ArchivePath(bpkg))
+	archivePath = trimProjectPath(archivePath)
 	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
 
 	return bpkg, nil
@@ -175,7 +191,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 			EscapeName(bpkg.rpkg.Lpkg.Name())))
 	}
 
-	elfOutputDir := filepath.Dir(b.AppElfPath())
+	elfOutputDir := trimProjectPath(filepath.Dir(b.AppElfPath()))
 	fmt.Fprintf(w, "file(WRITE %s \"\")\n", filepath.Join(elfOutputDir, "null.c"))
 	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName, filepath.Join(elfOutputDir, "null.c"))
 
@@ -243,6 +259,7 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 	includes = append(includes, otherIncludes...)
 
 	includes = removeDuplicates(includes)
+	trimProjectPathSlice(includes)
 
 	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
