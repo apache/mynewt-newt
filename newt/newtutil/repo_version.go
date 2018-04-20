@@ -172,13 +172,13 @@ func ParseRepoVersion(verStr string) (RepoVersion, error) {
 		case VERSION_STABILITY_LATEST:
 		default:
 			return RepoVersion{}, util.FmtNewtError(
-				"Unknown stability (%s) in verion %s", stability, verStr)
+				"Unknown stability (%s) in version %s", stability, verStr)
 		}
 	}
 	parts := strings.Split(sparts[0], ".")
 	if len(parts) > 3 {
 		return RepoVersion{},
-			util.FmtNewtError("Invalid verion string: %s", verStr)
+			util.FmtNewtError("Invalid version string: %s", verStr)
 	}
 
 	if strings.Trim(parts[0], " ") == "" ||
@@ -187,7 +187,7 @@ func ParseRepoVersion(verStr string) (RepoVersion, error) {
 		return RepoVersion{}, nil
 	}
 
-	// Assume no parts of the verion are specified.
+	// Assume no parts of the version are specified.
 	ver := RepoVersion{
 		Major:     VERSION_FLOATING,
 		Minor:     VERSION_FLOATING,
