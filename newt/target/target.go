@@ -49,6 +49,7 @@ type Target struct {
 	LoaderName   string
 	BuildProfile string
 	HeaderSize   uint32
+	KeyFile      string
 
 	// target.yml configuration structure
 	Vars map[string]string
@@ -102,6 +103,8 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 			target.HeaderSize = uint32(hs)
 		}
 	}
+
+	target.KeyFile = target.Vars["target.key_file"]
 
 	// Note: App not required in the case of unit tests.
 
