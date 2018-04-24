@@ -297,13 +297,11 @@ func (image *Image) SetVersion(versStr string) error {
 	return nil
 }
 
-func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
-	data, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
-	}
+func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
+	var privKey interface{}
+	var err error
 
-	block, data := pem.Decode(data)
+	block, data := pem.Decode(keyBytes)
 	if block != nil && block.Type == "EC PARAMETERS" {
 		/*
 		 * Openssl prepends an EC PARAMETERS block before the
@@ -317,65 +315,61 @@ func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
 		 * ParsePKCS1PrivateKey returns an RSA private key from its ASN.1
 		 * PKCS#1 DER encoded form.
 		 */
-		privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		privKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Private key parsing "+
+			return nil, util.NewNewtError(fmt.Sprintf("Private key parsing "+
 				"failed: %s", err))
 		}
-		image.SigningRSA = privateKey
 	}
 	if block != nil && block.Type == "EC PRIVATE KEY" {
 		/*
 		 * ParseECPrivateKey returns a EC private key
 		 */
-		privateKey, err := x509.ParseECPrivateKey(block.Bytes)
+		privKey, err = x509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Private key parsing "+
+			return nil, util.NewNewtError(fmt.Sprintf("Private key parsing "+
 				"failed: %s", err))
 		}
-		image.SigningEC = privateKey
 	}
 	if block != nil && block.Type == "PRIVATE KEY" {
 		// This indicates a PKCS#8 unencrypted private key.
 		// The particular type of key will be indicated within
 		// the key itself.
-		privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		privKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Private key parsing "+
+			return nil, util.NewNewtError(fmt.Sprintf("Private key parsing "+
 				"failed: %s", err))
-		}
-
-		err = image.storeKey(privateKey)
-		if err != nil {
-			return err
 		}
 	}
 	if block != nil && block.Type == "ENCRYPTED PRIVATE KEY" {
 		// This indicates a PKCS#8 key wrapped with PKCS#5
 		// encryption.
-		privateKey, err := parseEncryptedPrivateKey(block.Bytes)
+		privKey, err = parseEncryptedPrivateKey(block.Bytes)
 		if err != nil {
-			return util.FmtNewtError("Unable to decode encrypted private key: %s", err)
-		}
-
-		err = image.storeKey(privateKey)
-		if err != nil {
-			return err
+			return nil, util.FmtNewtError("Unable to decode encrypted private key: %s", err)
 		}
 	}
-	if image.SigningEC == nil && image.SigningRSA == nil {
-		return util.NewNewtError("Unknown private key format, EC/RSA private " +
+	if privKey == nil {
+		return nil, util.NewNewtError("Unknown private key format, EC/RSA private " +
 			"key in PEM format only.")
 	}
-	image.KeyId = keyId
 
-	return nil
+	return privKey, nil
 }
 
-// Store the given key in this image, determining the type of key and
-// storing it in the appropriate field.
-func (image *Image) storeKey(key interface{}) (err error) {
-	switch priv := key.(type) {
+func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
+	keyBytes, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
+	}
+
+	image.KeyId = keyId
+	privKey, err := ParsePrivateKey(keyBytes)
+	if err != nil {
+		return err
+	}
+
+	switch priv := privKey.(type) {
 	case *rsa.PrivateKey:
 		image.SigningRSA = priv
 	case *ecdsa.PrivateKey:
