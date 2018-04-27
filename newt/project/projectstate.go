@@ -70,10 +70,10 @@ func (ps *ProjectState) Save() error {
 
 	for k, v := range ps.installedRepos {
 		str := ""
-		if v.Tag == "" {
+		if v.Commit == "" {
 			str = fmt.Sprintf("%s,%d.%d.%d\n", k, v.Major, v.Minor, v.Revision)
 		} else {
-			str = fmt.Sprintf("%s,%s-tag\n", k, v.Tag)
+			str = fmt.Sprintf("%s,%s-commit\n", k, v.Commit)
 		}
 		file.WriteString(str)
 	}

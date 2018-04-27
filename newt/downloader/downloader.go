@@ -25,29 +25,38 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/settings"
 	"mynewt.apache.org/newt/util"
 )
 
+type DownloaderCommitType int
+
+const (
+	COMMIT_TYPE_REMOTE_BRANCH DownloaderCommitType = iota
+	COMMIT_TYPE_LOCAL_BRANCH
+	COMMIT_TYPE_TAG
+	COMMIT_TYPE_HASH
+)
+
 type Downloader interface {
 	FetchFile(path string, filename string, dstDir string) error
-	Branch() string
-	SetBranch(branch string)
+	GetCommit() string
+	SetCommit(commit string)
 	DownloadRepo(commit string, dstPath string) error
-	CurrentBranch(path string) (string, error)
+	HashFor(path string, commit string) (string, error)
+	CommitsFor(path string, commit string) ([]string, error)
 	UpdateRepo(path string, branchName string) error
-	CleanupRepo(path string, branchName string) error
-	LocalDiff(path string) ([]byte, error)
 	AreChanges(path string) (bool, error)
+	CommitType(path string, commit string) (DownloaderCommitType, error)
 }
 
 type GenericDownloader struct {
-	branch string
+	commit string
 
 	// Whether 'origin' has been fetched during this run.
 	fetched bool
@@ -119,18 +128,12 @@ func executeGitCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
 	return output, nil
 }
 
-func isTag(repoDir string, branchName string) bool {
-	cmd := []string{"tag", "--list"}
-	output, _ := executeGitCommand(repoDir, cmd, true)
-	return strings.Contains(string(output), branchName)
-}
-
-func branchExists(repoDir string, branchName string) bool {
+func commitExists(repoDir string, commit string) bool {
 	cmd := []string{
 		"show-ref",
 		"--verify",
 		"--quiet",
-		"refs/heads/" + branchName,
+		"refs/heads/" + commit,
 	}
 	_, err := executeGitCommand(repoDir, cmd, true)
 	return err == nil
@@ -169,18 +172,27 @@ func updateSubmodules(path string) error {
 // handling and result in dettached from HEAD state.
 func checkout(repoDir string, commit string) error {
 	var cmd []string
-	if isTag(repoDir, commit) && !branchExists(repoDir, commit) {
+	ct, err := commitType(repoDir, commit)
+	if err != nil {
+		return err
+	}
+
+	full, err := fullCommitName(repoDir, commit)
+	if err != nil {
+		return err
+	}
+
+	if ct == COMMIT_TYPE_TAG {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Will create new branch %s"+
-			" from tag %s\n", commit, "tags/"+commit)
+			" from %s\n", commit, full)
 		cmd = []string{
 			"checkout",
-			"tags/" + commit,
+			full,
 			"-b",
 			commit,
 		}
 	} else {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "Will checkout branch %s\n",
-			commit)
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Will checkout %s\n", full)
 		cmd = []string{
 			"checkout",
 			commit,
@@ -192,7 +204,7 @@ func checkout(repoDir string, commit string) error {
 
 	// Always initialize and update submodules on checkout.  This prevents the
 	// repo from being in a modified "(new commits)" state immediately after
-	// switching branches.  If the submodules have already been updated, this
+	// switching commits.  If the submodules have already been updated, this
 	// does not generate any network activity.
 	if err := initSubmodules(repoDir); err != nil {
 		return err
@@ -204,51 +216,89 @@ func checkout(repoDir string, commit string) error {
 	return nil
 }
 
-// mergeBranches applies upstream changes to the local copy and must be
+// mergees applies upstream changes to the local copy and must be
 // preceeded by a "fetch" to achieve any meaningful result.
-func mergeBranch(repoDir string, branch string) error {
-	if err := checkout(repoDir, branch); err != nil {
+func merge(repoDir string, commit string) error {
+	if err := checkout(repoDir, commit); err != nil {
 		return err
 	}
 
-	fullName := "origin/" + branch
+	ct, err := commitType(repoDir, commit)
+	if err != nil {
+		return err
+	}
+
+	// We want to merge the remote version of this branch.
+	if ct == COMMIT_TYPE_LOCAL_BRANCH {
+		ct = COMMIT_TYPE_REMOTE_BRANCH
+	}
+
+	full, err := prependCommitPrefix(commit, ct)
+	if err != nil {
+		return err
+	}
+
 	if _, err := executeGitCommand(
-		repoDir, []string{"merge", fullName}, true); err != nil {
+		repoDir, []string{"merge", full}, true); err != nil {
 
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
-			"Merging changes from %s: %s\n", fullName, err)
+			"Merging changes from %s: %s\n", full, err)
 		return err
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"Merging changes from %s\n", fullName)
+		"Merging changes from %s\n", full)
 	return nil
 }
 
-// stash saves current changes locally and returns if a new stash was
-// created (if there where no changes, there's no need to stash)
-func stash(repoDir string) (bool, error) {
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Stashing local changes\n")
-	output, err := executeGitCommand(repoDir, []string{"stash"}, true)
-	if err != nil {
-		return false, err
+func mergeBase(repoDir string, commit string) (string, error) {
+	cmd := []string{
+		"merge-base",
+		commit,
+		commit,
 	}
-	return strings.Contains(string(output), "Saved"), nil
+	o, err := executeGitCommand(repoDir, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(o)), nil
 }
 
-func stashPop(repoDir string) error {
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Un-stashing local changes\n")
-	_, err := executeGitCommand(repoDir, []string{"stash", "pop"}, true)
-	return err
+func branchExists(repoDir string, branchName string) bool {
+	cmd := []string{
+		"show-ref",
+		"--verify",
+		"--quiet",
+		"refs/heads/" + branchName,
+	}
+	_, err := executeGitCommand(repoDir, cmd, true)
+	return err == nil
 }
 
-func clean(repoDir string) error {
-	_, err := executeGitCommand(repoDir, []string{"clean", "-f"}, true)
-	return err
-}
+func commitType(repoDir string, commit string) (DownloaderCommitType, error) {
+	if commit == "HEAD" {
+		return COMMIT_TYPE_HASH, nil
+	}
 
-func diff(repoDir string) ([]byte, error) {
-	return executeGitCommand(repoDir, []string{"diff"}, true)
+	if _, err := mergeBase(repoDir, commit); err == nil {
+		// Distinguish local branch from hash.
+		if branchExists(repoDir, commit) {
+			return COMMIT_TYPE_LOCAL_BRANCH, nil
+		} else {
+			return COMMIT_TYPE_HASH, nil
+		}
+	}
+
+	if _, err := mergeBase(repoDir, "origin/"+commit); err == nil {
+		return COMMIT_TYPE_REMOTE_BRANCH, nil
+	}
+	if _, err := mergeBase(repoDir, "tags/"+commit); err == nil {
+		return COMMIT_TYPE_TAG, nil
+	}
+
+	return DownloaderCommitType(-1), util.FmtNewtError(
+		"Cannot determine commit type of \"%s\"", commit)
 }
 
 func areChanges(repoDir string) (bool, error) {
@@ -265,6 +315,28 @@ func areChanges(repoDir string) (bool, error) {
 	return len(o) > 0, nil
 }
 
+func prependCommitPrefix(commit string, ct DownloaderCommitType) (string, error) {
+	switch ct {
+	case COMMIT_TYPE_REMOTE_BRANCH:
+		return "origin/" + commit, nil
+	case COMMIT_TYPE_TAG:
+		return "tags/" + commit, nil
+	case COMMIT_TYPE_HASH, COMMIT_TYPE_LOCAL_BRANCH:
+		return commit, nil
+	default:
+		return "", util.FmtNewtError("unknown commit type: %d", int(ct))
+	}
+}
+
+func fullCommitName(path string, commit string) (string, error) {
+	ct, err := commitType(path, commit)
+	if err != nil {
+		return "", err
+	}
+
+	return prependCommitPrefix(commit, ct)
+}
+
 func showFile(
 	path string, branch string, filename string, dstDir string) error {
 
@@ -272,9 +344,14 @@ func showFile(
 		return util.ChildNewtError(err)
 	}
 
+	full, err := fullCommitName(path, branch)
+	if err != nil {
+		return err
+	}
+
 	cmd := []string{
 		"show",
-		fmt.Sprintf("origin/%s:%s", branch, filename),
+		fmt.Sprintf("%s:%s", full, filename),
 	}
 
 	dstPath := fmt.Sprintf("%s/%s", dstDir, filename)
@@ -291,12 +368,63 @@ func showFile(
 	return nil
 }
 
-func (gd *GenericDownloader) Branch() string {
-	return gd.branch
+func (gd *GenericDownloader) GetCommit() string {
+	return gd.commit
 }
 
-func (gd *GenericDownloader) SetBranch(branch string) {
-	gd.branch = branch
+func (gd *GenericDownloader) SetCommit(branch string) {
+	gd.commit = branch
+}
+
+func (gd *GenericDownloader) CommitType(
+	path string, commit string) (DownloaderCommitType, error) {
+
+	return commitType(path, commit)
+}
+
+func (gd *GenericDownloader) HashFor(path string, commit string) (string, error) {
+	full, err := fullCommitName(path, commit)
+	if err != nil {
+		return "", err
+	}
+	cmd := []string{"rev-parse", full}
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(o)), nil
+}
+
+func (gd *GenericDownloader) CommitsFor(
+	path string, commit string) ([]string, error) {
+
+	// Hash.
+	hash, err := gd.HashFor(path, commit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Branches and tags.
+	cmd := []string{
+		"for-each-ref",
+		"--format=%(refname:short)",
+		"--points-at",
+		hash,
+	}
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := []string{hash}
+	text := strings.TrimSpace(string(o))
+	if text != "" {
+		lines = append(lines, strings.Split(text, "\n")...)
+	}
+
+	sort.Strings(lines)
+	return lines, nil
 }
 
 // Fetches the downloader's origin remote if it hasn't been fetched yet during
@@ -352,17 +480,11 @@ func (gd *GithubDownloader) FetchFile(
 		return err
 	}
 
-	if err := showFile(path, gd.Branch(), filename, dstDir); err != nil {
+	if err := showFile(path, gd.GetCommit(), filename, dstDir); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (gd *GithubDownloader) CurrentBranch(path string) (string, error) {
-	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
-	branch, err := executeGitCommand(path, cmd, true)
-	return strings.Trim(string(branch), "\r\n"), err
 }
 
 func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
@@ -371,44 +493,15 @@ func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
 		return err
 	}
 
-	stashed, err := stash(path)
-	if err != nil {
-		return err
-	}
-
 	// Ignore error, probably resulting from a branch not available at origin
 	// anymore.
-	mergeBranch(path, branchName)
+	merge(path, branchName)
 
 	if err := checkout(path, branchName); err != nil {
 		return err
 	}
 
-	if stashed {
-		return stashPop(path)
-	}
-
 	return nil
-}
-
-func (gd *GithubDownloader) CleanupRepo(path string, branchName string) error {
-	_, err := stash(path)
-	if err != nil {
-		return err
-	}
-
-	err = clean(path)
-	if err != nil {
-		return err
-	}
-
-	// TODO: needs handling of non-tracked files
-
-	return gd.UpdateRepo(path, branchName)
-}
-
-func (gd *GithubDownloader) LocalDiff(path string) ([]byte, error) {
-	return diff(path)
 }
 
 func (gd *GithubDownloader) AreChanges(path string) (bool, error) {
@@ -539,17 +632,11 @@ func (gd *GitDownloader) FetchFile(
 		return err
 	}
 
-	if err := showFile(path, gd.Branch(), filename, dstDir); err != nil {
+	if err := showFile(path, gd.GetCommit(), filename, dstDir); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (gd *GitDownloader) CurrentBranch(path string) (string, error) {
-	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
-	branch, err := executeGitCommand(path, cmd, true)
-	return strings.Trim(string(branch), "\r\n"), err
 }
 
 func (gd *GitDownloader) UpdateRepo(path string, branchName string) error {
@@ -558,45 +645,15 @@ func (gd *GitDownloader) UpdateRepo(path string, branchName string) error {
 		return err
 	}
 
-	stashed, err := stash(path)
-	if err != nil {
-		return err
-	}
-
 	// Ignore error, probably resulting from a branch not available at origin
 	// anymore.
-	mergeBranch(path, branchName)
+	merge(path, branchName)
 
-	err = checkout(path, branchName)
-	if err != nil {
+	if err := checkout(path, branchName); err != nil {
 		return err
-	}
-
-	if stashed {
-		return stashPop(path)
 	}
 
 	return nil
-}
-
-func (gd *GitDownloader) CleanupRepo(path string, branchName string) error {
-	_, err := stash(path)
-	if err != nil {
-		return err
-	}
-
-	err = clean(path)
-	if err != nil {
-		return err
-	}
-
-	// TODO: needs handling of non-tracked files
-
-	return gd.UpdateRepo(path, branchName)
-}
-
-func (gd *GitDownloader) LocalDiff(path string) ([]byte, error) {
-	return diff(path)
 }
 
 func (gd *GitDownloader) AreChanges(path string) (bool, error) {
@@ -660,31 +717,9 @@ func (ld *LocalDownloader) FetchFile(
 	return nil
 }
 
-func (ld *LocalDownloader) CurrentBranch(path string) (string, error) {
-	cmd := []string{"rev-parse", "--abbrev-ref", "HEAD"}
-	branch, err := executeGitCommand(path, cmd, true)
-	return strings.Trim(string(branch), "\r\n"), err
-}
-
 func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
 	os.RemoveAll(path)
 	return ld.DownloadRepo(branchName, path)
-}
-
-func (ld *LocalDownloader) CleanupRepo(path string, branchName string) error {
-	os.RemoveAll(path)
-
-	tmpdir, err := newtutil.MakeTempRepoDir()
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmpdir)
-
-	return ld.DownloadRepo(branchName, tmpdir)
-}
-
-func (ld *LocalDownloader) LocalDiff(path string) ([]byte, error) {
-	return diff(path)
 }
 
 func (ld *LocalDownloader) AreChanges(path string) (bool, error) {

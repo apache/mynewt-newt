@@ -50,12 +50,16 @@ type RevdepGraphNode struct {
 // Value: The corresponding list of dependencies.
 type RevdepGraph map[string][]RevdepGraphNode
 
-func (dep *Dependent) String() string {
-	if dep.Name == rootDependencyName {
+func repoNameVerString(repoName string, ver newtutil.RepoVersion) string {
+	if repoName == rootDependencyName {
 		return "project.yml"
 	} else {
-		return fmt.Sprintf("%s-%s", dep.Name, dep.Ver.String())
+		return fmt.Sprintf("%s-%s", repoName, ver.String())
 	}
+}
+
+func (dep *Dependent) String() string {
+	return repoNameVerString(dep.Name, dep.Ver)
 }
 
 func (dgn *DepGraphNode) String() string {
@@ -69,7 +73,28 @@ func (dg DepGraph) String() string {
 	for dependent, nodes := range dg {
 		line := fmt.Sprintf("%s:", dependent.String())
 		for _, node := range nodes {
-			line += fmt.Sprintf(" %s", node.String())
+			line += fmt.Sprintf(" (%s)", node.String())
+		}
+
+		lines = append(lines, line)
+	}
+
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
+}
+
+func (rgn *RevdepGraphNode) String() string {
+	return fmt.Sprintf("%s,%s", repoNameVerString(rgn.Name, rgn.Ver),
+		newtutil.RepoVerReqsString(rgn.VerReqs))
+}
+
+func (rg RevdepGraph) String() string {
+	lines := make([]string, 0, len(rg))
+
+	for repoName, nodes := range rg {
+		line := fmt.Sprintf("%s:", repoName)
+		for _, node := range nodes {
+			line += fmt.Sprintf(" (%s)", node.String())
 		}
 
 		lines = append(lines, line)

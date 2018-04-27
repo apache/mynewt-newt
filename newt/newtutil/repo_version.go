@@ -32,11 +32,15 @@ import (
 )
 
 const (
-	VERSION_STABILITY_NONE   = "none"
+	VERSION_STABILITY_NONE   = ""
 	VERSION_STABILITY_STABLE = "stable"
 	VERSION_STABILITY_DEV    = "dev"
 	VERSION_STABILITY_LATEST = "latest"
-	VERSION_STABILITY_TAG    = "tag"
+
+	// "commit" is not actually a stability, but it takes the place of one in
+	// the repo version notation.  The "commit" string indicates a commit hash,
+	// tag, or branch, rather than a version specifier.
+	VERSION_STABILITY_COMMIT = "commit"
 )
 
 // Represents an unspecified part in a version.  For example, in "1-latest",
@@ -53,7 +57,11 @@ type RepoVersion struct {
 	Minor     int64
 	Revision  int64
 	Stability string
-	Tag       string
+	Commit    string
+}
+
+func (v *RepoVersion) IsNormalized() bool {
+	return v.Stability == VERSION_STABILITY_NONE
 }
 
 func (vm *RepoVersionReq) String() string {
@@ -73,15 +81,11 @@ func CompareRepoVersions(v1 RepoVersion, v2 RepoVersion) int64 {
 		return r
 	}
 
-	if v1.Tag != v2.Tag {
-		return 1
-	}
-
 	return 0
 }
 
 func (v *RepoVersion) Satisfies(verReq RepoVersionReq) bool {
-	if verReq.Ver.Tag != "" && verReq.CompareType != "==" {
+	if verReq.Ver.Commit != "" && verReq.CompareType != "==" {
 		log.Warningf("RepoVersion comparison with a tag %s %s %s",
 			verReq.Ver, verReq.CompareType, v)
 	}
@@ -127,10 +131,6 @@ func (v *RepoVersion) SatisfiesAll(verReqs []RepoVersionReq) bool {
 }
 
 func (ver *RepoVersion) String() string {
-	if ver.Tag != "" {
-		return fmt.Sprintf("%s-tag", ver.Tag)
-	}
-
 	s := fmt.Sprintf("%d", ver.Major)
 	if ver.Minor != VERSION_FLOATING {
 		s += fmt.Sprintf(".%d", ver.Minor)
@@ -141,6 +141,10 @@ func (ver *RepoVersion) String() string {
 
 	if ver.Stability != VERSION_STABILITY_NONE {
 		s += fmt.Sprintf("-%s", ver.Stability)
+	}
+
+	if ver.Commit != "" {
+		s += fmt.Sprintf("/%s", ver.Commit)
 	}
 
 	return s
@@ -157,34 +161,37 @@ func (ver *RepoVersion) ToNuVersion() Version {
 func ParseRepoVersion(verStr string) (RepoVersion, error) {
 	var err error
 
-	// Split to get stability level first
-	sparts := strings.Split(verStr, "-")
 	stability := VERSION_STABILITY_NONE
-	if len(sparts) > 1 {
-		stability = strings.Trim(sparts[1], " ")
+	base := verStr
+
+	dashIdx := strings.LastIndex(verStr, "-")
+	if dashIdx != -1 {
+		stability = strings.TrimSpace(verStr[dashIdx+1:])
+		base = strings.TrimSpace(verStr[:dashIdx])
+
 		switch stability {
-		case VERSION_STABILITY_TAG:
-			return NewTag(strings.Trim(sparts[0], " ")), nil
+		case VERSION_STABILITY_COMMIT:
+			return RepoVersion{Commit: strings.TrimSpace(base)}, nil
+
 		case VERSION_STABILITY_STABLE:
-			fallthrough
 		case VERSION_STABILITY_DEV:
-			fallthrough
 		case VERSION_STABILITY_LATEST:
+
 		default:
 			return RepoVersion{}, util.FmtNewtError(
 				"Unknown stability (%s) in version %s", stability, verStr)
 		}
 	}
-	parts := strings.Split(sparts[0], ".")
+
+	parts := strings.Split(base, ".")
 	if len(parts) > 3 {
 		return RepoVersion{},
 			util.FmtNewtError("Invalid version string: %s", verStr)
 	}
 
-	if strings.Trim(parts[0], " ") == "" ||
-		strings.Trim(parts[0], " ") == "none" {
-
-		return RepoVersion{}, nil
+	if len(parts) != 3 && stability == VERSION_STABILITY_NONE {
+		return RepoVersion{},
+			util.FmtNewtError("Invalid version string: %s", verStr)
 	}
 
 	// Assume no parts of the version are specified.
@@ -195,7 +202,7 @@ func ParseRepoVersion(verStr string) (RepoVersion, error) {
 		Stability: stability,
 	}
 
-	// convert first string to an int
+	// Convert each dot-delimited part to an integer.
 	if ver.Major, err = strconv.ParseInt(parts[0], 10, 64); err != nil {
 		return RepoVersion{}, util.NewNewtError(err.Error())
 	}
@@ -211,13 +218,6 @@ func ParseRepoVersion(verStr string) (RepoVersion, error) {
 	}
 
 	return ver, nil
-}
-
-func NewTag(tag string) RepoVersion {
-	return RepoVersion{
-		Tag:       tag,
-		Stability: VERSION_STABILITY_NONE,
-	}
 }
 
 // Parse a set of version string constraints on a dependency.
