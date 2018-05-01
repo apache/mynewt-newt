@@ -58,8 +58,6 @@ type Project struct {
 
 	packages interfaces.PackageList
 
-	projState *ProjectState
-
 	// Contains all the repos that form this project.  Each repo is in one of
 	// two states:
 	//    * description: Only the repo's basic description fields have been
@@ -481,11 +479,6 @@ func (proj *Project) loadConfig() error {
 	// we need to process it later.
 	proj.yc = yc
 
-	proj.projState, err = LoadProjectState()
-	if err != nil {
-		return err
-	}
-
 	proj.name = yc.GetValString("project.name", nil)
 
 	// Local repository always included in initialization
@@ -674,15 +667,7 @@ func (proj *Project) loadPackageList() error {
 	repos := proj.Repos()
 	for name, repo := range repos {
 		list, warnings, err := pkg.ReadLocalPackages(repo, repo.Path())
-		if err != nil {
-			/* Failed to read the repo's package list.  Report the failure as a
-			 * warning if the project state indicates that this repo should be
-			 * installed.
-			 */
-			if _, ok := proj.projState.installedRepos[name]; ok {
-				util.StatusMessage(util.VERBOSITY_QUIET, err.Error()+"\n")
-			}
-		} else {
+		if err == nil {
 			proj.packages[name] = list
 		}
 
