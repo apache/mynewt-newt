@@ -24,8 +24,6 @@ import (
 	"sort"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
-
 	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -80,9 +78,11 @@ type ResolvePackage struct {
 	// Keeps track of API requirements and whether they are satisfied.
 	reqApiMap map[string]resolveReqApi
 
-	depsResolved  bool
-	apisSatisfied bool
-	refCount      int
+	depsResolved bool
+
+	// Tracks this package's number of dependents.  If this number reaches 0,
+	// this package can be deleted from the resolver.
+	refCount int
 }
 
 type ResolveSet struct {
@@ -180,7 +180,6 @@ func (rpkg *ResolvePackage) AddDep(
 	if dep := rpkg.Deps[apiPkg]; dep != nil {
 		if dep.Api != "" && api == "" {
 			dep.Api = api
-			return true
 		} else {
 			return false
 		}
@@ -190,8 +189,19 @@ func (rpkg *ResolvePackage) AddDep(
 			Api:  api,
 			Expr: expr,
 		}
-		return true
 	}
+
+	// If this dependency came from an API requirement, record that the API
+	// requirement is now satisfied.
+	if api != "" {
+		apiReq := rpkg.reqApiMap[api]
+		apiReq.expr = expr
+		apiReq.satisfied = true
+		rpkg.reqApiMap[api] = apiReq
+	}
+
+	apiPkg.refCount++
+	return true
 }
 
 func (r *Resolver) rpkgSlice() []*ResolvePackage {
@@ -229,108 +239,83 @@ func (r *Resolver) addPkg(lpkg *pkg.LocalPackage) (*ResolvePackage, bool) {
 
 	rpkg := NewResolvePkg(lpkg)
 	r.pkgMap[lpkg] = rpkg
-	rpkg.refCount = 1
 	return rpkg, true
 }
 
-// @return bool                 true if this is a new API.
-func (r *Resolver) addApi(
-	apiString string, rpkg *ResolvePackage, expr string) bool {
+func (r *Resolver) sortedRpkgs() []*ResolvePackage {
+	rpkgs := make([]*ResolvePackage, 0, len(r.pkgMap))
+	for _, rpkg := range r.pkgMap {
+		rpkgs = append(rpkgs, rpkg)
+	}
 
-	api := r.apis[apiString]
-	if api.rpkg == nil {
-		r.apis[apiString] = resolveApi{
-			rpkg: rpkg,
-			expr: expr,
-		}
-		return true
-	} else {
-		if api.rpkg != rpkg {
-			if r.apiConflicts[apiString] == nil {
-				r.apiConflicts[apiString] = map[*ResolvePackage]struct{}{}
+	SortResolvePkgs(rpkgs)
+	return rpkgs
+}
+
+// Selects the final API suppliers among all packages implementing APIs.  The
+// result gets written to the resolver's `apis` map.  If more than one package
+// implements the same API, an API conflict error is recorded.
+func (r *Resolver) selectApiSuppliers() {
+	apiMap := map[string][]resolveApi{}
+
+	for _, rpkg := range r.sortedRpkgs() {
+		settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
+		apiStrings := rpkg.Lpkg.PkgY.GetSlice("pkg.apis", settings)
+		for _, entry := range apiStrings {
+			apiStr, ok := entry.Value.(string)
+			if ok && apiStr != "" {
+				apiMap[apiStr] = append(apiMap[apiStr], resolveApi{
+					rpkg: rpkg,
+					expr: entry.Expr,
+				})
 			}
-			r.apiConflicts[apiString][api.rpkg] = struct{}{}
-			r.apiConflicts[apiString][rpkg] = struct{}{}
 		}
-		return false
+	}
+
+	apiNames := make([]string, 0, len(apiMap))
+	for name, _ := range apiMap {
+		apiNames = append(apiNames, name)
+	}
+	sort.Strings(apiNames)
+
+	for _, name := range apiNames {
+		apis := apiMap[name]
+		for _, api := range apis {
+			old := r.apis[name]
+			if old.rpkg != nil {
+				if r.apiConflicts[name] == nil {
+					r.apiConflicts[name] = map[*ResolvePackage]struct{}{}
+				}
+				r.apiConflicts[name][api.rpkg] = struct{}{}
+				r.apiConflicts[name][old.rpkg] = struct{}{}
+			} else {
+				r.apis[name] = api
+			}
+		}
 	}
 }
 
-func joinExprs(expr1 string, expr2 string) string {
-	if expr1 == "" {
-		return expr2
-	}
-	if expr2 == "" {
-		return expr1
-	}
-
-	return expr1 + "," + expr2
-}
-
-// Searches for a package which can satisfy bpkg's API requirement.  If such a
-// package is found, bpkg's API requirement is marked as satisfied, and the
-// package is added to bpkg's dependency list.
-//
-// @return bool                 true if the API is now satisfied.
-func (r *Resolver) satisfyApi(
-	rpkg *ResolvePackage, reqApi string, expr string) bool {
-
-	api := r.apis[reqApi]
-	if api.rpkg == nil {
-		// Insert null entry to indicate an unsatisfied API.
-		r.apis[reqApi] = resolveApi{}
-		return false
-	}
-
-	rpkg.reqApiMap[reqApi] = resolveReqApi{
-		satisfied: true,
-		expr:      expr,
-	}
-
-	// This package now has a new unresolved dependency.
-	rpkg.depsResolved = false
-
-	log.Debugf("API requirement satisfied; pkg=%s API=(%s, %s) expr=(%s)",
-		rpkg.Lpkg.Name(), reqApi, api.rpkg.Lpkg.FullName(), expr)
-
-	return true
-}
-
-// @return bool                 true if a new dependency was detected as a
-//                                  result of satisfying an API for this
-//                                  package.
-func (r *Resolver) satisfyApis(rpkg *ResolvePackage) bool {
-	// Assume all this package's APIs are satisfied and that no new
-	// dependencies will be detected.
-	rpkg.apisSatisfied = true
-	newDeps := false
-
+// Populates the specified package's set of API requirements.
+func (r *Resolver) calcApiReqsFor(rpkg *ResolvePackage) {
 	settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
 
-	// Determine if any of the package's API requirements can now be satisfied.
-	// If so, another full iteration is required.
 	reqApiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.req_apis", settings)
 	for _, entry := range reqApiEntries {
 		apiStr, ok := entry.Value.(string)
 		if ok && apiStr != "" {
-			if !rpkg.reqApiMap[apiStr].satisfied {
-				apiSatisfied := r.satisfyApi(rpkg, apiStr, entry.Expr)
-				if apiSatisfied {
-					// An API was satisfied; the package now has a new
-					// dependency that needs to be resolved.
-					newDeps = true
-				} else {
-					rpkg.reqApiMap[apiStr] = resolveReqApi{
-						satisfied: false,
-						expr:      "",
-					}
-					rpkg.apisSatisfied = false
-				}
+			rpkg.reqApiMap[apiStr] = resolveReqApi{
+				satisfied: false,
+				expr:      "",
 			}
 		}
 	}
+}
 
-	return newDeps
+// Populates all packages' API requirements sets.
+func (r *Resolver) calcApiReqs() {
+	for _, rpkg := range r.pkgMap {
+		r.calcApiReqsFor(rpkg)
+	}
 }
 
 // @return bool                 True if this this function changed the resolver
@@ -368,22 +353,23 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 		}
 	}
 
+	// This iteration may have deleted some dependency relationships (e.g., if
+	// a new syscfg setting was discovered which causes this package's
+	// dependency list to be overwritten).  Detect and delete these
+	// relationships.
 	for rdep, _ := range rpkg.Deps {
 		if _, ok := seen[rdep]; !ok {
 			delete(rpkg.Deps, rdep)
 			rdep.refCount--
 			changed = true
-		}
-	}
 
-	// Determine if this package supports any APIs that we haven't seen
-	// yet.  If so, another full iteration is required.
-	apiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.apis", settings)
-	for _, entry := range apiEntries {
-		apiStr, ok := entry.Value.(string)
-		if ok && apiStr != "" {
-			if r.addApi(apiStr, rpkg, entry.Expr) {
-				changed = true
+			// If we just deleted the last reference to a package, remove the
+			// package entirely from the resolver and syscfg.
+			if rdep.refCount == 0 {
+				delete(r.pkgMap, rdep.Lpkg)
+
+				// Delete the package from syscfg.
+				r.cfg.DeletePkg(rdep.Lpkg)
 			}
 		}
 	}
@@ -411,13 +397,6 @@ func (r *Resolver) resolvePkg(rpkg *ResolvePackage) (bool, error) {
 		}
 
 		rpkg.depsResolved = !newDeps
-	}
-
-	if !rpkg.apisSatisfied {
-		newApiDep := r.satisfyApis(rpkg)
-		if newApiDep {
-			newDeps = true
-		}
 	}
 
 	return newDeps, nil
@@ -477,10 +456,23 @@ func (r *Resolver) resolveDepsOnce() (bool, error) {
 	return newDeps, nil
 }
 
+// Given a fully calculated syscfg and API map, resolves package dependencies
+// by populating the resolver's package map.  This function should only be
+// called if the resolver's syscfg (`cfg`) member is assigned.  This only
+// happens for split images when the individual loader and app components are
+// resolved separately, after the master syscfg and API map have been
+// calculated.
 func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 	if _, err := r.resolveDepsOnce(); err != nil {
 		return nil, err
 	}
+
+	// Now that the final set of packages is known, determine which ones
+	// satisfy each required API.
+	r.selectApiSuppliers()
+
+	// Determine which packages have API requirements.
+	r.calcApiReqs()
 
 	// Satisfy API requirements.
 	if err := r.resolveApiDeps(); err != nil {
@@ -491,6 +483,10 @@ func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 	return rpkgs, nil
 }
 
+// Performs a set of resolution actions:
+// 1. Calculates the system configuration (syscfg).
+// 2. Determines which packages satisfy which API requirements.
+// 3. Resolves package dependencies by populating the resolver's package map.
 func (r *Resolver) resolveDepsAndCfg() error {
 	if _, err := r.resolveDepsOnce(); err != nil {
 		return err
@@ -508,7 +504,6 @@ func (r *Resolver) resolveDepsAndCfg() error {
 			// reprocessed.
 			for _, rpkg := range r.pkgMap {
 				rpkg.depsResolved = false
-				rpkg.apisSatisfied = false
 			}
 		}
 
@@ -522,16 +517,16 @@ func (r *Resolver) resolveDepsAndCfg() error {
 		}
 	}
 
+	// Now that the final set of packages is known, determine which ones
+	// satisfy each required API.
+	r.selectApiSuppliers()
+
+	// Determine which packages have API requirements.
+	r.calcApiReqs()
+
 	// Satisfy API requirements.
 	if err := r.resolveApiDeps(); err != nil {
 		return err
-	}
-
-	// Remove orphaned packages.
-	for lpkg, rpkg := range r.pkgMap {
-		if rpkg.refCount == 0 {
-			delete(r.pkgMap, lpkg)
-		}
 	}
 
 	// Log the final syscfg.
@@ -540,16 +535,34 @@ func (r *Resolver) resolveDepsAndCfg() error {
 	return nil
 }
 
+func joinExprs(expr1 string, expr2 string) string {
+	if expr1 == "" {
+		return expr2
+	}
+	if expr2 == "" {
+		return expr1
+	}
+
+	return expr1 + "," + expr2
+}
+
 // Transforms each package's required APIs to hard dependencies.  That is, this
 // function determines which package supplies each required API, and adds the
 // corresponding dependecy to each package which requires the API.
 func (r *Resolver) resolveApiDeps() error {
 	for _, rpkg := range r.pkgMap {
 		for apiString, reqApi := range rpkg.reqApiMap {
-			api := r.apis[apiString]
-			if api.rpkg != nil {
+			// Determine which package satisfies this API requirement.
+			api, ok := r.apis[apiString]
+
+			// If there is a package that supports the requested API, add a
+			// hard dependency to the package.  Otherwise, record an
+			// unsatisfied API requirement with an empty API struct.
+			if ok && api.rpkg != nil {
 				rpkg.AddDep(api.rpkg, apiString,
 					joinExprs(api.expr, reqApi.expr))
+			} else if !ok {
+				r.apis[apiString] = resolveApi{}
 			}
 		}
 	}
@@ -608,9 +621,6 @@ func ResolveFull(
 
 	res := newResolution()
 	res.Cfg = r.cfg
-	if err := r.resolveApiDeps(); err != nil {
-		return nil, err
-	}
 
 	// Determine which package satisfies each API and which APIs are
 	// unsatisfied.
