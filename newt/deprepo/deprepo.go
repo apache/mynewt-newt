@@ -26,6 +26,17 @@ type Conflict struct {
 	Filters  []Filter
 }
 
+// Returns a sorted slice of all constituent repo names.
+func (vm VersionMap) SortedNames() []string {
+	names := make([]string, 0, len(vm))
+	for name, _ := range vm {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return names
+}
+
 // Returns a slice of all constituent repos, sorted by name.
 func (rm RepoMap) Sorted() []*repo.Repo {
 	names := make([]string, 0, len(rm))
@@ -165,12 +176,12 @@ func PruneMatrix(m *Matrix, repos RepoMap, rootReqs RequirementMap) error {
 		row := m.FindRow(r.Name())
 		if row != nil && len(row.Vers) == 1 {
 			ver := row.Vers[0]
-			branch, err := r.BranchFromVer(ver)
+			commit, err := r.CommitFromVer(ver)
 			if err != nil {
 				return err
 			}
 			depRepo := repos[dep.Name]
-			for _, ddep := range depRepo.BranchDepMap()[branch] {
+			for _, ddep := range depRepo.CommitDepMap()[commit] {
 				name := fmt.Sprintf("%s,%s", depRepo.Name(), ver.String())
 				if err := recurse(name, ddep); err != nil {
 					return err

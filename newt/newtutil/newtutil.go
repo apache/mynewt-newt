@@ -175,22 +175,24 @@ func MakeTempRepoDir() (string, error) {
 	return tmpdir, nil
 }
 
-// Read in the configuration file specified by name, in path
-// return a new viper config object if successful, and error if not
-func ReadConfig(path string, name string) (ycfg.YCfg, error) {
-	fullPath := path + "/" + name + ".yml"
-
-	file, err := ioutil.ReadFile(fullPath)
+func ReadConfigPath(path string) (ycfg.YCfg, error) {
+	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, util.NewNewtError(fmt.Sprintf("Error reading %s: %s",
-			fullPath, err.Error()))
+			path, err.Error()))
 	}
 
 	settings := map[string]interface{}{}
 	if err := yaml.Unmarshal(file, &settings); err != nil {
 		return nil, util.FmtNewtError("Failure parsing \"%s\": %s",
-			fullPath, err.Error())
+			path, err.Error())
 	}
 
 	return ycfg.NewYCfg(settings)
+}
+
+// Read in the configuration file specified by name, in path
+// return a new viper config object if successful, and error if not
+func ReadConfig(dir string, filename string) (ycfg.YCfg, error) {
+	return ReadConfigPath(dir + "/" + filename + ".yml")
 }
