@@ -259,7 +259,7 @@ func (r *Resolver) selectApiSuppliers() {
 	apiMap := map[string][]resolveApi{}
 
 	for _, rpkg := range r.sortedRpkgs() {
-		settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
+		settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 		apiStrings := rpkg.Lpkg.PkgY.GetSlice("pkg.apis", settings)
 		for _, entry := range apiStrings {
 			apiStr, ok := entry.Value.(string)
@@ -297,7 +297,7 @@ func (r *Resolver) selectApiSuppliers() {
 
 // Populates the specified package's set of API requirements.
 func (r *Resolver) calcApiReqsFor(rpkg *ResolvePackage) {
-	settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
+	settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 
 	reqApiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.req_apis", settings)
 	for _, entry := range reqApiEntries {
@@ -323,7 +323,7 @@ func (r *Resolver) calcApiReqs() {
 //                                  in this case.
 //         error                non-nil on failure.
 func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
-	settings := r.cfg.SettingsForLpkg(rpkg.Lpkg)
+	settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 
 	changed := false
 

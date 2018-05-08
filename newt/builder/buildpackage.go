@@ -128,7 +128,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci := toolchain.NewCompilerInfo()
-	settings := b.cfg.SettingsForLpkg(bpkg.rpkg.Lpkg)
+	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
 
 	// Read each set of flags and expand repo designators ("@<repo-nme>") into
 	// paths.
