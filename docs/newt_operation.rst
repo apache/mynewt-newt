@@ -47,8 +47,9 @@ apps, the boot app, slinky app for using newt manager protocol, and more in that
 .. code-block:: console
 
   $ ls repos/apache-mynewt-core/apps
-  blecent		bleprph		blesplit	bletiny		boot		ffs2native	slinky		spitest		test		timtest
-  blehci		bleprph_oic	bletest		bleuart		fat2native	ocf_sample	slinky_oic	splitty		testbench
+  blecent  blehr          blemesh_shell  blesplit  boot     btshell     lora_app_shell  ocf_sample    slinky      splitty    trng_test
+  blecsc   blemesh        bleprph        bletest   bsncent  ffs2native  loraping        pwm_test      slinky_oic  testbench
+  blehci   blemesh_light  bleprph_oic    bleuart   bsnprph  iptest      lorashell       sensors_test  spitest     timtest
 
 Along with the ``targets`` directory, ``apps`` represents the top-level of the build tree for the particular project, and
 define the dependencies for the rest of the system. Mynewt users and developers can add their own apps to the project's ``apps`` directory.
