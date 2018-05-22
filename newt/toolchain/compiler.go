@@ -691,7 +691,7 @@ func (c *Compiler) CopyArchive(filename string) error {
 	}
 	if copyRequired {
 		err = util.CopyFile(filename, tgtFile)
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "copying %s\n",
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Copying %s\n",
 			filepath.ToSlash(tgtFile))
 	}
 
@@ -1176,11 +1176,8 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return util.NewNewtError(err.Error())
 	}
 
-	// Delete the old archive, if it exists.
-	os.Remove(archiveFile)
-
 	objList := c.getObjFiles([]string{})
-	if objList == nil {
+	if len(objList) == 0 {
 		return nil
 	}
 
@@ -1189,6 +1186,9 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 			"Not archiving %s; no object files\n", archiveFile)
 		return nil
 	}
+
+	// Delete the old archive, if it exists.
+	os.Remove(archiveFile)
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
 		path.Base(archiveFile))
