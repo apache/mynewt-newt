@@ -691,7 +691,7 @@ func (c *Compiler) CopyArchive(filename string) error {
 	}
 	if copyRequired {
 		err = util.CopyFile(filename, tgtFile)
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "copying %s\n",
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Copying %s\n",
 			filepath.ToSlash(tgtFile))
 	}
 
