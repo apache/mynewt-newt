@@ -6,6 +6,9 @@
 .gdb_out
 tags
 
+# Ignore documentation folder
+docs
+
 # Non-source files
 COMPATIBLE
 COPYING
