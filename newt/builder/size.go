@@ -30,6 +30,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/newt/interfaces"
 )
 
 /*
@@ -532,7 +533,8 @@ func (t *TargetBuilder) SizeReport(sectionName string) error {
 }
 
 func (b *Builder) SizeReport(sectionName string) error {
-	srcBase := b.targetBuilder.GetTarget().App().Repo().Path() + "/"
+	srcBase := interfaces.GetProject().Path() + "/"
+
 	err := SizeReport(b.AppElfPath(), srcBase, sectionName)
 	if err != nil {
 		return util.NewNewtError(err.Error())
