@@ -42,14 +42,14 @@ Usage                                              Explanation
                                                    For the following target definition:
 
                                                    | targets/myble2
-                                                   | app=\@apache-mynewt-core/apps/bletiny
+                                                   | app=\@apache-mynewt-core/apps/btshell
                                                    | bsp=\@apache-mynewt-core/hw/bsp/nrf52dk
                                                    | build\_profile=optimized
                                                    | syscfg=STATS\_NAMES=1
 
-                                                   the 'bin/targets/myble2/app/apps/bletiny/bletiny.img' and
-                                                   'bin/targets/myble2/app/apps/bletiny/bletiny.hex' files are created,
-                                                   and the manifest in 'bin/targets/myble2/app/apps/bletiny/manifest.json'
+                                                   the 'bin/targets/myble2/app/apps/btshell/btshell.img' and
+                                                   'bin/targets/myble2/app/apps/btshell/btshell.hex' files are created,
+                                                   and the manifest in 'bin/targets/myble2/app/apps/btshell/manifest.json'
                                                    is updated with the image information.
 
 ``newt create-image myble2 1.0.1.0 private.pem``   Creates an image for target ``myble2`` and assigns it the version
