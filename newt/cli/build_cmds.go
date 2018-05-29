@@ -88,11 +88,9 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 	// Otherwise, return all the package's direct descendants that are unit
 	// test packages.
 	result := []*pkg.LocalPackage{}
-	srcPath := pack.BasePath()
 	for p, _ := range testablePkgs() {
-		dirPath := filepath.ToSlash(filepath.Dir(p.BasePath()))
 		if p.Type() == pkg.PACKAGE_TYPE_UNITTEST &&
-			dirPath == srcPath {
+			strings.HasPrefix(p.FullName(), pack.FullName()) {
 
 			result = append(result, p)
 		}
@@ -382,7 +380,6 @@ func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool, section
 	}
 
 	var sections []string
-
 
 	if ram {
 		sections = append(sections, "RAM")
