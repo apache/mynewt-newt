@@ -22,7 +22,6 @@ package pkg
 import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
-	"mynewt.apache.org/newt/newt/repo"
 )
 
 type Dependency struct {
@@ -51,10 +50,10 @@ func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str s
 		dep.Repo = repoName
 		dep.Name = pkgName
 	} else {
-		if parentRepo != nil {
+		if parentRepo != nil && !parentRepo.IsLocal() {
 			dep.Repo = parentRepo.Name()
 		} else {
-			dep.Repo = repo.REPO_NAME_LOCAL
+			dep.Repo = ""
 		}
 		dep.Name = str
 	}
