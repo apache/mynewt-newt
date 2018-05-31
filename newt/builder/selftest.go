@@ -117,7 +117,7 @@ func (t *TargetBuilder) SelfTestDebug() error {
 
 func (b *Builder) testOwner(bpkg *BuildPackage) *BuildPackage {
 	if bpkg.rpkg.Lpkg.Type() != pkg.PACKAGE_TYPE_UNITTEST {
-		panic("Expected unittest package; got: " + bpkg.rpkg.Lpkg.Name())
+		panic("Expected unittest package; got: " + bpkg.rpkg.Lpkg.FullName())
 	}
 
 	curPath := bpkg.rpkg.Lpkg.BasePath()
@@ -152,7 +152,7 @@ func (b *Builder) SelfTestExecute(testRpkg *resolve.ResolvePackage) error {
 	if _, err := util.ShellCommand(cmd, nil); err != nil {
 		newtError := err.(*util.NewtError)
 		newtError.Text = fmt.Sprintf("Test failure (%s):\n%s",
-			testRpkg.Lpkg.Name(), newtError.Text)
+			testRpkg.Lpkg.FullName(), newtError.Text)
 		return newtError
 	}
 

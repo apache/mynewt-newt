@@ -64,7 +64,7 @@ func sortParts(parts []mfgPart) []mfgPart {
 func (mi *MfgImage) loadError(
 	msg string, args ...interface{}) *util.NewtError {
 
-	return util.FmtNewtError("Error in %s mfg: %s", mi.basePkg.Name(),
+	return util.FmtNewtError("Error in %s mfg: %s", mi.basePkg.FullName(),
 		fmt.Sprintf(msg, args...))
 
 }
@@ -298,14 +298,14 @@ func Load(basePkg *pkg.LocalPackage) (*MfgImage, error) {
 	for _, imgTarget := range mi.images {
 		if len(mi.images) > 1 && imgTarget.LoaderName != "" {
 			return nil, mi.loadError("only one image allowed in "+
-				"split image mode (%s is a split build)", imgTarget.Name())
+				"split image mode (%s is a split build)", imgTarget.FullName())
 		}
 
 		if imgTarget.Bsp() != mi.bsp.LocalPackage {
 			return nil, mi.loadError(
 				"image target \"%s\" specified conflicting BSP; "+
 					"boot loader uses %s, image uses %s",
-				imgTarget.Name(), mi.bsp.Name(), imgTarget.BspName)
+				imgTarget.FullName(), mi.bsp.FullName(), imgTarget.BspName)
 		}
 	}
 

@@ -239,8 +239,6 @@ func (lpkg *LocalPackage) SaveSyscfgVals() error {
 	}
 	sort.Strings(names)
 
-	fmt.Fprintf(file, "### Package: %s\n", lpkg.Name())
-	fmt.Fprintf(file, "\n")
 	fmt.Fprintf(file, "syscfg.vals:\n")
 	for _, name := range names {
 		fmt.Fprintf(file, "    %s: %s\n", name, yaml.EscapeString(syscfgVals[name]))
@@ -264,8 +262,6 @@ func (pkg *LocalPackage) Save() error {
 		return util.NewNewtError(err.Error())
 	}
 	defer file.Close()
-
-	file.WriteString("### Package: " + pkg.Name() + "\n")
 
 	// XXX: Just iterate ycfg object's settings rather than calling out
 	// cached settings individually.
@@ -449,17 +445,17 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 		return warnings, nil
 	}
 
-	if oldPkg, ok := pkgList[pkg.Name()]; ok {
+	if oldPkg, ok := pkgList[pkg.FullName()]; ok {
 		oldlPkg := oldPkg.(*LocalPackage)
 		warnings = append(warnings,
 			fmt.Sprintf("Multiple packages with same pkg.name=%s "+
-				"in repo %s; path1=%s path2=%s", oldlPkg.Name(), repo.Name(),
+				"in repo %s; path1=%s path2=%s", oldlPkg.FullName(), repo.Name(),
 				oldlPkg.BasePath(), pkg.BasePath()))
 
 		return warnings, nil
 	}
 
-	pkgList[pkg.Name()] = pkg
+	pkgList[pkg.FullName()] = pkg
 
 	return warnings, nil
 }

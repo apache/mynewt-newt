@@ -161,8 +161,8 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 				// it.
 				// XXX: This is a hack; come up with a better solution for
 				// unit testing.
-				if !strings.HasSuffix(pack.Name(), "/unittest") {
-					packNames = append(packNames, pack.Name())
+				if !strings.HasSuffix(pack.FullName(), "/unittest") {
+					packNames = append(packNames, pack.FullName())
 				}
 			}
 

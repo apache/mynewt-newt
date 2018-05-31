@@ -203,7 +203,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	}
 
 	if err := syscfg.EnsureWritten(t.res.Cfg,
-		GeneratedIncludeDir(t.target.Name())); err != nil {
+		GeneratedIncludeDir(t.target.FullName())); err != nil {
 
 		return err
 	}
@@ -216,7 +216,7 @@ func (t *TargetBuilder) generateSysinit() error {
 		return err
 	}
 
-	srcDir := GeneratedSrcDir(t.target.Name())
+	srcDir := GeneratedSrcDir(t.target.FullName())
 
 	if t.res.LoaderSet != nil {
 		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
@@ -233,8 +233,8 @@ func (t *TargetBuilder) generateSysinit() error {
 
 func (t *TargetBuilder) generateFlashMap() error {
 	return t.bspPkg.FlashMap.EnsureWritten(
-		GeneratedSrcDir(t.target.Name()),
-		GeneratedIncludeDir(t.target.Name()),
+		GeneratedSrcDir(t.target.FullName()),
+		GeneratedIncludeDir(t.target.FullName()),
 		pkg.ShortName(t.target.Package()))
 }
 
@@ -337,7 +337,7 @@ func (t *TargetBuilder) buildLoader() error {
 	}
 
 	/* The app can ignore these packages next time */
-	delete(commonPkgs, t.bspPkg.Name())
+	delete(commonPkgs, t.bspPkg.FullName())
 	t.AppBuilder.RemovePackages(commonPkgs)
 
 	/* create the special elf to link the app against */
@@ -480,11 +480,11 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	/* fetch symbols from the elf and from the libraries themselves */
 	log.Debugf("Loader packages:")
 	for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
-		log.Debugf("    * %s", rpkg.Lpkg.Name())
+		log.Debugf("    * %s", rpkg.Lpkg.FullName())
 	}
 	log.Debugf("App packages:")
 	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
-		log.Debugf("    * %s", rpkg.Lpkg.Name())
+		log.Debugf("    * %s", rpkg.Lpkg.FullName())
 	}
 	err, appLibSym := t.AppBuilder.ExtractSymbolInfo()
 	if err != nil {
@@ -518,14 +518,14 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	uncommonPkgs := smNomatch.Packages()
 
 	/* ensure that the loader and app packages are never shared */
-	delete(commonPkgs, t.AppBuilder.appPkg.rpkg.Lpkg.Name())
-	uncommonPkgs[t.AppBuilder.appPkg.rpkg.Lpkg.Name()] = true
-	ma := smMatch.FilterPkg(t.AppBuilder.appPkg.rpkg.Lpkg.Name())
+	delete(commonPkgs, t.AppBuilder.appPkg.rpkg.Lpkg.FullName())
+	uncommonPkgs[t.AppBuilder.appPkg.rpkg.Lpkg.FullName()] = true
+	ma := smMatch.FilterPkg(t.AppBuilder.appPkg.rpkg.Lpkg.FullName())
 	smMatch.RemoveMap(ma)
 
-	delete(commonPkgs, t.LoaderBuilder.appPkg.rpkg.Lpkg.Name())
-	uncommonPkgs[t.LoaderBuilder.appPkg.rpkg.Lpkg.Name()] = true
-	ml := smMatch.FilterPkg(t.LoaderBuilder.appPkg.rpkg.Lpkg.Name())
+	delete(commonPkgs, t.LoaderBuilder.appPkg.rpkg.Lpkg.FullName())
+	uncommonPkgs[t.LoaderBuilder.appPkg.rpkg.Lpkg.FullName()] = true
+	ml := smMatch.FilterPkg(t.LoaderBuilder.appPkg.rpkg.Lpkg.FullName())
 	smMatch.RemoveMap(ml)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -536,9 +536,9 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	var symbolStr string
 	for v, _ := range uncommonPkgs {
 		if t.AppBuilder.appPkg != nil &&
-			t.AppBuilder.appPkg.rpkg.Lpkg.Name() != v &&
+			t.AppBuilder.appPkg.rpkg.Lpkg.FullName() != v &&
 			t.LoaderBuilder.appPkg != nil &&
-			t.LoaderBuilder.appPkg.rpkg.Lpkg.Name() != v {
+			t.LoaderBuilder.appPkg.rpkg.Lpkg.FullName() != v {
 
 			trouble := smNomatch.FilterPkg(v)
 

@@ -128,7 +128,7 @@ func (target *Target) Validate(appRequired bool) error {
 
 	if bsp.Type() != pkg.PACKAGE_TYPE_BSP {
 		return util.FmtNewtError("bsp package (%s) is not of "+
-			"type bsp; type is: %s\n", bsp.Name(),
+			"type bsp; type is: %s\n", bsp.FullName(),
 			pkg.PackageTypeNames[bsp.Type()])
 	}
 
@@ -145,7 +145,7 @@ func (target *Target) Validate(appRequired bool) error {
 
 		if app.Type() != pkg.PACKAGE_TYPE_APP {
 			return util.FmtNewtError("target.app package (%s) is not of "+
-				"type app; type is: %s\n", app.Name(),
+				"type app; type is: %s\n", app.FullName(),
 				pkg.PackageTypeNames[app.Type()])
 		}
 
@@ -159,7 +159,7 @@ func (target *Target) Validate(appRequired bool) error {
 			if loader.Type() != pkg.PACKAGE_TYPE_APP {
 				return util.FmtNewtError(
 					"target.loader package (%s) is not of type app; type "+
-						"is: %s\n", loader.Name(),
+						"is: %s\n", loader.FullName(),
 					pkg.PackageTypeNames[loader.Type()])
 			}
 		}
@@ -221,24 +221,6 @@ func (target *Target) Bsp() *pkg.LocalPackage {
 	return target.resolvePackageName(target.BspName)
 }
 
-func (target *Target) BinBasePath() string {
-	appPkg := target.App()
-	if appPkg == nil {
-		return ""
-	}
-
-	return appPkg.BasePath() + "/bin/" + target.Name() + "/" +
-		appPkg.Name()
-}
-
-func (target *Target) ElfPath() string {
-	return target.BinBasePath() + ".elf"
-}
-
-func (target *Target) ImagePath() string {
-	return target.BinBasePath() + ".img"
-}
-
 // Save the target's configuration elements
 func (t *Target) Save() error {
 	if err := t.basePkg.Save(); err != nil {
@@ -252,8 +234,6 @@ func (t *Target) Save() error {
 		return util.NewNewtError(err.Error())
 	}
 	defer file.Close()
-
-	file.WriteString("### Target: " + t.Name() + "\n")
 
 	keys := []string{}
 	for k, _ := range t.Vars {
@@ -282,7 +262,7 @@ func buildTargetMap() error {
 		if err != nil {
 			nerr := err.(*util.NewtError)
 			util.ErrorMessage(util.VERBOSITY_QUIET,
-				"Warning: failed to load target \"%s\": %s\n", pack.Name(),
+				"Warning: failed to load target \"%s\": %s\n", pack.FullName(),
 				nerr.Text)
 		} else {
 			globalTargetMap[pack.FullName()] = target

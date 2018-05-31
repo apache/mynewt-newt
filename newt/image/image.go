@@ -1175,7 +1175,7 @@ func (r *RepoManager) GetImageManifestPkg(
 	lpkg *pkg.LocalPackage) *ImageManifestPkg {
 
 	ip := &ImageManifestPkg{
-		Name: lpkg.Name(),
+		Name: lpkg.FullName(),
 	}
 
 	var path string
