@@ -239,8 +239,6 @@ func (lpkg *LocalPackage) SaveSyscfgVals() error {
 	}
 	sort.Strings(names)
 
-	fmt.Fprintf(file, "### Package: %s\n", lpkg.Name())
-	fmt.Fprintf(file, "\n")
 	fmt.Fprintf(file, "syscfg.vals:\n")
 	for _, name := range names {
 		fmt.Fprintf(file, "    %s: %s\n", name, yaml.EscapeString(syscfgVals[name]))
@@ -264,8 +262,6 @@ func (pkg *LocalPackage) Save() error {
 		return util.NewNewtError(err.Error())
 	}
 	defer file.Close()
-
-	file.WriteString("### Package: " + pkg.Name() + "\n")
 
 	// XXX: Just iterate ycfg object's settings rather than calling out
 	// cached settings individually.

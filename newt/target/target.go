@@ -235,8 +235,6 @@ func (t *Target) Save() error {
 	}
 	defer file.Close()
 
-	file.WriteString("### Target: " + t.Name() + "\n")
-
 	keys := []string{}
 	for k, _ := range t.Vars {
 		keys = append(keys, k)
