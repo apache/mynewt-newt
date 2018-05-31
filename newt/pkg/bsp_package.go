@@ -57,7 +57,7 @@ func (bsp *BspPackage) resolvePathSetting(
 	if err != nil {
 		return "", util.PreNewtError(err,
 			"BSP \"%s\" specifies invalid %s setting",
-			bsp.FullName(), key)
+			bsp.Name(), key)
 	}
 	return path, nil
 }
@@ -91,7 +91,7 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 			if err != nil {
 				return nil, util.PreNewtError(err,
 					"BSP \"%s\" specifies invalid %s setting",
-					bsp.FullName(), key)
+					bsp.Name(), key)
 			}
 
 			if path != "" {

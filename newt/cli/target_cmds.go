@@ -561,7 +561,7 @@ func printSetting(entry syscfg.CfgEntry) {
 			"    * Overridden: ")
 		for i := 1; i < len(entry.History); i++ {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s, ",
-				entry.History[i].Source.FullName())
+				entry.History[i].Source.Name())
 		}
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"default=%s\n", entry.History[0].Value)
@@ -674,7 +674,7 @@ func targetConfigShowCmd(cmd *cobra.Command, args []string) {
 		}
 
 		res := targetBuilderConfigResolve(b)
-		printCfg(b.GetTarget().FullName(), res.Cfg)
+		printCfg(b.GetTarget().Name(), res.Cfg)
 	}
 }
 

@@ -28,7 +28,7 @@ import (
 // @return						mfg-image-path, error
 func (mi *MfgImage) Upload() (string, error) {
 	// For now, we always upload section 0 only.
-	section0Path := MfgSectionBinPath(mi.basePkg.FullName(), 0)
+	section0Path := MfgSectionBinPath(mi.basePkg.Name(), 0)
 	baseName := strings.TrimSuffix(section0Path, ".bin")
 
 	envSettings := map[string]string{"MFG_IMAGE": "1"}

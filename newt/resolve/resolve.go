@@ -328,7 +328,7 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 	changed := false
 
 	depEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.deps", settings)
-	depender := rpkg.Lpkg.FullName()
+	depender := rpkg.Lpkg.Name()
 
 	seen := make(map[*ResolvePackage]struct{}, len(rpkg.Deps))
 
@@ -712,7 +712,7 @@ func (res *Resolution) ErrorText() string {
 			rpkgs := res.UnsatisfiedApis[api]
 			pkgNames := make([]string, len(rpkgs))
 			for i, rpkg := range rpkgs {
-				pkgNames[i] = rpkg.Lpkg.FullName()
+				pkgNames[i] = rpkg.Lpkg.Name()
 			}
 			sort.Strings(pkgNames)
 
@@ -740,7 +740,7 @@ func (res *Resolution) WarningText() string {
 			if i != 0 {
 				text += " <-> "
 			}
-			text += rpkg.Lpkg.FullName()
+			text += rpkg.Lpkg.Name()
 		}
 	}
 

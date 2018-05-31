@@ -61,7 +61,7 @@ func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 		dbpkg := b.PkgMap[dep.Rpkg]
 		if dbpkg == nil {
 			return util.FmtNewtError("Package not found %s; required by %s",
-				dep.Rpkg.Lpkg.FullName(), bpkg.rpkg.Lpkg.FullName())
+				dep.Rpkg.Lpkg.Name(), bpkg.rpkg.Lpkg.Name())
 		}
 
 		if err := dbpkg.collectDepsAux(b, set); err != nil {
@@ -204,7 +204,7 @@ func (bpkg *BuildPackage) findSdkIncludes() []string {
 }
 
 func (bpkg *BuildPackage) publicIncludeDirs(bspPkg *pkg.BspPackage) []string {
-	pkgBase := filepath.Base(bpkg.rpkg.Lpkg.FullName())
+	pkgBase := filepath.Base(bpkg.rpkg.Lpkg.Name())
 	bp := bpkg.rpkg.Lpkg.BasePath()
 
 	incls := []string{

@@ -144,7 +144,7 @@ func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, execute
 		t := ResolveTarget(targets[i].FullName())
 		if t == nil {
 			NewtUsage(nil, util.NewNewtError("Failed to resolve target: "+
-				targets[i].FullName()))
+				targets[i].Name()))
 		}
 
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Building target %s\n",
@@ -160,7 +160,7 @@ func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, execute
 		}
 
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Target successfully built: %s\n", t.FullName())
+			"Target successfully built: %s\n", t.Name())
 	}
 }
 
@@ -199,7 +199,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		cleanDir(builder.BinRoot())
 	} else {
 		for _, t := range targets {
-			cleanDir(builder.TargetBinDir(t.FullName()))
+			cleanDir(builder.TargetBinDir(t.Name()))
 		}
 	}
 }
@@ -208,7 +208,7 @@ func pkgnames(pkgs []*pkg.LocalPackage) string {
 	s := ""
 
 	for _, p := range pkgs {
-		s += p.FullName() + " "
+		s += p.Name() + " "
 	}
 
 	return s
@@ -263,7 +263,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 	packLoop:
 		for _, pack := range orig {
 			for _, excl := range excls {
-				if pack.FullName() == excl || strings.HasPrefix(pack.FullName(), excl+"/") {
+				if pack.Name() == excl || strings.HasPrefix(pack.Name(), excl+"/") {
 					continue packLoop
 				}
 			}
@@ -283,7 +283,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 			NewtUsage(nil, err)
 		}
 
-		t, err := ResolveUnittest(pack.FullName())
+		t, err := ResolveUnittest(pack.Name())
 		if err != nil {
 			NewtUsage(nil, err)
 		}

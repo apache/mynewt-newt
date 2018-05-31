@@ -139,7 +139,7 @@ func writeCalls(sortedInitFuncs []*initFunc, w io.Writer) {
 		}
 
 		fmt.Fprintf(w, "    /* %d.%d: %s (%s) */\n",
-			f.stage, dupCount, f.name, f.pkg.FullName())
+			f.stage, dupCount, f.name, f.pkg.Name())
 		fmt.Fprintf(w, "    %s();\n", f.name)
 	}
 }

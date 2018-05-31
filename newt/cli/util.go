@@ -182,7 +182,7 @@ func PackageNameList(pkgs []*pkg.LocalPackage) string {
 		if i != 0 {
 			buffer.WriteString(" ")
 		}
-		buffer.WriteString(pack.FullName())
+		buffer.WriteString(pack.Name())
 	}
 
 	return buffer.String()
@@ -274,7 +274,7 @@ func ResolveTargetOrUnittest(pkgName string) (
 			pkg.PackageTypeNames[pack.Type()])
 	}
 
-	t, err := ResolveUnittest(pack.FullName())
+	t, err := ResolveUnittest(pack.Name())
 	if err != nil {
 		return nil, nil, err
 	}

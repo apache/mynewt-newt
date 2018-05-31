@@ -88,7 +88,7 @@ func MfgManifestPath(mfgPkgName string) string {
 }
 
 func (mi *MfgImage) ManifestPath() string {
-	return MfgManifestPath(mi.basePkg.FullName())
+	return MfgManifestPath(mi.basePkg.Name())
 }
 
 func (mi *MfgImage) BootBinPath() string {
@@ -96,7 +96,7 @@ func (mi *MfgImage) BootBinPath() string {
 		return ""
 	}
 
-	return MfgBootBinPath(mi.basePkg.FullName(),
+	return MfgBootBinPath(mi.basePkg.Name(),
 		pkg.ShortName(mi.boot.App()))
 }
 
@@ -105,7 +105,7 @@ func (mi *MfgImage) BootElfPath() string {
 		return ""
 	}
 
-	return MfgBootElfPath(mi.basePkg.FullName(), pkg.ShortName(mi.boot.App()))
+	return MfgBootElfPath(mi.basePkg.Name(), pkg.ShortName(mi.boot.App()))
 }
 
 func (mi *MfgImage) BootManifestPath() string {
@@ -113,7 +113,7 @@ func (mi *MfgImage) BootManifestPath() string {
 		return ""
 	}
 
-	return MfgBootManifestPath(mi.basePkg.FullName(),
+	return MfgBootManifestPath(mi.basePkg.Name(),
 		pkg.ShortName(mi.boot.App()))
 }
 
@@ -123,7 +123,7 @@ func (mi *MfgImage) AppImgPath(imageIdx int) string {
 		return ""
 	}
 
-	return MfgImageImgPath(mi.basePkg.FullName(), imageIdx, pkg.ShortName(app))
+	return MfgImageImgPath(mi.basePkg.Name(), imageIdx, pkg.ShortName(app))
 }
 
 func (mi *MfgImage) AppElfPath(imageIdx int) string {
@@ -132,7 +132,7 @@ func (mi *MfgImage) AppElfPath(imageIdx int) string {
 		return ""
 	}
 
-	return MfgImageElfPath(mi.basePkg.FullName(), imageIdx, pkg.ShortName(app))
+	return MfgImageElfPath(mi.basePkg.Name(), imageIdx, pkg.ShortName(app))
 }
 
 func (mi *MfgImage) LoaderImgPath(imageIdx int) string {
@@ -141,7 +141,7 @@ func (mi *MfgImage) LoaderImgPath(imageIdx int) string {
 		return ""
 	}
 
-	return MfgImageImgPath(mi.basePkg.FullName(), imageIdx, pkg.ShortName(loader))
+	return MfgImageImgPath(mi.basePkg.Name(), imageIdx, pkg.ShortName(loader))
 }
 
 func (mi *MfgImage) LoaderElfPath(imageIdx int) string {
@@ -150,7 +150,7 @@ func (mi *MfgImage) LoaderElfPath(imageIdx int) string {
 		return ""
 	}
 
-	return MfgImageElfPath(mi.basePkg.FullName(), imageIdx, pkg.ShortName(loader))
+	return MfgImageElfPath(mi.basePkg.Name(), imageIdx, pkg.ShortName(loader))
 }
 
 func (mi *MfgImage) ImageManifestPath(imageIdx int) string {
@@ -158,7 +158,7 @@ func (mi *MfgImage) ImageManifestPath(imageIdx int) string {
 		return ""
 	}
 
-	return MfgImageManifestPath(mi.basePkg.FullName(), imageIdx)
+	return MfgImageManifestPath(mi.basePkg.Name(), imageIdx)
 }
 
 func (mi *MfgImage) SectionBinPaths() []string {
@@ -166,7 +166,7 @@ func (mi *MfgImage) SectionBinPaths() []string {
 
 	paths := make([]string, len(sectionIds))
 	for i, sectionId := range sectionIds {
-		paths[i] = MfgSectionBinPath(mi.basePkg.FullName(), sectionId)
+		paths[i] = MfgSectionBinPath(mi.basePkg.Name(), sectionId)
 	}
 	return paths
 }
@@ -176,7 +176,7 @@ func (mi *MfgImage) SectionHexPaths() []string {
 
 	paths := make([]string, len(sectionIds))
 	for i, sectionId := range sectionIds {
-		paths[i] = MfgSectionHexPath(mi.basePkg.FullName(), sectionId)
+		paths[i] = MfgSectionHexPath(mi.basePkg.Name(), sectionId)
 	}
 	return paths
 }
