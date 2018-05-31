@@ -128,7 +128,7 @@ func (target *Target) Validate(appRequired bool) error {
 
 	if bsp.Type() != pkg.PACKAGE_TYPE_BSP {
 		return util.FmtNewtError("bsp package (%s) is not of "+
-			"type bsp; type is: %s\n", bsp.FullName(),
+			"type bsp; type is: %s\n", bsp.Name(),
 			pkg.PackageTypeNames[bsp.Type()])
 	}
 
@@ -145,7 +145,7 @@ func (target *Target) Validate(appRequired bool) error {
 
 		if app.Type() != pkg.PACKAGE_TYPE_APP {
 			return util.FmtNewtError("target.app package (%s) is not of "+
-				"type app; type is: %s\n", app.FullName(),
+				"type app; type is: %s\n", app.Name(),
 				pkg.PackageTypeNames[app.Type()])
 		}
 
@@ -159,7 +159,7 @@ func (target *Target) Validate(appRequired bool) error {
 			if loader.Type() != pkg.PACKAGE_TYPE_APP {
 				return util.FmtNewtError(
 					"target.loader package (%s) is not of type app; type "+
-						"is: %s\n", loader.FullName(),
+						"is: %s\n", loader.Name(),
 					pkg.PackageTypeNames[loader.Type()])
 			}
 		}
@@ -262,7 +262,7 @@ func buildTargetMap() error {
 		if err != nil {
 			nerr := err.(*util.NewtError)
 			util.ErrorMessage(util.VERBOSITY_QUIET,
-				"Warning: failed to load target \"%s\": %s\n", pack.FullName(),
+				"Warning: failed to load target \"%s\": %s\n", pack.Name(),
 				nerr.Text)
 		} else {
 			globalTargetMap[pack.FullName()] = target

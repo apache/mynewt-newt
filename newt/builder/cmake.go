@@ -149,7 +149,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 		return nil, nil
 	}
 
-	pkgName := bpkg.rpkg.Lpkg.FullName()
+	pkgName := bpkg.rpkg.Lpkg.Name()
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
 	fmt.Fprintf(w, "# Generating CMakeLists.txt for %s\n\n", pkgName)
@@ -188,7 +188,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 
 	for _, bpkg := range builtPackages {
 		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
-			EscapeName(bpkg.rpkg.Lpkg.FullName())))
+			EscapeName(bpkg.rpkg.Lpkg.Name())))
 	}
 
 	elfOutputDir := trimProjectPath(filepath.Dir(b.AppElfPath()))
@@ -266,14 +266,14 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 							ARCHIVE_OUTPUT_DIRECTORY %s
 							LIBRARY_OUTPUT_DIRECTORY %s
 							RUNTIME_OUTPUT_DIRECTORY %s)`,
-		EscapeName(bpkg.rpkg.Lpkg.FullName()),
+		EscapeName(bpkg.rpkg.Lpkg.Name()),
 		archiveFile,
 		archiveFile,
 		archiveFile,
 	)
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s)\n\n",
-		EscapeName(bpkg.rpkg.Lpkg.FullName()),
+		EscapeName(bpkg.rpkg.Lpkg.Name()),
 		strings.Join(includes, " "))
 }
 

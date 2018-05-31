@@ -67,7 +67,7 @@ func (b bpkgSorter) Swap(i, j int) {
 	b.bpkgs[i], b.bpkgs[j] = b.bpkgs[j], b.bpkgs[i]
 }
 func (b bpkgSorter) Less(i, j int) bool {
-	return b.bpkgs[i].rpkg.Lpkg.FullName() < b.bpkgs[j].rpkg.Lpkg.FullName()
+	return b.bpkgs[i].rpkg.Lpkg.Name() < b.bpkgs[j].rpkg.Lpkg.Name()
 }
 
 func (b *Builder) sortedBuildPackages() []*BuildPackage {

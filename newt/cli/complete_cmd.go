@@ -73,7 +73,7 @@ func pkgNameList(filterCb func(*pkg.LocalPackage) bool) []string {
 func targetList() []string {
 	targetNames := pkgNameList(func(pack *pkg.LocalPackage) bool {
 		return pack.Type() == pkg.PACKAGE_TYPE_TARGET &&
-			!strings.HasSuffix(pack.FullName(), "/unittest")
+			!strings.HasSuffix(pack.Name(), "/unittest")
 	})
 
 	// Remove "targets/" prefix.

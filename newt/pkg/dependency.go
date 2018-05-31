@@ -22,6 +22,7 @@ package pkg
 import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/repo"
 )
 
 type Dependency struct {
@@ -34,7 +35,15 @@ func (dep *Dependency) String() string {
 }
 
 func (dep *Dependency) SatisfiesDependency(pkg interfaces.PackageInterface) bool {
-	return dep.String() == pkg.FullName()
+	if dep.Name != pkg.Name() {
+		return false
+	}
+
+	if dep.Repo != pkg.Repo().Name() {
+		return false
+	}
+
+	return true
 }
 
 func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str string) error {
@@ -50,10 +59,10 @@ func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str s
 		dep.Repo = repoName
 		dep.Name = pkgName
 	} else {
-		if parentRepo != nil && !parentRepo.IsLocal() {
+		if parentRepo != nil {
 			dep.Repo = parentRepo.Name()
 		} else {
-			dep.Repo = ""
+			dep.Repo = repo.REPO_NAME_LOCAL
 		}
 		dep.Name = str
 	}

@@ -44,8 +44,8 @@ type mfgManifest struct {
 }
 
 type mfgSection struct {
-	offset int
-	blob   []byte
+	offset     int
+	blob       []byte
 }
 
 type createState struct {
@@ -283,13 +283,13 @@ func areaNameFromImgIdx(imgIdx int) (string, error) {
 func bootLoaderFromPaths(t *target.Target) []string {
 	return []string{
 		/* boot.elf */
-		builder.AppElfPath(t.FullName(), builder.BUILD_NAME_APP, t.App().FullName()),
+		builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
 
 		/* boot.elf.bin */
-		builder.AppBinPath(t.FullName(), builder.BUILD_NAME_APP, t.App().FullName()),
+		builder.AppBinPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
 
 		/* manifest.json */
-		builder.ManifestPath(t.FullName(), builder.BUILD_NAME_APP, t.App().FullName()),
+		builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
 	}
 }
 
@@ -300,25 +300,25 @@ func loaderFromPaths(t *target.Target) []string {
 
 	return []string{
 		/* <loader>.elf */
-		builder.AppElfPath(t.FullName(), builder.BUILD_NAME_LOADER,
-			t.Loader().FullName()),
+		builder.AppElfPath(t.Name(), builder.BUILD_NAME_LOADER,
+			t.Loader().Name()),
 
 		/* <app>.img */
-		builder.AppImgPath(t.FullName(), builder.BUILD_NAME_LOADER,
-			t.Loader().FullName()),
+		builder.AppImgPath(t.Name(), builder.BUILD_NAME_LOADER,
+			t.Loader().Name()),
 	}
 }
 
 func appFromPaths(t *target.Target) []string {
 	return []string{
 		/* <app>.elf */
-		builder.AppElfPath(t.FullName(), builder.BUILD_NAME_APP, t.App().FullName()),
+		builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
 
 		/* <app>.img */
-		builder.AppImgPath(t.FullName(), builder.BUILD_NAME_APP, t.App().FullName()),
+		builder.AppImgPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
 
 		/* manifest.json */
-		builder.ManifestPath(t.FullName(), builder.BUILD_NAME_APP, t.App().FullName()),
+		builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name()),
 	}
 }
 
@@ -342,14 +342,14 @@ func (mi *MfgImage) copyBinFile(srcPath string, dstDir string) error {
 }
 
 func (mi *MfgImage) copyBinFiles() error {
-	dstPath := MfgBinDir(mi.basePkg.FullName())
+	dstPath := MfgBinDir(mi.basePkg.Name())
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 		return util.ChildNewtError(err)
 	}
 
 	bootPaths := bootLoaderFromPaths(mi.boot)
 	for _, path := range bootPaths {
-		dstDir := MfgBootDir(mi.basePkg.FullName())
+		dstDir := MfgBootDir(mi.basePkg.Name())
 		if err := mi.copyBinFile(path, dstDir); err != nil {
 			return err
 		}
@@ -357,7 +357,7 @@ func (mi *MfgImage) copyBinFiles() error {
 
 	for i, imgTarget := range mi.images {
 		imgPaths := imageFromPaths(imgTarget)
-		dstDir := MfgImageBinDir(mi.basePkg.FullName(), i)
+		dstDir := MfgImageBinDir(mi.basePkg.Name(), i)
 		for _, path := range imgPaths {
 			if err := mi.copyBinFile(path, dstDir); err != nil {
 				return err
@@ -374,7 +374,7 @@ func (mi *MfgImage) dstBootBinPath() string {
 	}
 
 	return fmt.Sprintf("%s/%s.elf.bin",
-		MfgBootDir(mi.basePkg.FullName()),
+		MfgBootDir(mi.basePkg.Name()),
 		pkg.ShortName(mi.boot.App()))
 }
 
@@ -413,7 +413,7 @@ func (mi *MfgImage) dstImgPath(slotIdx int) string {
 	}
 
 	return fmt.Sprintf("%s/%s.img",
-		MfgImageBinDir(mi.basePkg.FullName(), imgIdx), pkg.ShortName(pack))
+		MfgImageBinDir(mi.basePkg.Name(), imgIdx), pkg.ShortName(pack))
 }
 
 // Returns a slice containing the path of each file required to build the
@@ -505,18 +505,18 @@ func (mi *MfgImage) CreateMfgImage() ([]string, error) {
 		return nil, err
 	}
 
-	sectionDir := MfgSectionBinDir(mi.basePkg.FullName())
+	sectionDir := MfgSectionBinDir(mi.basePkg.Name())
 	if err := os.MkdirAll(sectionDir, 0755); err != nil {
 		return nil, util.ChildNewtError(err)
 	}
 
 	for device, section := range cs.dsMap {
-		sectionPath := MfgSectionBinPath(mi.basePkg.FullName(), device)
+		sectionPath := MfgSectionBinPath(mi.basePkg.Name(), device)
 		err := ioutil.WriteFile(sectionPath, section.blob[section.offset:], 0644)
 		if err != nil {
 			return nil, util.ChildNewtError(err)
 		}
-		hexPath := MfgSectionHexPath(mi.basePkg.FullName(), device)
+		hexPath := MfgSectionHexPath(mi.basePkg.Name(), device)
 		mi.compiler.ConvertBinToHex(sectionPath, hexPath, section.offset)
 	}
 
