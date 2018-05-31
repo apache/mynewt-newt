@@ -455,8 +455,8 @@ func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 		if err != nil {
 			return util.PreNewtError(err, "error parsing restriction: %s", rstring)
 		}
-		cfg.PackageRestrictions[lpkg.Name()] =
-			append(cfg.PackageRestrictions[lpkg.Name()], r)
+		cfg.PackageRestrictions[lpkg.FullName()] =
+			append(cfg.PackageRestrictions[lpkg.FullName()], r)
 	}
 
 	return nil

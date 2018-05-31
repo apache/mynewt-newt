@@ -92,11 +92,11 @@ func NewBuilder(
 		bpkg := b.PkgMap[rpkg]
 		if bpkg == nil {
 			for _, rpkg := range b.sortedRpkgs() {
-				log.Debugf("    * %s", rpkg.Lpkg.Name())
+				log.Debugf("    * %s", rpkg.Lpkg.FullName())
 			}
 			return nil, util.FmtNewtError(
 				"Unexpected unsatisfied API: %s; required by: %s", api,
-				rpkg.Lpkg.Name())
+				rpkg.Lpkg.FullName())
 		}
 
 		b.apiMap[api] = bpkg
@@ -152,8 +152,8 @@ func (b *Builder) addPackage(rpkg *resolve.ResolvePackage) (
 func pkgTypeConflictErr(p1 *BuildPackage, p2 *BuildPackage) error {
 	return util.FmtNewtError("Two %s packages in build: %s, %s",
 		pkg.PackageTypeNames[p1.rpkg.Lpkg.Type()],
-		p1.rpkg.Lpkg.Name(),
-		p2.rpkg.Lpkg.Name())
+		p1.rpkg.Lpkg.FullName(),
+		p2.rpkg.Lpkg.FullName())
 }
 
 // Recursively compiles all the .c and .s files in the specified directory.
@@ -333,7 +333,7 @@ func (b *Builder) createArchive(c *toolchain.Compiler,
 func (b *Builder) RemovePackages(cmn map[string]bool) error {
 	for pkgName, _ := range cmn {
 		for lp, bpkg := range b.PkgMap {
-			if bpkg.rpkg.Lpkg.Name() == pkgName {
+			if bpkg.rpkg.Lpkg.FullName() == pkgName {
 				delete(b.PkgMap, lp)
 			}
 		}
@@ -448,12 +448,12 @@ func (b *Builder) PrepBuild() error {
 	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_NAME="+archName+"")
 
 	if b.appPkg != nil {
-		appName := filepath.Base(b.appPkg.rpkg.Lpkg.Name())
+		appName := filepath.Base(b.appPkg.rpkg.Lpkg.FullName())
 		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_"+util.CIdentifier(appName))
 		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_NAME="+appName+"")
 	}
 
-	bspName := filepath.Base(b.bspPkg.rpkg.Lpkg.Name())
+	bspName := filepath.Base(b.bspPkg.rpkg.Lpkg.FullName())
 	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_"+util.CIdentifier(bspName))
 	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_NAME="+bspName+"")
 
@@ -461,7 +461,7 @@ func (b *Builder) PrepBuild() error {
 
 	// All packages have access to the generated code header directory.
 	baseCi.Includes = append(baseCi.Includes,
-		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
+		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.FullName()))
 
 	// Let multiplatform libraries know that a Mynewt binary is being build.
 	baseCi.Cflags = append(baseCi.Cflags, "-DMYNEWT=1")
@@ -479,7 +479,7 @@ func (b *Builder) AddCompilerInfo(info *toolchain.CompilerInfo) {
 
 func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
 	lpkg := pkg.NewLocalPackage(b.targetPkg.rpkg.Lpkg.Repo().(*repo.Repo),
-		GeneratedBaseDir(b.targetPkg.rpkg.Lpkg.Name()))
+		GeneratedBaseDir(b.targetPkg.rpkg.Lpkg.FullName()))
 	lpkg.SetName(pkg.ShortName(b.targetPkg.rpkg.Lpkg) + "-sysinit-" +
 		b.buildName)
 	lpkg.SetType(pkg.PACKAGE_TYPE_GENERATED)
@@ -666,7 +666,7 @@ func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
 		err, sm := b.ParseObjectLibrary(bpkg)
 		if err == nil {
 			util.StatusMessage(util.VERBOSITY_VERBOSE,
-				"Size of %s Loader Map %d\n", bpkg.rpkg.Lpkg.Name(), len(*sm))
+				"Size of %s Loader Map %d\n", bpkg.rpkg.Lpkg.FullName(), len(*sm))
 			loaderSm, err = loaderSm.Merge(sm)
 			if err != nil {
 				return err, nil

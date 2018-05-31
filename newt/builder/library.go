@@ -162,7 +162,7 @@ func (b *Builder) ParseObjectLibraryFile(bp *BuildPackage,
 
 			/* assign the library */
 			if bp != nil {
-				(*si).Bpkg = bp.rpkg.Lpkg.Name()
+				(*si).Bpkg = bp.rpkg.Lpkg.FullName()
 			} else {
 				(*si).Bpkg = "elf"
 			}

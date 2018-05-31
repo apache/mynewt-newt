@@ -35,15 +35,7 @@ func (dep *Dependency) String() string {
 }
 
 func (dep *Dependency) SatisfiesDependency(pkg interfaces.PackageInterface) bool {
-	if dep.Name != pkg.Name() {
-		return false
-	}
-
-	if dep.Repo != pkg.Repo().Name() {
-		return false
-	}
-
-	return true
+	return dep.String() == pkg.FullName()
 }
 
 func (dep *Dependency) setRepoAndName(parentRepo interfaces.RepoInterface, str string) error {
