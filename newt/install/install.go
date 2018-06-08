@@ -729,8 +729,9 @@ func (inst *Installer) Install(
 	// For a forced install, delete all existing repos.
 	if force {
 		for _, r := range repos {
-			// Don't delete the local project directory!
-			if !r.IsLocal() {
+			// Don't delete the local project directory!  And don't delete a
+			// repo that was just cloned during this invocation of newt.
+			if !r.IsLocal() && !r.IsNewlyCloned() {
 				util.StatusMessage(util.VERBOSITY_DEFAULT,
 					"Removing old copy of \"%s\" (%s)\n", r.Name(), r.Path())
 				os.RemoveAll(r.Path())
