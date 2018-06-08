@@ -222,17 +222,15 @@ func (r *Repo) checkExists() bool {
 }
 
 func (r *Repo) updateRepo(commit string) error {
-	err := r.downloader.UpdateRepo(r.Path(), commit)
-	if err != nil {
-		// If the update failed because the repo directory has been deleted,
-		// clone the repo again.
-		if util.IsNotExist(err) {
-			err = r.downloadRepo(commit)
-		}
-		if err != nil {
-			return util.FmtNewtError(
-				"Error updating \"%s\": %s", r.Name(), err.Error())
-		}
+	// Clone the repo if it doesn't exist.
+	if err := r.ensureExists(); err != nil {
+		return err
+	}
+
+	// Fetch and checkout the specified commit.
+	if err := r.downloader.UpdateRepo(r.Path(), commit); err != nil {
+		return util.FmtNewtError(
+			"Error updating \"%s\": %s", r.Name(), err.Error())
 	}
 
 	return nil
