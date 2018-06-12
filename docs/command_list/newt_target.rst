@@ -43,9 +43,9 @@ Description
 
 The target command provides subcommands to create, build, delete, and query targets. The subcommands take one or two ``target-name`` arguments.
 
-=============   ===========
+=============   =========================================================================================================================
 Sub-command     Explanation
-=============   ===========
+=============   =========================================================================================================================
 amend           The amend command allows you to add, change, or delete values for multi-value target variables that you
                 have set with the ``newt target set`` command. The format of the amend command is:
 
@@ -68,7 +68,8 @@ amend           The amend command allows you to add, change, or delete values fo
                   is not specified, the setting is set to value ``1``. You use a ``:`` to delimit each setting when you amend multiple
                   settings.
 
-                  To delete a system configuration setting, you only need to specify the setting name. For example, ``syscfg=setting-name1:setting-name2``
+                  To delete a system configuration setting, you only need to specify the setting name. 
+                  For example, ``syscfg=setting-name1:setting-name2``
                   deletes configuration settings named ``setting-name1`` and ``setting-name2``.
 
 config          The config command allows you to view or populate a target's system configuration settings.
@@ -138,7 +139,7 @@ show            The show [target-name] command shows the values of the variables
                 target. When ``target-name`` is not specified, the command shows the variables for
                 all the targets that are defined for your project.
 
-=============   ===========
+=============   =========================================================================================================================
 
 
 Examples
