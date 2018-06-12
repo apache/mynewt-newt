@@ -33,9 +33,9 @@ To sign an image, provide a .pem file for the ``signing-key`` and an optional ``
 Examples
 ^^^^^^^^
 
-================================================== ===========
+================================================== =================================================================================
 Usage                                              Explanation
-================================================== ===========
+================================================== =================================================================================
 ``newt create-image myble2 1.0.1.0``               Creates an image for target ``myble2`` and assigns it version
                                                    ``1.0.1.0``.
 
@@ -54,4 +54,4 @@ Usage                                              Explanation
 
 ``newt create-image myble2 1.0.1.0 private.pem``   Creates an image for target ``myble2`` and assigns it the version
                                                    ``1.0.1.0``. Signs the image using private key specified by the private.pem file.
-================================================== ===========
+================================================== =================================================================================
