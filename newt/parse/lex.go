@@ -32,6 +32,10 @@ const (
 	TOKEN_NOT_EQUALS TokenCode = iota
 	TOKEN_NOT
 	TOKEN_EQUALS
+	TOKEN_LT
+	TOKEN_LTE
+	TOKEN_GT
+	TOKEN_GTE
 	TOKEN_AND
 	TOKEN_OR
 	TOKEN_XOR
@@ -109,11 +113,15 @@ type lexEntry struct {
 
 var lexEntries = []lexEntry{
 	{TOKEN_NOT_EQUALS, lexStringFn("!=")},
-	{TOKEN_NOT, lexStringFn("!")},
 	{TOKEN_EQUALS, lexStringFn("==")},
 	{TOKEN_AND, lexStringFn("&&")},
 	{TOKEN_OR, lexStringFn("||")},
 	{TOKEN_XOR, lexStringFn("^^")},
+	{TOKEN_LTE, lexStringFn("<=")},
+	{TOKEN_GTE, lexStringFn(">=")},
+	{TOKEN_NOT, lexStringFn("!")},
+	{TOKEN_LT, lexStringFn("<")},
+	{TOKEN_GT, lexStringFn(">")},
 	{TOKEN_LPAREN, lexStringFn("(")},
 	{TOKEN_RPAREN, lexStringFn(")")},
 	{TOKEN_STRING, lexLitString},
