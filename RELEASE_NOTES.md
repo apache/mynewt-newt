@@ -1,6 +1,6 @@
 # RELEASE NOTES
 
-30 November 2017 - Apache Newt v1.3.0
+04 June 2018 - Apache Newt v1.4.0
 
 For full release notes, please visit the
 [Apache Mynewt Wiki](https://cwiki.apache.org/confluence/display/MYNEWT/Release+Notes).
@@ -16,9 +16,6 @@ around, and trying Newt, are encouraged to download and begin evaluating it.
 Future versions will add:
 
   * More robust package management and versioning
-
-  * Plenty of helper commands for seeing what's installed, what's changed,
-    and why things failed.
 
 If working on next-generation build and source package management systems
 sounds exciting to you, get in touch, by sending a mail to the Apache Mynewt
