@@ -30,7 +30,7 @@ import (
 // ident    ::= <printable-char> { <printable-char> }
 // literal  ::= """ <printable-char> { <printable-char> } """
 // unary    ::= "!"
-// binary   ::= "==" | "!=" | "&&" | "||" | "^^"
+// binary   ::= "&&" | "^^" | "||" | "==" | "!="
 
 type ParseCode int
 
@@ -126,11 +126,13 @@ func stripParens(tokens []Token) ([]Token, error) {
 }
 
 var binaryTokens = []TokenCode{
+	// Lowest precedence.
+	TOKEN_AND,
+	TOKEN_XOR,
+	TOKEN_OR,
 	TOKEN_EQUALS,
 	TOKEN_NOT_EQUALS,
-	TOKEN_OR,
-	TOKEN_XOR,
-	TOKEN_AND,
+	// Highest precedence.
 }
 
 func FindBinaryToken(tokens []Token) int {
