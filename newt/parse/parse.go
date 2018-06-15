@@ -25,12 +25,12 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-// expr     ::= <unary><expr> | "("<expr>")"
+// expr     ::= <unary><expr> | "("<expr>")" |
 //              <expr><binary><expr> | <ident> | <literal>
 // ident    ::= <printable-char> { <printable-char> }
 // literal  ::= """ <printable-char> { <printable-char> } """
 // unary    ::= "!"
-// binary   ::= "==" | "!=" | "&&" | "||" | "^^"
+// binary   ::= "&&" | "^^" | "||" | "==" | "!=" | "<" | "<=" | ">" | ">="
 
 type ParseCode int
 
@@ -38,6 +38,10 @@ const (
 	PARSE_NOT_EQUALS ParseCode = iota
 	PARSE_NOT
 	PARSE_EQUALS
+	PARSE_LT
+	PARSE_LTE
+	PARSE_GT
+	PARSE_GTE
 	PARSE_AND
 	PARSE_OR
 	PARSE_XOR
@@ -55,12 +59,28 @@ type Node struct {
 }
 
 func (n *Node) String() string {
+	s := ""
+
+	if n.Left != nil {
+		s += n.Left.String()
+	}
+
+	s += fmt.Sprintf("%s", n.Data)
+
+	if n.Right != nil {
+		s += n.Right.String()
+	}
+
+	return s
+}
+
+func (n *Node) RpnString() string {
 	s := fmt.Sprintf("<%s>", n.Data)
 	if n.Left != nil {
-		s += " " + n.Left.String()
+		s += " " + n.Left.RpnString()
 	}
 	if n.Right != nil {
-		s += " " + n.Right.String()
+		s += " " + n.Right.RpnString()
 	}
 
 	return s
@@ -94,6 +114,10 @@ func binTokenToParse(t TokenCode) ParseCode {
 	return map[TokenCode]ParseCode{
 		TOKEN_NOT_EQUALS: PARSE_NOT_EQUALS,
 		TOKEN_EQUALS:     PARSE_EQUALS,
+		TOKEN_LT:         PARSE_LT,
+		TOKEN_LTE:        PARSE_LTE,
+		TOKEN_GT:         PARSE_GT,
+		TOKEN_GTE:        PARSE_GTE,
 		TOKEN_AND:        PARSE_AND,
 		TOKEN_OR:         PARSE_OR,
 		TOKEN_XOR:        PARSE_XOR,
@@ -126,11 +150,17 @@ func stripParens(tokens []Token) ([]Token, error) {
 }
 
 var binaryTokens = []TokenCode{
+	// Lowest precedence.
+	TOKEN_AND,
+	TOKEN_XOR,
+	TOKEN_OR,
 	TOKEN_EQUALS,
 	TOKEN_NOT_EQUALS,
-	TOKEN_OR,
-	TOKEN_XOR,
-	TOKEN_AND,
+	TOKEN_LT,
+	TOKEN_LTE,
+	TOKEN_GT,
+	TOKEN_GTE,
+	// Highest precedence.
 }
 
 func FindBinaryToken(tokens []Token) int {
@@ -254,6 +284,52 @@ func evalTwo(expr1 *Node, expr2 *Node,
 	}
 
 	return v1, v2, nil
+}
+
+func coerceToInt(n *Node, settings map[string]string) (int, error) {
+	switch n.Code {
+	case PARSE_NUMBER:
+		num, ok := util.AtoiNoOctTry(n.Data)
+		if !ok {
+			return 0,
+				util.FmtNewtError("expression contains invalid number: `%s`",
+					n.Data)
+		}
+		return num, nil
+
+	case PARSE_IDENT:
+		val := settings[n.Data]
+		num, ok := util.AtoiNoOctTry(val)
+		if !ok {
+			return 0,
+				util.FmtNewtError("setting %s has value `%s`, "+
+					"which is not a number", n.Data, val)
+		}
+		return num, nil
+
+	default:
+		return 0,
+			util.FmtNewtError("expression `%s` is not a valid number",
+				n.String())
+	}
+}
+
+func coerceTwoInts(left *Node, right *Node,
+	settings map[string]string, opStr string) (int, int, error) {
+
+	lnum, err := coerceToInt(left, settings)
+	if err != nil {
+		return 0, 0, util.FmtNewtError("cannot apply %s to `%s`; "+
+			"operand not a number", opStr, left.String())
+	}
+
+	rnum, err := coerceToInt(right, settings)
+	if err != nil {
+		return 0, 0, util.FmtNewtError("cannot apply %s to `%s`; "+
+			"operand not a number", opStr, right.String())
+	}
+
+	return lnum, rnum, nil
 }
 
 type equalsFn func(left *Node, right *Node, settings map[string]string) bool
@@ -412,6 +488,34 @@ func Eval(expr *Node, settings map[string]string) (bool, error) {
 			return false, err
 		}
 		return !v, nil
+
+	case PARSE_LT:
+		l, r, err := coerceTwoInts(expr.Left, expr.Right, settings, "<")
+		if err != nil {
+			return false, err
+		}
+		return l < r, nil
+
+	case PARSE_LTE:
+		l, r, err := coerceTwoInts(expr.Left, expr.Right, settings, "<=")
+		if err != nil {
+			return false, err
+		}
+		return l <= r, nil
+
+	case PARSE_GT:
+		l, r, err := coerceTwoInts(expr.Left, expr.Right, settings, ">")
+		if err != nil {
+			return false, err
+		}
+		return l > r, nil
+
+	case PARSE_GTE:
+		l, r, err := coerceTwoInts(expr.Left, expr.Right, settings, ">=")
+		if err != nil {
+			return false, err
+		}
+		return l >= r, nil
 
 	case PARSE_AND:
 		l, r, err := evalTwo(expr.Left, expr.Right, settings)
