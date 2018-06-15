@@ -653,7 +653,7 @@ func targetBuilderConfigResolve(b *builder.TargetBuilder) *resolve.Resolution {
 
 	warningText := strings.TrimSpace(res.WarningText())
 	if warningText != "" {
-		log.Warn(warningText)
+		log.Warn(warningText + "\n")
 	}
 
 	return res
