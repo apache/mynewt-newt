@@ -561,11 +561,23 @@ func printSetting(entry syscfg.CfgEntry) {
 			"    * Overridden: ")
 		for i := 1; i < len(entry.History); i++ {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s, ",
-				entry.History[i].Source.Name())
+				entry.History[i].Source.FullName())
 		}
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"default=%s\n", entry.History[0].Value)
 	}
+}
+
+func printBriefSetting(entry syscfg.CfgEntry) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "  %s: %s",
+		entry.Name, entry.Value)
+
+	if len(entry.History) > 1 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			" (overridden by %s)",
+			entry.History[len(entry.History)-1].Source.FullName())
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 }
 
 func printPkgCfg(pkgName string, cfg syscfg.Cfg, entries []syscfg.CfgEntry) {
@@ -601,6 +613,42 @@ func printCfg(targetName string, cfg syscfg.Cfg) {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 		}
 		printPkgCfg(pkgName, cfg, pkgNameEntryMap[pkgName])
+	}
+}
+
+func printPkgBriefCfg(pkgName string, cfg syscfg.Cfg, entries []syscfg.CfgEntry) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "[%s]\n", pkgName)
+
+	settingNames := make([]string, len(entries))
+	for i, entry := range entries {
+		settingNames[i] = entry.Name
+	}
+	sort.Strings(settingNames)
+
+	for _, name := range settingNames {
+		printBriefSetting(cfg.Settings[name])
+	}
+}
+
+func printBriefCfg(targetName string, cfg syscfg.Cfg) {
+	if errText := cfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief syscfg for %s:\n", targetName)
+	pkgNameEntryMap := syscfg.EntriesByPkg(cfg)
+
+	pkgNames := make([]string, 0, len(pkgNameEntryMap))
+	for pkgName, _ := range pkgNameEntryMap {
+		pkgNames = append(pkgNames, pkgName)
+	}
+	sort.Strings(pkgNames)
+
+	for i, pkgName := range pkgNames {
+		if i > 0 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+		printPkgBriefCfg(pkgName, cfg, pkgNameEntryMap[pkgName])
 	}
 }
 
@@ -653,7 +701,7 @@ func targetBuilderConfigResolve(b *builder.TargetBuilder) *resolve.Resolution {
 
 	warningText := strings.TrimSpace(res.WarningText())
 	if warningText != "" {
-		log.Warn(warningText)
+		log.Warn(warningText + "\n")
 	}
 
 	return res
@@ -667,7 +715,7 @@ func targetConfigShowCmd(cmd *cobra.Command, args []string) {
 
 	TryGetProject()
 
-	for _, arg := range args {
+	for i, arg := range args {
 		b, err := TargetBuilderForTargetOrUnittest(arg)
 		if err != nil {
 			NewtUsage(cmd, err)
@@ -675,6 +723,33 @@ func targetConfigShowCmd(cmd *cobra.Command, args []string) {
 
 		res := targetBuilderConfigResolve(b)
 		printCfg(b.GetTarget().Name(), res.Cfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func targetConfigBriefCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printBriefCfg(b.GetTarget().Name(), res.Cfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
 	}
 }
 
@@ -991,7 +1066,7 @@ func AddTargetCommands(cmd *cobra.Command) {
 	targetCmd.AddCommand(configCmd)
 
 	configShowCmd := &cobra.Command{
-		Use:   "show <target>",
+		Use:   "show <target> [target...]",
 		Short: "View a target's system configuration",
 		Long:  "View a target's system configuration",
 		Run:   targetConfigShowCmd,
@@ -999,6 +1074,18 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	configCmd.AddCommand(configShowCmd)
 	AddTabCompleteFn(configShowCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	configBriefCmd := &cobra.Command{
+		Use:   "brief <target> [target...]",
+		Short: "View a summary of target's system configuration",
+		Long:  "View a summary of target's system configuration",
+		Run:   targetConfigBriefCmd,
+	}
+
+	configCmd.AddCommand(configBriefCmd)
+	AddTabCompleteFn(configBriefCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 

@@ -742,6 +742,7 @@ func (res *Resolution) WarningText() string {
 			}
 			text += rpkg.Lpkg.Name()
 		}
+		text += ")\n"
 	}
 
 	return text + res.Cfg.WarningText()
