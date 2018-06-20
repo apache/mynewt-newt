@@ -26,7 +26,7 @@ expandpath() {
     )
 }
 
-### Ensure >= go1.7 is installed.
+### Ensure >= go1.10 is installed.
 go_ver_str="$(go version | cut -d ' ' -f 3)"
 go_ver="${go_ver_str#go}"
 
@@ -49,9 +49,9 @@ then
     go_min=0
 fi
 
-if [ ! "$go_maj" -gt 1 ] && [ ! "$go_min" -ge 7 ]
+if [ ! "$go_maj" -gt 1 ] && [ ! "$go_min" -ge 10 ]
 then
-    printf "* Error: go 1.7 or later is required (detected version: %s)\n" \
+    printf "* Error: go 1.10 or later is required (detected version: %s)\n" \
         "$go_maj"."$go_min".X
     exit 1
 fi
