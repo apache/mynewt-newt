@@ -366,19 +366,21 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 	/* Always used the trimmed archive files. */
 	pkgNames := []string{}
 
-	for _, bpkg := range b.PkgMap {
+	for _, bpkg := range b.sortedBuildPackages() {
 		archiveNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
 		for i, archiveName := range archiveNames {
 			archiveNames[i] = filepath.ToSlash(archiveName)
 		}
 		pkgNames = append(pkgNames, archiveNames...)
 
-		// Collect lflags from all constituent packages.
+		// Collect lflags from all constituent packages.  Discard everything
+		// from the compiler info except lflags; that is all that is relevant
+		// to the link command.
 		ci, err := bpkg.CompilerInfo(b)
 		if err != nil {
 			return err
 		}
-		c.AddInfo(ci)
+		c.AddInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
 	}
 
 	c.LinkerScripts = linkerScripts
