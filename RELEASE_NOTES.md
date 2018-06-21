@@ -1,6 +1,6 @@
 # RELEASE NOTES
 
-04 June 2018 - Apache Newt v1.4.0
+21 June 2018 - Apache Newt v1.4.1
 
 For full release notes, please visit the
 [Apache Mynewt Wiki](https://cwiki.apache.org/confluence/display/MYNEWT/Release+Notes).
@@ -8,6 +8,8 @@ For full release notes, please visit the
 Apache Newt is the build and package management system for the Apache Mynewt
 project.  More information on Newt can be found
 [here](http://mail-archives.apache.org/mod_mbox/mynewt-dev/201603.mbox/%3C56E21C13.9050303%40apache.org%3E)
+
+This release fix issues with building under Windows.
 
 Apache Mynewt continues to stabilize with each release, and we believe this
 release is a further step forward.  People who are interested in playing
