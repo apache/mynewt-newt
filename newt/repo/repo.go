@@ -228,7 +228,7 @@ func (r *Repo) updateRepo(commit string) error {
 	}
 
 	// Fetch and checkout the specified commit.
-	if err := r.downloader.UpdateRepo(r.Path(), commit); err != nil {
+	if err := r.downloader.Pull(r.Path(), commit); err != nil {
 		return util.FmtNewtError(
 			"Error updating \"%s\": %s", r.Name(), err.Error())
 	}

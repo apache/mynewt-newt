@@ -57,8 +57,8 @@ type Downloader interface {
 	// (i.e., 1 hash, n tags, and n branches).
 	CommitsFor(path string, commit string) ([]string, error)
 
-	// Merges the specified branch into the local repo.
-	UpdateRepo(path string, branchName string) error
+	// Fetches all remotes and merges the specified branch into the local repo.
+	Pull(path string, branchName string) error
 
 	// Indicates whether there are any uncommitted changes to the repo.
 	AreChanges(path string) (bool, error)
@@ -530,7 +530,7 @@ func (gd *GithubDownloader) FetchFile(
 	return nil
 }
 
-func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
+func (gd *GithubDownloader) Pull(path string, branchName string) error {
 	err := gd.fetch(path)
 	if err != nil {
 		return err
@@ -688,7 +688,7 @@ func (gd *GitDownloader) FetchFile(
 	return nil
 }
 
-func (gd *GitDownloader) UpdateRepo(path string, branchName string) error {
+func (gd *GitDownloader) Pull(path string, branchName string) error {
 	err := gd.fetch(path)
 	if err != nil {
 		return err
@@ -780,7 +780,7 @@ func (ld *LocalDownloader) FetchFile(
 	return nil
 }
 
-func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
+func (ld *LocalDownloader) Pull(path string, branchName string) error {
 	os.RemoveAll(path)
 	return ld.Clone(branchName, path)
 }
