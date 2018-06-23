@@ -200,7 +200,7 @@ func (r *Repo) downloadRepo(commit string) error {
 	defer os.RemoveAll(tmpdir)
 
 	// Download the git repo, returns the git repo, checked out to that commit
-	if err := dl.DownloadRepo(commit, tmpdir); err != nil {
+	if err := dl.Clone(commit, tmpdir); err != nil {
 		return util.FmtNewtError("Error downloading repository %s: %s",
 			r.Name(), err.Error())
 	}

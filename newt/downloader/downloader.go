@@ -48,7 +48,7 @@ type Downloader interface {
 	FetchFile(commit string, path string, filename string, dstDir string) error
 
 	// Clones the repo and checks out the specified commit.
-	DownloadRepo(commit string, dstPath string) error
+	Clone(commit string, dstPath string) error
 
 	// Determines the equivalent commit hash for the specified commit string.
 	HashFor(path string, commit string) (string, error)
@@ -601,7 +601,7 @@ func (gd *GithubDownloader) setRemoteAuth(path string) error {
 	return gd.setOriginUrl(path, url)
 }
 
-func (gd *GithubDownloader) DownloadRepo(commit string, dstPath string) error {
+func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
 
@@ -709,7 +709,7 @@ func (gd *GitDownloader) AreChanges(path string) (bool, error) {
 	return areChanges(path)
 }
 
-func (gd *GitDownloader) DownloadRepo(commit string, dstPath string) error {
+func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
 
@@ -782,14 +782,14 @@ func (ld *LocalDownloader) FetchFile(
 
 func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
 	os.RemoveAll(path)
-	return ld.DownloadRepo(branchName, path)
+	return ld.Clone(branchName, path)
 }
 
 func (ld *LocalDownloader) AreChanges(path string) (bool, error) {
 	return areChanges(path)
 }
 
-func (ld *LocalDownloader) DownloadRepo(commit string, dstPath string) error {
+func (ld *LocalDownloader) Clone(commit string, dstPath string) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Downloading local repository %s\n", ld.Path)
 

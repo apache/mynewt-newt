@@ -58,7 +58,7 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	if err := dl.DownloadRepo(newtutil.NewtBlinkyTag, tmpdir); err != nil {
+	if err := dl.Clone(newtutil.NewtBlinkyTag, tmpdir); err != nil {
 		NewtUsage(nil, err)
 	}
 
