@@ -37,8 +37,7 @@ import (
 type DownloaderCommitType int
 
 const (
-	COMMIT_TYPE_REMOTE_BRANCH DownloaderCommitType = iota
-	COMMIT_TYPE_LOCAL_BRANCH
+	COMMIT_TYPE_BRANCH DownloaderCommitType = iota
 	COMMIT_TYPE_TAG
 	COMMIT_TYPE_HASH
 )
@@ -65,7 +64,18 @@ type Downloader interface {
 
 	// Determines the type of the specified commit.
 	CommitType(path string, commit string) (DownloaderCommitType, error)
+
+	// Configures the `origin` remote with the correct URL, according the the
+	// user's `project.yml` file and / or the repo dependency lists.
 	FixupOrigin(path string) error
+
+	// Retrieves the name of the currently checked out branch, or "" if no
+	// branch is checked out.
+	CurrentBranch(path string) (string, error)
+
+	// Retrieves the name of the remote branch being tracked by the specified
+	// local branch, or "" if there is no tracked remote branch.
+	UpstreamFor(repoDir string, branch string) (string, error)
 }
 
 type GenericDownloader struct {
@@ -188,7 +198,7 @@ func checkout(repoDir string, commit string) error {
 		return err
 	}
 
-	full, err := fullCommitName(repoDir, commit)
+	full, err := remoteCommitName(repoDir, commit)
 	if err != nil {
 		return err
 	}
@@ -227,32 +237,21 @@ func checkout(repoDir string, commit string) error {
 	return nil
 }
 
-// mergees applies upstream changes to the local copy and must be
+// rebase applies upstream changes to the local copy and must be
 // preceeded by a "fetch" to achieve any meaningful result.
-func merge(repoDir string, commit string) error {
+func rebase(repoDir string, commit string) error {
 	if err := checkout(repoDir, commit); err != nil {
 		return err
 	}
 
-	ct, err := commitType(repoDir, commit)
-	if err != nil {
-		return err
-	}
-
-	// We want to merge the remote version of this branch.
-	if ct == COMMIT_TYPE_LOCAL_BRANCH {
-		ct = COMMIT_TYPE_REMOTE_BRANCH
-	}
-
-	full, err := prependCommitPrefix(commit, ct)
+	// We want to rebase the remote version of this branch.
+	full, err := remoteCommitName(repoDir, commit)
 	if err != nil {
 		return err
 	}
 
 	cmd := []string{
-		"merge",
-		"--no-commit",
-		"--no-ff",
+		"rebase",
 		full}
 	if _, err := executeGitCommand(repoDir, cmd, true); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -298,15 +297,12 @@ func commitType(repoDir string, commit string) (DownloaderCommitType, error) {
 	if _, err := mergeBase(repoDir, commit); err == nil {
 		// Distinguish local branch from hash.
 		if branchExists(repoDir, commit) {
-			return COMMIT_TYPE_LOCAL_BRANCH, nil
+			return COMMIT_TYPE_BRANCH, nil
 		} else {
 			return COMMIT_TYPE_HASH, nil
 		}
 	}
 
-	if _, err := mergeBase(repoDir, "origin/"+commit); err == nil {
-		return COMMIT_TYPE_REMOTE_BRANCH, nil
-	}
 	if _, err := mergeBase(repoDir, "tags/"+commit); err == nil {
 		return COMMIT_TYPE_TAG, nil
 	}
@@ -329,26 +325,51 @@ func areChanges(repoDir string) (bool, error) {
 	return len(o) > 0, nil
 }
 
-func prependCommitPrefix(commit string, ct DownloaderCommitType) (string, error) {
-	switch ct {
-	case COMMIT_TYPE_REMOTE_BRANCH:
-		return "origin/" + commit, nil
-	case COMMIT_TYPE_TAG:
-		return "tags/" + commit, nil
-	case COMMIT_TYPE_HASH, COMMIT_TYPE_LOCAL_BRANCH:
-		return commit, nil
-	default:
-		return "", util.FmtNewtError("unknown commit type: %d", int(ct))
+func upstreamFor(path string, commit string) (string, error) {
+	cmd := []string{
+		"rev-parse",
+		"--abbrev-ref",
+		"--symbolic-full-name",
+		commit + "@{u}",
 	}
+
+	up, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		if !util.IsExit(err) {
+			return "", err
+		} else {
+			return "", nil
+		}
+	}
+
+	return strings.TrimSpace(string(up)), nil
 }
 
-func fullCommitName(path string, commit string) (string, error) {
+func remoteCommitName(path string, commit string) (string, error) {
 	ct, err := commitType(path, commit)
 	if err != nil {
 		return "", err
 	}
 
-	return prependCommitPrefix(commit, ct)
+	switch ct {
+	case COMMIT_TYPE_BRANCH:
+		rmt, err := upstreamFor(path, commit)
+		if err != nil {
+			return "", err
+		}
+		if rmt == "" {
+			return "",
+				util.FmtNewtError("No remote upstream for branch \"%s\"",
+					commit)
+		}
+		return rmt, nil
+	case COMMIT_TYPE_TAG:
+		return "tags/" + commit, nil
+	case COMMIT_TYPE_HASH:
+		return commit, nil
+	default:
+		return "", util.FmtNewtError("unknown commit type: %d", int(ct))
+	}
 }
 
 func showFile(
@@ -358,7 +379,7 @@ func showFile(
 		return util.ChildNewtError(err)
 	}
 
-	full, err := fullCommitName(path, branch)
+	full, err := remoteCommitName(path, branch)
 	if err != nil {
 		return err
 	}
@@ -426,7 +447,7 @@ func (gd *GenericDownloader) CommitType(
 }
 
 func (gd *GenericDownloader) HashFor(path string, commit string) (string, error) {
-	full, err := fullCommitName(path, commit)
+	full, err := remoteCommitName(path, commit)
 	if err != nil {
 		return "", err
 	}
@@ -468,6 +489,31 @@ func (gd *GenericDownloader) CommitsFor(
 
 	sort.Strings(lines)
 	return lines, nil
+}
+
+func (gd *GenericDownloader) CurrentBranch(path string) (string, error) {
+	cmd := []string{
+		"rev-parse",
+		"--abbrev-ref",
+		"HEAD",
+	}
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	s := strings.TrimSpace(string(o))
+	if s == "HEAD" {
+		return "", nil
+	} else {
+		return s, nil
+	}
+}
+
+func (gd *GenericDownloader) UpstreamFor(repoDir string,
+	branch string) (string, error) {
+
+	return upstreamFor(repoDir, branch)
 }
 
 // Fetches the downloader's origin remote if it hasn't been fetched yet during
@@ -538,7 +584,7 @@ func (gd *GithubDownloader) Pull(path string, branchName string) error {
 
 	// Ignore error, probably resulting from a branch not available at origin
 	// anymore.
-	merge(path, branchName)
+	rebase(path, branchName)
 
 	if err := checkout(path, branchName); err != nil {
 		return err
@@ -696,7 +742,7 @@ func (gd *GitDownloader) Pull(path string, branchName string) error {
 
 	// Ignore error, probably resulting from a branch not available at origin
 	// anymore.
-	merge(path, branchName)
+	rebase(path, branchName)
 
 	if err := checkout(path, branchName); err != nil {
 		return err
