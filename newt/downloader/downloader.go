@@ -44,21 +44,31 @@ const (
 )
 
 type Downloader interface {
-	FetchFile(path string, filename string, dstDir string) error
-	GetCommit() string
-	SetCommit(commit string)
+	// Fetches all remotes and downloads the specified file.
+	FetchFile(commit string, path string, filename string, dstDir string) error
+
+	// Clones the repo and checks out the specified commit.
 	DownloadRepo(commit string, dstPath string) error
+
+	// Determines the equivalent commit hash for the specified commit string.
 	HashFor(path string, commit string) (string, error)
+
+	// Collects all commits that are equivalent to the specified commit string
+	// (i.e., 1 hash, n tags, and n branches).
 	CommitsFor(path string, commit string) ([]string, error)
+
+	// Merges the specified branch into the local repo.
 	UpdateRepo(path string, branchName string) error
+
+	// Indicates whether there are any uncommitted changes to the repo.
 	AreChanges(path string) (bool, error)
+
+	// Determines the type of the specified commit.
 	CommitType(path string, commit string) (DownloaderCommitType, error)
 	FixupOrigin(path string) error
 }
 
 type GenericDownloader struct {
-	commit string
-
 	// Whether 'origin' has been fetched during this run.
 	fetched bool
 }
@@ -409,14 +419,6 @@ func warnWrongOriginUrl(path string, curUrl string, goodUrl string) {
 		curUrl, goodUrl)
 }
 
-func (gd *GenericDownloader) GetCommit() string {
-	return gd.commit
-}
-
-func (gd *GenericDownloader) SetCommit(branch string) {
-	gd.commit = branch
-}
-
 func (gd *GenericDownloader) CommitType(
 	path string, commit string) (DownloaderCommitType, error) {
 
@@ -515,13 +517,13 @@ func (gd *GithubDownloader) authenticatedCommand(path string,
 }
 
 func (gd *GithubDownloader) FetchFile(
-	path string, filename string, dstDir string) error {
+	commit string, path string, filename string, dstDir string) error {
 
 	if err := gd.fetch(path); err != nil {
 		return err
 	}
 
-	if err := showFile(path, gd.GetCommit(), filename, dstDir); err != nil {
+	if err := showFile(path, commit, filename, dstDir); err != nil {
 		return err
 	}
 
@@ -673,13 +675,13 @@ func (gd *GitDownloader) fetch(repoDir string) error {
 }
 
 func (gd *GitDownloader) FetchFile(
-	path string, filename string, dstDir string) error {
+	commit string, path string, filename string, dstDir string) error {
 
 	if err := gd.fetch(path); err != nil {
 		return err
 	}
 
-	if err := showFile(path, gd.GetCommit(), filename, dstDir); err != nil {
+	if err := showFile(path, commit, filename, dstDir); err != nil {
 		return err
 	}
 
@@ -765,7 +767,7 @@ func NewGitDownloader() *GitDownloader {
 }
 
 func (ld *LocalDownloader) FetchFile(
-	path string, filename string, dstDir string) error {
+	commit string, path string, filename string, dstDir string) error {
 
 	srcPath := ld.Path + "/" + filename
 	dstPath := dstDir + "/" + filename

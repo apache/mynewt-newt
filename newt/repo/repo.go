@@ -343,10 +343,6 @@ func (r *Repo) ensureExists() error {
 
 func (r *Repo) downloadFile(commit string, srcPath string) (string, error) {
 	dl := r.downloader
-	origCommit := dl.GetCommit()
-
-	dl.SetCommit(commit)
-	defer dl.SetCommit(origCommit)
 
 	// Clone the repo if it doesn't exist.
 	if err := r.ensureExists(); err != nil {
@@ -358,7 +354,7 @@ func (r *Repo) downloadFile(commit string, srcPath string) (string, error) {
 		return "", util.ChildNewtError(err)
 	}
 
-	if err := dl.FetchFile(r.localPath, srcPath, cpath); err != nil {
+	if err := dl.FetchFile(commit, r.localPath, srcPath, cpath); err != nil {
 		return "", util.FmtNewtError(
 			"Download of \"%s\" from repo:%s commit:%s failed: %s",
 			srcPath, r.Name(), commit, err.Error())
