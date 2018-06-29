@@ -331,6 +331,13 @@ func (r *Repo) ensureExists() error {
 		}
 	}
 
+	// Make sure the repo's "origin" remote points to the correct URL.  This is
+	// necessary in case the user changed his `project.yml` file to point to a
+	// different fork.
+	if err := r.downloader.FixupOrigin(r.localPath); err != nil {
+		return err
+	}
+
 	return nil
 }
 
