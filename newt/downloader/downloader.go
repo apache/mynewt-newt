@@ -53,6 +53,7 @@ type Downloader interface {
 	UpdateRepo(path string, branchName string) error
 	AreChanges(path string) (bool, error)
 	CommitType(path string, commit string) (DownloaderCommitType, error)
+	FixupOrigin(path string) error
 }
 
 type GenericDownloader struct {
@@ -238,9 +239,12 @@ func merge(repoDir string, commit string) error {
 		return err
 	}
 
-	if _, err := executeGitCommand(
-		repoDir, []string{"merge", full}, true); err != nil {
-
+	cmd := []string{
+		"merge",
+		"--no-commit",
+		"--no-ff",
+		full}
+	if _, err := executeGitCommand(repoDir, cmd, true); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
 			"Merging changes from %s: %s\n", full, err)
 		return err
@@ -366,6 +370,43 @@ func showFile(
 	}
 
 	return nil
+}
+
+func getRemoteUrl(path string, remote string) (string, error) {
+	cmd := []string{
+		"remote",
+		"get-url",
+		remote,
+	}
+
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(o)), nil
+}
+
+func setRemoteUrlCmd(remote string, url string) []string {
+	return []string{
+		"remote",
+		"set-url",
+		remote,
+		url,
+	}
+}
+
+func setRemoteUrl(path string, remote string, url string, logCmd bool) error {
+	cmd := setRemoteUrlCmd(remote, url)
+	_, err := executeGitCommand(path, cmd, logCmd)
+	return err
+}
+
+func warnWrongOriginUrl(path string, curUrl string, goodUrl string) {
+	util.StatusMessage(util.VERBOSITY_QUIET,
+		"WARNING: Repo's \"origin\" remote points to unexpected URL: "+
+			"%s; correcting it to %s.  Repo contents may be incorrect.\n",
+		curUrl, goodUrl)
 }
 
 func (gd *GenericDownloader) GetCommit() string {
@@ -529,25 +570,15 @@ func (gd *GithubDownloader) remoteUrls() (string, string) {
 }
 
 func (gd *GithubDownloader) setOriginUrl(path string, url string) error {
-	genCmdStrs := func(urlStr string) []string {
-		return []string{
-			"remote",
-			"set-url",
-			"origin",
-			urlStr,
-		}
-	}
-
 	// Hide password in logged command.
 	safeUrl := url
 	pw := gd.password()
 	if pw != "" {
 		safeUrl = strings.Replace(safeUrl, pw, "<password-hidden>", -1)
 	}
-	util.LogShellCmd(genCmdStrs(safeUrl), nil)
+	util.LogShellCmd(setRemoteUrlCmd("origin", safeUrl), nil)
 
-	_, err := executeGitCommand(path, genCmdStrs(url), false)
-	return err
+	return setRemoteUrl(path, "origin", url, false)
 }
 
 func (gd *GithubDownloader) clearRemoteAuth(path string) error {
@@ -610,6 +641,22 @@ func (gd *GithubDownloader) DownloadRepo(commit string, dstPath string) error {
 	}
 
 	return nil
+}
+
+func (gd *GithubDownloader) FixupOrigin(path string) error {
+	curUrl, err := getRemoteUrl(path, "origin")
+	if err != nil {
+		return err
+	}
+
+	// Use the public URL, i.e., hide the login and password.
+	_, publicUrl := gd.remoteUrls()
+	if curUrl == publicUrl {
+		return nil
+	}
+
+	warnWrongOriginUrl(path, curUrl, publicUrl)
+	return gd.setOriginUrl(path, publicUrl)
 }
 
 func NewGithubDownloader() *GithubDownloader {
@@ -699,6 +746,20 @@ func (gd *GitDownloader) DownloadRepo(commit string, dstPath string) error {
 	return nil
 }
 
+func (gd *GitDownloader) FixupOrigin(path string) error {
+	curUrl, err := getRemoteUrl(path, "origin")
+	if err != nil {
+		return err
+	}
+
+	if curUrl == gd.Url {
+		return nil
+	}
+
+	warnWrongOriginUrl(path, curUrl, gd.Url)
+	return setRemoteUrl(path, "origin", gd.Url, true)
+}
+
 func NewGitDownloader() *GitDownloader {
 	return &GitDownloader{}
 }
@@ -739,6 +800,10 @@ func (ld *LocalDownloader) DownloadRepo(commit string, dstPath string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (ld *LocalDownloader) FixupOrigin(path string) error {
 	return nil
 }
 
