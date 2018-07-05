@@ -13,7 +13,7 @@ This guide shows you how to perform the following:
 
 1. Install MSYS2/MinGW.
 2. Install Git.
-3. Install latest release (1.2.0) of newt from binary.
+3. Install latest release (1.4.1) of newt from binary.
 4. Install latest release of newt from source.
 
 See :doc:`prev_releases` to install an earlier version of newt. You still need
@@ -89,7 +89,7 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
    .. code-block:: console
 
-    $ wget -P /tmp https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.3.0/newt_1_3_0_windows_amd64.tar.gz
+    $ wget -P /tmp https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.4.1/newt_1_4_1_windows_amd64.tar.gz
 
 3. Extract the file:
 
@@ -98,13 +98,13 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
       .. code-block:: console
 
-        tar -xzf /tmp/newt_1_3_0_windows_amd64.tar.gz -C $GOPATH/bin
+        tar -xzf /tmp/newt_1_4_1_windows_amd64.tar.gz -C $GOPATH/bin
 
    -  If you are installing newt for the first time and do not have a Go workspace setup, you can extract into /usr/bin directory:
 
       .. code-block:: console
 
-        tar -xzf /tmp/newt_1_3_0_windows_amd64.tar.gz -C /usr/bin
+        tar -xzf /tmp/newt_1_4_1_windows_amd64.tar.gz -C /usr/bin
 
 4. Verify the installed version of newt. See `Checking the Installed Version`_.
 
@@ -123,16 +123,16 @@ source.
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_3_0_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_3_0_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_4_1_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_1_4_1_tag.tar.gz
 
 4. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_3_0_tag
+    $ cd mynewt-newt-mynewt_1_4_1_tag
     $ ./build.sh
-    $ rm /tmp/mynewt_1_3_0_tag.tar.gz
+    $ rm /tmp/mynewt_1_4_1_tag.tar.gz
 
 5. You should see the ``newt/newt.exe`` executable. Move the executable to a bin directory in your PATH:
 
@@ -157,7 +157,7 @@ Checking the Installed Version
    .. code-block:: console
 
     $ newt version
-    Apache Newt version: 1.3.0
+    Apache Newt version: 1.4.1
 
 2. Get information about newt:
 
