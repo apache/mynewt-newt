@@ -89,7 +89,7 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
    .. code-block:: console
 
-    $ wget -P /tmp https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.4.1/newt_1_4_1_windows_amd64.tar.gz
+    $ wget -P /tmp http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.4.1/apache-mynewt-newt-bin-windows-1.4.1.tgz
 
 3. Extract the file:
 
@@ -98,13 +98,13 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
       .. code-block:: console
 
-        tar -xzf /tmp/newt_1_4_1_windows_amd64.tar.gz -C $GOPATH/bin
+        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.4.1.tgz -C $GOPATH/bin
 
    -  If you are installing newt for the first time and do not have a Go workspace setup, you can extract into /usr/bin directory:
 
       .. code-block:: console
 
-        tar -xzf /tmp/newt_1_4_1_windows_amd64.tar.gz -C /usr/bin
+        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.4.1.tgz -C /usr/bin
 
 4. Verify the installed version of newt. See `Checking the Installed Version`_.
 
