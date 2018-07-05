@@ -97,8 +97,8 @@ Download and install the package manually.
 
 .. code-block:: console
 
-    $ wget https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.3.0/newt_1.3.0-1_amd64.deb
-    $ sudo dpkg -i newt_1.3.0-1_amd64.deb
+    $ wget https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.4.1/newt_1.4.1-1_amd64.deb
+    $ sudo dpkg -i newt_1.4.1-1_amd64.deb
 
 See `Checking the Installed Version of Newt`_ to verify that you are using the installed version of newt.
 
@@ -112,16 +112,16 @@ source.
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_3_0_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_3_0_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_4_1_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_1_4_1_tag.tar.gz
 
 #. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_3_0_tag
+    $ cd mynewt-newt-mynewt_1_4_1_tag
     $ ./build.sh
-    $ rm /tmp/mynewt_1_3_0_tag.tar.gz
+    $ rm /tmp/mynewt_1_4_1_tag.tar.gz
 
 #. You should see the ``newt/newt`` executable. Move the executable to a bin directory in your PATH:
 
@@ -148,7 +148,7 @@ Checking the Installed Version of Newt
     $ which newt
     /usr/bin/newt
     $ newt version
-    Apache Newt version: 1.3.0
+    Apache Newt version: 1.4.1
 
 2. Get information about newt:
 
