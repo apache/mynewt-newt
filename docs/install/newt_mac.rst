@@ -55,13 +55,13 @@ commands to upgrade to newt latest:
     $ brew update
     $ brew upgrade mynewt-newt
     ==> Upgrading 1 outdated package, with result:
-    runtimeco/mynewt/mynewt-newt 1.3.0
+    runtimeco/mynewt/mynewt-newt 1.4.1
     ==> Upgrading runtimeco/mynewt/mynewt-newt
-    ==> Downloading https://github.com/runtimeco/binary-releases/raw/master/mynewt-newt-tools_1.3.0/mynewt-newt-1.3.0.sierra.bottle.tar.gz
-    ==> Downloading from https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.3.0/mynewt-newt-1.3.0.sierra.bottle.tar.gz
+    ==> Downloading https://github.com/runtimeco/binary-releases/raw/master/mynewt-newt-tools_1.4.1/mynewt-newt-1.4.1.sierra.bottle.tar.gz
+    ==> Downloading from https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.4.1/mynewt-newt-1.4.1.sierra.bottle.tar.gz
     ######################################################################## 100.0%
-    ==> Pouring mynewt-newt-1.3.0.sierra.bottle.tar.gz
-    🍺  /usr/local/Cellar/mynewt-newt/1.3.0: 3 files, 7.9MB
+    ==> Pouring mynewt-newt-1.4.1.sierra.bottle.tar.gz
+    🍺  /usr/local/Cellar/mynewt-newt/1.4.1: 3 files, 7.9MB
 
 Installing the Latest Release Version of Newt
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -73,10 +73,10 @@ Run the following command to install the latest release version of newt:
     $ brew update
     $ brew install mynewt-newt
     ==> Installing mynewt-newt from runtimeco/mynewt
-    ==> Downloading https://github.com/runtimeco/binary-releases/raw/master/mynewt-newt-tools_1.3.0/mynewt-newt-1.3.0.sierra.bottle.tar.gz
-    Already downloaded: /Users/gavin/Library/Caches/Homebrew/mynewt-newt-1.3.0.sierra.bottle.tar.gz
-    ==> Pouring mynewt-newt-1.3.0.sierra.bottle.tar.gz
-    🍺  /usr/local/Cellar/mynewt-newt/1.3.0: 3 files, 7.9MB
+    ==> Downloading https://github.com/runtimeco/binary-releases/raw/master/mynewt-newt-tools_1.4.1/mynewt-newt-1.4.1.sierra.bottle.tar.gz
+    Already downloaded: /Users/gavin/Library/Caches/Homebrew/mynewt-newt-1.4.1.sierra.bottle.tar.gz
+    ==> Pouring mynewt-newt-1.4.1.sierra.bottle.tar.gz
+    🍺  /usr/local/Cellar/mynewt-newt/1.4.1: 3 files, 7.9MB
 
 **Notes:** Homebrew bottles for newt are available for Mac OS Sierra. If you are running an earlier version of Mac OS,
 the installation will install the latest version of Go and compile newt locally.
@@ -91,7 +91,7 @@ Check that you are using the installed version of newt:
     $ which newt
     /usr/local/bin/newt
     $ newt version
-    Apache Newt version: 1.3.0
+    Apache Newt version: 1.4.1
 
 **Note:** If you previously built newt from source and the output of
 ``which newt`` shows
@@ -186,4 +186,4 @@ you can run:
 
 .. code-block:: console
 
-    $ brew switch mynewt-newt 1.3.0
+    $ brew switch mynewt-newt 1.4.1
