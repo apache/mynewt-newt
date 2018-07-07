@@ -126,6 +126,10 @@ func (c *Compiler) GetArPath() string {
 	return c.arPath
 }
 
+func (c *Compiler) GetLdResolveCircularDeps() bool {
+	return c.ldResolveCircularDeps
+}
+
 func (c *Compiler) GetCompilerInfo() CompilerInfo {
 	return c.info
 }
