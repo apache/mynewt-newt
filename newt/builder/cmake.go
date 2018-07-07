@@ -195,8 +195,13 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	fmt.Fprintf(w, "file(WRITE %s \"\")\n", filepath.Join(elfOutputDir, "null.c"))
 	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName, filepath.Join(elfOutputDir, "null.c"))
 
-	fmt.Fprintf(w, "target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
-		elfName, targetObjectsBuffer.String())
+	if c.GetLdResolveCircularDeps() {
+		fmt.Fprintf(w, "target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
+			elfName, targetObjectsBuffer.String())
+	} else {
+		fmt.Fprintf(w, "target_link_libraries(%s %s)\n",
+			elfName, targetObjectsBuffer.String())
+	}
 
 	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
 														PROPERTY
