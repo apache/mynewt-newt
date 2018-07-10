@@ -229,7 +229,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 		elfOutputDir,
 		elfOutputDir,
 		elfOutputDir,
-		strings.Join(lFlags, " "))
+		strings.Replace(strings.Join(lFlags, " "), "\"", "\\\\\\\"", -1))
 
 	fmt.Fprintln(w)
 
