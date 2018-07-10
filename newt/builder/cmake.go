@@ -69,25 +69,6 @@ func extractIncludes(flags *[]string, includes *[]string, other *[]string) {
 	}
 }
 
-func removeDuplicates(elements []string) []string {
-	// Use map to record duplicates as we find them.
-	encountered := map[string]bool{}
-	result := []string{}
-
-	for v := range elements {
-		if encountered[elements[v]] == true {
-			// Do not add duplicate.
-		} else {
-			// Record this element as an encountered element.
-			encountered[elements[v]] = true
-			// Append to result slice.
-			result = append(result, elements[v])
-		}
-	}
-	// Return the new slice.
-	return result
-}
-
 func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *[]string) {
 	c := cj.Compiler
 
@@ -263,7 +244,8 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 	includes = append(includes, c.GetLocalCompilerInfo().Includes...)
 	includes = append(includes, otherIncludes...)
 
-	includes = removeDuplicates(includes)
+	// Sort and remove duplicate flags
+	includes = util.SortFields(includes...)
 	trimProjectPathSlice(includes)
 
 	fmt.Fprintf(w, `set_target_properties(%s
