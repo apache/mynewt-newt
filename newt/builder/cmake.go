@@ -92,6 +92,9 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *
 	extractIncludes(&compileFlags, includeDirs, &otherFlags)
 	cj.Filename = trimProjectPath(cj.Filename)
 
+	// Sort and remove duplicate flags
+	otherFlags = util.SortFields(otherFlags...)
+
 	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
 														PROPERTY
 														COMPILE_FLAGS
