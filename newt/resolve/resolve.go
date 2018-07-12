@@ -747,3 +747,7 @@ func (res *Resolution) WarningText() string {
 
 	return text + res.Cfg.WarningText()
 }
+
+func (res *Resolution) DeprecatedWarning() []string {
+	return res.Cfg.DeprecatedWarning()
+}

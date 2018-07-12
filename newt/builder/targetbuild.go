@@ -202,6 +202,10 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		log.Debug(warningText)
 	}
 
+	for _, line := range t.res.DeprecatedWarning() {
+		log.Warn(line)
+	}
+
 	if err := syscfg.EnsureWritten(t.res.Cfg,
 		GeneratedIncludeDir(t.target.Name())); err != nil {
 

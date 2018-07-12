@@ -70,6 +70,11 @@ type CfgPoint struct {
 	Source *pkg.LocalPackage
 }
 
+type CfgDeprecatedPoint struct {
+	Entry  *CfgEntry
+	Source *pkg.LocalPackage
+}
+
 type CfgEntry struct {
 	Name         string
 	Value        string
@@ -78,6 +83,7 @@ type CfgEntry struct {
 	Restrictions []CfgRestriction
 	PackageDef   *pkg.LocalPackage
 	History      []CfgPoint
+	Deprecated   int
 }
 
 type CfgPriority struct {
@@ -127,6 +133,9 @@ type Cfg struct {
 	// Multiple packages defining the same setting.
 	// [setting-name][defining-package][{}]
 	Redefines map[string]map[*pkg.LocalPackage]struct{}
+
+	// Use of deprecated settings
+	Deprecated map[string][]CfgDeprecatedPoint
 }
 
 func NewCfg() Cfg {
@@ -140,6 +149,7 @@ func NewCfg() Cfg {
 		PriorityViolations:  []CfgPriority{},
 		FlashConflicts:      []CfgFlashConflict{},
 		Redefines:           map[string]map[*pkg.LocalPackage]struct{}{},
+		Deprecated:          map[string][]CfgDeprecatedPoint{},
 	}
 }
 
@@ -335,6 +345,13 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	entry.PackageDef = lpkg
 	entry.Description = stringValue(vals["description"])
 
+	deprecatedVal, deprecatedExist := vals["deprecated"]
+	if deprecatedExist {
+		entry.Deprecated, _ = strconv.Atoi(stringValue(deprecatedVal))
+	} else {
+		entry.Deprecated = 0
+	}
+
 	// The value field for setting definition is required.
 	valueVal, valueExist := vals["value"]
 	if valueExist {
@@ -443,6 +460,15 @@ func (cfg *Cfg) addOrphan(settingName string, value string,
 	})
 }
 
+// Records use of deprecated settings
+func (cfg *Cfg) addDeprecated(settingName string, entry *CfgEntry,
+	lpkg *pkg.LocalPackage) {
+
+	cfg.Deprecated[settingName] = append(cfg.Deprecated[settingName], CfgDeprecatedPoint{
+		Entry:  entry,
+		Source: lpkg,
+	})
+}
 func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 	settings map[string]string) error {
 
@@ -476,6 +502,10 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 			cfg.Settings[k] = entry
 		} else {
 			cfg.addOrphan(k, stringValue(v), lpkg)
+		}
+
+		if entry.Deprecated > 0 {
+			cfg.addDeprecated(k, &entry, lpkg)
 		}
 	}
 
@@ -832,6 +862,19 @@ func (cfg *Cfg) WarningText() string {
 	}
 
 	return str
+}
+
+func (cfg *Cfg) DeprecatedWarning() []string {
+	lines := []string{}
+
+	for k, cdplist := range cfg.Deprecated {
+		for _, cdp := range cdplist {
+			lines = append(lines, fmt.Sprintf("Use of deprecated setting %s in %s: %s", k,
+				cdp.Source.FullName(), cdp.Entry.Description))
+		}
+	}
+
+	return lines
 }
 
 func escapeStr(s string) string {
