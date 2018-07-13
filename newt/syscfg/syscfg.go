@@ -54,6 +54,14 @@ const (
 	CFG_SETTING_TYPE_FLASH_OWNER
 )
 
+type CfgSettingState int
+
+const (
+	CFG_SETTING_STATE_GOOD CfgSettingState = iota
+	CFG_SETTING_STATE_DEPRECATED
+	CFG_SETTING_STATE_DEFUNCT
+)
+
 const SYSCFG_PRIO_ANY = "any"
 
 // Reserve last 16 priorities for the system (sanity, idle).
@@ -83,7 +91,7 @@ type CfgEntry struct {
 	Restrictions []CfgRestriction
 	PackageDef   *pkg.LocalPackage
 	History      []CfgPoint
-	Deprecated   int
+	State        CfgSettingState
 }
 
 type CfgPriority struct {
@@ -134,8 +142,11 @@ type Cfg struct {
 	// [setting-name][defining-package][{}]
 	Redefines map[string]map[*pkg.LocalPackage]struct{}
 
-	// Use of deprecated settings
-	Deprecated map[string][]CfgDeprecatedPoint
+	// Use of deprecated settings (warning).
+	Deprecated map[string]struct{}
+
+	// Use of defunct settings (error).
+	Defunct map[string]struct{}
 }
 
 func NewCfg() Cfg {
@@ -149,7 +160,8 @@ func NewCfg() Cfg {
 		PriorityViolations:  []CfgPriority{},
 		FlashConflicts:      []CfgFlashConflict{},
 		Redefines:           map[string]map[*pkg.LocalPackage]struct{}{},
-		Deprecated:          map[string][]CfgDeprecatedPoint{},
+		Deprecated:          map[string]struct{}{},
+		Defunct:             map[string]struct{}{},
 	}
 }
 
@@ -336,6 +348,21 @@ func stringValue(val interface{}) string {
 	return strings.TrimSpace(cast.ToString(val))
 }
 
+func boolValue(val interface{}) bool {
+	if val == nil {
+		return false
+	}
+
+	switch v := val.(type) {
+	case bool:
+		return v
+	case int:
+		return v != 0
+	default:
+		return true
+	}
+}
+
 func readSetting(name string, lpkg *pkg.LocalPackage,
 	vals map[interface{}]interface{}) (CfgEntry, error) {
 
@@ -345,11 +372,12 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	entry.PackageDef = lpkg
 	entry.Description = stringValue(vals["description"])
 
-	deprecatedVal, deprecatedExist := vals["deprecated"]
-	if deprecatedExist {
-		entry.Deprecated, _ = strconv.Atoi(stringValue(deprecatedVal))
+	if boolValue(vals["defunct"]) {
+		entry.State = CFG_SETTING_STATE_DEFUNCT
+	} else if boolValue(vals["deprecated"]) {
+		entry.State = CFG_SETTING_STATE_DEPRECATED
 	} else {
-		entry.Deprecated = 0
+		entry.State = CFG_SETTING_STATE_GOOD
 	}
 
 	// The value field for setting definition is required.
@@ -460,15 +488,6 @@ func (cfg *Cfg) addOrphan(settingName string, value string,
 	})
 }
 
-// Records use of deprecated settings
-func (cfg *Cfg) addDeprecated(settingName string, entry *CfgEntry,
-	lpkg *pkg.LocalPackage) {
-
-	cfg.Deprecated[settingName] = append(cfg.Deprecated[settingName], CfgDeprecatedPoint{
-		Entry:  entry,
-		Source: lpkg,
-	})
-}
 func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 	settings map[string]string) error {
 
@@ -504,8 +523,11 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 			cfg.addOrphan(k, stringValue(v), lpkg)
 		}
 
-		if entry.Deprecated > 0 {
-			cfg.addDeprecated(k, &entry, lpkg)
+		switch entry.State {
+		case CFG_SETTING_STATE_DEPRECATED:
+			cfg.Deprecated[k] = struct{}{}
+		case CFG_SETTING_STATE_DEFUNCT:
+			cfg.Defunct[k] = struct{}{}
 		}
 	}
 
@@ -817,6 +839,7 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Flash conflicts.
 	if len(cfg.FlashConflicts) > 0 {
 		str += "Flash errors detected:\n"
 		for _, conflict := range cfg.FlashConflicts {
@@ -826,6 +849,16 @@ func (cfg *Cfg) ErrorText() string {
 			}
 
 			str += "    " + cfg.flashConflictErrorText(conflict)
+		}
+	}
+
+	// Overrides of defunct settings.
+	if len(cfg.Defunct) > 0 {
+		str += "Override of defunct settings detected:\n"
+		for name, _ := range cfg.Defunct {
+			entry := cfg.Settings[name]
+			str += "    " + fmt.Sprintf("%s: %s\n", name, entry.Description)
+			historyMap[name] = entry.History
 		}
 	}
 
@@ -867,11 +900,17 @@ func (cfg *Cfg) WarningText() string {
 func (cfg *Cfg) DeprecatedWarning() []string {
 	lines := []string{}
 
-	for k, cdplist := range cfg.Deprecated {
-		for _, cdp := range cdplist {
-			lines = append(lines, fmt.Sprintf("Use of deprecated setting %s in %s: %s", k,
-				cdp.Source.FullName(), cdp.Entry.Description))
+	for k, _ := range cfg.Deprecated {
+		entry, ok := cfg.Settings[k]
+		if !ok {
+			log.Errorf("Internal error; deprecated setting \"%s\" not in cfg",
+				k)
 		}
+
+		point := mostRecentPoint(entry)
+		lines = append(lines,
+			fmt.Sprintf("Use of deprecated setting %s in %s: %s", k,
+				point.Source.FullName(), entry.Description))
 	}
 
 	return lines
