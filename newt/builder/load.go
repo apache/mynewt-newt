@@ -144,9 +144,10 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 	}
 	envSettings["FLASH_OFFSET"] = "0x" + strconv.FormatInt(int64(tgtArea.Offset), 16)
 
-	if err := Load(b.AppBinBasePath(), b.targetBuilder.bspPkg,
-		envSettings); err != nil {
-
+	// Convert the binary path from absolute to relative.  This is required for
+	// compatibility with unix-in-windows environemnts (e.g., cygwin).
+	binPath := util.TryRelPath(b.AppBinBasePath())
+	if err := Load(binPath, b.targetBuilder.bspPkg, envSettings); err != nil {
 		return err
 	}
 
@@ -213,5 +214,8 @@ func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
 		return util.NewNewtError("app package not specified")
 	}
 
-	return b.debugBin(b.AppBinBasePath(), extraJtagCmd, reset, noGDB)
+	// Convert the binary path from absolute to relative.  This is required for
+	// Windows compatibility.
+	binPath := util.TryRelPath(b.AppBinBasePath())
+	return b.debugBin(binPath, extraJtagCmd, reset, noGDB)
 }

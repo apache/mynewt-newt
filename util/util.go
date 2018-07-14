@@ -651,3 +651,20 @@ func PrintStacks() {
 	stacklen := runtime.Stack(buf, true)
 	fmt.Printf("*** goroutine dump\n%s\n*** end\n", buf[:stacklen])
 }
+
+// Attempts to convert the specified absolute path into a relative path
+// (relative to the current working directory).  If the path cannot be
+// converted, it is returned unchanged.
+func TryRelPath(full string) string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return full
+	}
+
+	rel, err := filepath.Rel(pwd, full)
+	if err != nil {
+		return full
+	}
+
+	return rel
+}
