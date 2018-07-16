@@ -85,7 +85,7 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
 1. Start a MinGW terminal.
 
-2. Download the newt binary tar file:
+2. Download the newt binary tar file. The link suggested below should direct you to the nearest mirror automatically. If it does not, go to http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.4.1/ and manually choose the specific mirror site suggested for you.
 
    .. code-block:: console
 
