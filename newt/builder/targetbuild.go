@@ -648,7 +648,7 @@ func (t *TargetBuilder) createManifest() error {
 
 	manifest.Repos = rm.AllRepos()
 
-	vars := t.GetTarget().Vars
+	vars := t.GetTarget().TargetY.AllSettingsAsStrings()
 	keys := make([]string, 0, len(vars))
 	for k := range vars {
 		keys = append(keys, k)

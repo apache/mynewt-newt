@@ -200,7 +200,8 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, name+"\n")
 
 		target := target.GetTargets()[name]
-		for k, v := range target.Vars {
+		settings := target.TargetY.AllSettingsAsStrings()
+		for k, v := range settings {
 			kvPairs[strings.TrimPrefix(k, "target.")] = v
 		}
 
@@ -321,10 +322,10 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		} else {
 			if kv[1] == "" {
 				// User specified empty value; delete variable.
-				delete(t.Vars, kv[0])
+				t.TargetY.Delete(kv[0])
 			} else {
 				// Assign value to specified variable.
-				t.Vars[kv[0]] = kv[1]
+				t.TargetY.Replace(kv[0], kv[1])
 			}
 		}
 	}
