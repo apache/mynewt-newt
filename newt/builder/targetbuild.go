@@ -107,13 +107,15 @@ func NewTargetBuilder(target *target.Target) (*TargetBuilder, error) {
 	return NewTargetTester(target, nil)
 }
 
-func (t *TargetBuilder) NewCompiler(dstDir string) (
+func (t *TargetBuilder) NewCompiler(dstDir string, buildProfile string) (
 	*toolchain.Compiler, error) {
 
+	if buildProfile == "" {
+		buildProfile = t.target.BuildProfile
+	}
+
 	c, err := toolchain.NewCompiler(
-		t.compilerPkg.BasePath(),
-		dstDir,
-		t.target.BuildProfile)
+		t.compilerPkg.BasePath(), dstDir, buildProfile)
 
 	return c, err
 }
@@ -406,7 +408,7 @@ func (t *TargetBuilder) autogenKeys() error {
 	fmt.Fprintln(w, "#include <bootutil/sign_key.h>")
 	fmt.Fprintf(w, "const unsigned char key[] = {")
 	for count, b := range keyBytes {
-		if count % 8 == 0 {
+		if count%8 == 0 {
 			fmt.Fprintf(w, "\n    ")
 		} else {
 			fmt.Fprintf(w, " ")
@@ -421,7 +423,7 @@ func (t *TargetBuilder) autogenKeys() error {
 	fmt.Fprintln(w, "        .len = &key_len,")
 	fmt.Fprintln(w, "    },")
 	fmt.Fprintln(w, "};")
-	fmt.Fprintln(w, "const int bootutil_key_cnt = 1;");
+	fmt.Fprintln(w, "const int bootutil_key_cnt = 1;")
 	w.Flush()
 
 	return nil
@@ -862,7 +864,7 @@ func (t *TargetBuilder) CreateImages(version string,
 	var appImg *image.Image
 	var loaderImg *image.Image
 
-	c, err := t.NewCompiler("")
+	c, err := t.NewCompiler("", "")
 	if err != nil {
 		return nil, nil, err
 	}

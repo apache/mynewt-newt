@@ -103,6 +103,8 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	}
 
 	target.KeyFile = yc.GetValString("target.key_file", nil)
+	target.PkgProfiles = yc.GetValStringMapString(
+		"target.package_profiles", nil)
 
 	// Note: App not required in the case of unit tests.
 

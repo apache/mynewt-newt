@@ -245,10 +245,38 @@ func collectCompileEntriesDir(srcDir string, c *toolchain.Compiler,
 	return entries, nil
 }
 
+// Determines which build profile to use when building the specified package.
+// 1. If the package specifies a "pkg.build_profile" value, that is returned:
+//
+//      pkg.build_profile: debug
+//
+// 2. Else if the target specifies this package in its
+//    "target.package_profiles" map, that value is returned:
+//
+//      target.package_profiles:
+//          'apps/blinky': debug
+//          '@apache-mynewt-core/sys/log/full': debug
+//
+// 3. Else, "" is returned (falls back to the target's general build profile).
+func (b *Builder) buildProfileFor(bpkg *BuildPackage) string {
+	bp := bpkg.BuildProfile(b)
+	if bp != "" {
+		return bp
+	}
+
+	tgt := b.targetBuilder.GetTarget()
+	return tgt.PkgProfiles[bpkg.rpkg.Lpkg.FullName()]
+}
+
 func (b *Builder) newCompiler(bpkg *BuildPackage,
 	dstDir string) (*toolchain.Compiler, error) {
 
-	c, err := b.targetBuilder.NewCompiler(dstDir)
+	var buildProfile string
+	if bpkg != nil {
+		buildProfile = b.buildProfileFor(bpkg)
+	}
+
+	c, err := b.targetBuilder.NewCompiler(dstDir, buildProfile)
 	if err != nil {
 		return nil, err
 	}
@@ -687,7 +715,7 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 	// check dependencies on the ROM ELF.  This is really dependent on
 	// all of the .a files, but since we already depend on the loader
 	// .as to build the initial elf, we only need to check the app .a
-	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
+	c, err := b.targetBuilder.NewCompiler(b.AppElfPath(), "")
 	d := toolchain.NewDepTracker(c)
 	if err != nil {
 		return err

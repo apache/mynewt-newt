@@ -127,7 +127,7 @@ func (b *Builder) ParseObjectElf(elf_file string) (error, *symbol.SymbolMap) {
 func (b *Builder) ParseObjectLibraryFile(bp *BuildPackage,
 	file string, textDataOnly bool) (error, *symbol.SymbolMap) {
 
-	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
+	c, err := b.targetBuilder.NewCompiler(b.AppElfPath(), "")
 
 	ext := filepath.Ext(file)
 
@@ -206,7 +206,7 @@ func (b *Builder) ParseObjectLibraryFile(bp *BuildPackage,
 }
 
 func (b *Builder) CopySymbols(sm *symbol.SymbolMap) error {
-	c, err := b.targetBuilder.NewCompiler(b.AppElfPath())
+	c, err := b.targetBuilder.NewCompiler(b.AppElfPath(), "")
 
 	if err != nil {
 		return err

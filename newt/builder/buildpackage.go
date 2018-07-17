@@ -118,10 +118,18 @@ func expandFlags(flags []string) {
 	}
 }
 
+// Retrieves the build package's build profile override, as specified in its
+// `pkg.yml` file.  If the package does not override the build profile, "" is
+// returned.
+func (bpkg *BuildPackage) BuildProfile(b *Builder) string {
+	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
+	return bpkg.rpkg.Lpkg.PkgY.GetValString("pkg.build_profile", settings)
+}
+
 func (bpkg *BuildPackage) CompilerInfo(
 	b *Builder) (*toolchain.CompilerInfo, error) {
 
-	// If this package's compiler info has already been generated, returned the
+	// If this package's compiler info has already been generated, return the
 	// cached copy.
 	if bpkg.ci != nil {
 		return bpkg.ci, nil
@@ -130,7 +138,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 	ci := toolchain.NewCompilerInfo()
 	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
 
-	// Read each set of flags and expand repo designators ("@<repo-nme>") into
+	// Read each set of flags and expand repo designators ("@<repo-name>") into
 	// paths.
 	ci.Cflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
 	expandFlags(ci.Cflags)
