@@ -22,7 +22,6 @@ package target
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -32,7 +31,6 @@ import (
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/yaml"
 )
 
 const TARGET_FILENAME string = "target.yml"
@@ -235,18 +233,10 @@ func (t *Target) Save() error {
 	}
 	defer file.Close()
 
-	settings := t.TargetY.AllSettingsAsStrings()
-	keys := []string{}
-	for k, _ := range settings {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	s := newtutil.YCfgToYaml(t.TargetY)
+	file.WriteString(s)
 
-	for _, k := range keys {
-		file.WriteString(k + ": " + yaml.EscapeString(settings[k]) + "\n")
-	}
-
-	if err := t.basePkg.SaveSyscfgVals(); err != nil {
+	if err := t.basePkg.SaveSyscfg(); err != nil {
 		return err
 	}
 

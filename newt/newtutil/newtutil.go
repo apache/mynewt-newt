@@ -196,3 +196,8 @@ func ReadConfigPath(path string) (ycfg.YCfg, error) {
 func ReadConfig(dir string, filename string) (ycfg.YCfg, error) {
 	return ReadConfigPath(dir + "/" + filename + ".yml")
 }
+
+// Converts the provided YAML-configuration map to a YAML-encoded string.
+func YCfgToYaml(yc ycfg.YCfg) string {
+	return yaml.MapToYaml(yc.AllSettings())
+}
