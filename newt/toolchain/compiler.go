@@ -159,6 +159,15 @@ func NewCompilerInfo() *CompilerInfo {
 // Extracts the base of a flag string.  A flag base is used when detecting flag
 // conflicts.  If two flags have identicial bases, then they are in conflict.
 func flagsBase(cflags string) string {
+	// "-O" (optimization level) is one possible flag base.  By singling these
+	// out, newt can prevent the original optimization flag from being
+	// overwritten by subsequent ones.
+	if cflags == "-O" || len(cflags) == 3 && strings.HasPrefix(cflags, "-O") {
+		return "-O"
+	}
+
+	// Identify <key>=<value> pairs.  Newt prevents subsequent assignments to
+	// the same key from overriding the original.
 	eqIdx := strings.IndexByte(cflags, '=')
 	if eqIdx == -1 {
 		return cflags
