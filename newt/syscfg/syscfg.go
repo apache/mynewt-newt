@@ -441,7 +441,15 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 	defs := yc.GetValStringMap("syscfg.defs", lsettings)
 	if defs != nil {
 		for k, v := range defs {
-			vals := v.(map[interface{}]interface{})
+			vals, ok := v.(map[interface{}]interface{})
+			if !ok {
+				return util.FmtNewtError("Package \"%s\" contains invalid "+
+					"\"syscfg.defs\" map; expected full setting definition, "+
+					"but setting \"%s\" specifies a single value.  "+
+					"Did you mix up \"syscfg.defs\" and \"syscfg.vals\"?",
+					lpkg.FullName(), k)
+			}
+
 			entry, err := readSetting(k, lpkg, vals)
 			if err != nil {
 				return util.FmtNewtError("Config for package %s: %s",
@@ -515,6 +523,15 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 
 	values := yc.GetValStringMap("syscfg.vals", lsettings)
 	for k, v := range values {
+		switch v.(type) {
+		case map[interface{}]interface{}, []interface{}:
+			return util.FmtNewtError("Package \"%s\" contains invalid "+
+				"\"syscfg.vals\" map; expected single value, but setting "+
+				"\"%s\" specifies multiple values.  Did you mix up "+
+				"\"syscfg.defs\" and \"syscfg.vals\"?",
+				lpkg.FullName(), k)
+		}
+
 		entry, ok := cfg.Settings[k]
 		if ok {
 			entry.appendValue(lpkg, v)
