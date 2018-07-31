@@ -20,10 +20,8 @@
 package target
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -31,8 +29,8 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/yaml"
 )
 
 const TARGET_FILENAME string = "target.yml"
@@ -50,13 +48,16 @@ type Target struct {
 	BuildProfile string
 	HeaderSize   uint32
 	KeyFile      string
+	PkgProfiles  map[string]string
 
 	// target.yml configuration structure
-	Vars map[string]string
+	TargetY ycfg.YCfg
 }
 
 func NewTarget(basePkg *pkg.LocalPackage) *Target {
-	target := &Target{}
+	target := &Target{
+		TargetY: ycfg.YCfg{},
+	}
 	target.Init(basePkg)
 	return target
 }
@@ -81,30 +82,29 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 		return err
 	}
 
-	target.Vars = map[string]string{}
+	target.TargetY = yc
 
-	for k, v := range yc.AllSettings() {
-		target.Vars[k] = fmt.Sprintf("%v", v)
-	}
+	target.BspName = yc.GetValString("target.bsp", nil)
+	target.AppName = yc.GetValString("target.app", nil)
+	target.LoaderName = yc.GetValString("target.loader", nil)
 
-	target.BspName = target.Vars["target.bsp"]
-	target.AppName = target.Vars["target.app"]
-	target.LoaderName = target.Vars["target.loader"]
-
-	target.BuildProfile = target.Vars["target.build_profile"]
+	target.BuildProfile = yc.GetValString("target.build_profile", nil)
 	if target.BuildProfile == "" {
 		target.BuildProfile = DEFAULT_BUILD_PROFILE
 	}
 
 	target.HeaderSize = DEFAULT_HEADER_SIZE
-	if target.Vars["target.header_size"] != "" {
-		hs, err := strconv.ParseUint(target.Vars["target.header_size"], 0, 32)
+	if yc.GetValString("target.header_size", nil) != "" {
+		hs, err := strconv.ParseUint(
+			yc.GetValString("target.header_size", nil), 0, 32)
 		if err == nil {
 			target.HeaderSize = uint32(hs)
 		}
 	}
 
-	target.KeyFile = target.Vars["target.key_file"]
+	target.KeyFile = yc.GetValString("target.key_file", nil)
+	target.PkgProfiles = yc.GetValStringMapString(
+		"target.package_profiles", nil)
 
 	// Note: App not required in the case of unit tests.
 
@@ -235,17 +235,10 @@ func (t *Target) Save() error {
 	}
 	defer file.Close()
 
-	keys := []string{}
-	for k, _ := range t.Vars {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	s := newtutil.YCfgToYaml(t.TargetY)
+	file.WriteString(s)
 
-	for _, k := range keys {
-		file.WriteString(k + ": " + yaml.EscapeString(t.Vars[k]) + "\n")
-	}
-
-	if err := t.basePkg.SaveSyscfgVals(); err != nil {
+	if err := t.basePkg.SaveSyscfg(); err != nil {
 		return err
 	}
 

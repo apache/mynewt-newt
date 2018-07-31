@@ -465,6 +465,10 @@ func (node *YCfgNode) FullName() string {
 	return strings.Join(tokens, ".")
 }
 
+func (yc YCfg) Delete(name string) {
+	delete(yc, name)
+}
+
 func (yc YCfg) Traverse(cb func(node *YCfgNode, depth int)) {
 	var traverseLevel func(
 		node *YCfgNode,
@@ -497,6 +501,16 @@ func (yc YCfg) AllSettings() map[string]interface{} {
 	})
 
 	return settings
+}
+
+func (yc YCfg) AllSettingsAsStrings() map[string]string {
+	settings := yc.AllSettings()
+	smap := make(map[string]string, len(settings))
+	for k, v := range settings {
+		smap[k] = fmt.Sprintf("%v", v)
+	}
+
+	return smap
 }
 
 func (yc YCfg) String() string {

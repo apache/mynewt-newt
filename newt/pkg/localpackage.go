@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -213,36 +212,21 @@ func (pkg *LocalPackage) sequenceString(key string) string {
 	}
 }
 
-func (lpkg *LocalPackage) SaveSyscfgVals() error {
+func (lpkg *LocalPackage) SaveSyscfg() error {
 	dirpath := lpkg.BasePath()
 	if err := os.MkdirAll(dirpath, 0755); err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
 	filepath := dirpath + "/" + SYSCFG_YAML_FILENAME
-
-	syscfgVals := lpkg.SyscfgY.GetValStringMapString("syscfg.vals", nil)
-	if syscfgVals == nil || len(syscfgVals) == 0 {
-		os.Remove(filepath)
-		return nil
-	}
-
 	file, err := os.Create(filepath)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
 	defer file.Close()
 
-	names := make([]string, 0, len(syscfgVals))
-	for k, _ := range syscfgVals {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-
-	fmt.Fprintf(file, "syscfg.vals:\n")
-	for _, name := range names {
-		fmt.Fprintf(file, "    %s: %s\n", name, yaml.EscapeString(syscfgVals[name]))
-	}
+	s := newtutil.YCfgToYaml(lpkg.SyscfgY)
+	file.WriteString(s)
 
 	return nil
 }

@@ -326,7 +326,7 @@ func CMakeTargetGenerate(target *target.Target) error {
 		return err
 	}
 
-	targetCompiler, err := targetBuilder.NewCompiler("")
+	targetCompiler, err := targetBuilder.NewCompiler("", "")
 	if err != nil {
 		return err
 	}
