@@ -1009,6 +1009,15 @@ func (cfg *Cfg) detectAmbiguities() {
 	}
 }
 
+// Detects and records errors in the build's syscfg.  This should only be
+// called after APIs are resolved to avoid false positives.
+func (cfg *Cfg) DetectErrors(flashMap flash.FlashMap) {
+	cfg.detectAmbiguities()
+	cfg.detectViolations()
+	cfg.detectPriorityViolations()
+	cfg.detectFlashConflicts(flashMap)
+}
+
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	injectedSettings map[string]string, settings map[string]string,
 	flashMap flash.FlashMap) (Cfg, error) {
@@ -1068,11 +1077,6 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 			return cfg, err
 		}
 	}
-
-	cfg.detectAmbiguities()
-	cfg.detectViolations()
-	cfg.detectPriorityViolations()
-	cfg.detectFlashConflicts(flashMap)
 
 	return cfg, nil
 }

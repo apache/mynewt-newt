@@ -648,6 +648,7 @@ func ResolveFull(
 	if loaderSeeds == nil {
 		res.AppSet.Rpkgs = r.rpkgSlice()
 		res.LoaderSet = nil
+		res.Cfg.DetectErrors(flashMap)
 		return res, nil
 	}
 
@@ -691,6 +692,8 @@ func ResolveFull(
 	if err != nil {
 		return nil, err
 	}
+
+	res.Cfg.DetectErrors(flashMap)
 
 	return res, nil
 }
