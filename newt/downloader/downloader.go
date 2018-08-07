@@ -37,28 +37,48 @@ import (
 type DownloaderCommitType int
 
 const (
-	COMMIT_TYPE_REMOTE_BRANCH DownloaderCommitType = iota
-	COMMIT_TYPE_LOCAL_BRANCH
+	COMMIT_TYPE_BRANCH DownloaderCommitType = iota
 	COMMIT_TYPE_TAG
 	COMMIT_TYPE_HASH
 )
 
 type Downloader interface {
-	FetchFile(path string, filename string, dstDir string) error
-	GetCommit() string
-	SetCommit(commit string)
-	DownloadRepo(commit string, dstPath string) error
+	// Fetches all remotes and downloads the specified file.
+	FetchFile(commit string, path string, filename string, dstDir string) error
+
+	// Clones the repo and checks out the specified commit.
+	Clone(commit string, dstPath string) error
+
+	// Determines the equivalent commit hash for the specified commit string.
 	HashFor(path string, commit string) (string, error)
+
+	// Collects all commits that are equivalent to the specified commit string
+	// (i.e., 1 hash, n tags, and n branches).
 	CommitsFor(path string, commit string) ([]string, error)
-	UpdateRepo(path string, branchName string) error
+
+	// Fetches all remotes and merges the specified branch into the local repo.
+	Pull(path string, branchName string) error
+
+	// Indicates whether there are any uncommitted changes to the repo.
 	AreChanges(path string) (bool, error)
+
+	// Determines the type of the specified commit.
 	CommitType(path string, commit string) (DownloaderCommitType, error)
+
+	// Configures the `origin` remote with the correct URL, according the the
+	// user's `project.yml` file and / or the repo dependency lists.
 	FixupOrigin(path string) error
+
+	// Retrieves the name of the currently checked out branch, or "" if no
+	// branch is checked out.
+	CurrentBranch(path string) (string, error)
+
+	// Retrieves the name of the remote branch being tracked by the specified
+	// local branch, or "" if there is no tracked remote branch.
+	UpstreamFor(repoDir string, branch string) (string, error)
 }
 
 type GenericDownloader struct {
-	commit string
-
 	// Whether 'origin' has been fetched during this run.
 	fetched bool
 }
@@ -178,7 +198,7 @@ func checkout(repoDir string, commit string) error {
 		return err
 	}
 
-	full, err := fullCommitName(repoDir, commit)
+	full, err := remoteCommitName(repoDir, commit)
 	if err != nil {
 		return err
 	}
@@ -217,32 +237,21 @@ func checkout(repoDir string, commit string) error {
 	return nil
 }
 
-// mergees applies upstream changes to the local copy and must be
+// rebase applies upstream changes to the local copy and must be
 // preceeded by a "fetch" to achieve any meaningful result.
-func merge(repoDir string, commit string) error {
+func rebase(repoDir string, commit string) error {
 	if err := checkout(repoDir, commit); err != nil {
 		return err
 	}
 
-	ct, err := commitType(repoDir, commit)
-	if err != nil {
-		return err
-	}
-
-	// We want to merge the remote version of this branch.
-	if ct == COMMIT_TYPE_LOCAL_BRANCH {
-		ct = COMMIT_TYPE_REMOTE_BRANCH
-	}
-
-	full, err := prependCommitPrefix(commit, ct)
+	// We want to rebase the remote version of this branch.
+	full, err := remoteCommitName(repoDir, commit)
 	if err != nil {
 		return err
 	}
 
 	cmd := []string{
-		"merge",
-		"--no-commit",
-		"--no-ff",
+		"rebase",
 		full}
 	if _, err := executeGitCommand(repoDir, cmd, true); err != nil {
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
@@ -288,15 +297,12 @@ func commitType(repoDir string, commit string) (DownloaderCommitType, error) {
 	if _, err := mergeBase(repoDir, commit); err == nil {
 		// Distinguish local branch from hash.
 		if branchExists(repoDir, commit) {
-			return COMMIT_TYPE_LOCAL_BRANCH, nil
+			return COMMIT_TYPE_BRANCH, nil
 		} else {
 			return COMMIT_TYPE_HASH, nil
 		}
 	}
 
-	if _, err := mergeBase(repoDir, "origin/"+commit); err == nil {
-		return COMMIT_TYPE_REMOTE_BRANCH, nil
-	}
 	if _, err := mergeBase(repoDir, "tags/"+commit); err == nil {
 		return COMMIT_TYPE_TAG, nil
 	}
@@ -319,26 +325,51 @@ func areChanges(repoDir string) (bool, error) {
 	return len(o) > 0, nil
 }
 
-func prependCommitPrefix(commit string, ct DownloaderCommitType) (string, error) {
-	switch ct {
-	case COMMIT_TYPE_REMOTE_BRANCH:
-		return "origin/" + commit, nil
-	case COMMIT_TYPE_TAG:
-		return "tags/" + commit, nil
-	case COMMIT_TYPE_HASH, COMMIT_TYPE_LOCAL_BRANCH:
-		return commit, nil
-	default:
-		return "", util.FmtNewtError("unknown commit type: %d", int(ct))
+func upstreamFor(path string, commit string) (string, error) {
+	cmd := []string{
+		"rev-parse",
+		"--abbrev-ref",
+		"--symbolic-full-name",
+		commit + "@{u}",
 	}
+
+	up, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		if !util.IsExit(err) {
+			return "", err
+		} else {
+			return "", nil
+		}
+	}
+
+	return strings.TrimSpace(string(up)), nil
 }
 
-func fullCommitName(path string, commit string) (string, error) {
+func remoteCommitName(path string, commit string) (string, error) {
 	ct, err := commitType(path, commit)
 	if err != nil {
 		return "", err
 	}
 
-	return prependCommitPrefix(commit, ct)
+	switch ct {
+	case COMMIT_TYPE_BRANCH:
+		rmt, err := upstreamFor(path, commit)
+		if err != nil {
+			return "", err
+		}
+		if rmt == "" {
+			return "",
+				util.FmtNewtError("No remote upstream for branch \"%s\"",
+					commit)
+		}
+		return rmt, nil
+	case COMMIT_TYPE_TAG:
+		return "tags/" + commit, nil
+	case COMMIT_TYPE_HASH:
+		return commit, nil
+	default:
+		return "", util.FmtNewtError("unknown commit type: %d", int(ct))
+	}
 }
 
 func showFile(
@@ -348,7 +379,7 @@ func showFile(
 		return util.ChildNewtError(err)
 	}
 
-	full, err := fullCommitName(path, branch)
+	full, err := remoteCommitName(path, branch)
 	if err != nil {
 		return err
 	}
@@ -409,14 +440,6 @@ func warnWrongOriginUrl(path string, curUrl string, goodUrl string) {
 		curUrl, goodUrl)
 }
 
-func (gd *GenericDownloader) GetCommit() string {
-	return gd.commit
-}
-
-func (gd *GenericDownloader) SetCommit(branch string) {
-	gd.commit = branch
-}
-
 func (gd *GenericDownloader) CommitType(
 	path string, commit string) (DownloaderCommitType, error) {
 
@@ -424,7 +447,7 @@ func (gd *GenericDownloader) CommitType(
 }
 
 func (gd *GenericDownloader) HashFor(path string, commit string) (string, error) {
-	full, err := fullCommitName(path, commit)
+	full, err := remoteCommitName(path, commit)
 	if err != nil {
 		return "", err
 	}
@@ -466,6 +489,31 @@ func (gd *GenericDownloader) CommitsFor(
 
 	sort.Strings(lines)
 	return lines, nil
+}
+
+func (gd *GenericDownloader) CurrentBranch(path string) (string, error) {
+	cmd := []string{
+		"rev-parse",
+		"--abbrev-ref",
+		"HEAD",
+	}
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	s := strings.TrimSpace(string(o))
+	if s == "HEAD" {
+		return "", nil
+	} else {
+		return s, nil
+	}
+}
+
+func (gd *GenericDownloader) UpstreamFor(repoDir string,
+	branch string) (string, error) {
+
+	return upstreamFor(repoDir, branch)
 }
 
 // Fetches the downloader's origin remote if it hasn't been fetched yet during
@@ -515,20 +563,20 @@ func (gd *GithubDownloader) authenticatedCommand(path string,
 }
 
 func (gd *GithubDownloader) FetchFile(
-	path string, filename string, dstDir string) error {
+	commit string, path string, filename string, dstDir string) error {
 
 	if err := gd.fetch(path); err != nil {
 		return err
 	}
 
-	if err := showFile(path, gd.GetCommit(), filename, dstDir); err != nil {
+	if err := showFile(path, commit, filename, dstDir); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
+func (gd *GithubDownloader) Pull(path string, branchName string) error {
 	err := gd.fetch(path)
 	if err != nil {
 		return err
@@ -536,7 +584,7 @@ func (gd *GithubDownloader) UpdateRepo(path string, branchName string) error {
 
 	// Ignore error, probably resulting from a branch not available at origin
 	// anymore.
-	merge(path, branchName)
+	rebase(path, branchName)
 
 	if err := checkout(path, branchName); err != nil {
 		return err
@@ -599,7 +647,7 @@ func (gd *GithubDownloader) setRemoteAuth(path string) error {
 	return gd.setOriginUrl(path, url)
 }
 
-func (gd *GithubDownloader) DownloadRepo(commit string, dstPath string) error {
+func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
 
@@ -673,20 +721,20 @@ func (gd *GitDownloader) fetch(repoDir string) error {
 }
 
 func (gd *GitDownloader) FetchFile(
-	path string, filename string, dstDir string) error {
+	commit string, path string, filename string, dstDir string) error {
 
 	if err := gd.fetch(path); err != nil {
 		return err
 	}
 
-	if err := showFile(path, gd.GetCommit(), filename, dstDir); err != nil {
+	if err := showFile(path, commit, filename, dstDir); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (gd *GitDownloader) UpdateRepo(path string, branchName string) error {
+func (gd *GitDownloader) Pull(path string, branchName string) error {
 	err := gd.fetch(path)
 	if err != nil {
 		return err
@@ -694,7 +742,7 @@ func (gd *GitDownloader) UpdateRepo(path string, branchName string) error {
 
 	// Ignore error, probably resulting from a branch not available at origin
 	// anymore.
-	merge(path, branchName)
+	rebase(path, branchName)
 
 	if err := checkout(path, branchName); err != nil {
 		return err
@@ -707,7 +755,7 @@ func (gd *GitDownloader) AreChanges(path string) (bool, error) {
 	return areChanges(path)
 }
 
-func (gd *GitDownloader) DownloadRepo(commit string, dstPath string) error {
+func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
 
@@ -765,7 +813,7 @@ func NewGitDownloader() *GitDownloader {
 }
 
 func (ld *LocalDownloader) FetchFile(
-	path string, filename string, dstDir string) error {
+	commit string, path string, filename string, dstDir string) error {
 
 	srcPath := ld.Path + "/" + filename
 	dstPath := dstDir + "/" + filename
@@ -778,16 +826,16 @@ func (ld *LocalDownloader) FetchFile(
 	return nil
 }
 
-func (ld *LocalDownloader) UpdateRepo(path string, branchName string) error {
+func (ld *LocalDownloader) Pull(path string, branchName string) error {
 	os.RemoveAll(path)
-	return ld.DownloadRepo(branchName, path)
+	return ld.Clone(branchName, path)
 }
 
 func (ld *LocalDownloader) AreChanges(path string) (bool, error) {
 	return areChanges(path)
 }
 
-func (ld *LocalDownloader) DownloadRepo(commit string, dstPath string) error {
+func (ld *LocalDownloader) Clone(commit string, dstPath string) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Downloading local repository %s\n", ld.Path)
 

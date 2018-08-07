@@ -200,7 +200,7 @@ func (r *Repo) downloadRepo(commit string) error {
 	defer os.RemoveAll(tmpdir)
 
 	// Download the git repo, returns the git repo, checked out to that commit
-	if err := dl.DownloadRepo(commit, tmpdir); err != nil {
+	if err := dl.Clone(commit, tmpdir); err != nil {
 		return util.FmtNewtError("Error downloading repository %s: %s",
 			r.Name(), err.Error())
 	}
@@ -228,7 +228,7 @@ func (r *Repo) updateRepo(commit string) error {
 	}
 
 	// Fetch and checkout the specified commit.
-	if err := r.downloader.UpdateRepo(r.Path(), commit); err != nil {
+	if err := r.downloader.Pull(r.Path(), commit); err != nil {
 		return util.FmtNewtError(
 			"Error updating \"%s\": %s", r.Name(), err.Error())
 	}
@@ -262,8 +262,8 @@ func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 
 	if changes {
 		return util.FmtNewtError(
-			"Repository \"%s\" contains local changes.  Provide the "+
-				"-f option to attempt a merge.", r.Name())
+			"Repository \"%s\" contains local changes.  Please resolve "+
+				"changes manually and try again.", r.Name())
 	}
 
 	if err := r.updateRepo(commit); err != nil {
@@ -273,34 +273,60 @@ func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 	return nil
 }
 
+// @return bool                 True if the sync succeeded.
+// @return error                Fatal error.
 func (r *Repo) Sync(ver newtutil.RepoVersion) (bool, error) {
-	// Update the repo description
-	if _, err := r.UpdateDesc(); err != nil {
-		return false, util.NewNewtError("Cannot update repository description.")
-	}
-
-	commit, err := r.CommitFromVer(ver)
+	// Sync is only allowed if a branch is checked out.
+	branch, err := r.downloader.CurrentBranch(r.localPath)
 	if err != nil {
 		return false, err
 	}
-	if commit == "" {
-		return false, util.FmtNewtError(
-			"No commit mapping for %s,%s", r.Name(), ver.String())
+
+	if branch == "" {
+		commits, err := r.CurrentCommits()
+		if err != nil {
+			return false, err
+		}
+
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Skipping \"%s\": not using a branch (current-commits=%v)\n",
+			r.Name(), commits)
+		return false, nil
+	}
+
+	// Determine the upstream associated with the current branch.  This is the
+	// upstream that will be pulled from.
+	upstream, err := r.downloader.UpstreamFor(r.localPath, branch)
+	if err != nil {
+		return false, err
+	}
+	if upstream == "" {
+		util.StatusMessage(util.VERBOSITY_QUIET,
+			"Failed to sync repo \"%s\": no upstream being tracked "+
+				"(branch=%s)\n",
+			r.Name(), branch)
+		return false, nil
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Syncing repository \"%s\"... ", r.Name())
-	err = r.updateRepo(commit)
+		"Syncing repository \"%s\" (%s)... ", r.Name(), upstream)
+
+	// Pull from upstream.
+	err = r.updateRepo(branch)
 	if err == nil {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "success\n")
-		return true, err
+		return true, nil
 	} else {
 		util.StatusMessage(util.VERBOSITY_QUIET, "failed: %s\n",
-			err.Error())
-		return false, err
+			strings.TrimSpace(err.Error()))
+		return false, nil
 	}
 }
 
+// Fetches all remotes and downloads an up to date copy of `repository.yml`
+// from master.  The repo object is then populated with the contents of the
+// downladed file.  If this repo has already had its descriptor updated, this
+// function is a no-op.
 func (r *Repo) UpdateDesc() (bool, error) {
 	var err error
 
@@ -310,10 +336,12 @@ func (r *Repo) UpdateDesc() (bool, error) {
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "[%s]:\n", r.Name())
 
+	// Download `repository.yml`.
 	if err = r.DownloadDesc(); err != nil {
 		return false, err
 	}
 
+	// Read `repository.yml` and populate this repo object.
 	if err := r.Read(); err != nil {
 		return false, err
 	}
@@ -343,10 +371,6 @@ func (r *Repo) ensureExists() error {
 
 func (r *Repo) downloadFile(commit string, srcPath string) (string, error) {
 	dl := r.downloader
-	origCommit := dl.GetCommit()
-
-	dl.SetCommit(commit)
-	defer dl.SetCommit(origCommit)
 
 	// Clone the repo if it doesn't exist.
 	if err := r.ensureExists(); err != nil {
@@ -358,7 +382,7 @@ func (r *Repo) downloadFile(commit string, srcPath string) (string, error) {
 		return "", util.ChildNewtError(err)
 	}
 
-	if err := dl.FetchFile(r.localPath, srcPath, cpath); err != nil {
+	if err := dl.FetchFile(commit, r.localPath, srcPath, cpath); err != nil {
 		return "", util.FmtNewtError(
 			"Download of \"%s\" from repo:%s commit:%s failed: %s",
 			srcPath, r.Name(), commit, err.Error())
@@ -379,7 +403,7 @@ func (r *Repo) downloadRepositoryYml() error {
 	return nil
 }
 
-// Download the repository description.
+// Downloads the repository description, i.e., `repository.yml`.
 func (r *Repo) DownloadDesc() error {
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Downloading "+
 		"repository description\n")

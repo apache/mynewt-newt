@@ -279,7 +279,10 @@ func LogShellCmd(cmdStrs []string, env []string) {
 //                                  Specify -1 for no limit; 0 for no output.
 //
 // @return []byte               Combined stdout and stderr output of process.
-// @return error                NewtError on failure.
+// @return error                NewtError on failure.  Use IsExit() to
+//                                  determine if the command failed to execute
+//                                  or if it just returned a non-zero exit
+//                                  status.
 func ShellCommandLimitDbgOutput(
 	cmdStrs []string, env []string, logCmd bool, maxDbgOutputChrs int) (
 	[]byte, error) {
@@ -316,12 +319,12 @@ func ShellCommandLimitDbgOutput(
 	}
 
 	if err != nil {
+		err = ChildNewtError(err)
 		log.Debugf("err=%s", err.Error())
 		if len(o) > 0 {
-			return o, NewNewtError(string(o))
-		} else {
-			return o, NewNewtError(err.Error())
+			err.(*NewtError).Text = string(o)
 		}
+		return o, err
 	} else {
 		return o, nil
 	}
@@ -596,6 +599,18 @@ func IsNotExist(err error) bool {
 	}
 
 	return os.IsNotExist(err)
+}
+
+// Indicates whether the provided error is of type *exec.ExitError (raised when
+// a child process exits with a non-zero status code).
+func IsExit(err error) bool {
+	newtErr, ok := err.(*NewtError)
+	if ok {
+		err = newtErr.Parent
+	}
+
+	_, ok = err.(*exec.ExitError)
+	return ok
 }
 
 func FileContentsChanged(path string, newContents []byte) (bool, error) {

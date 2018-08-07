@@ -487,8 +487,11 @@ func (inst *Installer) installMessageOneRepo(
 	msg := fmt.Sprintf("    %s %s ", verb, repoName)
 	if op == INSTALL_OP_UPGRADE {
 		msg += fmt.Sprintf("(%s --> %s)", curVer.String(), destVer.String())
-	} else {
+	} else if op != INSTALL_OP_SYNC {
 		msg += fmt.Sprintf("(%s)", destVer.String())
+	} else {
+		// Sync operation.  Don't print the project version.  Instead, print
+		// the actual branch name later during the sync.
 	}
 
 	return msg, nil

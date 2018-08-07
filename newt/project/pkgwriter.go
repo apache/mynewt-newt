@@ -249,7 +249,7 @@ func (pw *PackageWriter) WritePackage() error {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	if err := dl.DownloadRepo(pw.repo.branch, tmpdir); err != nil {
+	if err := dl.Clone(pw.repo.branch, tmpdir); err != nil {
 		return err
 	}
 
