@@ -145,6 +145,9 @@ func AddImageCommands(cmd *cobra.Command) {
 
 	createImageHelpText += "Default image format is version 1.\n"
 
+	createImageHelpText += "To encrypt the image, specify -e passing it a public" +
+		"key\n\n"
+
 	createImageHelpEx := "  newt create-image my_target1 1.3.0\n"
 	createImageHelpEx += "  newt create-image my_target1 1.3.0.3\n"
 	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 private.pem\n"
@@ -169,6 +172,8 @@ func AddImageCommands(cmd *cobra.Command) {
 		"1", "1", false, "Use old image header format")
 	createImageCmd.PersistentFlags().BoolVarP(&useV2,
 		"2", "2", false, "Use new image header format")
+	createImageCmd.PersistentFlags().StringVarP(&image.PubKeyFile,
+		"encrypt", "e", "", "Encrypt image using this public key")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
@@ -203,6 +208,8 @@ func AddImageCommands(cmd *cobra.Command) {
 		"1", "1", false, "Use old image header format")
 	resignImageCmd.PersistentFlags().BoolVarP(&useV2,
 		"2", "2", false, "Use new image header format")
+	resignImageCmd.PersistentFlags().StringVarP(&image.PubKeyFile,
+		"encrypt", "e", "", "Encrypt image using this public key")
 
 	cmd.AddCommand(resignImageCmd)
 }
