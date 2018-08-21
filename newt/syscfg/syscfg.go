@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -86,6 +87,7 @@ type CfgDeprecatedPoint struct {
 type CfgEntry struct {
 	Name         string
 	Value        string
+	ValueRefName string
 	Description  string
 	SettingType  CfgSettingType
 	Restrictions []CfgRestriction
@@ -147,6 +149,9 @@ type Cfg struct {
 
 	// Use of defunct settings (error).
 	Defunct map[string]struct{}
+
+	// Unresolved value references
+	UnresolvedValueRefs map[string]struct{}
 }
 
 func NewCfg() Cfg {
@@ -162,6 +167,7 @@ func NewCfg() Cfg {
 		Redefines:           map[string]map[*pkg.LocalPackage]struct{}{},
 		Deprecated:          map[string]struct{}{},
 		Defunct:             map[string]struct{}{},
+		UnresolvedValueRefs: map[string]struct{}{},
 	}
 }
 
@@ -172,6 +178,37 @@ func (cfg *Cfg) SettingValues() map[string]string {
 	}
 
 	return values
+}
+
+func (cfg *Cfg) ResolveValueRefs() {
+	re := regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
+	for k, entry := range cfg.Settings {
+		value := strings.TrimSpace(entry.Value)
+
+		m := re.FindStringSubmatch(value)
+		if len(m) == 0 || len(m[0]) != len(value) {
+			// either there is no reference or there's something else besides
+			// reference - skip it
+			// TODO we may want to emit warning in the latter case (?)
+			continue
+		}
+
+		newName := m[1]
+
+		// TODO we may try to resolve nested references...
+
+		newEntry, exists := cfg.Settings[newName]
+		entry.ValueRefName = newName
+		if exists {
+			entry.Value = newEntry.Value
+		} else {
+			// set unresolved setting value to 0, this way restrictions
+			// can be evaluated and won't create spurious warnings
+			entry.Value = "0"
+			cfg.UnresolvedValueRefs[k] = struct{}{}
+		}
+		cfg.Settings[k] = entry
+	}
 }
 
 // If the specified package has any injected settings, returns a new map
@@ -879,6 +916,16 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Unresolved value references
+	if len(cfg.UnresolvedValueRefs) > 0 {
+		str += "Unresolved value references:\n"
+		for name, _ := range cfg.UnresolvedValueRefs {
+			entry := cfg.Settings[name]
+			str += "    " + fmt.Sprintf("%s -> %s\n", name, entry.ValueRefName)
+			historyMap[name] = entry.History
+		}
+	}
+
 	if len(historyMap) > 0 {
 		str += "\n" + historyText(historyMap)
 	}
@@ -1183,6 +1230,10 @@ func writeComment(entry CfgEntry, w io.Writer) {
 		fmt.Fprintf(w, "/* Overridden by %s (defined by %s) */\n",
 			mostRecentPoint(entry).Name(),
 			entry.History[0].Name())
+	}
+	if len(entry.ValueRefName) > 1 {
+		fmt.Fprintf(w, "/* Value copied from %s */\n",
+			entry.ValueRefName)
 	}
 }
 
