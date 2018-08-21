@@ -22,6 +22,8 @@ package image
 import (
 	"bytes"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
@@ -52,6 +54,9 @@ var UseRsaPss = false
 
 // Use old image format
 var UseV1 = false
+
+// Public key file to encrypt image
+var PubKeyFile = ""
 
 type ImageVersion struct {
 	Major    uint8
@@ -133,6 +138,7 @@ const (
 
 	IMAGE_F_PIC          = 0x00000001
 	IMAGE_F_NON_BOOTABLE = 0x00000002 /* non bootable image */
+	IMAGE_F_ENCRYPTED    = 0x00000004 /* encrypted image */
 )
 
 /*
@@ -149,6 +155,7 @@ const (
 	IMAGE_TLV_RSA2048  = 0x20
 	IMAGE_TLV_ECDSA224 = 0x21
 	IMAGE_TLV_ECDSA256 = 0x22
+	IMAGE_TLV_ENCKEY   = 0x30
 )
 
 /*
@@ -860,6 +867,44 @@ func (image *Image) generateV2(loader *Image) error {
 	}
 	defer imgFile.Close()
 
+	plainSecret := make([]byte, 16)
+	var cipherSecret []byte
+	if PubKeyFile != "" {
+		keyBytes, err := ioutil.ReadFile(PubKeyFile)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Error reading pubkey file: %s", err))
+		}
+
+		b, _ := pem.Decode(keyBytes)
+		if b == nil || (b.Type != "PUBLIC KEY" && b.Type != "RSA PUBLIC KEY") {
+			return util.NewNewtError(fmt.Sprintf("Error decoding pubkey file: %s", err))
+		}
+
+		pub, err := x509.ParsePKIXPublicKey(b.Bytes)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
+		}
+
+		var pubk *rsa.PublicKey
+		switch pub.(type) {
+		case *rsa.PublicKey:
+			pubk = pub.(*rsa.PublicKey)
+		default:
+			return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
+		}
+
+		_, err = rand.Read(plainSecret)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Random generation error: %s\n", err))
+		}
+
+		rng := rand.Reader
+		cipherSecret, err = rsa.EncryptOAEP(sha256.New(), rng, pubk, plainSecret, nil)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Error from encryption: %s\n", err))
+		}
+	}
+
 	/*
 	 * Compute hash while updating the file.
 	 */
@@ -889,6 +934,9 @@ func (image *Image) generateV2(loader *Image) error {
 
 	if loader != nil {
 		hdr.Flags |= IMAGE_F_NON_BOOTABLE
+	}
+	if cipherSecret != nil {
+		hdr.Flags |= IMAGE_F_ENCRYPTED
 	}
 
 	if image.HeaderSize != 0 {
@@ -960,10 +1008,21 @@ func (image *Image) generateV2(loader *Image) error {
 		}
 	}
 
+	var stream cipher.Stream
+	if cipherSecret != nil {
+		block, err := aes.NewCipher(plainSecret)
+		if err != nil {
+			return util.NewNewtError("Failed to create block cipher")
+		}
+		nonce := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		stream = cipher.NewCTR(block, nonce)
+	}
+
 	/*
 	 * Followed by data.
 	 */
-	dataBuf := make([]byte, 1024)
+	dataBuf := make([]byte, 16)
+	encBuf := make([]byte, 16)
 	for {
 		cnt, err := binFile.Read(dataBuf)
 		if err != nil && err != io.EOF {
@@ -973,15 +1032,20 @@ func (image *Image) generateV2(loader *Image) error {
 		if cnt == 0 {
 			break
 		}
-		_, err = imgFile.Write(dataBuf[0:cnt])
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
-				image.TargetImg, err.Error()))
-		}
 		_, err = hash.Write(dataBuf[0:cnt])
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
 				err.Error()))
+		}
+		if cipherSecret == nil {
+			_, err = imgFile.Write(dataBuf[0:cnt])
+		} else {
+			stream.XORKeyStream(encBuf, dataBuf[0:cnt])
+			_, err = imgFile.Write(encBuf[0:cnt])
+		}
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
+				image.TargetImg, err.Error()))
 		}
 	}
 
@@ -1119,6 +1183,24 @@ func (image *Image) generateV2(loader *Image) error {
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
 				"trailer: %s", err.Error()))
+		}
+	}
+
+	if cipherSecret != nil {
+		tlv := &ImageTrailerTlv{
+			Type: IMAGE_TLV_ENCKEY,
+			Pad:  0,
+			Len:  uint16(len(cipherSecret)),
+		}
+		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
+				"trailer: %s", err.Error()))
+		}
+		_, err = imgFile.Write(cipherSecret)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Failed to append encrypted key: %s",
+				err.Error()))
 		}
 	}
 
