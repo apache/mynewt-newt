@@ -567,17 +567,34 @@ func printSetting(entry syscfg.CfgEntry) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"default=%s\n", entry.History[0].Value)
 	}
+	if len(entry.ValueRefName) > 0 {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"    * Copied from: %s\n",
+			entry.ValueRefName)
+	}
 }
 
 func printBriefSetting(entry syscfg.CfgEntry) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "  %s: %s",
 		entry.Name, entry.Value)
 
+	var extras []string
+
 	if len(entry.History) > 1 {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			" (overridden by %s)",
+		s := fmt.Sprintf("overridden by %s",
 			entry.History[len(entry.History)-1].Source.FullName())
+		extras = append(extras, s)
 	}
+	if len(entry.ValueRefName) > 0 {
+		s := fmt.Sprintf("copied from %s", entry.ValueRefName)
+		extras = append(extras, s)
+	}
+
+	if len(extras) > 0{
+		util.StatusMessage(util.VERBOSITY_DEFAULT, " (%s)",
+			strings.Join(extras, ", "))
+	}
+
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 }
 

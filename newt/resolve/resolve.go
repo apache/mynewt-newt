@@ -417,6 +417,8 @@ func (r *Resolver) reloadCfg() (bool, error) {
 		return false, err
 	}
 
+	cfg.ResolveValueRefs()
+
 	// Determine if any settings have changed.
 	for k, v := range cfg.Settings {
 		oldval, ok := r.cfg.Settings[k]
