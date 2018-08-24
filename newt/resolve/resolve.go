@@ -24,11 +24,14 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
+
 	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/newt/ycfg"
 )
 
 // Represents a supplied API.
@@ -327,7 +330,13 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 
 	changed := false
 
-	depEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.deps", settings)
+	var depEntries []ycfg.YCfgEntry
+
+	if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_TRANSIENT {
+		depEntries = rpkg.Lpkg.PkgY.GetSlice("pkg.link", nil)
+	} else {
+		depEntries = rpkg.Lpkg.PkgY.GetSlice("pkg.deps", settings)
+	}
 	depender := rpkg.Lpkg.Name()
 
 	seen := make(map[*ResolvePackage]struct{}, len(rpkg.Deps))
@@ -643,6 +652,18 @@ func ResolveFull(
 	res.LpkgRpkgMap = r.pkgMap
 
 	res.MasterSet.Rpkgs = r.rpkgSlice()
+
+	// We have now resolved all packages so go through them and emit warning
+	// when using link packages
+	for _, rpkg := range res.MasterSet.Rpkgs {
+		if rpkg.Lpkg.Type() != pkg.PACKAGE_TYPE_TRANSIENT {
+			continue
+		}
+
+		log.Warnf("Transient package %s used, update configuration "+
+			"to use target package instead (%s)",
+			rpkg.Lpkg.FullName(), rpkg.Lpkg.LinkedName())
+	}
 
 	// If there is no loader, then the set of all packages is just the app
 	// packages.  We already resolved the necessary dependency information when

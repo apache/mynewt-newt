@@ -128,8 +128,8 @@ func (t *TargetBuilder) ensureResolved() error {
 	var loaderSeeds []*pkg.LocalPackage
 	if t.loaderPkg != nil {
 		loaderSeeds = []*pkg.LocalPackage{
-			t.loaderPkg,
-			t.bspPkg.LocalPackage,
+			t.target.LoaderYml(),
+			t.target.BspYml(),
 			t.compilerPkg,
 			t.target.Package(),
 		}
@@ -151,13 +151,13 @@ func (t *TargetBuilder) ensureResolved() error {
 	}
 
 	appSeeds := []*pkg.LocalPackage{
-		t.bspPkg.LocalPackage,
+		t.target.BspYml(),
 		t.compilerPkg,
 		t.target.Package(),
 	}
 
 	if t.appPkg != nil {
-		appSeeds = append(appSeeds, t.appPkg)
+		appSeeds = append(appSeeds, t.target.AppYml())
 	}
 
 	if t.testPkg != nil {

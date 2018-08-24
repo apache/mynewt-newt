@@ -56,6 +56,7 @@ type LocalPackage struct {
 	name        string
 	basePath    string
 	packageType interfaces.PackageType
+	linkedName  string
 
 	// General information about the package
 	desc *PackageDesc
@@ -102,6 +103,10 @@ func (pkg *LocalPackage) FullName() string {
 	} else {
 		return newtutil.BuildPackageString(r.Name(), pkg.Name())
 	}
+}
+
+func (pkg *LocalPackage) LinkedName() string {
+	return pkg.linkedName
 }
 
 func (pkg *LocalPackage) BasePath() string {
@@ -314,6 +319,21 @@ func (pkg *LocalPackage) Load() error {
 			pkg.packageType = t
 			break
 		}
+	}
+
+	if pkg.packageType == PACKAGE_TYPE_TRANSIENT {
+		n := pkg.PkgY.GetValString("pkg.link", nil)
+		if len(n) == 0 {
+			return util.FmtNewtError(
+				"Transient package \"%s\" does not specify target "+
+					"package in its `pkg.yml` file (pkg.name=%s)",
+				pkg.basePath, pkg.name)
+		}
+
+		pkg.linkedName = n
+
+		// We don't really want anything else for this package
+		return nil
 	}
 
 	init := pkg.PkgY.GetValStringMapString("pkg.init", nil)
