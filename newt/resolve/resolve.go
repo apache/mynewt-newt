@@ -661,7 +661,7 @@ func ResolveFull(
 		}
 
 		log.Warnf("Transient package %s used, update configuration "+
-			"to use target package instead (%s)",
+			"to use linked package instead (%s)",
 			rpkg.Lpkg.FullName(), rpkg.Lpkg.LinkedName())
 	}
 
