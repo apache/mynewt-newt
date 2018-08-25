@@ -195,8 +195,8 @@ func (target *Target) Clone(newRepo *repo.Repo, newName string) *Target {
 	return &newTarget
 }
 
-func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
-	dep, err := pkg.NewDependency(target.basePkg.Repo(), name)
+func (target *Target) resolvePackageRepoAndName(repo *repo.Repo, name string) *pkg.LocalPackage {
+	dep, err := pkg.NewDependency(repo, name)
 	if err != nil {
 		return nil
 	}
@@ -209,6 +209,27 @@ func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
 	return pack
 }
 
+func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
+	pack := target.resolvePackageYmlName(name)
+
+	if pack == nil || pack.Type() != pkg.PACKAGE_TYPE_TRANSIENT {
+		return pack
+	}
+
+	// We follow only one level of linking here to make things easier and assuming
+	// nested linking means someone using really deprecated packages ;)
+
+	pack = target.resolvePackageRepoAndName(pack.Repo().(*repo.Repo), pack.LinkedName())
+
+	return pack
+}
+
+func (target *Target) resolvePackageYmlName(name string) *pkg.LocalPackage {
+	return target.resolvePackageRepoAndName(target.basePkg.Repo().(*repo.Repo), name)
+}
+
+// Methods below resolve package by name and follow links to get proper package
+
 func (target *Target) App() *pkg.LocalPackage {
 	return target.resolvePackageName(target.AppName)
 }
@@ -219,6 +240,21 @@ func (target *Target) Loader() *pkg.LocalPackage {
 
 func (target *Target) Bsp() *pkg.LocalPackage {
 	return target.resolvePackageName(target.BspName)
+}
+
+// Methods below resolve package by name as stated in YML file (so do not follow links)
+// e.g. to use as seed for dependencies calculation
+
+func (target *Target) AppYml() *pkg.LocalPackage {
+	return target.resolvePackageYmlName(target.AppName)
+}
+
+func (target *Target) LoaderYml() *pkg.LocalPackage {
+	return target.resolvePackageYmlName(target.LoaderName)
+}
+
+func (target *Target) BspYml() *pkg.LocalPackage {
+	return target.resolvePackageYmlName(target.BspName)
 }
 
 // Save the target's configuration elements
