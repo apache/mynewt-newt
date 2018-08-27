@@ -314,10 +314,20 @@ func (pkg *LocalPackage) Load() error {
 
 	typeString := pkg.PkgY.GetValString("pkg.type", nil)
 	pkg.packageType = PACKAGE_TYPE_LIB
-	for t, n := range PackageTypeNames {
-		if typeString == n {
-			pkg.packageType = t
-			break
+	if len(typeString) > 0 {
+		found := false
+		for t, n := range PackageTypeNames {
+			if typeString == n {
+				pkg.packageType = t
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return util.FmtNewtError(
+				"Package \"%s\" has incorrect \"pkg.type\" field in its "+
+					"`pkg.yml` file (pkg.type=%s)", pkg.basePath, typeString)
 		}
 	}
 
