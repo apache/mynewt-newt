@@ -91,7 +91,7 @@ func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
 	return func(r *repo.Repo) bool {
 		if !r.IsLocal() {
 			for _, arg := range repoNames {
-				if r.Name() == arg {
+				if strings.TrimPrefix(r.Name(), "@") == arg {
 					return true
 				}
 			}
