@@ -59,8 +59,8 @@ type Downloader interface {
 	// Fetches all remotes and merges the specified branch into the local repo.
 	Pull(path string, branchName string) error
 
-	// Indicates whether there are any uncommitted changes to the repo.
-	AreChanges(path string) (bool, error)
+	// Indicates whether the repo is in a clean or dirty state.
+	DirtyState(path string) (string, error)
 
 	// Determines the type of the specified commit.
 	CommitType(path string, commit string) (DownloaderCommitType, error)
@@ -311,20 +311,6 @@ func commitType(repoDir string, commit string) (DownloaderCommitType, error) {
 		"Cannot determine commit type of \"%s\"", commit)
 }
 
-func areChanges(repoDir string) (bool, error) {
-	cmd := []string{
-		"diff",
-		"--name-only",
-	}
-
-	o, err := executeGitCommand(repoDir, cmd, true)
-	if err != nil {
-		return false, err
-	}
-
-	return len(o) > 0, nil
-}
-
 func upstreamFor(path string, commit string) (string, error) {
 	cmd := []string{
 		"rev-parse",
@@ -531,6 +517,70 @@ func (gd *GenericDownloader) cachedFetch(fn func() error) error {
 	return nil
 }
 
+// Indicates whether the specified git repo is in a clean or dirty state.
+//
+// @param path                  The path of the git repo to check.
+//
+// @return string               Text describing repo's dirty state, or "" if
+//                                  clean.
+// @return error                Error.
+func (gd *GenericDownloader) DirtyState(path string) (string, error) {
+	// Check for local changes.
+	cmd := []string{
+		"diff",
+		"--name-only",
+	}
+
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	if len(o) > 0 {
+		return "local changes", nil
+	}
+
+	// Check for staged changes.
+	cmd = []string{
+		"diff",
+		"--name-only",
+		"--staged",
+	}
+
+	o, err = executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	if len(o) > 0 {
+		return "staged changes", nil
+	}
+
+	// If on a branch, check for unpushed commits.
+	branch, err := gd.CurrentBranch(path)
+	if err != nil {
+		return "", err
+	}
+
+	if branch != "" {
+		cmd = []string{
+			"rev-list",
+			"@{u}..",
+		}
+
+		o, err = executeGitCommand(path, cmd, true)
+		if err != nil {
+			return "", err
+		}
+
+		if len(o) > 0 {
+			return "unpushed commits", nil
+		}
+	}
+
+	return "", nil
+}
+
 func (gd *GithubDownloader) fetch(repoDir string) error {
 	return gd.cachedFetch(func() error {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Fetching repo %s\n",
@@ -591,10 +641,6 @@ func (gd *GithubDownloader) Pull(path string, branchName string) error {
 	}
 
 	return nil
-}
-
-func (gd *GithubDownloader) AreChanges(path string) (bool, error) {
-	return areChanges(path)
 }
 
 func (gd *GithubDownloader) remoteUrls() (string, string) {
@@ -751,10 +797,6 @@ func (gd *GitDownloader) Pull(path string, branchName string) error {
 	return nil
 }
 
-func (gd *GitDownloader) AreChanges(path string) (bool, error) {
-	return areChanges(path)
-}
-
 func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 	// Currently only the master branch is supported.
 	branch := "master"
@@ -829,10 +871,6 @@ func (ld *LocalDownloader) FetchFile(
 func (ld *LocalDownloader) Pull(path string, branchName string) error {
 	os.RemoveAll(path)
 	return ld.Clone(branchName, path)
-}
-
-func (ld *LocalDownloader) AreChanges(path string) (bool, error) {
-	return areChanges(path)
 }
 
 func (ld *LocalDownloader) Clone(commit string, dstPath string) error {

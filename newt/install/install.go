@@ -535,6 +535,7 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	}
 
 	for {
+		fmt.Printf("Proceed? [Y/n] ")
 		line, more, err := bufio.NewReader(os.Stdin).ReadLine()
 		if more || err != nil {
 			return false, util.ChildNewtError(err)
@@ -695,6 +696,45 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	return vm, nil
 }
 
+// Checks if any repos in the specified slice are in a dirty state.  If any
+// repos are dirty and `force` is *not* enabled, an error is returned.  If any
+// repos are dirty and `force` is enabled, a warning is displayed.
+func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
+	// [repo] => dirty-state.
+	var m map[*repo.Repo]string
+
+	// Collect all dirty repos and insert them into m.
+	for _, r := range repos {
+		dirtyState, err := r.DirtyState()
+		if err != nil {
+			return err
+		}
+
+		if dirtyState != "" {
+			if m == nil {
+				m = make(map[*repo.Repo]string)
+				m[r] = dirtyState
+			}
+		}
+	}
+
+	if len(m) > 0 {
+		s := "some repos are in a dirty state:\n"
+		for r, d := range m {
+			s += fmt.Sprintf("    %s: contains %s\n", r.Name(), d)
+		}
+
+		if !force {
+			s += "Specify the `-f` (force) switch to attempt anyway"
+			return util.NewNewtError(s)
+		} else {
+			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", s)
+		}
+	}
+
+	return nil
+}
+
 // Installs the specified set of repos.
 func (inst *Installer) Install(
 	candidates []*repo.Repo, force bool, ask bool) error {
@@ -759,7 +799,13 @@ func (inst *Installer) Install(
 }
 
 // Installs or upgrades the specified set of repos.
-func (inst *Installer) Upgrade(candidates []*repo.Repo, ask bool) error {
+func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
+	ask bool) error {
+
+	if err := verifyRepoDirtyState(candidates, force); err != nil {
+		return err
+	}
+
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
 		return err
@@ -801,7 +847,13 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, ask bool) error {
 }
 
 // Syncs the specified set of repos.
-func (inst *Installer) Sync(candidates []*repo.Repo, ask bool) error {
+func (inst *Installer) Sync(candidates []*repo.Repo,
+	force bool, ask bool) error {
+
+	if err := verifyRepoDirtyState(candidates, force); err != nil {
+		return err
+	}
+
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
 		return err
@@ -842,6 +894,41 @@ func (inst *Installer) Sync(candidates []*repo.Repo, ask bool) error {
 
 	if anyFails {
 		return util.FmtNewtError("Failed to sync")
+	}
+
+	return nil
+}
+
+// Prints out information about the specified repos:
+//     * Currently installed version.
+//     * Whether upgrade is possible.
+//     * Whether repo is in a dirty state.
+func (inst *Installer) Info(repos []*repo.Repo) error {
+	vm, err := inst.calcVersionMap(repos)
+	if err != nil {
+		return err
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
+	for _, r := range repos {
+		ver, err := r.InstalledVersion()
+		if err != nil {
+			return err
+		}
+
+		dirty, err := r.DirtyState()
+		if err != nil {
+			return err
+		}
+
+		s := fmt.Sprintf("    * %s: %s", r.Name(), ver.String())
+		if ver == nil || *ver != vm[r.Name()] {
+			s += " (needs upgrade)"
+		}
+		if dirty != "" {
+			s += fmt.Sprintf(" (dirty: %s)", dirty)
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 	}
 
 	return nil
