@@ -217,7 +217,7 @@ func (r *Repo) downloadRepo(commit string) error {
 	return nil
 }
 
-func (r *Repo) checkExists() bool {
+func (r *Repo) CheckExists() bool {
 	return util.NodeExist(r.Path())
 }
 
@@ -351,7 +351,7 @@ func (r *Repo) UpdateDesc() (bool, error) {
 
 func (r *Repo) ensureExists() error {
 	// Clone the repo if it doesn't exist.
-	if util.NodeNotExist(r.localPath) {
+	if !r.CheckExists() {
 		if err := r.downloadRepo("master"); err != nil {
 			return err
 		}
