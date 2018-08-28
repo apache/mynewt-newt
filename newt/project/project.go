@@ -305,6 +305,27 @@ func (proj *Project) SyncIf(
 	return inst.Sync(repoList, force, ask)
 }
 
+func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool) error {
+	// Make sure we have an up to date copy of all `repository.yml` files.
+	if err := proj.downloadRepositoryYmlFiles(); err != nil {
+		return err
+	}
+
+	// Determine which repos the user wants info about.
+	repoList := proj.SelectRepos(predicate)
+
+	inst, err := install.NewInstaller(proj.repos, proj.rootRepoReqs)
+	if err != nil {
+		return err
+	}
+
+	if err := inst.Info(repoList); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Loads a complete repo definition from the appropriate `repository.yml` file.
 // The supplied fields form a basic repo description as read from `project.yml`
 // or from another repo's dependency list.

@@ -898,3 +898,38 @@ func (inst *Installer) Sync(candidates []*repo.Repo,
 
 	return nil
 }
+
+// Prints out information about the specified repos:
+//     * Currently installed version.
+//     * Whether upgrade is possible.
+//     * Whether repo is in a dirty state.
+func (inst *Installer) Info(repos []*repo.Repo) error {
+	vm, err := inst.calcVersionMap(repos)
+	if err != nil {
+		return err
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
+	for _, r := range repos {
+		ver, err := r.InstalledVersion()
+		if err != nil {
+			return err
+		}
+
+		dirty, err := r.DirtyState()
+		if err != nil {
+			return err
+		}
+
+		s := fmt.Sprintf("    * %s: %s", r.Name(), ver.String())
+		if ver == nil || *ver != vm[r.Name()] {
+			s += " (needs upgrade)"
+		}
+		if dirty != "" {
+			s += fmt.Sprintf(" (dirty: %s)", dirty)
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
+	}
+
+	return nil
+}
