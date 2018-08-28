@@ -279,7 +279,7 @@ func (proj *Project) InstallIf(
 	}
 
 	if upgrade {
-		return inst.Upgrade(specifiedRepoList, ask)
+		return inst.Upgrade(specifiedRepoList, force, ask)
 	} else {
 		return inst.Install(specifiedRepoList, force, ask)
 	}
@@ -302,7 +302,7 @@ func (proj *Project) SyncIf(
 		return err
 	}
 
-	return inst.Sync(repoList, ask)
+	return inst.Sync(repoList, force, ask)
 }
 
 // Loads a complete repo definition from the appropriate `repository.yml` file.

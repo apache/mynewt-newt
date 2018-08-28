@@ -696,6 +696,45 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	return vm, nil
 }
 
+// Checks if any repos in the specified slice are in a dirty state.  If any
+// repos are dirty and `force` is *not* enabled, an error is returned.  If any
+// repos are dirty and `force` is enabled, a warning is displayed.
+func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
+	// [repo] => dirty-state.
+	var m map[*repo.Repo]string
+
+	// Collect all dirty repos and insert them into m.
+	for _, r := range repos {
+		dirtyState, err := r.DirtyState()
+		if err != nil {
+			return err
+		}
+
+		if dirtyState != "" {
+			if m == nil {
+				m = make(map[*repo.Repo]string)
+				m[r] = dirtyState
+			}
+		}
+	}
+
+	if len(m) > 0 {
+		s := "some repos are in a dirty state:\n"
+		for r, d := range m {
+			s += fmt.Sprintf("    %s: contains %s\n", r.Name(), d)
+		}
+
+		if !force {
+			s += "Specify the `-f` (force) switch to attempt anyway"
+			return util.NewNewtError(s)
+		} else {
+			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", s)
+		}
+	}
+
+	return nil
+}
+
 // Installs the specified set of repos.
 func (inst *Installer) Install(
 	candidates []*repo.Repo, force bool, ask bool) error {
@@ -760,7 +799,13 @@ func (inst *Installer) Install(
 }
 
 // Installs or upgrades the specified set of repos.
-func (inst *Installer) Upgrade(candidates []*repo.Repo, ask bool) error {
+func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
+	ask bool) error {
+
+	if err := verifyRepoDirtyState(candidates, force); err != nil {
+		return err
+	}
+
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
 		return err
@@ -802,7 +847,13 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, ask bool) error {
 }
 
 // Syncs the specified set of repos.
-func (inst *Installer) Sync(candidates []*repo.Repo, ask bool) error {
+func (inst *Installer) Sync(candidates []*repo.Repo,
+	force bool, ask bool) error {
+
+	if err := verifyRepoDirtyState(candidates, force); err != nil {
+		return err
+	}
+
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
 		return err
