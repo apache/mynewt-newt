@@ -535,6 +535,7 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	}
 
 	for {
+		fmt.Printf("Proceed? [Y/n] ")
 		line, more, err := bufio.NewReader(os.Stdin).ReadLine()
 		if more || err != nil {
 			return false, util.ChildNewtError(err)
