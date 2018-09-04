@@ -87,6 +87,8 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *
 	case toolchain.COMPILER_TYPE_CPP:
 		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
 		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
+		compileFlags = append(compileFlags, c.GetCompilerInfo().CXXflags...)
+		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().CXXflags...)
 	}
 
 	extractIncludes(&compileFlags, includeDirs, &otherFlags)
@@ -187,13 +189,18 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 			elfName, targetObjectsBuffer.String())
 	}
 
+	var flags []string
+	flags = append(flags, c.GetCompilerInfo().Cflags...)
+	flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
+	flags = append(flags, c.GetCompilerInfo().CXXflags...)
+	flags = append(flags, c.GetLocalCompilerInfo().CXXflags...)
+
 	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
 														PROPERTY
 														COMPILE_FLAGS
 														"%s")`,
 		elfName,
-		strings.Replace(strings.Join(append(c.GetCompilerInfo().Cflags,
-			c.GetLocalCompilerInfo().Cflags...), " "), "\"", "\\\\\\\"", -1))
+		strings.Replace(strings.Join(flags, " "), "\"", "\\\\\\\"", -1))
 	fmt.Fprintln(w)
 
 	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
@@ -202,6 +209,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	}
 
 	lFlags = append(lFlags, c.GetLocalCompilerInfo().Cflags...)
+	lFlags = append(lFlags, c.GetLocalCompilerInfo().CXXflags...)
 	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
 							ARCHIVE_OUTPUT_DIRECTORY %s

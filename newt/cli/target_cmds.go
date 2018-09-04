@@ -44,10 +44,10 @@ var targetForce bool = false
 var amendDelete bool = false
 
 // target variables that can have values amended with the amend command.
-var amendVars = []string{"aflags", "cflags", "lflags", "syscfg"}
+var amendVars = []string{"aflags", "cflags", "cxxflags", "lflags", "syscfg"}
 
 var setVars = []string{"aflags", "app", "build_profile", "bsp", "cflags",
-	"lflags", "loader", "syscfg"}
+	"cxxflags", "lflags", "loader", "syscfg"}
 
 func resolveExistingTargetArg(arg string) (*target.Target, error) {
 	t := ResolveTarget(arg)
@@ -123,7 +123,7 @@ func amendSysCfg(value string, t *target.Target) error {
 	return nil
 }
 
-//Process amend command for aflags, cflags, and lflags target variables.
+//Process amend command for aflags, cflags, cxxflags, and lflags target variables.
 func amendBuildFlags(kv []string, t *target.Target) error {
 	pkgVar := "pkg." + kv[0]
 	curFlags := t.Package().PkgY.GetValStringSlice(pkgVar, nil)
@@ -209,6 +209,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		kvPairs["syscfg"] = syscfg.KeyValueToStr(
 			target.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil))
 		kvPairs["cflags"] = pkgVarSliceString(target.Package(), "pkg.cflags")
+		kvPairs["cxxflags"] = pkgVarSliceString(target.Package(), "pkg.cxxflags")
 		kvPairs["lflags"] = pkgVarSliceString(target.Package(), "pkg.lflags")
 		kvPairs["aflags"] = pkgVarSliceString(target.Package(), "pkg.aflags")
 
@@ -309,6 +310,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 			t.Package().SyscfgY.Replace("syscfg.vals", kv)
 		} else if kv[0] == "target.cflags" ||
+			kv[0] == "target.cxxflags" ||
 			kv[0] == "target.lflags" ||
 			kv[0] == "target.aflags" {
 
@@ -402,6 +404,7 @@ func targetAmendCmd(cmd *cobra.Command, args []string) {
 				NewtUsage(cmd, err)
 			}
 		} else if kv[0] == "cflags" ||
+			kv[0] == "cxxflags" ||
 			kv[0] == "lflags" ||
 			kv[0] == "aflags" {
 			err = amendBuildFlags(kv, t)
