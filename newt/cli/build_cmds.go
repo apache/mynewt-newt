@@ -263,7 +263,10 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 	packLoop:
 		for _, pack := range orig {
 			for _, excl := range excls {
-				if pack.Name() == excl || strings.HasPrefix(pack.Name(), excl+"/") {
+				if pack.Name() == excl ||
+					strings.HasPrefix(pack.Name(), excl+"/") ||
+					pack.NameWithRepo() == excl ||
+					strings.HasPrefix(pack.NameWithRepo(), excl+"/") {
 					continue packLoop
 				}
 			}

@@ -96,12 +96,17 @@ func (pkg *LocalPackage) Name() string {
 	return pkg.name
 }
 
+func (pkg *LocalPackage) NameWithRepo() string {
+	r := pkg.Repo()
+	return newtutil.BuildPackageString(r.Name(), pkg.Name())
+}
+
 func (pkg *LocalPackage) FullName() string {
 	r := pkg.Repo()
 	if r.IsLocal() {
 		return pkg.Name()
 	} else {
-		return newtutil.BuildPackageString(r.Name(), pkg.Name())
+		return pkg.NameWithRepo()
 	}
 }
 
