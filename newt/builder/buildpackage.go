@@ -143,6 +143,9 @@ func (bpkg *BuildPackage) CompilerInfo(
 	ci.Cflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
 	expandFlags(ci.Cflags)
 
+	ci.CXXflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
+	expandFlags(ci.CXXflags)
+
 	ci.Lflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
 	expandFlags(ci.Lflags)
 

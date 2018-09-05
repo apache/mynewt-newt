@@ -54,6 +54,7 @@ const (
 type CompilerInfo struct {
 	Includes    []string
 	Cflags      []string
+	CXXflags    []string
 	Lflags      []string
 	Aflags      []string
 	IgnoreFiles []*regexp.Regexp
@@ -148,6 +149,7 @@ func NewCompilerInfo() *CompilerInfo {
 	ci := &CompilerInfo{}
 	ci.Includes = []string{}
 	ci.Cflags = []string{}
+	ci.CXXflags = []string{}
 	ci.Lflags = []string{}
 	ci.Aflags = []string{}
 	ci.IgnoreFiles = []*regexp.Regexp{}
@@ -227,6 +229,7 @@ func (ci *CompilerInfo) AddCflags(cflags []string) {
 func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Includes = append(ci.Includes, newCi.Includes...)
 	ci.Cflags = addFlags("cflag", ci.Cflags, newCi.Cflags)
+	ci.CXXflags = addFlags("cxxflag", ci.CXXflags, newCi.CXXflags)
 	ci.Lflags = addFlags("lflag", ci.Lflags, newCi.Lflags)
 	ci.Aflags = addFlags("aflag", ci.Aflags, newCi.Aflags)
 	ci.IgnoreFiles = append(ci.IgnoreFiles, newCi.IgnoreFiles...)
@@ -295,6 +298,7 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	c.ocPath = yc.GetValString("compiler.path.objcopy", settings)
 
 	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags")
+	c.lclInfo.CXXflags = loadFlags(yc, settings, "compiler.cxx.flags")
 	c.lclInfo.Lflags = loadFlags(yc, settings, "compiler.ld.flags")
 	c.lclInfo.Aflags = loadFlags(yc, settings, "compiler.as.flags")
 
@@ -376,6 +380,11 @@ func (c *Compiler) cflagsStrings() []string {
 	return cflags
 }
 
+func (c *Compiler) cxxflagsStrings() []string {
+	cxxflags := util.SortFields(c.info.CXXflags...)
+	return cxxflags
+}
+
 func (c *Compiler) aflagsStrings() []string {
 	aflags := util.SortFields(c.info.Aflags...)
 	return aflags
@@ -425,7 +434,7 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
 	case COMPILER_TYPE_CPP:
 		cmdName = c.cppPath
-		flags = c.cflagsStrings()
+		flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
 	default:
 		return nil, util.NewNewtError("Unknown compiler type")
 	}
