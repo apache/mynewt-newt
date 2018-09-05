@@ -312,7 +312,7 @@ func CmakeCompilerWrite(w io.Writer, c *toolchain.Compiler) {
 func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler, targetName string) {
 	fmt.Fprintln(w, "cmake_minimum_required(VERSION 3.7)\n")
 	CmakeCompilerWrite(w, c)
-	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C ASM)\n\n", targetName)
+	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C CXX ASM)\n\n", targetName)
 	fmt.Fprintln(w, "SET(CMAKE_C_FLAGS_BACKUP  \"${CMAKE_C_FLAGS}\")")
 	fmt.Fprintln(w, "SET(CMAKE_CXX_FLAGS_BACKUP  \"${CMAKE_CXX_FLAGS}\")")
 	fmt.Fprintln(w, "SET(CMAKE_ASM_FLAGS_BACKUP  \"${CMAKE_ASM_FLAGS}\")")
