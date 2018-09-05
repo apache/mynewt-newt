@@ -25,9 +25,12 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
+
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/newt/compat"
 )
 
 // [repo-name] => repo
@@ -147,6 +150,29 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 	}
 
 	return dg, nil
+}
+
+func FilterMatrixOnNewtCompat(m *Matrix, repos RepoMap) {
+	for ri := range m.rows {
+		filteredVersions := make([]newtutil.RepoVersion, 0)
+		for vi := range m.rows[ri].Vers {
+			r := repos[m.rows[ri].RepoName]
+
+			// Warn the user about incompatibilities with this version of newt.
+			code, msg := r.CheckNewtCompatibility(m.rows[ri].Vers[vi], newtutil.NewtVersion)
+			switch code {
+			case compat.NEWT_COMPAT_ERROR:
+				log.Debugf("%s version %s is incompatible with Newt", r.Name(), m.rows[ri].Vers[vi].String())
+			case compat.NEWT_COMPAT_WARN:
+				log.Debugf( "WARNING %s %s: %s", r.Name(), m.rows[ri].Vers[vi].String(), msg)
+				fallthrough
+			case compat.NEWT_COMPAT_GOOD:
+				filteredVersions = append(filteredVersions, m.rows[ri].Vers[vi])
+			}
+		}
+
+		m.rows[ri].Vers = filteredVersions
+	}
 }
 
 // Prunes unusable repo versions from the specified matrix.
