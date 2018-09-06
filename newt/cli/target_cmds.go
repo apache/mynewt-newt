@@ -243,7 +243,10 @@ func targetCmakeCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	builder.CMakeTargetGenerate(targets[0])
+	err = builder.CMakeTargetGenerate(targets[0])
+	if err != nil {
+		NewtUsage(nil, err)
+	}
 }
 
 func targetSetCmd(cmd *cobra.Command, args []string) {
