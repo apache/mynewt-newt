@@ -30,6 +30,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/pem"
@@ -42,6 +43,7 @@ import (
 	"strconv"
 	"strings"
 
+	keywrap "github.com/NickBall/go-aes-key-wrap"
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/pkg"
@@ -155,7 +157,8 @@ const (
 	IMAGE_TLV_RSA2048  = 0x20
 	IMAGE_TLV_ECDSA224 = 0x21
 	IMAGE_TLV_ECDSA256 = 0x22
-	IMAGE_TLV_ENCKEY   = 0x30
+	IMAGE_TLV_ENC_RSA  = 0x30
+	IMAGE_TLV_ENC_KEK  = 0x31
 )
 
 /*
@@ -869,39 +872,59 @@ func (image *Image) generateV2(loader *Image) error {
 
 	plainSecret := make([]byte, 16)
 	var cipherSecret []byte
+	var _type uint8
 	if PubKeyFile != "" {
-		keyBytes, err := ioutil.ReadFile(PubKeyFile)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Error reading pubkey file: %s", err))
-		}
-
-		b, _ := pem.Decode(keyBytes)
-		if b == nil || (b.Type != "PUBLIC KEY" && b.Type != "RSA PUBLIC KEY") {
-			return util.NewNewtError(fmt.Sprintf("Error decoding pubkey file: %s", err))
-		}
-
-		pub, err := x509.ParsePKIXPublicKey(b.Bytes)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
-		}
-
-		var pubk *rsa.PublicKey
-		switch pub.(type) {
-		case *rsa.PublicKey:
-			pubk = pub.(*rsa.PublicKey)
-		default:
-			return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
-		}
-
 		_, err = rand.Read(plainSecret)
 		if err != nil {
 			return util.NewNewtError(fmt.Sprintf("Random generation error: %s\n", err))
 		}
 
-		rng := rand.Reader
-		cipherSecret, err = rsa.EncryptOAEP(sha256.New(), rng, pubk, plainSecret, nil)
+		keyBytes, err := ioutil.ReadFile(PubKeyFile)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Error from encryption: %s\n", err))
+			return util.NewNewtError(fmt.Sprintf("Error reading pubkey file: %s", err))
+		}
+
+		// Try reading as PEM (asymetric key), if it fails, assume this is a
+		// base64 encoded symetric key
+		b, _ := pem.Decode(keyBytes)
+		if b == nil {
+			kek, err := base64.StdEncoding.DecodeString(string(keyBytes))
+			if err != nil {
+				return util.NewNewtError(fmt.Sprintf("Error decoding kek: %s", err))
+			} else if len(kek) != 16 {
+				return util.NewNewtError(fmt.Sprintf("Unexpected key size: %d != 16", len(kek)))
+			}
+
+			cipher, err := aes.NewCipher(kek)
+			if err != nil {
+				return util.NewNewtError(fmt.Sprintf("Error creating keywrap cipher: %s", err))
+			}
+
+			cipherSecret, err = keywrap.Wrap(cipher, plainSecret)
+			if err != nil {
+				return util.NewNewtError(fmt.Sprintf("Error key-wrapping: %s", err))
+			}
+		} else if b.Type != "PUBLIC KEY" && b.Type != "RSA PUBLIC KEY" {
+			return util.NewNewtError("Invalid PEM file")
+		} else {
+			pub, err := x509.ParsePKIXPublicKey(b.Bytes)
+			if err != nil {
+				return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
+			}
+
+			var pubk *rsa.PublicKey
+			switch pub.(type) {
+			case *rsa.PublicKey:
+				pubk = pub.(*rsa.PublicKey)
+			default:
+				return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
+			}
+
+			rng := rand.Reader
+			cipherSecret, err = rsa.EncryptOAEP(sha256.New(), rng, pubk, plainSecret, nil)
+			if err != nil {
+				return util.NewNewtError(fmt.Sprintf("Error from encryption: %s\n", err))
+			}
 		}
 	}
 
@@ -1187,8 +1210,15 @@ func (image *Image) generateV2(loader *Image) error {
 	}
 
 	if cipherSecret != nil {
+		if len(cipherSecret) == 256 {
+			_type = IMAGE_TLV_ENC_RSA
+		} else if len(cipherSecret) == 24 {
+			_type = IMAGE_TLV_ENC_KEK
+		} else {
+			return util.NewNewtError(fmt.Sprintf("Invalid enc TLV size "))
+		}
 		tlv := &ImageTrailerTlv{
-			Type: IMAGE_TLV_ENCKEY,
+			Type: _type,
 			Pad:  0,
 			Len:  uint16(len(cipherSecret)),
 		}
