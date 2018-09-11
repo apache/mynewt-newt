@@ -71,3 +71,6 @@ ugorji
 
 # go-coap - MIT license.
 go-coap
+
+# go-aes-key-wrap - MIT license.
+go-aes-key-wrap
