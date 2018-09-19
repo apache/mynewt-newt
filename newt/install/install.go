@@ -188,18 +188,21 @@ func NewInstaller(repos deprepo.RepoMap,
 	}
 
 	// Detect the installed versions of all repos.
+	var firstErr error
 	for n, r := range inst.repos {
 		if !r.IsLocal() && !r.IsNewlyCloned() {
 			ver, err := detectVersion(r)
 			if err != nil {
-				return inst, err
+				if firstErr == nil {
+					firstErr = err
+				}
+			} else {
+				inst.vers[n] = ver
 			}
-
-			inst.vers[n] = ver
 		}
 	}
 
-	return inst, nil
+	return inst, firstErr
 }
 
 // Retrieves the installed version of the specified repo.  Versions get
@@ -535,6 +538,7 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	}
 
 	for {
+		fmt.Printf("Proceed? [Y/n] ")
 		line, more, err := bufio.NewReader(os.Stdin).ReadLine()
 		if more || err != nil {
 			return false, util.ChildNewtError(err)
@@ -695,6 +699,45 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	return vm, nil
 }
 
+// Checks if any repos in the specified slice are in a dirty state.  If any
+// repos are dirty and `force` is *not* enabled, an error is returned.  If any
+// repos are dirty and `force` is enabled, a warning is displayed.
+func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
+	// [repo] => dirty-state.
+	var m map[*repo.Repo]string
+
+	// Collect all dirty repos and insert them into m.
+	for _, r := range repos {
+		dirtyState, err := r.DirtyState()
+		if err != nil {
+			return err
+		}
+
+		if dirtyState != "" {
+			if m == nil {
+				m = make(map[*repo.Repo]string)
+				m[r] = dirtyState
+			}
+		}
+	}
+
+	if len(m) > 0 {
+		s := "some repos are in a dirty state:\n"
+		for r, d := range m {
+			s += fmt.Sprintf("    %s: contains %s\n", r.Name(), d)
+		}
+
+		if !force {
+			s += "Specify the `-f` (force) switch to attempt anyway"
+			return util.NewNewtError(s)
+		} else {
+			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", s)
+		}
+	}
+
+	return nil
+}
+
 // Installs the specified set of repos.
 func (inst *Installer) Install(
 	candidates []*repo.Repo, force bool, ask bool) error {
@@ -759,7 +802,13 @@ func (inst *Installer) Install(
 }
 
 // Installs or upgrades the specified set of repos.
-func (inst *Installer) Upgrade(candidates []*repo.Repo, ask bool) error {
+func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
+	ask bool) error {
+
+	if err := verifyRepoDirtyState(candidates, force); err != nil {
+		return err
+	}
+
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
 		return err
@@ -801,7 +850,13 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, ask bool) error {
 }
 
 // Syncs the specified set of repos.
-func (inst *Installer) Sync(candidates []*repo.Repo, ask bool) error {
+func (inst *Installer) Sync(candidates []*repo.Repo,
+	force bool, ask bool) error {
+
+	if err := verifyRepoDirtyState(candidates, force); err != nil {
+		return err
+	}
+
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
 		return err
@@ -842,6 +897,92 @@ func (inst *Installer) Sync(candidates []*repo.Repo, ask bool) error {
 
 	if anyFails {
 		return util.FmtNewtError("Failed to sync")
+	}
+
+	return nil
+}
+
+type repoInfo struct {
+	installedVer *newtutil.RepoVersion
+	errorText    string
+	dirtyState   string
+	needsUpgrade bool
+}
+
+// Collects information about the specified repo.  If a version map is provided
+// (i.e., vm is not nil), this function also queries the repo's remote to
+// determine if the repo can be upgraded.
+func (inst *Installer) gatherInfo(r *repo.Repo,
+	vm *deprepo.VersionMap) repoInfo {
+
+	ri := repoInfo{}
+
+	if !r.CheckExists() {
+		return ri
+	}
+
+	ver, err := r.InstalledVersion()
+	if err != nil {
+		ri.errorText = strings.TrimSpace(err.Error())
+		return ri
+	}
+	ri.installedVer = ver
+
+	dirty, err := r.DirtyState()
+	if err != nil {
+		ri.errorText = strings.TrimSpace(err.Error())
+		return ri
+	}
+	ri.dirtyState = dirty
+
+	if vm != nil {
+		if ver == nil || *ver != (*vm)[r.Name()] {
+			ri.needsUpgrade = true
+		}
+	}
+
+	return ri
+}
+
+// Prints out information about the specified repos:
+//     * Currently installed version.
+//     * Whether upgrade is possible.
+//     * Whether repo is in a dirty state.
+//
+// @param repos                 The set of repositories to inspect.
+// @param remote                Whether to perform any remote queries to
+//                                  determine if upgrades are needed.
+func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
+	var vmp *deprepo.VersionMap
+
+	if remote {
+		vm, err := inst.calcVersionMap(repos)
+		if err != nil {
+			return err
+		}
+
+		vmp = &vm
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
+	for _, r := range repos {
+		ri := inst.gatherInfo(r, vmp)
+		s := fmt.Sprintf("    * %s:", r.Name())
+
+		if ri.installedVer == nil {
+			s += " (not installed)"
+		} else if ri.errorText != "" {
+			s += fmt.Sprintf(" (unknown: %s)", ri.errorText)
+		} else {
+			s += fmt.Sprintf(" %s", ri.installedVer.String())
+			if ri.dirtyState != "" {
+				s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
+			}
+			if ri.needsUpgrade {
+				s += " (needs upgrade)"
+			}
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 	}
 
 	return nil

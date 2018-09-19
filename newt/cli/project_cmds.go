@@ -33,6 +33,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+var infoRemote bool
+
 func newRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify "+
@@ -91,7 +93,7 @@ func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
 	return func(r *repo.Repo) bool {
 		if !r.IsLocal() {
 			for _, arg := range repoNames {
-				if r.Name() == arg {
+				if strings.TrimPrefix(r.Name(), "@") == arg {
 					return true
 				}
 			}
@@ -125,31 +127,26 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func infoRunCmd(cmd *cobra.Command, args []string) {
-	reqRepoName := ""
-	if len(args) >= 1 {
-		reqRepoName = strings.TrimPrefix(args[0], "@")
+	proj := TryGetProject()
+
+	// If no arguments specified, print status of all installed repos.
+	if len(args) == 0 {
+		pred := func(r *repo.Repo) bool { return !r.IsLocal() }
+
+		if err := proj.InfoIf(pred, infoRemote); err != nil {
+			NewtUsage(nil, err)
+		}
+		return
 	}
 
-	proj := TryGetProject()
+	// Otherwise, list packages specified repo contains.
+	reqRepoName := strings.TrimPrefix(args[0], "@")
 
 	repoNames := []string{}
 	for repoName, _ := range proj.PackageList() {
 		repoNames = append(repoNames, repoName)
 	}
 	sort.Strings(repoNames)
-
-	if reqRepoName == "" {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Repositories in %s:\n",
-			proj.Name())
-
-		for _, repoName := range repoNames {
-			util.StatusMessage(util.VERBOSITY_DEFAULT, "    * @%s\n", repoName)
-		}
-
-		// Now display the packages in the local repository.
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
-		reqRepoName = "local"
-	}
 
 	firstRepo := true
 	for _, repoName := range repoNames {
@@ -276,6 +273,9 @@ func AddProjectCommands(cmd *cobra.Command) {
 		Example: infoHelpEx,
 		Run:     infoRunCmd,
 	}
+	infoCmd.PersistentFlags().BoolVarP(&infoRemote,
+		"remote", "r", false,
+		"Fetch latest repos to determine if upgrades are required")
 
 	cmd.AddCommand(infoCmd)
 }

@@ -217,7 +217,7 @@ func (r *Repo) downloadRepo(commit string) error {
 	return nil
 }
 
-func (r *Repo) checkExists() bool {
+func (r *Repo) CheckExists() bool {
 	return util.NodeExist(r.Path())
 }
 
@@ -234,6 +234,15 @@ func (r *Repo) updateRepo(commit string) error {
 	}
 
 	return nil
+}
+
+// Indicates whether the specified repo is in a clean or dirty state.
+//
+// @return string               Text describing repo's dirty state, or "" if
+//                                  clean.
+// @return error                Error.
+func (r *Repo) DirtyState() (string, error) {
+	return r.downloader.DirtyState(r.Path())
 }
 
 func (r *Repo) Install(ver newtutil.RepoVersion) error {
@@ -253,17 +262,6 @@ func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 	commit, err := r.CommitFromVer(ver)
 	if err != nil {
 		return err
-	}
-
-	changes, err := r.downloader.AreChanges(r.Path())
-	if err != nil {
-		return err
-	}
-
-	if changes {
-		return util.FmtNewtError(
-			"Repository \"%s\" contains local changes.  Please resolve "+
-				"changes manually and try again.", r.Name())
 	}
 
 	if err := r.updateRepo(commit); err != nil {
@@ -353,7 +351,7 @@ func (r *Repo) UpdateDesc() (bool, error) {
 
 func (r *Repo) ensureExists() error {
 	// Clone the repo if it doesn't exist.
-	if util.NodeNotExist(r.localPath) {
+	if !r.CheckExists() {
 		if err := r.downloadRepo("master"); err != nil {
 			return err
 		}
