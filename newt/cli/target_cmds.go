@@ -40,7 +40,6 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-var targetForce bool = false
 var amendDelete bool = false
 
 // target variables that can have values amended with the amend command.
@@ -455,7 +454,7 @@ func targetCreateCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetDelOne(t *target.Target) error {
-	if !targetForce {
+	if !newtutil.NewtForce {
 		// Determine if the target directory contains extra user files.  If it
 		// does, a prompt (or force) is required to delete it.
 		userFiles, err := targetContainsUserFiles(t)
@@ -596,7 +595,7 @@ func printBriefSetting(entry syscfg.CfgEntry) {
 		extras = append(extras, s)
 	}
 
-	if len(extras) > 0{
+	if len(extras) > 0 {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, " (%s)",
 			strings.Join(extras, ", "))
 	}
@@ -816,7 +815,7 @@ func targetConfigInitCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if anyExist && !targetForce {
+	if anyExist && !newtutil.NewtForce {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Configuration files already exist:\n")
 		for _, e := range entries {
