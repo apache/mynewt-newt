@@ -696,3 +696,20 @@ func StringMapStringToItfMapItf(
 
 	return imi
 }
+
+// FileContains indicates whether the specified file's contents are equal to
+// the provided byte slice.
+func FileContains(contents []byte, path string) (bool, error) {
+	oldSrc, err := ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist; contents aren't equal.
+			return false, nil
+		}
+
+		return false, NewNewtError(err.Error())
+	}
+
+	rc := bytes.Compare(oldSrc, contents)
+	return rc == 0, nil
+}
