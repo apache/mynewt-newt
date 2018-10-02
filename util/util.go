@@ -683,3 +683,16 @@ func TryRelPath(full string) string {
 
 	return rel
 }
+
+// StringMapStringToItfMapItf converts a map[string]string to the more generic
+// map[interface{}]interface{} type.
+func StringMapStringToItfMapItf(
+	sms map[string]string) map[interface{}]interface{} {
+
+	imi := map[interface{}]interface{}{}
+	for k, v := range sms {
+		imi[k] = v
+	}
+
+	return imi
+}
