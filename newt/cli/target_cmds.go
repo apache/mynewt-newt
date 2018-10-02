@@ -92,7 +92,6 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 
 //Process amend command for syscfg target variable
 func amendSysCfg(value string, t *target.Target) error {
-
 	// Get the current syscfg.vals name-value pairs
 	sysVals := t.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil)
 
@@ -118,7 +117,9 @@ func amendSysCfg(value string, t *target.Target) error {
 			sysVals = amendSysVals
 		}
 	}
-	t.Package().SyscfgY.Replace("syscfg.vals", sysVals)
+
+	itfMap := util.StringMapStringToItfMapItf(sysVals)
+	t.Package().SyscfgY.Replace("syscfg.vals", itfMap)
 	return nil
 }
 
@@ -310,7 +311,8 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				NewtUsage(cmd, err)
 			}
 
-			t.Package().SyscfgY.Replace("syscfg.vals", kv)
+			itfMap := util.StringMapStringToItfMapItf(kv)
+			t.Package().SyscfgY.Replace("syscfg.vals", itfMap)
 		} else if kv[0] == "target.cflags" ||
 			kv[0] == "target.cxxflags" ||
 			kv[0] == "target.lflags" ||
