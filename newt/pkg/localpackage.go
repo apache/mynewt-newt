@@ -65,6 +65,10 @@ type LocalPackage struct {
 	// sysinit C file.
 	init map[string]int
 
+	// Package shutdown function name and stage.  These are used to generate
+	// the sysdown C file.
+	downFuncs map[string]int
+
 	// Extra package-specific settings that don't come from syscfg.  For
 	// example, SELFTEST gets set when the newt test command is used.
 	injectedSettings map[string]string
@@ -87,6 +91,7 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		repo:             r,
 		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
 		init:             map[string]int{},
+		downFuncs:        map[string]int{},
 		injectedSettings: map[string]string{},
 	}
 	return pkg
@@ -361,11 +366,22 @@ func (pkg *LocalPackage) Load() error {
 		}
 		pkg.init[name] = int(stage)
 	}
+
+	// Backwards compatibility: allow old sysinit notation.
 	initFnName := pkg.PkgY.GetValString("pkg.init_function", nil)
 	initStage := pkg.PkgY.GetValInt("pkg.init_stage", nil)
-
 	if initFnName != "" {
 		pkg.init[initFnName] = initStage
+	}
+
+	down := pkg.PkgY.GetValStringMapString("pkg.down", nil)
+	for name, stageStr := range down {
+		stage, err := strconv.ParseInt(stageStr, 10, 64)
+		if err != nil {
+			return util.NewNewtError(fmt.Sprintf("Parsing pkg %s config: %s",
+				pkg.FullName(), err.Error()))
+		}
+		pkg.downFuncs[name] = int(stage)
 	}
 
 	// Read the package description from the file
@@ -389,6 +405,10 @@ func (pkg *LocalPackage) Load() error {
 
 func (pkg *LocalPackage) Init() map[string]int {
 	return pkg.init
+}
+
+func (pkg *LocalPackage) DownFuncs() map[string]int {
+	return pkg.downFuncs
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {
