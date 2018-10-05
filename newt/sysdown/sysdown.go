@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package sysinit
+package sysdown
 
 import (
 	"bytes"
@@ -29,15 +29,19 @@ import (
 	"mynewt.apache.org/newt/newt/stage"
 )
 
-func initFuncs(pkgs []*pkg.LocalPackage) []stage.StageFunc {
+// downFuncs collects the sysdown functions corresponding to the provided
+// packages.
+func downFuncs(pkgs []*pkg.LocalPackage) []stage.StageFunc {
 	fns := make([]stage.StageFunc, 0, len(pkgs))
 	for _, p := range pkgs {
-		initMap := p.Init()
-		for name, stageNum := range initMap {
+		downMap := p.DownFuncs()
+		for name, stageNum := range downMap {
 			fn := stage.StageFunc{
-				Name:  name,
-				Stage: stageNum,
-				Pkg:   p,
+				Name:       name,
+				Stage:      stageNum,
+				ReturnType: "int",
+				ArgList:    "int reason",
+				Pkg:        p,
 			}
 			fns = append(fns, fn)
 		}
@@ -46,55 +50,29 @@ func initFuncs(pkgs []*pkg.LocalPackage) []stage.StageFunc {
 	return fns
 }
 
-func sortedInitFuncs(pkgs []*pkg.LocalPackage) []stage.StageFunc {
-	fns := initFuncs(pkgs)
-	stage.SortStageFuncs(fns, "sysinit")
+func sortedDownFuncs(pkgs []*pkg.LocalPackage) []stage.StageFunc {
+	fns := downFuncs(pkgs)
+	stage.SortStageFuncs(fns, "sysdown")
 	return fns
 }
 
-func write(pkgs []*pkg.LocalPackage, isLoader bool,
-	w io.Writer) {
-
+func write(pkgs []*pkg.LocalPackage, w io.Writer) {
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
-	if isLoader {
-		fmt.Fprintf(w, "#if SPLIT_LOADER\n\n")
-	} else {
-		fmt.Fprintf(w, "#if !SPLIT_LOADER\n\n")
-	}
-
-	fns := sortedInitFuncs(pkgs)
-
+	fns := sortedDownFuncs(pkgs)
 	stage.WritePrototypes(fns, w)
 
-	var fnName string
-	if isLoader {
-		fnName = "sysinit_loader"
-	} else {
-		fnName = "sysinit_app"
-	}
-
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "void\n%s(void)\n{\n", fnName)
-
-	stage.WriteCalls(fns, "", w)
-
-	fmt.Fprintf(w, "}\n\n")
-	fmt.Fprintf(w, "#endif\n")
+	fmt.Fprintf(w, "\nint (* const sysdown_cbs[])(int reason) = {\n")
+	stage.WriteArr(fns, w)
+	fmt.Fprintf(w, "};\n")
 }
 
-func EnsureWritten(pkgs []*pkg.LocalPackage, srcDir string, targetName string,
-	isLoader bool) error {
+func EnsureWritten(pkgs []*pkg.LocalPackage, srcDir string,
+	targetName string) error {
 
 	buf := bytes.Buffer{}
-	write(pkgs, isLoader, &buf)
+	write(pkgs, &buf)
 
-	var path string
-	if isLoader {
-		path = fmt.Sprintf("%s/%s-sysinit-loader.c", srcDir, targetName)
-	} else {
-		path = fmt.Sprintf("%s/%s-sysinit-app.c", srcDir, targetName)
-	}
-
+	path := fmt.Sprintf("%s/%s-sysdown.c", srcDir, targetName)
 	return stage.EnsureWritten(path, buf.Bytes())
 }
