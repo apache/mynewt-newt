@@ -361,9 +361,10 @@ func (pkg *LocalPackage) Load() error {
 		}
 		pkg.init[name] = int(stage)
 	}
+
+	// Backwards compatibility: allow old sysinit notation.
 	initFnName := pkg.PkgY.GetValString("pkg.init_function", nil)
 	initStage := pkg.PkgY.GetValInt("pkg.init_stage", nil)
-
 	if initFnName != "" {
 		pkg.init[initFnName] = initStage
 	}
@@ -389,6 +390,26 @@ func (pkg *LocalPackage) Load() error {
 
 func (pkg *LocalPackage) Init() map[string]int {
 	return pkg.init
+}
+
+// DownFuncs retrieves the package's shutdown functions.  The returned map has:
+// key=C-function-name, value=numeric-stage.
+func (pkg *LocalPackage) DownFuncs(
+	settings map[string]string) (map[string]int, error) {
+
+	downFuncs := map[string]int{}
+
+	down := pkg.PkgY.GetValStringMapString("pkg.down", settings)
+	for name, stageStr := range down {
+		stage, err := strconv.ParseInt(stageStr, 10, 64)
+		if err != nil {
+			return nil, util.FmtNewtError("Parsing pkg %s config: %s",
+				pkg.FullName(), err.Error())
+		}
+		downFuncs[name] = int(stage)
+	}
+
+	return downFuncs, nil
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {
