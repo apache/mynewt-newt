@@ -45,6 +45,7 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/syscfg"
+	"mynewt.apache.org/newt/newt/sysdown"
 	"mynewt.apache.org/newt/newt/sysinit"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
@@ -172,6 +173,10 @@ func (t *TargetBuilder) ensureResolved() error {
 		appSeeds = append(appSeeds, t.testPkg)
 	}
 
+	// Indicate to the apache-mynewt-core code that this version of newt
+	// supports the sysdown mechanism (generated package shutdown functions).
+	t.injectedSettings["NEWT_FEATURE_SYSDOWN"] = "1"
+
 	var err error
 	t.res, err = resolve.ResolveFull(
 		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap)
@@ -237,6 +242,20 @@ func (t *TargetBuilder) generateSysinit() error {
 	return nil
 }
 
+func (t *TargetBuilder) generateSysdown() error {
+	if err := t.ensureResolved(); err != nil {
+		return err
+	}
+
+	srcDir := GeneratedSrcDir(t.target.Name())
+
+	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
+	sysdown.EnsureWritten(lpkgs, t.res.Cfg, srcDir,
+		pkg.ShortName(t.target.Package()))
+
+	return nil
+}
+
 func (t *TargetBuilder) generateFlashMap() error {
 	return t.bspPkg.FlashMap.EnsureWritten(
 		GeneratedSrcDir(t.target.Name()),
@@ -246,6 +265,10 @@ func (t *TargetBuilder) generateFlashMap() error {
 
 func (t *TargetBuilder) generateCode() error {
 	if err := t.generateSysinit(); err != nil {
+		return err
+	}
+
+	if err := t.generateSysdown(); err != nil {
 		return err
 	}
 
