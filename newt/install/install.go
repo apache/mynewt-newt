@@ -650,6 +650,12 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 		return nil, err
 	}
 
+	log.Debugf("\n%s", m.String())
+
+	deprepo.FilterMatrixOnNewtCompat(&m, inst.repos)
+
+	log.Debugf("\n%s", m.String())
+
 	// Remove blocked repo versions from the table.
 	if err := deprepo.PruneMatrix(
 		&m, inst.repos, inst.reqs); err != nil {
