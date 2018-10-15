@@ -76,6 +76,12 @@ func normalizeCommit(commit string) string {
 // Retrieves the repo's currently checked-out hash.
 func (r *Repo) CurrentHash() (string, error) {
 	dl := r.downloader
+	if dl == nil {
+		return "",
+			util.FmtNewtError("No downloader for %s",
+				r.Name())
+	}
+
 	commit, err := dl.HashFor(r.Path(), "HEAD")
 	if err != nil {
 		return "",

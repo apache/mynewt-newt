@@ -102,6 +102,10 @@ func (r *Repo) ignoreDir(dir string) bool {
 	return false
 }
 
+func (r *Repo) Downloader() downloader.Downloader {
+	return r.downloader
+}
+
 func (repo *Repo) FilteredSearchList(
 	curPath string, searchedMap map[string]struct{}) ([]string, error) {
 

@@ -366,22 +366,6 @@ func (proj *Project) loadRepo(name string, fields map[string]string) (
 		return r, err
 	}
 
-	// Warn the user about incompatibilities with this version of newt.
-	ver, err := proj.GetRepoVersion(name)
-	if err != nil {
-		return nil, err
-	}
-	if ver != nil {
-		code, msg := r.CheckNewtCompatibility(*ver, newtutil.NewtVersion)
-		switch code {
-		case compat.NEWT_COMPAT_GOOD:
-		case compat.NEWT_COMPAT_WARN:
-			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
-		case compat.NEWT_COMPAT_ERROR:
-			return nil, util.NewNewtError(msg)
-		}
-	}
-
 	// XXX: This log message assumes a "github" type repo.
 	log.Debugf("Loaded repository %s (type: %s, user: %s, repo: %s)", name,
 		fields["type"], fields["user"], fields["repo"])
@@ -491,6 +475,40 @@ func (proj *Project) downloadRepositoryYmlFiles() error {
 	return nil
 }
 
+func (proj *Project) verifyNewtCompat() error {
+	var errors []string
+
+	for name, r := range proj.repos {
+		// If a repo doesn't have a downloader then it is
+		// a project root that is not a repository
+		if r.Downloader() == nil {
+			continue
+		}
+
+		ver, err := proj.GetRepoVersion(name)
+		if err != nil {
+			return err
+		}
+
+		if ver != nil {
+			code, msg := r.CheckNewtCompatibility(*ver, newtutil.NewtVersion)
+			switch code {
+			case compat.NEWT_COMPAT_GOOD:
+			case compat.NEWT_COMPAT_WARN:
+				util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+			case compat.NEWT_COMPAT_ERROR:
+				errors = append(errors, msg)
+			}
+		}
+	}
+
+	if errors != nil {
+		return util.NewNewtError(strings.Join(errors, "\n"))
+	}
+
+	return nil
+}
+
 func (proj *Project) loadConfig() error {
 	yc, err := newtutil.ReadConfig(proj.BasePath,
 		strings.TrimSuffix(PROJECT_FILE_NAME, ".yml"))
@@ -540,6 +558,11 @@ func (proj *Project) loadConfig() error {
 	// These repos might not be specified in the `project.yml` file, but they
 	// are still part of the project.
 	if err := proj.loadRepoDeps(false); err != nil {
+		return err
+	}
+
+	// Warn the user about incompatibilities with this version of newt.
+	if err := proj.verifyNewtCompat(); err != nil {
 		return err
 	}
 
