@@ -68,6 +68,8 @@ const SYSCFG_PRIO_ANY = "any"
 // Reserve last 16 priorities for the system (sanity, idle).
 const SYSCFG_TASK_PRIO_MAX = 0xef
 
+var cfgRefRe = regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
+
 var cfgSettingNameTypeMap = map[string]CfgSettingType{
 	"raw":           CFG_SETTING_TYPE_RAW,
 	"task_priority": CFG_SETTING_TYPE_TASK_PRIO,
@@ -180,34 +182,50 @@ func (cfg *Cfg) SettingValues() map[string]string {
 	return values
 }
 
-func (cfg *Cfg) ResolveValueRefs() {
-	re := regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
-	for k, entry := range cfg.Settings {
-		value := strings.TrimSpace(entry.Value)
-
-		m := re.FindStringSubmatch(value)
-		if len(m) == 0 || len(m[0]) != len(value) {
-			// either there is no reference or there's something else besides
-			// reference - skip it
-			// TODO we may want to emit warning in the latter case (?)
-			continue
-		}
-
-		newName := m[1]
-
+func ResolveValueRefName(val string) string {
+	// If the value has the `MYNEWT_VAL([...])` notation, then extract the
+	// parenthesized identifier.
+	m := cfgRefRe.FindStringSubmatch(val)
+	if m == nil {
+		return ""
+	} else {
 		// TODO we may try to resolve nested references...
+		return m[1]
+	}
+}
 
-		newEntry, exists := cfg.Settings[newName]
-		entry.ValueRefName = newName
-		if exists {
-			entry.Value = newEntry.Value
-		} else {
-			// set unresolved setting value to 0, this way restrictions
-			// can be evaluated and won't create spurious warnings
+func (cfg *Cfg) ExpandRef(val string) (string, string, error) {
+	refName := ResolveValueRefName(val)
+	if refName == "" {
+		// Not a reference.
+		return "", val, nil
+	}
+
+	entry, ok := cfg.Settings[refName]
+	if !ok {
+		return "", "", util.FmtNewtError(
+			"setting value \"%s\" references undefined setting", val)
+	}
+
+	return entry.Name, entry.Value, nil
+
+}
+
+func (cfg *Cfg) ResolveValueRefs() {
+	for k, entry := range cfg.Settings {
+		refName, val, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
+		if err != nil {
+			// Referenced setting doesn't exist.  Set unresolved setting value
+			// to 0, this way restrictions can be evaluated and won't create
+			// spurious warnings.
 			entry.Value = "0"
 			cfg.UnresolvedValueRefs[k] = struct{}{}
+			cfg.Settings[k] = entry
+		} else if refName != "" {
+			entry.ValueRefName = refName
+			entry.Value = val
+			cfg.Settings[k] = entry
 		}
-		cfg.Settings[k] = entry
 	}
 }
 
