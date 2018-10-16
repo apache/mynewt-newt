@@ -101,6 +101,9 @@ func NewTargetTester(target *target.Target,
 		injectedSettings: map[string]string{},
 	}
 
+	// Indicate that this version of newt supports the generated logcfg header.
+	t.InjectSetting("NEWT_FEATURE_LOGCFG", "1")
+
 	return t, nil
 }
 
@@ -214,6 +217,12 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	}
 
 	if err := syscfg.EnsureWritten(t.res.Cfg,
+		GeneratedIncludeDir(t.target.Name())); err != nil {
+
+		return err
+	}
+
+	if err := t.res.LCfg.EnsureWritten(
 		GeneratedIncludeDir(t.target.Name())); err != nil {
 
 		return err

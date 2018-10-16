@@ -27,11 +27,12 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/flash"
+	"mynewt.apache.org/newt/newt/logcfg"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/syscfg"
-	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/newt/ycfg"
+	"mynewt.apache.org/newt/util"
 )
 
 // Represents a supplied API.
@@ -58,6 +59,7 @@ type Resolver struct {
 	injectedSettings map[string]string
 	flashMap         flash.FlashMap
 	cfg              syscfg.Cfg
+	lcfg             logcfg.LCfg
 
 	// [api-name][api-supplier]
 	apiConflicts map[string]map[*ResolvePackage]struct{}
@@ -104,6 +106,7 @@ type ApiConflict struct {
 // The result of resolving a target's configuration, APIs, and dependencies.
 type Resolution struct {
 	Cfg             syscfg.Cfg
+	LCfg            logcfg.LCfg
 	ApiMap          map[string]*ResolvePackage
 	UnsatisfiedApis map[string][]*ResolvePackage
 	ApiConflicts    []ApiConflict
@@ -540,6 +543,9 @@ func (r *Resolver) resolveDepsAndCfg() error {
 		return err
 	}
 
+	lpkgs := RpkgSliceToLpkgSlice(r.rpkgSlice())
+	r.lcfg = logcfg.Read(lpkgs, &r.cfg)
+
 	// Log the final syscfg.
 	r.cfg.Log()
 
@@ -632,6 +638,7 @@ func ResolveFull(
 
 	res := newResolution()
 	res.Cfg = r.cfg
+	res.LCfg = r.lcfg
 
 	// Determine which package satisfies each API and which APIs are
 	// unsatisfied.
@@ -748,6 +755,7 @@ func (res *Resolution) ErrorText() string {
 	}
 
 	str += res.Cfg.ErrorText()
+	str += res.LCfg.ErrorText()
 
 	str = strings.TrimSpace(str)
 	if str != "" {
