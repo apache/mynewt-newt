@@ -31,6 +31,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/logcfg"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/resolve"
@@ -778,6 +779,145 @@ func targetConfigBriefCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func logModuleString(ls logcfg.LogSetting) string {
+	intVal, _ := ls.IntVal()
+
+	s := fmt.Sprintf("%d", intVal)
+	if ls.RefName != "" {
+		s += fmt.Sprintf("%*s [%s]", 16-len(s), "", ls.RefName)
+	}
+
+	return s
+}
+
+func logLevelString(ls logcfg.LogSetting) string {
+	intVal, _ := ls.IntVal()
+
+	s := fmt.Sprintf("%d (%s)", intVal, logcfg.LogLevelString(intVal))
+	if ls.RefName != "" {
+		s += fmt.Sprintf("%*s [%s]", 16-len(s), "", ls.RefName)
+	}
+
+	return s
+}
+
+func printLogCfgOne(l logcfg.Log) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s:\n", l.Name)
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Package: %s\n",
+		l.Source.FullName())
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Module:  %s\n",
+		logModuleString(l.Module))
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Level:   %s\n",
+		logLevelString(l.Level))
+}
+
+func printLogCfg(targetName string, lcfg logcfg.LCfg) {
+	if errText := lcfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Log config for %s:\n",
+		targetName)
+
+	logNames := make([]string, 0, len(lcfg.Logs))
+	for name, _ := range lcfg.Logs {
+		logNames = append(logNames, name)
+	}
+	sort.Strings(logNames)
+
+	for i, logName := range logNames {
+		if i > 0 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+		printLogCfgOne(lcfg.Logs[logName])
+	}
+}
+
+func targetLogShowCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printLogCfg(b.GetTarget().Name(), res.LCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func printLogCfgBriefOne(l logcfg.Log, colWidth int) {
+	intMod, _ := l.Module.IntVal()
+	intLevel, _ := l.Level.IntVal()
+
+	levelStr := fmt.Sprintf("%d (%s)", intLevel, logcfg.LogLevelString(intLevel))
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%*s | %-8d | %-12s\n",
+		colWidth, l.Name, intMod, levelStr)
+}
+
+func printLogCfgBrief(targetName string, lcfg logcfg.LCfg) {
+	if errText := lcfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief log config for %s:\n",
+		targetName)
+
+	longest := 0
+	logNames := make([]string, 0, len(lcfg.Logs))
+	for name, _ := range lcfg.Logs {
+		logNames = append(logNames, name)
+		if len(name) > longest {
+			longest = len(name)
+		}
+	}
+	sort.Strings(logNames)
+
+	colWidth := longest + 4
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"%*s | MODULE   | LEVEL\n", colWidth, "LOG")
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"%s-+----------+--------------\n",
+		strings.Repeat("-", colWidth))
+	for _, logName := range logNames {
+		printLogCfgBriefOne(lcfg.Logs[logName], colWidth)
+	}
+}
+
+func targetLogBriefCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printLogCfgBrief(b.GetTarget().Name(), res.LCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
 func targetConfigInitCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd,
@@ -1127,6 +1267,43 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	configCmd.AddCommand(configInitCmd)
 	AddTabCompleteFn(configInitCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	logHelpText := "View a target's log configuration"
+
+	logCmd := &cobra.Command{
+		Use:   "logcfg",
+		Short: logHelpText,
+		Long:  logHelpText,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Usage()
+		},
+	}
+
+	targetCmd.AddCommand(logCmd)
+
+	logShowCmd := &cobra.Command{
+		Use:   "show <target> [target...]",
+		Short: "View a target's log configuration",
+		Long:  "View a target's log configuration",
+		Run:   targetLogShowCmd,
+	}
+
+	logCmd.AddCommand(logShowCmd)
+	AddTabCompleteFn(logShowCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	logBriefCmd := &cobra.Command{
+		Use:   "brief <target> [target...]",
+		Short: "View a summary of target's log configuration",
+		Long:  "View a summary of target's log configuration",
+		Run:   targetLogBriefCmd,
+	}
+
+	logCmd.AddCommand(logBriefCmd)
+	AddTabCompleteFn(logBriefCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 
