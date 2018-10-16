@@ -125,6 +125,7 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/newt/compat"
 )
 
 type installOp int
@@ -736,6 +737,29 @@ func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
 	}
 
 	return nil
+
+}
+
+func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
+	var errors []string
+
+	for _, r := range repos {
+		destVer := vm[r.Name()]
+		code, msg := r.CheckNewtCompatibility(destVer, newtutil.NewtVersion)
+
+		switch code {
+		case compat.NEWT_COMPAT_WARN:
+			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", msg)
+		case compat.NEWT_COMPAT_ERROR:
+			errors = append(errors, msg)
+		}
+	}
+
+	if errors != nil {
+		return util.NewNewtError(strings.Join(errors, "\n"))
+	}
+
+	return nil
 }
 
 // Installs the specified set of repos.
@@ -769,6 +793,10 @@ func (inst *Installer) Install(
 
 	repos, err := inst.versionMapRepos(vm)
 	if err != nil {
+		return err
+	}
+
+	if err := verifyNewtCompat(repos, vm); err != nil {
 		return err
 	}
 
@@ -832,6 +860,10 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 
 	repos, err := inst.versionMapRepos(vm)
 	if err != nil {
+		return err
+	}
+
+	if err := verifyNewtCompat(repos, vm); err != nil {
 		return err
 	}
 
