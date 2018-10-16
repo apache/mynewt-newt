@@ -485,6 +485,11 @@ func (proj *Project) verifyNewtCompat() error {
 			continue
 		}
 
+		// Cannot verify version if project is not installed
+		if !proj.RepoIsInstalled(name) {
+			continue
+		}
+
 		ver, err := proj.GetRepoVersion(name)
 		if err != nil {
 			return err
