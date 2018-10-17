@@ -315,6 +315,6 @@ func SizeReport(elfFilePath, srcBase string, sectionName string, diffFriendly bo
 		}
 	}
 	fmt.Printf("%s report:\n", sectionName)
-	fmt.Printf("%v", sectionNodes.ToString(sectionRegion.TotalSize))
+	fmt.Printf("%v", sectionNodes.ToString(sectionRegion.TotalSize, diffFriendly))
 	return nil
 }

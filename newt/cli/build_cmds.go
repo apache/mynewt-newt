@@ -101,6 +101,7 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 
 var extraJtagCmd string
 var noGDB_flag bool
+var diffFriendly_flag bool
 
 func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, executeShell bool) {
 	if len(args) < 1 {
@@ -398,7 +399,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool, section
 
 	if len(sections) > 0 {
 		for _, sectionName := range sections {
-			if err := b.SizeReport(sectionName, true); err != nil {
+			if err := b.SizeReport(sectionName, diffFriendly_flag); err != nil {
 				NewtUsage(cmd, err)
 			}
 		}
@@ -507,6 +508,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		},
 	}
 
+	sizeCmd.PersistentFlags().BoolVarP(&diffFriendly_flag, "diffable", "d", false,
+		"Produce diff-friendly output of statistics")
 	sizeCmd.Flags().BoolVarP(&ram, "ram", "R", false, "Print RAM statistics")
 	sizeCmd.Flags().BoolVarP(&flash, "flash", "F", false,
 		"Print FLASH statistics")

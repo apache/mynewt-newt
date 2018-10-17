@@ -56,6 +56,13 @@ type outputFormatterDefault struct {
 	symbolStr string
 }
 
+type outputFormatterDiffable struct {
+	indentStr    string
+	headerStr    string
+	containerStr string
+	symbolStr    string
+}
+
 func newSymbolFormatterDefault() *outputFormatterDefault {
 	return &outputFormatterDefault{
 		indentStr: "  ",
@@ -77,6 +84,32 @@ func (fmtr *outputFormatterDefault) Symbol(level int, name string, size uint64, 
 }
 
 func (fmtr *outputFormatterDefault) Separator() string {
+	// -1 is to cut \n
+	return strings.Repeat("=", len(fmtr.Header("", "", "")) - 1) + "\n"
+}
+
+func newSymbolFormatterDiffable() *outputFormatterDiffable {
+	return &outputFormatterDiffable{
+		indentStr:    "  ",
+		headerStr:    "%-70s %9s\n",
+		containerStr: "%-70s\n",
+		symbolStr:    "%-70s %9d\n",
+	}
+}
+
+func (fmtr *outputFormatterDiffable) Header(nameStr string, sizeStr string, percentStr string) string {
+	return fmt.Sprintf(fmtr.headerStr, nameStr, sizeStr)
+}
+
+func (fmtr *outputFormatterDiffable) Container(level int, name string, size uint64, percent float64) string {
+	return fmt.Sprintf(fmtr.containerStr, strings.Repeat(fmtr.indentStr, level) + name)
+}
+
+func (fmtr *outputFormatterDiffable) Symbol(level int, name string, size uint64, percent float64) string {
+	return fmt.Sprintf(fmtr.symbolStr, strings.Repeat(fmtr.indentStr, level) + name, size)
+}
+
+func (fmtr *outputFormatterDiffable) Separator() string {
 	// -1 is to cut \n
 	return strings.Repeat("=", len(fmtr.Header("", "", "")) - 1) + "\n"
 }
@@ -215,11 +248,15 @@ func (f *Folder) toString(fmtr outputFormatter, level int, total uint64) string 
 	return str
 }
 
-func (f *Folder) ToString(total uint64) string {
+func (f *Folder) ToString(total uint64, diffFriendly bool) string {
 	var str string
 	var fmtr outputFormatter
 
-	fmtr = newSymbolFormatterDefault()
+	if diffFriendly {
+		fmtr = newSymbolFormatterDiffable()
+	} else {
+		fmtr = newSymbolFormatterDefault()
+	}
 
 	str += fmtr.Header("Path", "Size", "%")
 	str += fmtr.Separator()
