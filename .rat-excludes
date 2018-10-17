@@ -74,3 +74,18 @@ go-coap
 
 # go-aes-key-wrap - MIT license.
 go-aes-key-wrap
+
+# go-spew - ICS license
+go-spew
+
+# go-difflib - 3-clause BSD.
+go-difflib
+
+#testify - MIT license
+testify
+
+#xordataexchange/crypt - MIT license
+crypt
+
+# etcd - Apache 2.0 license
+etcd
