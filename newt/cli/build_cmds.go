@@ -398,7 +398,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool, section
 
 	if len(sections) > 0 {
 		for _, sectionName := range sections {
-			if err := b.SizeReport(sectionName); err != nil {
+			if err := b.SizeReport(sectionName, true); err != nil {
 				NewtUsage(cmd, err)
 			}
 		}

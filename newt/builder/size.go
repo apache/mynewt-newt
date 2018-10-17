@@ -511,7 +511,7 @@ func (b *Builder) Size() error {
 	return nil
 }
 
-func (t *TargetBuilder) SizeReport(sectionName string) error {
+func (t *TargetBuilder) SizeReport(sectionName string, diffFriendly bool) error {
 
 	err := t.PrepBuild()
 
@@ -520,22 +520,22 @@ func (t *TargetBuilder) SizeReport(sectionName string) error {
 	}
 
 	fmt.Printf("Size of Application Image: %s\n", t.AppBuilder.buildName)
-	err = t.AppBuilder.SizeReport(sectionName)
+	err = t.AppBuilder.SizeReport(sectionName, diffFriendly)
 
 	if err == nil {
 		if t.LoaderBuilder != nil {
 			fmt.Printf("Size of Loader Image: %s\n", t.LoaderBuilder.buildName)
-			err = t.LoaderBuilder.SizeReport(sectionName)
+			err = t.LoaderBuilder.SizeReport(sectionName, diffFriendly)
 		}
 	}
 
 	return err
 }
 
-func (b *Builder) SizeReport(sectionName string) error {
+func (b *Builder) SizeReport(sectionName string, diffFriendly bool) error {
 	srcBase := interfaces.GetProject().Path() + "/"
 
-	err := SizeReport(b.AppElfPath(), srcBase, sectionName)
+	err := SizeReport(b.AppElfPath(), srcBase, sectionName, diffFriendly)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
