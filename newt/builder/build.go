@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -259,13 +260,13 @@ func collectCompileEntriesDir(srcDir string, c *toolchain.Compiler,
 //
 // 3. Else, "" is returned (falls back to the target's general build profile).
 func (b *Builder) buildProfileFor(bpkg *BuildPackage) string {
-	bp := bpkg.BuildProfile(b)
+	tgt := b.targetBuilder.GetTarget()
+	bp := tgt.PkgProfiles[bpkg.rpkg.Lpkg.FullName()]
 	if bp != "" {
 		return bp
 	}
 
-	tgt := b.targetBuilder.GetTarget()
-	return tgt.PkgProfiles[bpkg.rpkg.Lpkg.FullName()]
+	return bpkg.BuildProfile(b)
 }
 
 func (b *Builder) newCompiler(bpkg *BuildPackage,
@@ -278,7 +279,20 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 
 	c, err := b.targetBuilder.NewCompiler(dstDir, buildProfile)
 	if err != nil {
-		return nil, err
+		// If default build profile was used, just return an error.
+		// Otherwise we emit a warning and try with default build profile.
+		if buildProfile == "" {
+			return nil, err
+		}
+
+		log.Warnf("Unsupported build profile for package, using default build profile " +
+			"(pkg=\"%s\" build_profile=\"%s\" OS=\"%s\")",
+			bpkg.rpkg.Lpkg.FullName(), buildProfile, runtime.GOOS)
+
+		c, err = b.targetBuilder.NewCompiler(dstDir, "")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c.AddInfo(b.compilerInfo)
