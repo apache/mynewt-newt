@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"strconv"
 )
 
 type Symbol struct {
@@ -40,6 +41,77 @@ type Folder struct {
 	Name    string
 	Files   map[string]*File
 	Folders map[string]*Folder
+}
+
+type outputFormatter interface {
+	Header(nameStr string, sizeStr string, percentStr string) string
+	Container(level int, name string, size uint64, percent float64) string
+	Symbol(level int, name string, size uint64, percent float64) string
+	Separator() string
+}
+
+type outputFormatterDefault struct {
+	indentStr string
+	headerStr string
+	symbolStr string
+}
+
+type outputFormatterDiffable struct {
+	indentStr    string
+	headerStr    string
+	containerStr string
+	symbolStr    string
+}
+
+func newSymbolFormatterDefault() *outputFormatterDefault {
+	return &outputFormatterDefault{
+		indentStr: "  ",
+		headerStr: "%-59s %9s %9s\n",
+		symbolStr: "%-59s %9d %8.2f%%\n",
+	}
+}
+
+func (fmtr *outputFormatterDefault) Header(nameStr string, sizeStr string, percentStr string) string {
+	return fmt.Sprintf(fmtr.headerStr, nameStr, sizeStr, percentStr)
+}
+
+func (fmtr *outputFormatterDefault) Container(level int, name string, size uint64, percent float64) string {
+	return fmtr.Symbol(level, name, size, percent)
+}
+
+func (fmtr *outputFormatterDefault) Symbol(level int, name string, size uint64, percent float64) string {
+	return fmt.Sprintf(fmtr.symbolStr, strings.Repeat(fmtr.indentStr, level) + name, size, percent)
+}
+
+func (fmtr *outputFormatterDefault) Separator() string {
+	// -1 is to cut \n
+	return strings.Repeat("=", len(fmtr.Header("", "", "")) - 1) + "\n"
+}
+
+func newSymbolFormatterDiffable() *outputFormatterDiffable {
+	return &outputFormatterDiffable{
+		indentStr:    "  ",
+		headerStr:    "%-70s %9s\n",
+		containerStr: "%-70s\n",
+		symbolStr:    "%-70s %9d\n",
+	}
+}
+
+func (fmtr *outputFormatterDiffable) Header(nameStr string, sizeStr string, percentStr string) string {
+	return fmt.Sprintf(fmtr.headerStr, nameStr, sizeStr)
+}
+
+func (fmtr *outputFormatterDiffable) Container(level int, name string, size uint64, percent float64) string {
+	return fmt.Sprintf(fmtr.containerStr, strings.Repeat(fmtr.indentStr, level) + name)
+}
+
+func (fmtr *outputFormatterDiffable) Symbol(level int, name string, size uint64, percent float64) string {
+	return fmt.Sprintf(fmtr.symbolStr, strings.Repeat(fmtr.indentStr, level) + name, size)
+}
+
+func (fmtr *outputFormatterDiffable) Separator() string {
+	// -1 is to cut \n
+	return strings.Repeat("=", len(fmtr.Header("", "", "")) - 1) + "\n"
 }
 
 func newFolder(name string) *Folder {
@@ -127,17 +199,14 @@ func (f *Folder) addSymbol(symbol *Symbol, path string) *Symbol {
 	return sym
 }
 
-var outputFormatting string = "%-59s %9d %8.2f%%\n"
-
-func (f *File) String(indent string, level int, total uint64) string {
+func (f *File) toString(fmtr outputFormatter, level int, total uint64) string {
 	var str string
 	if f.sumSize() <= 0 {
 		return ""
 	}
 	size := f.sumSize()
 	percent := 100 * float64(size) / float64(total)
-	str += fmt.Sprintf(outputFormatting, strings.Repeat(indent, level)+
-		f.Name, size, percent)
+	str += fmtr.Container(level, f.Name, size, percent)
 
 	var sorted []string
 	for symName := range f.Symbols {
@@ -148,15 +217,13 @@ func (f *File) String(indent string, level int, total uint64) string {
 		size := f.Symbols[sym].Size
 		percent := 100 * float64(size) / float64(total)
 		if f.Symbols[sym].Size > 0 {
-			str += fmt.Sprintf(outputFormatting,
-				strings.Repeat(indent, level+1)+ f.Symbols[sym].Name,
-				size, percent)
+			str += fmtr.Symbol(level + 1, f.Symbols[sym].Name, size, percent)
 		}
 	}
 	return str
 }
 
-func (f *Folder) StringRec(indent string, level int, total uint64) string {
+func (f *Folder) toString(fmtr outputFormatter, level int, total uint64) string {
 	var str string
 
 	var sorted []string
@@ -172,24 +239,30 @@ func (f *Folder) StringRec(indent string, level int, total uint64) string {
 		if folder, ok := f.Folders[name]; ok {
 			size := folder.sumSize()
 			percent := 100 * float64(size) / float64(total)
-			str += fmt.Sprintf(outputFormatting,
-				strings.Repeat(indent, level)+folder.Name, size, percent)
-			str += folder.StringRec(indent, level+1, total)
+			str += fmtr.Container(level, folder.Name, size, percent)
+			str += folder.toString(fmtr, level+1, total)
 		} else {
-			str += f.Files[name].String(indent, level, total)
+			str += f.Files[name].toString(fmtr, level, total)
 		}
 	}
 	return str
 }
 
-func (f *Folder) ToString(total uint64) string {
-	indent := "  "
+func (f *Folder) ToString(total uint64, diffFriendly bool) string {
 	var str string
-	str += fmt.Sprintf("%-59s %9s %9s\n", "Path", "Size", "%")
-	str += strings.Repeat("=", 79) + "\n"
-	str += f.StringRec(indent, 0, total)
-	str += strings.Repeat("=", 79) + "\n"
-	str += fmt.Sprintf("%-59s %9d %9s\n",
-		"Total symbol size (i.e. excluding padding, etc.)", f.sumSize(), "")
+	var fmtr outputFormatter
+
+	if diffFriendly {
+		fmtr = newSymbolFormatterDiffable()
+	} else {
+		fmtr = newSymbolFormatterDefault()
+	}
+
+	str += fmtr.Header("Path", "Size", "%")
+	str += fmtr.Separator()
+	str += f.toString(fmtr, 0, total)
+	str += fmtr.Separator()
+	str += fmtr.Header("Total symbol size (i.e. excluding padding, etc.)",
+		strconv.FormatUint(f.sumSize(), 10), "")
 	return str
 }

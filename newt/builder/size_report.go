@@ -290,7 +290,7 @@ func logMemoryRegionStats(memRegion *MemoryRegion, sectionName string) {
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "\n")
 }
 
-func SizeReport(elfFilePath, srcBase string, sectionName string) error {
+func SizeReport(elfFilePath, srcBase string, sectionName string, diffFriendly bool) error {
 	symbolsPath, err := loadSymbolsAndPaths(elfFilePath, srcBase)
 	if err != nil {
 		return err
@@ -315,6 +315,6 @@ func SizeReport(elfFilePath, srcBase string, sectionName string) error {
 		}
 	}
 	fmt.Printf("%s report:\n", sectionName)
-	fmt.Printf("%v", sectionNodes.ToString(sectionRegion.TotalSize))
+	fmt.Printf("%v", sectionNodes.ToString(sectionRegion.TotalSize, diffFriendly))
 	return nil
 }
