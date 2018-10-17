@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -39,7 +40,6 @@ import (
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
-	"runtime"
 )
 
 type Builder struct {
