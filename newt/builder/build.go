@@ -259,13 +259,13 @@ func collectCompileEntriesDir(srcDir string, c *toolchain.Compiler,
 //
 // 3. Else, "" is returned (falls back to the target's general build profile).
 func (b *Builder) buildProfileFor(bpkg *BuildPackage) string {
-	bp := bpkg.BuildProfile(b)
+	tgt := b.targetBuilder.GetTarget()
+	bp := tgt.PkgProfiles[bpkg.rpkg.Lpkg.FullName()]
 	if bp != "" {
 		return bp
 	}
 
-	tgt := b.targetBuilder.GetTarget()
-	return tgt.PkgProfiles[bpkg.rpkg.Lpkg.FullName()]
+	return bpkg.BuildProfile(b)
 }
 
 func (b *Builder) newCompiler(bpkg *BuildPackage,
