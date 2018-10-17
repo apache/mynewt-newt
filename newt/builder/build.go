@@ -39,6 +39,7 @@ import (
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
+	"runtime"
 )
 
 type Builder struct {
@@ -278,7 +279,20 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 
 	c, err := b.targetBuilder.NewCompiler(dstDir, buildProfile)
 	if err != nil {
-		return nil, err
+		// If default build profile was used, just return an error.
+		// Otherwise we emit a warning and try with default build profile.
+		if buildProfile == "" {
+			return nil, err
+		}
+
+		log.Warnf("Unsupported build profile for package, using default build profile " +
+			"(pkg=\"%s\" build_profile=\"%s\" OS=\"%s\")",
+			bpkg.rpkg.Lpkg.FullName(), buildProfile, runtime.GOOS)
+
+		c, err = b.targetBuilder.NewCompiler(dstDir, "")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c.AddInfo(b.compilerInfo)
