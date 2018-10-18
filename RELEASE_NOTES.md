@@ -1,6 +1,6 @@
 # RELEASE NOTES
 
-04 June 2018 - Apache Newt v1.4.0
+18 October 2018 - Apache Newt v1.5.0
 
 For full release notes, please visit the
 [Apache Mynewt Wiki](https://cwiki.apache.org/confluence/display/MYNEWT/Release+Notes).
@@ -16,6 +16,11 @@ around, and trying Newt, are encouraged to download and begin evaluating it.
 Future versions will add:
 
   * More robust package management and versioning
+  * Newt package type "transient"
+  * Support for specifying C++ compiler flags
+  * Improvements for info, size, sync and upgrade commands
+  * Support for encrypted images
+  * Support for multiple concurrent debug sessions with two boards
 
 If working on next-generation build and source package management systems
 sounds exciting to you, get in touch, by sending a mail to the Apache Mynewt

@@ -31,9 +31,9 @@ import (
 	"mynewt.apache.org/newt/yaml"
 )
 
-var NewtVersion Version = Version{1, 4, 9999}
-var NewtVersionStr string = "Apache Newt version: 1.5.0-dev"
-var NewtBlinkyTag string = "master"
+var NewtVersion Version = Version{1, 5, 0}
+var NewtVersionStr string = "Apache Newt version: 1.5.0"
+var NewtBlinkyTag string = "mynewt_1_5_0_tag"
 var NewtNumJobs int
 var NewtForce bool
 var NewtAsk bool
