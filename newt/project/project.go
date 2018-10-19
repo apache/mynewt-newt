@@ -396,7 +396,7 @@ func (proj *Project) checkNewtVer() error {
 	case compat.NEWT_COMPAT_GOOD:
 		return nil
 	case compat.NEWT_COMPAT_WARN:
-		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+		newtutil.OneTimeWarning("%s", msg)
 		return nil
 	case compat.NEWT_COMPAT_ERROR:
 		return util.NewNewtError(msg)
@@ -500,7 +500,7 @@ func (proj *Project) verifyNewtCompat() error {
 			switch code {
 			case compat.NEWT_COMPAT_GOOD:
 			case compat.NEWT_COMPAT_WARN:
-				util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s.\n", msg)
+				newtutil.OneTimeWarning("%s", msg)
 			case compat.NEWT_COMPAT_ERROR:
 				errors = append(errors, msg)
 			}

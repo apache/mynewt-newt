@@ -201,3 +201,17 @@ func ReadConfig(dir string, filename string) (ycfg.YCfg, error) {
 func YCfgToYaml(yc ycfg.YCfg) string {
 	return yaml.MapToYaml(yc.AllSettings())
 }
+
+// Keeps track of warnings that have already been reported.
+// [warning-text] => struct{}
+var warnings = map[string]struct{}{}
+
+// Displays the specified warning if it has not been displayed yet.
+func OneTimeWarning(text string, args ...interface{}) {
+	if _, ok := warnings[text]; !ok {
+		warnings[text] = struct{}{}
+
+		body := fmt.Sprintf(text, args...)
+		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", body)
+	}
+}
