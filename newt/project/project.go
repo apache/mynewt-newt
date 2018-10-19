@@ -210,10 +210,6 @@ func (proj *Project) GetRepoVersion(
 
 		if _, ok := proj.unknownRepoVers[rname]; !ok {
 			proj.unknownRepoVers[rname] = struct{}{}
-
-			util.StatusMessage(util.VERBOSITY_QUIET,
-				"WARNING: Could not detect version of installed repo \"%s\"; "+
-					"assuming 0.0.0/%s\n", r.Name(), commit)
 		}
 		ver = &newtutil.RepoVersion{
 			Commit: commit,
