@@ -935,7 +935,7 @@ func (inst *Installer) Sync(candidates []*repo.Repo,
 }
 
 type repoInfo struct {
-	installedVer *newtutil.RepoVersion
+	installedVer *newtutil.RepoVersion // nil if not installed.
 	errorText    string
 	dirtyState   string
 	needsUpgrade bool
@@ -953,12 +953,12 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 		return ri
 	}
 
-	ver, err := r.InstalledVersion()
+	ver, err := detectVersion(r)
 	if err != nil {
 		ri.errorText = strings.TrimSpace(err.Error())
 		return ri
 	}
-	ri.installedVer = ver
+	ri.installedVer = &ver
 
 	dirty, err := r.DirtyState()
 	if err != nil {
@@ -968,7 +968,7 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 	ri.dirtyState = dirty
 
 	if vm != nil {
-		if ver == nil || *ver != (*vm)[r.Name()] {
+		if ver != (*vm)[r.Name()] {
 			ri.needsUpgrade = true
 		}
 	}

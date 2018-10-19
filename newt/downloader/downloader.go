@@ -557,13 +557,18 @@ func (gd *GenericDownloader) DirtyState(path string) (string, error) {
 		return "staged changes", nil
 	}
 
-	// If on a branch, check for unpushed commits.
+	// If on a branch with a configured upstream, check for unpushed commits.
 	branch, err := gd.CurrentBranch(path)
 	if err != nil {
 		return "", err
 	}
 
-	if branch != "" {
+	upstream, err := upstreamFor(path, "HEAD")
+	if err != nil {
+		return "", err
+	}
+
+	if upstream != "" && branch != "" {
 		cmd = []string{
 			"rev-list",
 			"@{u}..",
