@@ -121,11 +121,11 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/compat"
 	"mynewt.apache.org/newt/newt/deprepo"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/newt/compat"
 )
 
 type installOp int
@@ -157,9 +157,9 @@ func detectVersion(r *repo.Repo) (newtutil.RepoVersion, error) {
 			Commit: commit,
 		}
 
-		util.StatusMessage(util.VERBOSITY_QUIET,
-			"WARNING: Could not detect version of installed repo \"%s\"; "+
-				"assuming %s\n", r.Name(), ver.String())
+		newtutil.OneTimeWarning(
+			"Could not detect version of installed repo \"%s\"; assuming %s",
+			r.Name(), ver.String())
 	}
 
 	log.Debugf("currently installed version of repo \"%s\": %s",
@@ -292,9 +292,9 @@ func (inst *Installer) inferReqVers(repos []*repo.Repo) error {
 					}
 
 					if ver == nil {
-						util.StatusMessage(util.VERBOSITY_QUIET,
-							"WARNING: Could not detect version of "+
-								"requested repo %s:%s; assuming 0.0.0\n",
+						newtutil.OneTimeWarning(
+							"Could not detect version of requested repo "+
+								"%s:%s; assuming 0.0.0",
 							r.Name(), req.Ver.Commit)
 
 						ver = &req.Ver
@@ -732,7 +732,7 @@ func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
 			s += "Specify the `-f` (force) switch to attempt anyway"
 			return util.NewNewtError(s)
 		} else {
-			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", s)
+			newtutil.OneTimeWarning("%s", s)
 		}
 	}
 
@@ -749,7 +749,7 @@ func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 
 		switch code {
 		case compat.NEWT_COMPAT_WARN:
-			util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", msg)
+			newtutil.OneTimeWarning("%s", msg)
 		case compat.NEWT_COMPAT_ERROR:
 			errors = append(errors, msg)
 		}
