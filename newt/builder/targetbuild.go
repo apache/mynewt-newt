@@ -45,8 +45,6 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/syscfg"
-	"mynewt.apache.org/newt/newt/sysdown"
-	"mynewt.apache.org/newt/newt/sysinit"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -216,72 +214,59 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		log.Warn(line)
 	}
 
-	if err := syscfg.EnsureWritten(t.res.Cfg,
-		GeneratedIncludeDir(t.target.Name())); err != nil {
-
-		return err
-	}
-
-	if err := t.res.LCfg.EnsureWritten(
-		GeneratedIncludeDir(t.target.Name())); err != nil {
-
-		return err
-	}
-
-	return nil
-}
-
-func (t *TargetBuilder) generateSysinit() error {
-	if err := t.ensureResolved(); err != nil {
-		return err
-	}
-
+	incDir := GeneratedIncludeDir(t.target.Name())
 	srcDir := GeneratedSrcDir(t.target.Name())
 
+	if err := syscfg.EnsureWritten(t.res.Cfg, incDir); err != nil {
+		return err
+	}
+
+	if err := t.res.LCfg.EnsureWritten(incDir); err != nil {
+		return err
+	}
+
+	// Generate loader sysinit.
 	if t.res.LoaderSet != nil {
 		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
-		sysinit.EnsureWritten(lpkgs, srcDir,
-			pkg.ShortName(t.target.Package()), true)
+		if err := t.res.SysinitCfg.EnsureWritten(lpkgs, srcDir,
+			pkg.ShortName(t.target.Package()), true); err != nil {
+
+			return err
+		}
 	}
 
+	// Generate app sysinit.
 	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
-	sysinit.EnsureWritten(lpkgs, srcDir,
-		pkg.ShortName(t.target.Package()), false)
+	if err := t.res.SysinitCfg.EnsureWritten(lpkgs, srcDir,
+		pkg.ShortName(t.target.Package()), false); err != nil {
 
-	return nil
-}
-
-func (t *TargetBuilder) generateSysdown() error {
-	if err := t.ensureResolved(); err != nil {
 		return err
 	}
 
-	srcDir := GeneratedSrcDir(t.target.Name())
+	// Generate loader sysinit.
+	if t.res.LoaderSet != nil {
+		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
+		if err := t.res.SysdownCfg.EnsureWritten(lpkgs, srcDir,
+			pkg.ShortName(t.target.Package()), true); err != nil {
 
-	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
-	sysdown.EnsureWritten(lpkgs, t.res.Cfg, srcDir,
-		pkg.ShortName(t.target.Package()))
+			return err
+		}
+	}
 
-	return nil
-}
+	// XXX: Generate loader sysdown.
 
-func (t *TargetBuilder) generateFlashMap() error {
-	return t.bspPkg.FlashMap.EnsureWritten(
-		GeneratedSrcDir(t.target.Name()),
-		GeneratedIncludeDir(t.target.Name()),
-		pkg.ShortName(t.target.Package()))
-}
+	// Generate app sysdown.
+	lpkgs = resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
+	if err := t.res.SysdownCfg.EnsureWritten(lpkgs, srcDir,
+		pkg.ShortName(t.target.Package()), false); err != nil {
 
-func (t *TargetBuilder) generateCode() error {
-	if err := t.generateSysinit(); err != nil {
 		return err
 	}
 
-	if err := t.generateSysdown(); err != nil {
-		return err
-	}
+	// Generate flash map.
+	if err := t.bspPkg.FlashMap.EnsureWritten(srcDir, incDir,
+		pkg.ShortName(t.target.Package())); err != nil {
 
-	if err := t.generateFlashMap(); err != nil {
 		return err
 	}
 
@@ -338,10 +323,6 @@ func (t *TargetBuilder) PrepBuild() error {
 	t.AppList = project.ResetDeps(nil)
 
 	logDepInfo(t.res)
-
-	if err := t.generateCode(); err != nil {
-		return err
-	}
 
 	return nil
 }

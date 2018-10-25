@@ -30,68 +30,156 @@ import (
 	"mynewt.apache.org/newt/newt/syscfg"
 )
 
-// downFuncs collects the sysdown functions corresponding to the provided
-// packages.
-func downFuncs(pkgs []*pkg.LocalPackage,
-	cfg syscfg.Cfg) ([]stage.StageFunc, error) {
+type SysdownCfg struct {
+	// Sorted in call order (stage-num,function-name).
+	StageFuncs []stage.StageFunc
 
-	fns := make([]stage.StageFunc, 0, len(pkgs))
-	for _, p := range pkgs {
-		downMap, err := p.DownFuncs(cfg.AllSettingsForLpkg(p))
+	// Strings describing errors encountered while parsing the sysdown config.
+	InvalidSettings []string
+
+	// Contains sets of entries with conflicting function names.
+	//     [function-name] => <slice-of-stages-with-function-name>
+	Conflicts map[string][]stage.StageFunc
+}
+
+func (scfg *SysdownCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg) {
+	settings := cfg.AllSettingsForLpkg(lpkg)
+	initMap := lpkg.DownFuncs(settings)
+	for name, stageStr := range initMap {
+		sf, err := stage.NewStageFunc(name, stageStr, lpkg, cfg)
 		if err != nil {
-			return nil, err
+			scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
 		}
+		sf.ReturnType = "int"
+		sf.ArgList = "int reason"
 
-		for name, stageNum := range downMap {
-			fn := stage.StageFunc{
-				Name:       name,
-				Stage:      stageNum,
-				ReturnType: "int",
-				ArgList:    "int reason",
-				Pkg:        p,
+		scfg.StageFuncs = append(scfg.StageFuncs, sf)
+	}
+}
+
+// Searches the sysdown configuration for entries with identical function
+// names.  The sysdown configuration object is populated with the results.
+func (scfg *SysdownCfg) detectConflicts() {
+	m := map[string][]stage.StageFunc{}
+
+	for _, sf := range scfg.StageFuncs {
+		m[sf.Name] = append(m[sf.Name], sf)
+	}
+
+	for name, sfs := range m {
+		if len(sfs) > 1 {
+			scfg.Conflicts[name] = sfs
+		}
+	}
+}
+
+func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysdownCfg {
+	scfg := SysdownCfg{}
+
+	for _, lpkg := range lpkgs {
+		scfg.readOnePkg(lpkg, cfg)
+	}
+
+	scfg.detectConflicts()
+	stage.SortStageFuncs(scfg.StageFuncs, "sysdown")
+
+	return scfg
+}
+
+func (scfg *SysdownCfg) filter(lpkgs []*pkg.LocalPackage) []stage.StageFunc {
+	m := make(map[*pkg.LocalPackage]struct{}, len(lpkgs))
+
+	for _, lpkg := range lpkgs {
+		m[lpkg] = struct{}{}
+	}
+
+	filtered := []stage.StageFunc{}
+	for _, sf := range scfg.StageFuncs {
+		if _, ok := m[sf.Pkg]; ok {
+			filtered = append(filtered, sf)
+		}
+	}
+
+	return filtered
+}
+
+// If any errors were encountered while parsing sysdown definitions, this
+// function returns a string indicating the errors.  If no errors were
+// encountered, "" is returned.
+func (scfg *SysdownCfg) ErrorText() string {
+	str := ""
+
+	if len(scfg.InvalidSettings) > 0 {
+		str += "Invalid sysdown definitions detected:"
+		for _, e := range scfg.InvalidSettings {
+			str += "\n    " + e
+		}
+	}
+
+	if len(scfg.Conflicts) > 0 {
+		str += "Sysdown function name conflicts detected:\n"
+		for name, sfs := range scfg.Conflicts {
+			for _, sf := range sfs {
+				str += fmt.Sprintf("    Function=%s Package=%s\n",
+					name, sf.Pkg.FullName())
 			}
-			fns = append(fns, fn)
 		}
+
+		str += "\nResolve the problem by assigning unique function names " +
+			"to each entry."
 	}
 
-	return fns, nil
+	return str
 }
 
-func sortedDownFuncs(pkgs []*pkg.LocalPackage,
-	cfg syscfg.Cfg) ([]stage.StageFunc, error) {
+func (scfg *SysdownCfg) write(lpkgs []*pkg.LocalPackage, isLoader bool,
+	w io.Writer) error {
 
-	fns, err := downFuncs(pkgs, cfg)
-	if err != nil {
-		return nil, err
+	var sfs []stage.StageFunc
+	if lpkgs == nil {
+		sfs = scfg.StageFuncs
+	} else {
+		sfs = scfg.filter(lpkgs)
 	}
 
-	stage.SortStageFuncs(fns, "sysdown")
-	return fns, nil
-}
-
-func write(pkgs []*pkg.LocalPackage, cfg syscfg.Cfg, w io.Writer) error {
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
-	fns, err := sortedDownFuncs(pkgs, cfg)
-	if err != nil {
-		return err
+	if isLoader {
+		fmt.Fprintf(w, "#if SPLIT_LOADER\n\n")
+	} else {
+		fmt.Fprintf(w, "#if !SPLIT_LOADER\n\n")
 	}
 
-	stage.WritePrototypes(fns, w)
+	stage.WritePrototypes(sfs, w)
 
-	fmt.Fprintf(w, "\nint (* const sysdown_cbs[])(int reason) = {\n")
-	stage.WriteArr(fns, w)
+	var arrName string
+
+	// XXX: Assign a different array name depending on isLoader.
+	arrName = "sysdown_cbs"
+
+	fmt.Fprintf(w, "\nint (* const %s[])(int reason) = {\n", arrName)
+	stage.WriteArr(sfs, w)
 	fmt.Fprintf(w, "};\n")
+
+	fmt.Fprintf(w, "#endif\n")
 
 	return nil
 }
 
-func EnsureWritten(pkgs []*pkg.LocalPackage, cfg syscfg.Cfg, srcDir string,
-	targetName string) error {
+func (scfg *SysdownCfg) EnsureWritten(lpkgs []*pkg.LocalPackage, srcDir string,
+	targetName string, isLoader bool) error {
 
 	buf := bytes.Buffer{}
-	write(pkgs, cfg, &buf)
+	if err := scfg.write(lpkgs, isLoader, &buf); err != nil {
+		return err
+	}
 
-	path := fmt.Sprintf("%s/%s-sysdown.c", srcDir, targetName)
+	var path string
+	if isLoader {
+		path = fmt.Sprintf("%s/%s-sysdown-loader.c", srcDir, targetName)
+	} else {
+		path = fmt.Sprintf("%s/%s-sysdown-app.c", srcDir, targetName)
+	}
+
 	return stage.EnsureWritten(path, buf.Bytes())
 }
