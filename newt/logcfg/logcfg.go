@@ -35,22 +35,11 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/syscfg"
+	"mynewt.apache.org/newt/newt/val"
 	"mynewt.apache.org/newt/util"
 )
 
 const HEADER_PATH = "logcfg/logcfg.h"
-
-type LogSetting struct {
-	// The exact text specified as the YAML map key.
-	Text string
-
-	// If this setting refers to a syscfg setting via the `MYNEWT_VAL(...)`
-	// notation, this contains the name of the setting.  Otherwise, "".
-	RefName string
-
-	// The setting value, after setting references are resolved.
-	Value string
-}
 
 type Log struct {
 	// Log name; equal to the name of the YAML map that defines the log.
@@ -60,10 +49,10 @@ type Log struct {
 	Source *pkg.LocalPackage
 
 	// The log's numeric module ID.
-	Module LogSetting
+	Module val.ValSetting
 
 	// The level assigned to this log.
-	Level LogSetting
+	Level val.ValSetting
 }
 
 // Map of: [log-name] => log
@@ -107,31 +96,6 @@ func NewLCfg() LCfg {
 	}
 }
 
-// IntVal Extracts a log setting's integer value.
-func (ls *LogSetting) IntVal() (int, error) {
-	iv, err := util.AtoiNoOct(ls.Value)
-	if err != nil {
-		return 0, util.ChildNewtError(err)
-	}
-
-	return iv, nil
-}
-
-// Constructs a log setting from a YAML string.
-func resolveLogVal(s string, cfg *syscfg.Cfg) (LogSetting, error) {
-	refName, val, err := cfg.ExpandRef(s)
-	if err != nil {
-		return LogSetting{},
-			util.FmtNewtError("value \"%s\" references undefined setting", s)
-	}
-
-	return LogSetting{
-		Text:    s,
-		RefName: refName,
-		Value:   val,
-	}, nil
-}
-
 // Parses a single log definition from a YAML map.  The `logMapItf` parameter
 // should be a map with the following elements:
 //     "module": <module-string>
@@ -155,7 +119,7 @@ func parseOneLog(name string, lpkg *pkg.LocalPackage, logMapItf interface{},
 		return cl, util.FmtNewtError(
 			"\"%s\" missing required field \"module\"", name)
 	}
-	mod, err := resolveLogVal(modStr, cfg)
+	mod, err := val.ResolveValSetting(modStr, cfg)
 	if err != nil {
 		return cl, util.FmtNewtError(
 			"\"%s\" contains invalid \"module\": %s",
@@ -171,7 +135,7 @@ func parseOneLog(name string, lpkg *pkg.LocalPackage, logMapItf interface{},
 		return cl, util.FmtNewtError(
 			"\"%s\" missing required field \"level\"", name)
 	}
-	level, err := resolveLogVal(levelStr, cfg)
+	level, err := val.ResolveValSetting(levelStr, cfg)
 	if err != nil {
 		return cl, util.FmtNewtError(
 			"\"%s\" contains invalid \"level\": %s",
