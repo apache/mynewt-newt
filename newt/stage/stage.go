@@ -36,15 +36,41 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/syscfg"
+	"mynewt.apache.org/newt/newt/val"
 	"mynewt.apache.org/newt/util"
 )
 
 type StageFunc struct {
-	Stage      int
+	Stage      val.ValSetting
 	Name       string
 	ReturnType string
 	ArgList    string
 	Pkg        *pkg.LocalPackage
+}
+
+func NewStageFunc(name string, textVal string,
+	p *pkg.LocalPackage, cfg *syscfg.Cfg) (StageFunc, error) {
+
+	vs, err := val.ResolveValSetting(textVal, cfg)
+	if err != nil {
+		return StageFunc{}, err
+	}
+
+	// Ensure setting resolves to an integer.
+	if _, err := vs.IntVal(); err != nil {
+		return StageFunc{}, util.FmtNewtError("Invalid stage setting: %s=%s; "+
+			"value does not resolve to an integer",
+			name, textVal)
+	}
+
+	sf := StageFunc{
+		Name:  name,
+		Stage: vs,
+		Pkg:   p,
+	}
+
+	return sf, nil
 }
 
 type stageFuncSorter struct {
@@ -66,10 +92,13 @@ func (s stageFuncSorter) Less(i, j int) bool {
 	a := s.fns[i]
 	b := s.fns[j]
 
+	inta, _ := a.Stage.IntVal()
+	intb, _ := b.Stage.IntVal()
+
 	// 1: Sort by stage number.
-	if a.Stage < b.Stage {
+	if inta < intb {
 		return true
-	} else if b.Stage < a.Stage {
+	} else if intb < inta {
 		return false
 	}
 
@@ -130,20 +159,22 @@ func WriteCalls(sortedFuncs []StageFunc, argList string, w io.Writer) {
 	dupCount := 0
 
 	for i, f := range sortedFuncs {
-		if f.Stage != prevStage {
-			prevStage = f.Stage
+		intStage, _ := f.Stage.IntVal()
+
+		if intStage != prevStage {
+			prevStage = intStage
 			dupCount = 0
 
 			if i != 0 {
 				fmt.Fprintf(w, "\n")
 			}
-			fmt.Fprintf(w, "    /*** Stage %d */\n", f.Stage)
+			fmt.Fprintf(w, "    /*** Stage %d */\n", intStage)
 		} else {
 			dupCount += 1
 		}
 
 		fmt.Fprintf(w, "    /* %d.%d: %s (%s) */\n",
-			f.Stage, dupCount, f.Name, f.Pkg.Name())
+			intStage, dupCount, f.Name, f.Pkg.Name())
 		fmt.Fprintf(w, "    %s(%s);\n", f.Name, argList)
 	}
 }
@@ -156,20 +187,22 @@ func WriteArr(sortedFuncs []StageFunc, w io.Writer) {
 	dupCount := 0
 
 	for i, f := range sortedFuncs {
-		if f.Stage != prevStage {
-			prevStage = f.Stage
+		intStage, _ := f.Stage.IntVal()
+
+		if intStage != prevStage {
+			prevStage = intStage
 			dupCount = 0
 
 			if i != 0 {
 				fmt.Fprintf(w, "\n")
 			}
-			fmt.Fprintf(w, "    /*** Stage %d */\n", f.Stage)
+			fmt.Fprintf(w, "    /*** Stage %d */\n", intStage)
 		} else {
 			dupCount += 1
 		}
 
 		fmt.Fprintf(w, "    /* %d.%d: %s (%s) */\n",
-			f.Stage, dupCount, f.Name, f.Pkg.Name())
+			intStage, dupCount, f.Name, f.Pkg.Name())
 		fmt.Fprintf(w, "    %s,\n", f.Name)
 	}
 	fmt.Fprintf(w, "\n")
