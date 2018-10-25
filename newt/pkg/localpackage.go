@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -61,10 +60,6 @@ type LocalPackage struct {
 	// General information about the package
 	desc *PackageDesc
 
-	// Package init function name and stage.  These are used to generate the
-	// sysinit C file.
-	init map[string]int
-
 	// Extra package-specific settings that don't come from syscfg.  For
 	// example, SELFTEST gets set when the newt test command is used.
 	injectedSettings map[string]string
@@ -86,7 +81,6 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		SyscfgY:          ycfg.YCfg{},
 		repo:             r,
 		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
-		init:             map[string]int{},
 		injectedSettings: map[string]string{},
 	}
 	return pkg
@@ -352,23 +346,6 @@ func (pkg *LocalPackage) Load() error {
 		return nil
 	}
 
-	init := pkg.PkgY.GetValStringMapString("pkg.init", nil)
-	for name, stageStr := range init {
-		stage, err := strconv.ParseInt(stageStr, 10, 64)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Parsing pkg %s config: %s",
-				pkg.FullName(), err.Error()))
-		}
-		pkg.init[name] = int(stage)
-	}
-
-	// Backwards compatibility: allow old sysinit notation.
-	initFnName := pkg.PkgY.GetValString("pkg.init_function", nil)
-	initStage := pkg.PkgY.GetValInt("pkg.init_stage", nil)
-	if initFnName != "" {
-		pkg.init[initFnName] = initStage
-	}
-
 	// Read the package description from the file
 	pkg.desc, err = pkg.readDesc(pkg.PkgY)
 	if err != nil {
@@ -388,28 +365,18 @@ func (pkg *LocalPackage) Load() error {
 	return nil
 }
 
-func (pkg *LocalPackage) Init() map[string]int {
-	return pkg.init
+func (pkg *LocalPackage) InitFuncs(
+	settings map[string]string) map[string]string {
+
+	return pkg.PkgY.GetValStringMapString("pkg.init", settings)
 }
 
 // DownFuncs retrieves the package's shutdown functions.  The returned map has:
 // key=C-function-name, value=numeric-stage.
 func (pkg *LocalPackage) DownFuncs(
-	settings map[string]string) (map[string]int, error) {
+	settings map[string]string) map[string]string {
 
-	downFuncs := map[string]int{}
-
-	down := pkg.PkgY.GetValStringMapString("pkg.down", settings)
-	for name, stageStr := range down {
-		stage, err := strconv.ParseInt(stageStr, 10, 64)
-		if err != nil {
-			return nil, util.FmtNewtError("Parsing pkg %s config: %s",
-				pkg.FullName(), err.Error())
-		}
-		downFuncs[name] = int(stage)
-	}
-
-	return downFuncs, nil
+	return pkg.PkgY.GetValStringMapString("pkg.down", settings)
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {

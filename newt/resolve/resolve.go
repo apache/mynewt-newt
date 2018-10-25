@@ -31,6 +31,8 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/syscfg"
+	"mynewt.apache.org/newt/newt/sysdown"
+	"mynewt.apache.org/newt/newt/sysinit"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
@@ -60,6 +62,8 @@ type Resolver struct {
 	flashMap         flash.FlashMap
 	cfg              syscfg.Cfg
 	lcfg             logcfg.LCfg
+	sysinitCfg       sysinit.SysinitCfg
+	sysdownCfg       sysdown.SysdownCfg
 
 	// [api-name][api-supplier]
 	apiConflicts map[string]map[*ResolvePackage]struct{}
@@ -94,7 +98,7 @@ type ResolveSet struct {
 	// Parent resoluion.  Contains this ResolveSet.
 	Res *Resolution
 
-	// All seed pacakges and their dependencies.
+	// All seed packages and their dependencies.
 	Rpkgs []*ResolvePackage
 }
 
@@ -107,6 +111,8 @@ type ApiConflict struct {
 type Resolution struct {
 	Cfg             syscfg.Cfg
 	LCfg            logcfg.LCfg
+	SysinitCfg      sysinit.SysinitCfg
+	SysdownCfg      sysdown.SysdownCfg
 	ApiMap          map[string]*ResolvePackage
 	UnsatisfiedApis map[string][]*ResolvePackage
 	ApiConflicts    []ApiConflict
@@ -545,6 +551,8 @@ func (r *Resolver) resolveDepsAndCfg() error {
 
 	lpkgs := RpkgSliceToLpkgSlice(r.rpkgSlice())
 	r.lcfg = logcfg.Read(lpkgs, &r.cfg)
+	r.sysinitCfg = sysinit.Read(lpkgs, &r.cfg)
+	r.sysdownCfg = sysdown.Read(lpkgs, &r.cfg)
 
 	// Log the final syscfg.
 	r.cfg.Log()
@@ -639,6 +647,8 @@ func ResolveFull(
 	res := newResolution()
 	res.Cfg = r.cfg
 	res.LCfg = r.lcfg
+	res.SysinitCfg = r.sysinitCfg
+	res.SysdownCfg = r.sysdownCfg
 
 	// Determine which package satisfies each API and which APIs are
 	// unsatisfied.
@@ -756,6 +766,8 @@ func (res *Resolution) ErrorText() string {
 
 	str += res.Cfg.ErrorText()
 	str += res.LCfg.ErrorText()
+	str += res.SysinitCfg.ErrorText()
+	str += res.SysdownCfg.ErrorText()
 
 	str = strings.TrimSpace(str)
 	if str != "" {
