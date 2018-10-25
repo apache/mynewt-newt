@@ -35,8 +35,12 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/resolve"
+	"mynewt.apache.org/newt/newt/stage"
 	"mynewt.apache.org/newt/newt/syscfg"
+	"mynewt.apache.org/newt/newt/sysdown"
+	"mynewt.apache.org/newt/newt/sysinit"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/newt/val"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
@@ -779,18 +783,18 @@ func targetConfigBriefCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func logModuleString(ls logcfg.LogSetting) string {
-	intVal, _ := ls.IntVal()
+func valSettingString(vs val.ValSetting) string {
+	intVal, _ := vs.IntVal()
 
 	s := fmt.Sprintf("%d", intVal)
-	if ls.RefName != "" {
-		s += fmt.Sprintf("%*s [%s]", 16-len(s), "", ls.RefName)
+	if vs.RefName != "" {
+		s += fmt.Sprintf("%*s [%s]", 16-len(s), "", vs.RefName)
 	}
 
 	return s
 }
 
-func logLevelString(ls logcfg.LogSetting) string {
+func logLevelString(ls val.ValSetting) string {
 	intVal, _ := ls.IntVal()
 
 	s := fmt.Sprintf("%d (%s)", intVal, logcfg.LogLevelString(intVal))
@@ -806,7 +810,7 @@ func printLogCfgOne(l logcfg.Log) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Package: %s\n",
 		l.Source.FullName())
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Module:  %s\n",
-		logModuleString(l.Module))
+		valSettingString(l.Module))
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Level:   %s\n",
 		logLevelString(l.Level))
 }
@@ -860,7 +864,8 @@ func printLogCfgBriefOne(l logcfg.Log, colWidth int) {
 	intMod, _ := l.Module.IntVal()
 	intLevel, _ := l.Level.IntVal()
 
-	levelStr := fmt.Sprintf("%d (%s)", intLevel, logcfg.LogLevelString(intLevel))
+	levelStr := fmt.Sprintf("%d (%s)", intLevel,
+		logcfg.LogLevelString(intLevel))
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%*s | %-8d | %-12s\n",
 		colWidth, l.Name, intMod, levelStr)
@@ -874,7 +879,7 @@ func printLogCfgBrief(targetName string, lcfg logcfg.LCfg) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief log config for %s:\n",
 		targetName)
 
-	longest := 0
+	longest := 6
 	logNames := make([]string, 0, len(lcfg.Logs))
 	for name, _ := range lcfg.Logs {
 		logNames = append(logNames, name)
@@ -911,6 +916,186 @@ func targetLogBriefCmd(cmd *cobra.Command, args []string) {
 
 		res := targetBuilderConfigResolve(b)
 		printLogCfgBrief(b.GetTarget().Name(), res.LCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func printStage(sf stage.StageFunc) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s:\n", sf.Name)
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Package: %s\n",
+		sf.Pkg.FullName())
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Stage:  %s\n",
+		valSettingString(sf.Stage))
+}
+
+func printStageBriefOne(sf stage.StageFunc, fnWidth int, pkgWidth int) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, " %-*s | %-*s | %s\n",
+		fnWidth, sf.Name,
+		pkgWidth, sf.Pkg.FullName(),
+		valSettingString(sf.Stage))
+}
+
+func printStageBriefTable(sfs []stage.StageFunc) {
+	longestPkg := 6
+	longestFn := 6
+	for _, sf := range sfs {
+		if len(sf.Name) > longestFn {
+			longestFn = len(sf.Name)
+		}
+		if len(sf.Pkg.FullName()) > longestPkg {
+			longestPkg = len(sf.Pkg.FullName())
+		}
+	}
+
+	pkgWidth := longestPkg + 2
+	fnWidth := longestFn + 2
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		" %-*s | %-*s | STAGE\n",
+		fnWidth, "FUNCTION",
+		pkgWidth, "PACKAGE")
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"-%s-+-%s-+----------\n",
+		strings.Repeat("-", fnWidth), strings.Repeat("-", pkgWidth))
+	for _, sf := range sfs {
+		printStageBriefOne(sf, fnWidth, pkgWidth)
+	}
+}
+
+func printSysinitCfg(targetName string, scfg sysinit.SysinitCfg) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Sysinit config for %s:\n",
+		targetName)
+
+	for i, sf := range scfg.StageFuncs {
+		if i > 0 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+		printStage(sf)
+	}
+}
+
+func printSysinitBrief(targetName string, scfg sysinit.SysinitCfg) {
+	if errText := scfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief sysinit config for %s:\n",
+		targetName)
+
+	printStageBriefTable(scfg.StageFuncs)
+}
+
+func targetSysinitShowCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printSysinitCfg(b.GetTarget().Name(), res.SysinitCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func targetSysinitBriefCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printSysinitBrief(b.GetTarget().Name(), res.SysinitCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func printSysdownCfg(targetName string, scfg sysdown.SysdownCfg) {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Sysdown config for %s:\n",
+		targetName)
+
+	for i, sf := range scfg.StageFuncs {
+		if i > 0 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+		printStage(sf)
+	}
+}
+
+func targetSysdownShowCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printSysdownCfg(b.GetTarget().Name(), res.SysdownCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func printSysdownBrief(targetName string, scfg sysdown.SysdownCfg) {
+	if errText := scfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief sysdown config for %s:\n",
+		targetName)
+
+	printStageBriefTable(scfg.StageFuncs)
+}
+
+func targetSysdownBriefCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printSysdownBrief(b.GetTarget().Name(), res.SysdownCfg)
 
 		if i < len(args)-1 {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
@@ -1304,6 +1489,80 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	logCmd.AddCommand(logBriefCmd)
 	AddTabCompleteFn(logBriefCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	sysinitHelpText := "View a target's sysinit configuration"
+
+	sysinitCmd := &cobra.Command{
+		Use:   "sysinit",
+		Short: sysinitHelpText,
+		Long:  sysinitHelpText,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Usage()
+		},
+	}
+
+	targetCmd.AddCommand(sysinitCmd)
+
+	sysinitShowCmd := &cobra.Command{
+		Use:   "show <target> [target...]",
+		Short: "View a target's sysinit configuration",
+		Long:  "View a target's sysinit configuration",
+		Run:   targetSysinitShowCmd,
+	}
+
+	sysinitCmd.AddCommand(sysinitShowCmd)
+	AddTabCompleteFn(sysinitShowCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	sysinitBriefCmd := &cobra.Command{
+		Use:   "brief <target> [target...]",
+		Short: "View a summary of target's sysinit configuration",
+		Long:  "View a summary of target's sysinit configuration",
+		Run:   targetSysinitBriefCmd,
+	}
+
+	sysinitCmd.AddCommand(sysinitBriefCmd)
+	AddTabCompleteFn(sysinitBriefCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	sysdownHelpText := "View a target's sysdown configuration"
+
+	sysdownCmd := &cobra.Command{
+		Use:   "sysdown",
+		Short: sysdownHelpText,
+		Long:  sysdownHelpText,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Usage()
+		},
+	}
+
+	targetCmd.AddCommand(sysdownCmd)
+
+	sysdownShowCmd := &cobra.Command{
+		Use:   "show <target> [target...]",
+		Short: "View a target's sysdown configuration",
+		Long:  "View a target's sysdown configuration",
+		Run:   targetSysdownShowCmd,
+	}
+
+	sysdownCmd.AddCommand(sysdownShowCmd)
+	AddTabCompleteFn(sysdownShowCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	sysdownBriefCmd := &cobra.Command{
+		Use:   "brief <target> [target...]",
+		Short: "View a summary of target's sysdown configuration",
+		Long:  "View a summary of target's sysdown configuration",
+		Run:   targetSysdownBriefCmd,
+	}
+
+	sysdownCmd.AddCommand(sysdownBriefCmd)
+	AddTabCompleteFn(sysdownBriefCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 
