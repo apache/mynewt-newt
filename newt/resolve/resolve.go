@@ -330,6 +330,34 @@ func (r *Resolver) calcApiReqs() {
 	}
 }
 
+// Completely removes a package from the resolver.  This is used to prune
+// packages when newly-discovered syscfg values nullify dependencies.
+func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
+	delete(r.pkgMap, rpkg.Lpkg)
+
+	// Delete the package from syscfg.
+	r.cfg.DeletePkg(rpkg.Lpkg)
+
+	// If the deleted package is the only depender for any other packages
+	// (i.e., if any of its dependencies have a reference count of one), delete
+	// them as well.
+	for rdep, _ := range rpkg.Deps {
+		if rdep.refCount <= 0 {
+			return util.FmtNewtError(
+				"package %s unexpectedly has refcount <= 0",
+				rdep.Lpkg.FullName())
+		}
+		rdep.refCount--
+		if rdep.refCount == 0 {
+			if err := r.deletePkg(rdep); err != nil {
+				return nil
+			}
+		}
+	}
+
+	return nil
+}
+
 // @return bool                 True if this this function changed the resolver
 //                                  state; another full iteration is required
 //                                  in this case.
@@ -384,10 +412,9 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 			// If we just deleted the last reference to a package, remove the
 			// package entirely from the resolver and syscfg.
 			if rdep.refCount == 0 {
-				delete(r.pkgMap, rdep.Lpkg)
-
-				// Delete the package from syscfg.
-				r.cfg.DeletePkg(rdep.Lpkg)
+				if err := r.deletePkg(rdep); err != nil {
+					return true, err
+				}
 			}
 		}
 	}
