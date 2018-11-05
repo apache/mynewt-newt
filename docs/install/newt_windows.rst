@@ -13,7 +13,7 @@ This guide shows you how to perform the following:
 
 1. Install MSYS2/MinGW.
 2. Install Git.
-3. Install latest release (1.4.1) of newt from binary.
+3. Install latest release (1.5.0) of newt from binary.
 4. Install latest release of newt from source.
 
 See :doc:`prev_releases` to install an earlier version of newt. You still need
@@ -85,11 +85,11 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
 1. Start a MinGW terminal.
 
-2. Download the newt binary tar file. The link suggested below should direct you to the nearest mirror automatically. If it does not, go to http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.4.1/ and manually choose the specific mirror site suggested for you.
+2. Download the newt binary tar file. The link suggested below should direct you to the nearest mirror automatically. If it does not, go to http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.5.0/ and manually choose the specific mirror site suggested for you.
 
    .. code-block:: console
 
-    $ wget -P /tmp http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.4.1/apache-mynewt-newt-bin-windows-1.4.1.tgz
+    $ wget -P /tmp http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.5.0/apache-mynewt-newt-bin-windows-1.5.0.tgz
 
 3. Extract the file:
 
@@ -98,13 +98,13 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
       .. code-block:: console
 
-        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.4.1.tgz -C $GOPATH/bin
+        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.5.0.tgz -C $GOPATH/bin
 
    -  If you are installing newt for the first time and do not have a Go workspace setup, you can extract into /usr/bin directory:
 
       .. code-block:: console
 
-        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.4.1.tgz -C /usr/bin
+        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.5.0.tgz -C /usr/bin
 
 4. Verify the installed version of newt. See `Checking the Installed Version`_.
 
@@ -123,16 +123,16 @@ source.
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_4_1_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_4_1_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_5_0_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_1_5_0_tag.tar.gz
 
 4. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_4_1_tag
+    $ cd mynewt-newt-mynewt_1_5_0_tag
     $ ./build.sh
-    $ rm /tmp/mynewt_1_4_1_tag.tar.gz
+    $ rm /tmp/mynewt_1_5_0_tag.tar.gz
 
 5. You should see the ``newt/newt.exe`` executable. Move the executable to a bin directory in your PATH:
 
@@ -157,7 +157,7 @@ Checking the Installed Version
    .. code-block:: console
 
     $ newt version
-    Apache Newt version: 1.4.1
+    Apache Newt version: 1.5.0
 
 2. Get information about newt:
 
