@@ -89,9 +89,9 @@ type ResolvePackage struct {
 
 	depsResolved bool
 
-	// Tracks this package's number of dependents.  If this number reaches 0,
-	// this package can be deleted from the resolver.
-	refCount int
+	// Tracks this package's dependents (things that depend on us).  If this
+	// map becomes empty, this package can be deleted from the resolver.
+	revDeps map[*ResolvePackage]struct{}
 }
 
 type ResolveSet struct {
@@ -169,6 +169,7 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 		Lpkg:      lpkg,
 		reqApiMap: map[string]resolveReqApi{},
 		Deps:      map[*ResolvePackage]*ResolveDep{},
+		revDeps:   map[*ResolvePackage]struct{}{},
 	}
 }
 
@@ -187,17 +188,17 @@ func (r *Resolver) resolveDep(dep *pkg.Dependency, depender string) (*pkg.LocalP
 // @return                      true if the package's dependency list was
 //                                  modified.
 func (rpkg *ResolvePackage) AddDep(
-	apiPkg *ResolvePackage, api string, expr string) bool {
+	depPkg *ResolvePackage, api string, expr string) bool {
 
-	if dep := rpkg.Deps[apiPkg]; dep != nil {
+	if dep := rpkg.Deps[depPkg]; dep != nil {
 		if dep.Api != "" && api == "" {
 			dep.Api = api
 		} else {
 			return false
 		}
 	} else {
-		rpkg.Deps[apiPkg] = &ResolveDep{
-			Rpkg: apiPkg,
+		rpkg.Deps[depPkg] = &ResolveDep{
+			Rpkg: depPkg,
 			Api:  api,
 			Expr: expr,
 		}
@@ -212,7 +213,8 @@ func (rpkg *ResolvePackage) AddDep(
 		rpkg.reqApiMap[api] = apiReq
 	}
 
-	apiPkg.refCount++
+	depPkg.revDeps[rpkg] = struct{}{}
+
 	return true
 }
 
@@ -339,16 +341,16 @@ func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
 	r.cfg.DeletePkg(rpkg.Lpkg)
 
 	// If the deleted package is the only depender for any other packages
-	// (i.e., if any of its dependencies have a reference count of one), delete
-	// them as well.
+	// (i.e., if any of its dependencies have only one reverse dependency),
+	// delete them as well.
 	for rdep, _ := range rpkg.Deps {
-		if rdep.refCount <= 0 {
+		if len(rdep.revDeps) == 0 {
 			return util.FmtNewtError(
-				"package %s unexpectedly has refcount <= 0",
+				"package %s unexpectedly has 0 reverse dependencies",
 				rdep.Lpkg.FullName())
 		}
-		rdep.refCount--
-		if rdep.refCount == 0 {
+		delete(rdep.revDeps, rpkg)
+		if len(rdep.revDeps) == 0 {
 			if err := r.deletePkg(rdep); err != nil {
 				return nil
 			}
@@ -406,12 +408,12 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 	for rdep, _ := range rpkg.Deps {
 		if _, ok := seen[rdep]; !ok {
 			delete(rpkg.Deps, rdep)
-			rdep.refCount--
+			delete(rdep.revDeps, rpkg)
 			changed = true
 
 			// If we just deleted the last reference to a package, remove the
 			// package entirely from the resolver and syscfg.
-			if rdep.refCount == 0 {
+			if len(rdep.revDeps) == 0 {
 				if err := r.deletePkg(rdep); err != nil {
 					return true, err
 				}
