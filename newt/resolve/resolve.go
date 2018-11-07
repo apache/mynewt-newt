@@ -58,6 +58,7 @@ type resolveReqApi struct {
 type Resolver struct {
 	apis             map[string]resolveApi
 	pkgMap           map[*pkg.LocalPackage]*ResolvePackage
+	seedPkgs         []*pkg.LocalPackage
 	injectedSettings map[string]string
 	flashMap         flash.FlashMap
 	cfg              syscfg.Cfg
@@ -134,6 +135,7 @@ func newResolver(
 	r := &Resolver{
 		apis:             map[string]resolveApi{},
 		pkgMap:           map[*pkg.LocalPackage]*ResolvePackage{},
+		seedPkgs:         seedPkgs,
 		injectedSettings: injectedSettings,
 		flashMap:         flashMap,
 		cfg:              syscfg.NewCfg(),
@@ -340,19 +342,25 @@ func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
 	// Delete the package from syscfg.
 	r.cfg.DeletePkg(rpkg.Lpkg)
 
-	// If the deleted package is the only depender for any other packages
-	// (i.e., if any of its dependencies have only one reverse dependency),
+	// Remove all dependencies on the deleted package.
+	for revdep, _ := range rpkg.revDeps {
+		delete(revdep.Deps, rpkg)
+	}
+
+	// Remove all reverse dependencies pointing to the deleted package.  If the
+	// deleted package is the only depender for any other packages (i.e., if
+	// any of its dependencies have only one reverse dependency),
 	// delete them as well.
-	for rdep, _ := range rpkg.Deps {
-		if len(rdep.revDeps) == 0 {
+	for dep, _ := range rpkg.Deps {
+		if len(dep.revDeps) == 0 {
 			return util.FmtNewtError(
 				"package %s unexpectedly has 0 reverse dependencies",
-				rdep.Lpkg.FullName())
+				dep.Lpkg.FullName())
 		}
-		delete(rdep.revDeps, rpkg)
-		if len(rdep.revDeps) == 0 {
-			if err := r.deletePkg(rdep); err != nil {
-				return nil
+		delete(dep.revDeps, rpkg)
+		if len(dep.revDeps) == 0 {
+			if err := r.deletePkg(dep); err != nil {
+				return err
 			}
 		}
 	}
@@ -478,31 +486,94 @@ func (r *Resolver) reloadCfg() (bool, error) {
 	return false, nil
 }
 
-func (r *Resolver) resolveDepsOnce() (bool, error) {
-	// Circularly resolve dependencies, APIs, and required APIs until no new
-	// ones exist.
-	newDeps := false
-	for {
-		reprocess := false
-		for _, rpkg := range r.pkgMap {
-			newDeps, err := r.resolvePkg(rpkg)
-			if err != nil {
-				return false, err
-			}
+// @return bool                 True if any packages were pruned, false
+//                                  otherwise.
+// @return err                  Error
+func (r *Resolver) pruneOrphans() (bool, error) {
+	seenMap := map[*ResolvePackage]struct{}{}
 
-			if newDeps {
-				// The new dependencies need to be processed.  Iterate again
-				// after this iteration completes.
-				reprocess = true
-			}
+	// This function traverses the specified package's dependency list,
+	// recording each visited packges in `seenMap`.
+	var visit func(rpkg *ResolvePackage)
+	visit = func(rpkg *ResolvePackage) {
+		if _, ok := seenMap[rpkg]; ok {
+			return
 		}
 
-		if !reprocess {
-			break
+		seenMap[rpkg] = struct{}{}
+		for dep, _ := range rpkg.Deps {
+			visit(dep)
 		}
 	}
 
-	return newDeps, nil
+	// Starting from each seed package, recursively traverse the package's
+	// dependency list, keeping track of which packages were visited.
+	for _, lpkg := range r.seedPkgs {
+		rpkg := r.pkgMap[lpkg]
+		if rpkg == nil {
+			panic("Resolver lacks mapping for seed package " + lpkg.FullName())
+		}
+
+		visit(rpkg)
+	}
+
+	// Any non-visited packages in the resolver are orphans and can be removed.
+	anyPruned := false
+	for _, rpkg := range r.pkgMap {
+		if _, ok := seenMap[rpkg]; !ok {
+			anyPruned = true
+			if err := r.deletePkg(rpkg); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	return anyPruned, nil
+}
+
+func (r *Resolver) resolveHardDepsOnce() (bool, error) {
+	// Circularly resolve dependencies, APIs, and required APIs until no new
+	// ones exist.
+	reprocess := false
+	for _, rpkg := range r.pkgMap {
+		newDeps, err := r.resolvePkg(rpkg)
+		if err != nil {
+			return false, err
+		}
+
+		if newDeps {
+			// The new dependencies need to be processed.  Iterate again
+			// after this iteration completes.
+			reprocess = true
+		}
+	}
+
+	if reprocess {
+		return true, nil
+	}
+
+	// Now prune orphan packages.
+	anyPruned, err := r.pruneOrphans()
+	if err != nil {
+		return false, err
+	}
+
+	return anyPruned, nil
+}
+
+// Fully resolves all hard dependencies (i.e., packages listed in `pkg.deps`;
+// not API dependencies).
+func (r *Resolver) resolveHardDeps() error {
+	for {
+		reprocess, err := r.resolveHardDepsOnce()
+		if err != nil {
+			return err
+		}
+
+		if !reprocess {
+			return nil
+		}
+	}
 }
 
 // Given a fully calculated syscfg and API map, resolves package dependencies
@@ -512,7 +583,7 @@ func (r *Resolver) resolveDepsOnce() (bool, error) {
 // resolved separately, after the master syscfg and API map have been
 // calculated.
 func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
-	if _, err := r.resolveDepsOnce(); err != nil {
+	if err := r.resolveHardDeps(); err != nil {
 		return nil, err
 	}
 
@@ -537,7 +608,7 @@ func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 // 2. Determines which packages satisfy which API requirements.
 // 3. Resolves package dependencies by populating the resolver's package map.
 func (r *Resolver) resolveDepsAndCfg() error {
-	if _, err := r.resolveDepsOnce(); err != nil {
+	if err := r.resolveHardDeps(); err != nil {
 		return err
 	}
 
@@ -556,12 +627,11 @@ func (r *Resolver) resolveDepsAndCfg() error {
 			}
 		}
 
-		newDeps, err := r.resolveDepsOnce()
-		if err != nil {
+		if err := r.resolveHardDeps(); err != nil {
 			return err
 		}
 
-		if !newDeps && !cfgChanged {
+		if !cfgChanged {
 			break
 		}
 	}
