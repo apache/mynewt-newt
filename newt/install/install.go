@@ -157,7 +157,7 @@ func detectVersion(r *repo.Repo) (newtutil.RepoVersion, error) {
 			Commit: commit,
 		}
 
-		newtutil.OneTimeWarning(
+		util.OneTimeWarning(
 			"Could not detect version of installed repo \"%s\"; assuming %s",
 			r.Name(), ver.String())
 	}
@@ -292,7 +292,7 @@ func (inst *Installer) inferReqVers(repos []*repo.Repo) error {
 					}
 
 					if ver == nil {
-						newtutil.OneTimeWarning(
+						util.OneTimeWarning(
 							"Could not detect version of requested repo "+
 								"%s:%s; assuming 0.0.0",
 							r.Name(), req.Ver.Commit)
@@ -732,7 +732,7 @@ func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
 			s += "Specify the `-f` (force) switch to attempt anyway"
 			return util.NewNewtError(s)
 		} else {
-			newtutil.OneTimeWarning("%s", s)
+			util.OneTimeWarning("%s", s)
 		}
 	}
 
@@ -749,7 +749,7 @@ func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 
 		switch code {
 		case compat.NEWT_COMPAT_WARN:
-			newtutil.OneTimeWarning("%s", msg)
+			util.OneTimeWarning("%s", msg)
 		case compat.NEWT_COMPAT_ERROR:
 			errors = append(errors, msg)
 		}

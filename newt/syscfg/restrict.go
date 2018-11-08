@@ -59,8 +59,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/parse"
+	"mynewt.apache.org/newt/util"
 )
 
 type CfgRestrictionCode int
@@ -201,7 +201,7 @@ func (cfg *Cfg) restrictionMet(
 
 		val, err := parse.ParseAndEval(expr, settings)
 		if err != nil {
-			newtutil.OneTimeWarning(
+			util.OneTimeWarning(
 				"Ignoring illegal expression for setting \"%s\": "+
 					"`%s` %s\n", r.BaseSetting, r.Expr, err.Error())
 			return true

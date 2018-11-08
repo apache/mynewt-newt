@@ -713,3 +713,18 @@ func FileContains(contents []byte, path string) (bool, error) {
 	rc := bytes.Compare(oldSrc, contents)
 	return rc == 0, nil
 }
+
+// Keeps track of warnings that have already been reported.
+// [warning-text] => struct{}
+var warnings = map[string]struct{}{}
+
+// Displays the specified warning if it has not been displayed yet.
+func OneTimeWarning(text string, args ...interface{}) {
+	body := fmt.Sprintf(text, args...)
+	if _, ok := warnings[body]; !ok {
+		warnings[body] = struct{}{}
+
+		body := fmt.Sprintf(text, args...)
+		StatusMessage(VERBOSITY_QUIET, "WARNING: %s\n", body)
+	}
+}

@@ -178,17 +178,17 @@ func MakeTempRepoDir() (string, error) {
 func ReadConfigPath(path string) (ycfg.YCfg, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, util.NewNewtError(fmt.Sprintf("Error reading %s: %s",
-			path, err.Error()))
+		return ycfg.YCfg{}, util.FmtNewtError("Error reading %s: %s",
+			path, err.Error())
 	}
 
 	settings := map[string]interface{}{}
 	if err := yaml.Unmarshal(file, &settings); err != nil {
-		return nil, util.FmtNewtError("Failure parsing \"%s\": %s",
+		return ycfg.YCfg{}, util.FmtNewtError("Failure parsing \"%s\": %s",
 			path, err.Error())
 	}
 
-	return ycfg.NewYCfg(settings)
+	return ycfg.NewYCfg(path, settings)
 }
 
 // Read in the configuration file specified by name, in path
@@ -200,18 +200,4 @@ func ReadConfig(dir string, filename string) (ycfg.YCfg, error) {
 // Converts the provided YAML-configuration map to a YAML-encoded string.
 func YCfgToYaml(yc ycfg.YCfg) string {
 	return yaml.MapToYaml(yc.AllSettings())
-}
-
-// Keeps track of warnings that have already been reported.
-// [warning-text] => struct{}
-var warnings = map[string]struct{}{}
-
-// Displays the specified warning if it has not been displayed yet.
-func OneTimeWarning(text string, args ...interface{}) {
-	if _, ok := warnings[text]; !ok {
-		warnings[text] = struct{}{}
-
-		body := fmt.Sprintf(text, args...)
-		util.StatusMessage(util.VERBOSITY_QUIET, "WARNING: %s\n", body)
-	}
 }
