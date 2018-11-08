@@ -28,6 +28,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/logcfg"
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/syscfg"
@@ -77,8 +78,8 @@ type ResolveDep struct {
 	// Name of API that generated the dependency; "" if a hard dependency.
 	Api string
 
-	// Text of syscfg expression that generated this dependency; "" for none.
-	Expr string
+	// Set of syscfg expressions that generated this dependency.
+	ExprMap map[string]struct{}
 }
 
 type ResolvePackage struct {
@@ -175,7 +176,48 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 	}
 }
 
-func (r *Resolver) resolveDep(dep *pkg.Dependency, depender string) (*pkg.LocalPackage, error) {
+// Creates an expression string from all the conditionals associated with the
+// dependency.  The resulting expression is the union of all sub expressions.
+// For example:
+//     pkg.deps.FOO:
+//         - my_pkg
+//     pkg.deps.BAR:
+//         - my_pkg
+//
+// The expression string for the `my_pkg` dependency is:
+//     (FOO) || (BAR)
+func (rdep *ResolveDep) ExprString() string {
+	// If there is an unconditional dependency, the conditional dependencies
+	// can be ignored.
+	if _, ok := rdep.ExprMap[""]; ok {
+		return ""
+	}
+
+	exprs := make([]string, 0, len(rdep.ExprMap))
+	for expr, _ := range rdep.ExprMap {
+		exprs = append(exprs, expr)
+	}
+
+	// The union of one object is itself.
+	if len(exprs) == 1 {
+		return exprs[0]
+	}
+
+	// Sort all the subexpressions and OR them together.
+	sort.Strings(exprs)
+	s := ""
+	for i, expr := range exprs {
+		if i != 0 {
+			s += fmt.Sprintf(" || ")
+		}
+		s += fmt.Sprintf("(%s)", expr)
+	}
+	return s
+}
+
+func (r *Resolver) resolveDep(dep *pkg.Dependency,
+	depender string) (*pkg.LocalPackage, error) {
+
 	proj := project.GetProject()
 
 	if proj.ResolveDependency(dep) == nil {
@@ -193,16 +235,47 @@ func (rpkg *ResolvePackage) AddDep(
 	depPkg *ResolvePackage, api string, expr string) bool {
 
 	if dep := rpkg.Deps[depPkg]; dep != nil {
+		// This package already depends on dep.  If the conditional expression
+		// is new, or if the API string is different, then the existing
+		// dependency needs to be updated with the new information.  Otherwise,
+		// ignore the duplicate.
+
+		// Determine if this is a new conditional expression.
+		oldExpr := dep.ExprString()
+
+		norm, err := parse.NormalizeExpr(expr)
+		if err != nil {
+			panic("invalid expression, should have been caught earlier: " +
+				err.Error())
+		}
+
+		dep.ExprMap[norm] = struct{}{}
+		merged := dep.ExprString()
+
+		changed := false
+
+		if oldExpr != merged {
+			log.Debugf("Package %s has conflicting dependencies on %s: "+
+				"old=`%s` new=`%s`; merging them into a single conditional: "+
+				"`%s`",
+				rpkg.Lpkg.FullName(), dep.Rpkg.Lpkg.FullName(),
+				oldExpr, expr, merged)
+			changed = true
+		}
+
 		if dep.Api != "" && api == "" {
 			dep.Api = api
-		} else {
-			return false
+			changed = true
 		}
+
+		return changed
 	} else {
 		rpkg.Deps[depPkg] = &ResolveDep{
 			Rpkg: depPkg,
 			Api:  api,
-			Expr: expr,
+			ExprMap: map[string]struct{}{
+				expr: struct{}{},
+			},
 		}
 	}
 

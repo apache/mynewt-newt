@@ -554,6 +554,21 @@ func Eval(expr *Node, settings map[string]string) (bool, error) {
 	}
 }
 
+func lexAndParse(expr string) (*Node, error) {
+	tokens, err := Lex(expr)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := Parse(tokens)
+	if err != nil {
+		return nil, util.FmtNewtError("error parsing [%s]: %s",
+			expr, err.Error())
+	}
+
+	return n, nil
+}
+
 // Parses and evaluates string containing a syscfg expression.
 //
 // @param expr                  The expression to parse.
@@ -561,18 +576,27 @@ func Eval(expr *Node, settings map[string]string) (bool, error) {
 //
 // @return bool                 Whether the expression evaluates to true.
 func ParseAndEval(expr string, settings map[string]string) (bool, error) {
-	tokens, err := Lex(expr)
+	n, err := lexAndParse(expr)
 	if err != nil {
 		return false, err
 	}
 
-	n, err := Parse(tokens)
-	if err != nil {
-		return false, fmt.Errorf("error parsing [%s]: %s\n", expr, err.Error())
-	}
-
 	v, err := Eval(n, settings)
 	return v, err
+}
+
+// Parses an expression and converts it to its normalized text form.
+func NormalizeExpr(expr string) (string, error) {
+	n, err := lexAndParse(expr)
+	if err != nil {
+		return "", err
+	}
+
+	if n == nil {
+		return "", nil
+	}
+
+	return n.String(), nil
 }
 
 // Evaluates the truthfulness of a text expression.
