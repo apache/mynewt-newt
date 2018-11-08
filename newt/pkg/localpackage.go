@@ -77,12 +77,13 @@ type LocalPackage struct {
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 	pkg := &LocalPackage{
 		desc:             &PackageDesc{},
-		PkgY:             ycfg.YCfg{},
-		SyscfgY:          ycfg.YCfg{},
 		repo:             r,
 		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
 		injectedSettings: map[string]string{},
 	}
+
+	pkg.PkgY = ycfg.NewYCfg(pkg.PkgYamlPath())
+	pkg.SyscfgY = ycfg.NewYCfg(pkg.SyscfgYamlPath())
 	return pkg
 }
 
@@ -115,6 +116,14 @@ func (pkg *LocalPackage) BasePath() string {
 func (pkg *LocalPackage) RelativePath() string {
 	proj := interfaces.GetProject()
 	return strings.TrimPrefix(pkg.BasePath(), proj.Path())
+}
+
+func (pkg *LocalPackage) PkgYamlPath() string {
+	return fmt.Sprintf("%s/%s", pkg.BasePath(), PACKAGE_FILE_NAME)
+}
+
+func (pkg *LocalPackage) SyscfgYamlPath() string {
+	return fmt.Sprintf("%s/%s", pkg.BasePath(), SYSCFG_YAML_FILENAME)
 }
 
 func (pkg *LocalPackage) Type() interfaces.PackageType {
@@ -203,10 +212,8 @@ func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 func (pkg *LocalPackage) sequenceString(key string) string {
 	var buffer bytes.Buffer
 
-	if pkg.PkgY != nil {
-		for _, f := range pkg.PkgY.GetValStringSlice(key, nil) {
-			buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
-		}
+	for _, f := range pkg.PkgY.GetValStringSlice(key, nil) {
+		buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
 	}
 
 	if buffer.Len() == 0 {
@@ -222,8 +229,7 @@ func (lpkg *LocalPackage) SaveSyscfg() error {
 		return util.NewNewtError(err.Error())
 	}
 
-	filepath := dirpath + "/" + SYSCFG_YAML_FILENAME
-	file, err := os.Create(filepath)
+	file, err := os.Create(lpkg.SyscfgYamlPath())
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
@@ -244,8 +250,7 @@ func (pkg *LocalPackage) Save() error {
 		return util.NewNewtError(err.Error())
 	}
 
-	filepath := dirpath + "/" + PACKAGE_FILE_NAME
-	file, err := os.Create(filepath)
+	file, err := os.Create(pkg.PkgYamlPath())
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
@@ -291,12 +296,11 @@ func (pkg *LocalPackage) Load() error {
 
 	var err error
 
-	pkg.PkgY, err = newtutil.ReadConfig(pkg.basePath,
-		strings.TrimSuffix(PACKAGE_FILE_NAME, ".yml"))
+	pkg.PkgY, err = newtutil.ReadConfigPath(pkg.PkgYamlPath())
 	if err != nil {
 		return err
 	}
-	pkg.AddCfgFilename(pkg.basePath + "/" + PACKAGE_FILE_NAME)
+	pkg.AddCfgFilename(pkg.PkgYamlPath())
 
 	// Set package name from the package
 	pkg.name = pkg.PkgY.GetValString("pkg.name", nil)
@@ -353,14 +357,12 @@ func (pkg *LocalPackage) Load() error {
 	}
 
 	// Load syscfg settings.
-	if util.NodeExist(pkg.basePath + "/" + SYSCFG_YAML_FILENAME) {
-		pkg.SyscfgY, err = newtutil.ReadConfig(pkg.basePath,
-			strings.TrimSuffix(SYSCFG_YAML_FILENAME, ".yml"))
-		if err != nil {
-			return err
-		}
-		pkg.AddCfgFilename(pkg.basePath + "/" + SYSCFG_YAML_FILENAME)
+	pkg.SyscfgY, err = newtutil.ReadConfigPath(pkg.SyscfgYamlPath())
+	if err != nil && !util.IsNotExist(err) {
+		return err
 	}
+
+	pkg.AddCfgFilename(pkg.SyscfgYamlPath())
 
 	return nil
 }

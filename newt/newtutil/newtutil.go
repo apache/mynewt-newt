@@ -176,19 +176,24 @@ func MakeTempRepoDir() (string, error) {
 }
 
 func ReadConfigPath(path string) (ycfg.YCfg, error) {
+	yc := ycfg.NewYCfg(path)
+
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
-		return ycfg.YCfg{}, util.FmtNewtError("Error reading %s: %s",
-			path, err.Error())
+		return yc, util.ChildNewtError(err)
 	}
 
 	settings := map[string]interface{}{}
 	if err := yaml.Unmarshal(file, &settings); err != nil {
-		return ycfg.YCfg{}, util.FmtNewtError("Failure parsing \"%s\": %s",
+		return yc, util.FmtNewtError("Failure parsing \"%s\": %s",
 			path, err.Error())
 	}
 
-	return ycfg.NewYCfg(path, settings)
+	if err := yc.Populate(settings); err != nil {
+		return yc, err
+	}
+
+	return yc, nil
 }
 
 // Read in the configuration file specified by name, in path
