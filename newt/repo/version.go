@@ -392,7 +392,7 @@ func (r *Repo) inferVersion(commit string, vyVer *newtutil.RepoVersion) (
 				}
 			}
 
-			newtutil.OneTimeWarning(
+			util.OneTimeWarning(
 				"Version mismatch in %s:%s; repository.yml:%s, version.yml:%s",
 				r.Name(), commit, versString(ryVers), vyVer.String())
 		} else {
@@ -463,11 +463,11 @@ func (r *Repo) NonInstalledVersion(
 
 	if ver == nil {
 		if versionYmlErr == versionYmlMissing {
-			newtutil.OneTimeWarning(
+			util.OneTimeWarning(
 				"%s:%s does not contain a `version.yml` file.",
 				r.Name(), commit)
 		} else if versionYmlErr == versionYmlBad {
-			newtutil.OneTimeWarning(
+			util.OneTimeWarning(
 				"%s:%s contains a malformed `version.yml` file.",
 				r.Name(), commit)
 		}

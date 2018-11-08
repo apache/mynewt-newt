@@ -30,7 +30,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/settings"
 	"mynewt.apache.org/newt/util"
 )
@@ -421,7 +420,7 @@ func setRemoteUrl(path string, remote string, url string, logCmd bool) error {
 }
 
 func warnWrongOriginUrl(path string, curUrl string, goodUrl string) {
-	newtutil.OneTimeWarning(
+	util.OneTimeWarning(
 		"Repo's \"origin\" remote points to unexpected URL: "+
 			"%s; correcting it to %s.  Repo contents may be incorrect.",
 		curUrl, goodUrl)
