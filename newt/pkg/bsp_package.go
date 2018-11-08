@@ -20,6 +20,7 @@
 package pkg
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 
@@ -42,6 +43,10 @@ type BspPackage struct {
 	DebugScript        string
 	FlashMap           flash.FlashMap
 	BspV               ycfg.YCfg
+}
+
+func (bsp *BspPackage) BspYamlPath() string {
+	return fmt.Sprintf("%s/%s", bsp.BasePath(), BSP_YAML_FILENAME)
 }
 
 func (bsp *BspPackage) resolvePathSetting(
@@ -111,12 +116,11 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 	}
 	settings[strings.ToUpper(runtime.GOOS)] = "1"
 
-	bsp.BspV, err = newtutil.ReadConfig(bsp.BasePath(),
-		strings.TrimSuffix(BSP_YAML_FILENAME, ".yml"))
+	bsp.BspV, err = newtutil.ReadConfigPath(bsp.BspYamlPath())
 	if err != nil {
 		return err
 	}
-	bsp.AddCfgFilename(bsp.BasePath() + BSP_YAML_FILENAME)
+	bsp.AddCfgFilename(bsp.BspYamlPath())
 
 	bsp.CompilerName = bsp.BspV.GetValString("bsp.compiler", settings)
 	bsp.Arch = bsp.BspV.GetValString("bsp.arch", settings)
@@ -171,10 +175,12 @@ func NewBspPackage(lpkg *LocalPackage) (*BspPackage, error) {
 		CompilerName:   "",
 		DownloadScript: "",
 		DebugScript:    "",
-		BspV:           ycfg.YCfg{},
 	}
+
 	lpkg.Load()
 	bsp.LocalPackage = lpkg
+	bsp.BspV = ycfg.NewYCfg(bsp.BspYamlPath())
+
 	err := bsp.Reload(nil)
 
 	return bsp, err

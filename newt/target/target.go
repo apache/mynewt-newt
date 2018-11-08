@@ -20,10 +20,10 @@
 package target
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -56,9 +56,13 @@ type Target struct {
 
 func NewTarget(basePkg *pkg.LocalPackage) *Target {
 	target := &Target{
-		TargetY: ycfg.YCfg{},
+		basePkg: basePkg,
 	}
-	target.Init(basePkg)
+
+	if basePkg.SyscfgY.Tree() == nil {
+		panic("Fatal: target missing syscfg")
+	}
+	target.TargetY = ycfg.NewYCfg(target.TargetYamlPath())
 	return target
 }
 
@@ -71,13 +75,12 @@ func LoadTarget(basePkg *pkg.LocalPackage) (*Target, error) {
 	return target, nil
 }
 
-func (target *Target) Init(basePkg *pkg.LocalPackage) {
-	target.basePkg = basePkg
+func (target *Target) TargetYamlPath() string {
+	return fmt.Sprintf("%s/%s", target.basePkg.BasePath(), TARGET_FILENAME)
 }
 
 func (target *Target) Load(basePkg *pkg.LocalPackage) error {
-	yc, err := newtutil.ReadConfig(basePkg.BasePath(),
-		strings.TrimSuffix(TARGET_FILENAME, ".yml"))
+	yc, err := newtutil.ReadConfigPath(target.TargetYamlPath())
 	if err != nil {
 		return err
 	}
@@ -110,7 +113,7 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	// Remember the name of the configuration file so that it can be specified
 	// as a dependency to the compiler.
-	target.basePkg.AddCfgFilename(basePkg.BasePath() + TARGET_FILENAME)
+	target.basePkg.AddCfgFilename(target.TargetYamlPath())
 
 	return nil
 }
@@ -263,9 +266,7 @@ func (t *Target) Save() error {
 		return err
 	}
 
-	dirpath := t.basePkg.BasePath()
-	filepath := dirpath + "/" + TARGET_FILENAME
-	file, err := os.Create(filepath)
+	file, err := os.Create(t.TargetYamlPath())
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}

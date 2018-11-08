@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/parse"
+	"mynewt.apache.org/newt/util"
 )
 
 // YAML configuration object.  This is a substitute for a viper configuration
@@ -66,7 +66,13 @@ import (
 // Since each expression is a child node of the setting in question, they are
 // all known at the time of the lookup.  To determine the value of the setting,
 // each expression is parsed, and only the one evaluating to true is selected.
-type YCfg map[string]*YCfgNode
+type YCfg struct {
+	// Name of config; typically a YAML filename.
+	name string
+
+	// The settings.
+	tree YCfgTree
+}
 
 type YCfgEntry struct {
 	Value interface{}
@@ -77,29 +83,39 @@ type YCfgNode struct {
 	Overwrite bool
 	Name      string
 	Value     interface{}
-	Children  YCfg
+	Children  YCfgTree
 	Parent    *YCfgNode
+}
+
+func (yc *YCfg) Tree() YCfgTree {
+	return yc.tree
+}
+
+type YCfgTree map[string]*YCfgNode
+
+func NewYCfgNode() *YCfgNode {
+	return &YCfgNode{Children: YCfgTree{}}
 }
 
 func (node *YCfgNode) addChild(name string) (*YCfgNode, error) {
 	if node.Children == nil {
-		node.Children = YCfg{}
+		node.Children = YCfgTree{}
 	}
 
 	if node.Children[name] != nil {
 		return nil, fmt.Errorf("Duplicate YCfgNode: %s", name)
 	}
 
-	child := &YCfgNode{
-		Name:   name,
-		Parent: node,
-	}
+	child := NewYCfgNode()
+	child.Name = name
+	child.Parent = node
+
 	node.Children[name] = child
 
 	return child, nil
 }
 
-func (yc YCfg) Replace(key string, val interface{}) error {
+func (yc *YCfg) Replace(key string, val interface{}) error {
 	elems := strings.Split(key, ".")
 	if len(elems) == 0 {
 		return fmt.Errorf("Invalid ycfg key: \"\"")
@@ -113,12 +129,12 @@ func (yc YCfg) Replace(key string, val interface{}) error {
 
 	var parent *YCfgNode
 	for i, e := range elems {
-		var parentChildren YCfg
+		var parentChildren YCfgTree
 		if parent == nil {
-			parentChildren = yc
+			parentChildren = yc.tree
 		} else {
 			if parent.Children == nil {
-				parent.Children = YCfg{}
+				parent.Children = YCfgTree{}
 			}
 			parentChildren = parent.Children
 		}
@@ -131,7 +147,8 @@ func (yc YCfg) Replace(key string, val interface{}) error {
 					return err
 				}
 			} else {
-				child = &YCfgNode{Name: e}
+				child = NewYCfgNode()
+				child.Name = e
 				parentChildren[e] = child
 			}
 		}
@@ -147,26 +164,31 @@ func (yc YCfg) Replace(key string, val interface{}) error {
 	return nil
 }
 
-func NewYCfg(kv map[string]interface{}) (YCfg, error) {
-	yc := YCfg{}
+func NewYCfg(name string) YCfg {
+	return YCfg{
+		name: name,
+		tree: YCfgTree{},
+	}
+}
 
+func (yc *YCfg) Populate(kv map[string]interface{}) error {
 	for k, v := range kv {
 		if err := yc.Replace(k, v); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return yc, nil
+	return nil
 }
 
-func (yc YCfg) find(key string) *YCfgNode {
+func (yc *YCfg) find(key string) *YCfgNode {
 	elems := strings.Split(key, ".")
 	if len(elems) == 0 {
 		return nil
 	}
 
 	cur := &YCfgNode{
-		Children: yc,
+		Children: yc.tree,
 	}
 	for _, e := range elems {
 		if cur.Children == nil {
@@ -182,7 +204,7 @@ func (yc YCfg) find(key string) *YCfgNode {
 	return cur
 }
 
-func (yc YCfg) Get(key string, settings map[string]string) []YCfgEntry {
+func (yc *YCfg) Get(key string, settings map[string]string) []YCfgEntry {
 	node := yc.find(key)
 	if node == nil {
 		return nil
@@ -198,7 +220,7 @@ func (yc YCfg) Get(key string, settings map[string]string) []YCfgEntry {
 	for _, child := range node.Children {
 		val, err := parse.ParseAndEval(child.Name, settings)
 		if err != nil {
-			log.Error(err.Error())
+			util.OneTimeWarning("%s: %s", yc.name, err.Error())
 		} else if val {
 			entry := YCfgEntry{
 				Value: child.Value,
@@ -215,7 +237,7 @@ func (yc YCfg) Get(key string, settings map[string]string) []YCfgEntry {
 	return entries
 }
 
-func (yc YCfg) GetSlice(key string, settings map[string]string) []YCfgEntry {
+func (yc *YCfg) GetSlice(key string, settings map[string]string) []YCfgEntry {
 	sliceEntries := yc.Get(key, settings)
 	if len(sliceEntries) == 0 {
 		return nil
@@ -242,7 +264,7 @@ func (yc YCfg) GetSlice(key string, settings map[string]string) []YCfgEntry {
 	return result
 }
 
-func (yc YCfg) GetValSlice(
+func (yc *YCfg) GetValSlice(
 	key string, settings map[string]string) []interface{} {
 
 	entries := yc.GetSlice(key, settings)
@@ -258,7 +280,7 @@ func (yc YCfg) GetValSlice(
 	return vals
 }
 
-func (yc YCfg) GetStringSlice(key string,
+func (yc *YCfg) GetStringSlice(key string,
 	settings map[string]string) []YCfgEntry {
 
 	sliceEntries := yc.Get(key, settings)
@@ -287,7 +309,7 @@ func (yc YCfg) GetStringSlice(key string,
 	return result
 }
 
-func (yc YCfg) GetValStringSlice(
+func (yc *YCfg) GetValStringSlice(
 	key string, settings map[string]string) []string {
 
 	entries := yc.GetStringSlice(key, settings)
@@ -305,7 +327,7 @@ func (yc YCfg) GetValStringSlice(
 	return vals
 }
 
-func (yc YCfg) GetValStringSliceNonempty(
+func (yc *YCfg) GetValStringSliceNonempty(
 	key string, settings map[string]string) []string {
 
 	strs := yc.GetValStringSlice(key, settings)
@@ -319,7 +341,7 @@ func (yc YCfg) GetValStringSliceNonempty(
 	return filtered
 }
 
-func (yc YCfg) GetStringMap(
+func (yc *YCfg) GetStringMap(
 	key string, settings map[string]string) map[string]YCfgEntry {
 
 	mapEntries := yc.Get(key, settings)
@@ -344,7 +366,7 @@ func (yc YCfg) GetStringMap(
 	return result
 }
 
-func (yc YCfg) GetValStringMap(
+func (yc *YCfg) GetValStringMap(
 	key string, settings map[string]string) map[string]interface{} {
 
 	entryMap := yc.GetStringMap(key, settings)
@@ -359,7 +381,7 @@ func (yc YCfg) GetValStringMap(
 	return smap
 }
 
-func (yc YCfg) GetFirst(key string, settings map[string]string) (YCfgEntry, bool) {
+func (yc *YCfg) GetFirst(key string, settings map[string]string) (YCfgEntry, bool) {
 	entries := yc.Get(key, settings)
 	if len(entries) == 0 {
 		return YCfgEntry{}, false
@@ -368,7 +390,7 @@ func (yc YCfg) GetFirst(key string, settings map[string]string) (YCfgEntry, bool
 	return entries[0], true
 }
 
-func (yc YCfg) GetFirstVal(key string, settings map[string]string) interface{} {
+func (yc *YCfg) GetFirstVal(key string, settings map[string]string) interface{} {
 	entry, ok := yc.GetFirst(key, settings)
 	if !ok {
 		return nil
@@ -377,7 +399,7 @@ func (yc YCfg) GetFirstVal(key string, settings map[string]string) interface{} {
 	return entry.Value
 }
 
-func (yc YCfg) GetValString(key string, settings map[string]string) string {
+func (yc *YCfg) GetValString(key string, settings map[string]string) string {
 	entry, ok := yc.GetFirst(key, settings)
 	if !ok {
 		return ""
@@ -386,7 +408,7 @@ func (yc YCfg) GetValString(key string, settings map[string]string) string {
 	}
 }
 
-func (yc YCfg) GetValInt(key string, settings map[string]string) int {
+func (yc *YCfg) GetValInt(key string, settings map[string]string) int {
 	entry, ok := yc.GetFirst(key, settings)
 	if !ok {
 		return 0
@@ -395,7 +417,7 @@ func (yc YCfg) GetValInt(key string, settings map[string]string) int {
 	}
 }
 
-func (yc YCfg) GetValBoolDflt(key string, settings map[string]string,
+func (yc *YCfg) GetValBoolDflt(key string, settings map[string]string,
 	dflt bool) bool {
 
 	entry, ok := yc.GetFirst(key, settings)
@@ -406,11 +428,11 @@ func (yc YCfg) GetValBoolDflt(key string, settings map[string]string,
 	}
 }
 
-func (yc YCfg) GetValBool(key string, settings map[string]string) bool {
+func (yc *YCfg) GetValBool(key string, settings map[string]string) bool {
 	return yc.GetValBoolDflt(key, settings, false)
 }
 
-func (yc YCfg) GetStringMapString(key string,
+func (yc *YCfg) GetStringMapString(key string,
 	settings map[string]string) map[string]YCfgEntry {
 
 	mapEntries := yc.Get(key, settings)
@@ -435,7 +457,7 @@ func (yc YCfg) GetStringMapString(key string,
 	return result
 }
 
-func (yc YCfg) GetValStringMapString(key string,
+func (yc *YCfg) GetValStringMapString(key string,
 	settings map[string]string) map[string]string {
 
 	entryMap := yc.GetStringMapString(key, settings)
@@ -465,11 +487,15 @@ func (node *YCfgNode) FullName() string {
 	return strings.Join(tokens, ".")
 }
 
-func (yc YCfg) Delete(name string) {
-	delete(yc, name)
+func (yc *YCfg) Delete(key string) {
+	delete(yc.tree, key)
 }
 
-func (yc YCfg) Traverse(cb func(node *YCfgNode, depth int)) {
+func (yc *YCfg) Clear() {
+	yc.tree = YCfgTree{}
+}
+
+func (yc *YCfg) Traverse(cb func(node *YCfgNode, depth int)) {
 	var traverseLevel func(
 		node *YCfgNode,
 		cb func(node *YCfgNode, depth int),
@@ -486,12 +512,12 @@ func (yc YCfg) Traverse(cb func(node *YCfgNode, depth int)) {
 		}
 	}
 
-	for _, n := range yc {
+	for _, n := range yc.tree {
 		traverseLevel(n, cb, 0)
 	}
 }
 
-func (yc YCfg) AllSettings() map[string]interface{} {
+func (yc *YCfg) AllSettings() map[string]interface{} {
 	settings := map[string]interface{}{}
 
 	yc.Traverse(func(node *YCfgNode, depth int) {
@@ -503,7 +529,7 @@ func (yc YCfg) AllSettings() map[string]interface{} {
 	return settings
 }
 
-func (yc YCfg) AllSettingsAsStrings() map[string]string {
+func (yc *YCfg) AllSettingsAsStrings() map[string]string {
 	settings := yc.AllSettings()
 	smap := make(map[string]string, len(settings))
 	for k, v := range settings {
@@ -513,8 +539,8 @@ func (yc YCfg) AllSettingsAsStrings() map[string]string {
 	return smap
 }
 
-func (yc YCfg) String() string {
-	lines := make([]string, 0, len(yc))
+func (yc *YCfg) String() string {
+	lines := make([]string, 0, len(yc.tree))
 	yc.Traverse(func(node *YCfgNode, depth int) {
 		line := strings.Repeat(" ", depth*4) + node.Name
 		if node.Value != nil {

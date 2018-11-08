@@ -33,7 +33,7 @@ const NEWTRC_DIR string = ".newt"
 const REPOS_FILENAME string = "repos.yml"
 
 // Contains general newt settings read from $HOME/.newt
-var newtrc ycfg.YCfg
+var newtrc *ycfg.YCfg
 
 func readNewtrc() ycfg.YCfg {
 	usr, err := user.Current()
@@ -54,9 +54,10 @@ func readNewtrc() ycfg.YCfg {
 
 func Newtrc() ycfg.YCfg {
 	if newtrc != nil {
-		return newtrc
+		return *newtrc
 	}
 
-	newtrc = readNewtrc()
-	return newtrc
+	yc := readNewtrc()
+	newtrc = &yc
+	return yc
 }

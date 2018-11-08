@@ -35,7 +35,6 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/target"
-	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -304,7 +303,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 		// A few variables are special cases; they get set in the base package
 		// instead of the target.
 		if kv[0] == "target.syscfg" {
-			t.Package().SyscfgY = ycfg.YCfg{}
+			t.Package().SyscfgY.Clear()
 			kv, err := syscfg.KeyValueFromStr(kv[1])
 			if err != nil {
 				NewtUsage(cmd, err)
