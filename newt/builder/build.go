@@ -285,7 +285,7 @@ func (b *Builder) newCompiler(bpkg *BuildPackage,
 			return nil, err
 		}
 
-		log.Warnf("Unsupported build profile for package, using default build profile " +
+		log.Warnf("Unsupported build profile for package, using default build profile "+
 			"(pkg=\"%s\" build_profile=\"%s\" OS=\"%s\")",
 			bpkg.rpkg.Lpkg.FullName(), buildProfile, runtime.GOOS)
 
@@ -814,8 +814,7 @@ func (b *Builder) CreateImage(version string,
 	}
 
 	img.HeaderSize = uint(b.targetBuilder.target.HeaderSize)
-	err = img.Generate(loaderImg)
-	if err != nil {
+	if err := img.Generate(loaderImg); err != nil {
 		return nil, err
 	}
 

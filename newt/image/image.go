@@ -327,8 +327,8 @@ func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
 		 */
 		privKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, util.NewNewtError(fmt.Sprintf("Private key parsing "+
-				"failed: %s", err))
+			return nil, util.FmtNewtError(
+				"Private key parsing failed: %s", err)
 		}
 	}
 	if block != nil && block.Type == "EC PRIVATE KEY" {
@@ -337,8 +337,8 @@ func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
 		 */
 		privKey, err = x509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
-			return nil, util.NewNewtError(fmt.Sprintf("Private key parsing "+
-				"failed: %s", err))
+			return nil, util.FmtNewtError(
+				"Private key parsing failed: %s", err)
 		}
 	}
 	if block != nil && block.Type == "PRIVATE KEY" {
@@ -347,8 +347,8 @@ func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
 		// the key itself.
 		privKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, util.NewNewtError(fmt.Sprintf("Private key parsing "+
-				"failed: %s", err))
+			return nil, util.FmtNewtError(
+				"Private key parsing failed: %s", err)
 		}
 	}
 	if block != nil && block.Type == "ENCRYPTED PRIVATE KEY" {
@@ -487,14 +487,14 @@ func (image *Image) sigTlvType() uint8 {
 func (image *Image) ReSign() error {
 	srcImg, err := os.Open(image.SourceImg)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't open image file %s: %s",
-			image.SourceImg, err.Error()))
+		return util.FmtNewtError("Can't open image file %s: %s",
+			image.SourceImg, err.Error())
 	}
 
 	srcInfo, err := srcImg.Stat()
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't stat image file %s: %s",
-			image.SourceImg, err.Error()))
+		return util.FmtNewtError("Can't stat image file %s: %s",
+			image.SourceImg, err.Error())
 	}
 
 	var hdr1 ImageHdrV1
@@ -508,15 +508,15 @@ func (image *Image) ReSign() error {
 		err = binary.Read(srcImg, binary.LittleEndian, &hdr2)
 	}
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failing to access image %s: %s",
-			image.SourceImg, err.Error()))
+		return util.FmtNewtError("Failing to access image %s: %s",
+			image.SourceImg, err.Error())
 	}
 	if hdr1.Magic == IMAGEv1_MAGIC {
 		if uint32(srcInfo.Size()) !=
 			uint32(hdr1.HdrSz)+hdr1.ImgSz+uint32(hdr1.TlvSz) {
 
-			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
-				image.SourceImg))
+			return util.FmtNewtError("File %s is not an image\n",
+				image.SourceImg)
 		}
 		imgSz = hdr1.ImgSz
 		hdrSz = hdr1.HdrSz
@@ -527,8 +527,8 @@ func (image *Image) ReSign() error {
 			hdr1.Vers.BuildNum)
 	} else if hdr2.Magic == IMAGE_MAGIC {
 		if uint32(srcInfo.Size()) < uint32(hdr2.HdrSz)+hdr2.ImgSz {
-			return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
-				image.SourceImg))
+			return util.FmtNewtError("File %s is not an image\n",
+				image.SourceImg)
 		}
 		imgSz = hdr2.ImgSz
 		hdrSz = hdr2.HdrSz
@@ -538,15 +538,15 @@ func (image *Image) ReSign() error {
 			hdr2.Vers.Major, hdr2.Vers.Minor, hdr2.Vers.Rev,
 			hdr2.Vers.BuildNum)
 	} else {
-		return util.NewNewtError(fmt.Sprintf("File %s is not an image\n",
-			image.SourceImg))
+		return util.FmtNewtError("File %s is not an image\n",
+			image.SourceImg)
 	}
 	srcImg.Seek(int64(hdrSz), 0)
 
 	tmpBin, err := ioutil.TempFile("", "")
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Creating temp file failed: %s",
-			err.Error()))
+		return util.FmtNewtError("Creating temp file failed: %s",
+			err.Error())
 	}
 	tmpBinName := tmpBin.Name()
 	defer os.Remove(tmpBinName)
@@ -557,8 +557,8 @@ func (image *Image) ReSign() error {
 	srcImg.Close()
 	tmpBin.Close()
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Cannot copy to tmpfile %s: %s",
-			tmpBin.Name(), err.Error()))
+		return util.FmtNewtError("Cannot copy to tmpfile %s: %s",
+			tmpBin.Name(), err.Error())
 	}
 
 	image.SourceBin = tmpBinName
@@ -571,22 +571,22 @@ func (image *Image) ReSign() error {
 func (image *Image) generateV1(loader *Image) error {
 	binFile, err := os.Open(image.SourceBin)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
-			err.Error()))
+		return util.FmtNewtError("Can't open app binary: %s",
+			err.Error())
 	}
 	defer binFile.Close()
 
 	binInfo, err := binFile.Stat()
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't stat app binary %s: %s",
-			image.SourceBin, err.Error()))
+		return util.FmtNewtError("Can't stat app binary %s: %s",
+			image.SourceBin, err.Error())
 	}
 
 	imgFile, err := os.OpenFile(image.TargetImg,
 		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't open target image %s: %s",
-			image.TargetImg, err.Error()))
+		return util.FmtNewtError("Can't open target image %s: %s",
+			image.TargetImg, err.Error())
 	}
 	defer imgFile.Close()
 
@@ -598,8 +598,7 @@ func (image *Image) generateV1(loader *Image) error {
 	if loader != nil {
 		err = binary.Write(hash, binary.LittleEndian, loader.Hash)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to seed hash: %s",
-				err.Error()))
+			return util.FmtNewtError("Failed to seed hash: %s", err.Error())
 		}
 	}
 
@@ -645,7 +644,8 @@ func (image *Image) generateV1(loader *Image) error {
 		 * the image when it is padded.
 		 */
 		if image.HeaderSize < IMAGE_HEADER_SIZE {
-			return util.NewNewtError(fmt.Sprintf("Image header must be at least %d bytes", IMAGE_HEADER_SIZE))
+			return util.FmtNewtError(
+				"Image header must be at least %d bytes", IMAGE_HEADER_SIZE)
 		}
 
 		hdr.HdrSz = uint16(image.HeaderSize)
@@ -653,13 +653,12 @@ func (image *Image) generateV1(loader *Image) error {
 
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to serialize image hdr: %s",
+			err.Error())
 	}
 	err = binary.Write(hash, binary.LittleEndian, hdr)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to hash data: %s", err.Error())
 	}
 
 	if image.HeaderSize > IMAGE_HEADER_SIZE {
@@ -671,14 +670,13 @@ func (image *Image) generateV1(loader *Image) error {
 
 		_, err = imgFile.Write(buf)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to write padding: %s",
-				err.Error()))
+			return util.FmtNewtError(
+				"Failed to write padding: %s", err.Error())
 		}
 
 		_, err = hash.Write(buf)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to hash padding: %s",
-				err.Error()))
+			return util.FmtNewtError("Failed to hash padding: %s", err.Error())
 		}
 	}
 
@@ -689,8 +687,8 @@ func (image *Image) generateV1(loader *Image) error {
 		buf := make([]byte, image.SrcSkip)
 		_, err = binFile.Read(buf)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
-				image.SourceBin, err.Error()))
+			return util.FmtNewtError(
+				"Failed to read from %s: %s", image.SourceBin, err.Error())
 		}
 
 		nonZero := false
@@ -714,21 +712,21 @@ func (image *Image) generateV1(loader *Image) error {
 	for {
 		cnt, err := binFile.Read(dataBuf)
 		if err != nil && err != io.EOF {
-			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
-				image.SourceBin, err.Error()))
+			return util.FmtNewtError(
+				"Failed to read from %s: %s", image.SourceBin, err.Error())
 		}
 		if cnt == 0 {
 			break
 		}
 		_, err = imgFile.Write(dataBuf[0:cnt])
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
-				image.TargetImg, err.Error()))
+			return util.FmtNewtError(
+				"Failed to write to %s: %s", image.TargetImg, err.Error())
 		}
 		_, err = hash.Write(dataBuf[0:cnt])
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
-				err.Error()))
+			return util.FmtNewtError(
+				"Failed to hash data: %s", err.Error())
 		}
 	}
 
@@ -744,8 +742,8 @@ func (image *Image) generateV1(loader *Image) error {
 	}
 	err = binary.Write(imgFile, binary.LittleEndian, tlv)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-			"trailer: %s", err.Error()))
+		return util.FmtNewtError(
+			"Failed to serialize image trailer: %s", err.Error())
 	}
 	_, err = imgFile.Write(image.Hash)
 	if err != nil {
@@ -851,22 +849,21 @@ func (image *Image) generateV1(loader *Image) error {
 func (image *Image) generateV2(loader *Image) error {
 	binFile, err := os.Open(image.SourceBin)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't open app binary: %s",
-			err.Error()))
+		return util.FmtNewtError("Can't open app binary: %s", err.Error())
 	}
 	defer binFile.Close()
 
 	binInfo, err := binFile.Stat()
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't stat app binary %s: %s",
-			image.SourceBin, err.Error()))
+		return util.FmtNewtError("Can't stat app binary %s: %s",
+			image.SourceBin, err.Error())
 	}
 
 	imgFile, err := os.OpenFile(image.TargetImg,
 		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Can't open target image %s: %s",
-			image.TargetImg, err.Error()))
+		return util.FmtNewtError("Can't open target image %s: %s",
+			image.TargetImg, err.Error())
 	}
 	defer imgFile.Close()
 
@@ -876,12 +873,12 @@ func (image *Image) generateV2(loader *Image) error {
 	if PubKeyFile != "" {
 		_, err = rand.Read(plainSecret)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Random generation error: %s\n", err))
+			return util.FmtNewtError("Random generation error: %s\n", err)
 		}
 
 		keyBytes, err := ioutil.ReadFile(PubKeyFile)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Error reading pubkey file: %s", err))
+			return util.FmtNewtError("Error reading pubkey file: %s", err)
 		}
 
 		// Try reading as PEM (asymetric key), if it fails, assume this is a
@@ -890,26 +887,26 @@ func (image *Image) generateV2(loader *Image) error {
 		if b == nil {
 			kek, err := base64.StdEncoding.DecodeString(string(keyBytes))
 			if err != nil {
-				return util.NewNewtError(fmt.Sprintf("Error decoding kek: %s", err))
+				return util.FmtNewtError("Error decoding kek: %s", err)
 			} else if len(kek) != 16 {
-				return util.NewNewtError(fmt.Sprintf("Unexpected key size: %d != 16", len(kek)))
+				return util.FmtNewtError("Unexpected key size: %d != 16", len(kek))
 			}
 
 			cipher, err := aes.NewCipher(kek)
 			if err != nil {
-				return util.NewNewtError(fmt.Sprintf("Error creating keywrap cipher: %s", err))
+				return util.FmtNewtError("Error creating keywrap cipher: %s", err)
 			}
 
 			cipherSecret, err = keywrap.Wrap(cipher, plainSecret)
 			if err != nil {
-				return util.NewNewtError(fmt.Sprintf("Error key-wrapping: %s", err))
+				return util.FmtNewtError("Error key-wrapping: %s", err)
 			}
 		} else if b.Type != "PUBLIC KEY" && b.Type != "RSA PUBLIC KEY" {
 			return util.NewNewtError("Invalid PEM file")
 		} else {
 			pub, err := x509.ParsePKIXPublicKey(b.Bytes)
 			if err != nil {
-				return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
+				return util.FmtNewtError("Error parsing pubkey file: %s", err)
 			}
 
 			var pubk *rsa.PublicKey
@@ -917,13 +914,13 @@ func (image *Image) generateV2(loader *Image) error {
 			case *rsa.PublicKey:
 				pubk = pub.(*rsa.PublicKey)
 			default:
-				return util.NewNewtError(fmt.Sprintf("Error parsing pubkey file: %s", err))
+				return util.FmtNewtError("Error parsing pubkey file: %s", err)
 			}
 
 			rng := rand.Reader
 			cipherSecret, err = rsa.EncryptOAEP(sha256.New(), rng, pubk, plainSecret, nil)
 			if err != nil {
-				return util.NewNewtError(fmt.Sprintf("Error from encryption: %s\n", err))
+				return util.FmtNewtError("Error from encryption: %s\n", err)
 			}
 		}
 	}
@@ -936,8 +933,8 @@ func (image *Image) generateV2(loader *Image) error {
 	if loader != nil {
 		err = binary.Write(hash, binary.LittleEndian, loader.Hash)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to seed hash: %s",
-				err.Error()))
+			return util.FmtNewtError("Failed to seed hash: %s",
+				err.Error())
 		}
 	}
 
@@ -969,8 +966,8 @@ func (image *Image) generateV2(loader *Image) error {
 		 * the image when it is padded.
 		 */
 		if image.HeaderSize < IMAGE_HEADER_SIZE {
-			return util.NewNewtError(fmt.Sprintf("Image header must be at "+
-				"least %d bytes", IMAGE_HEADER_SIZE))
+			return util.FmtNewtError("Image header must be at "+
+				"least %d bytes", IMAGE_HEADER_SIZE)
 		}
 
 		hdr.HdrSz = uint16(image.HeaderSize)
@@ -978,13 +975,13 @@ func (image *Image) generateV2(loader *Image) error {
 
 	err = binary.Write(imgFile, binary.LittleEndian, hdr)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to serialize image hdr: %s",
+			err.Error())
 	}
 	err = binary.Write(hash, binary.LittleEndian, hdr)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to hash data: %s",
+			err.Error())
 	}
 
 	if image.HeaderSize > IMAGE_HEADER_SIZE {
@@ -996,14 +993,14 @@ func (image *Image) generateV2(loader *Image) error {
 
 		_, err = imgFile.Write(buf)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to write padding: %s",
-				err.Error()))
+			return util.FmtNewtError("Failed to write padding: %s",
+				err.Error())
 		}
 
 		_, err = hash.Write(buf)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to hash padding: %s",
-				err.Error()))
+			return util.FmtNewtError("Failed to hash padding: %s",
+				err.Error())
 		}
 	}
 
@@ -1014,8 +1011,8 @@ func (image *Image) generateV2(loader *Image) error {
 		buf := make([]byte, image.SrcSkip)
 		_, err = binFile.Read(buf)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
-				image.SourceBin, err.Error()))
+			return util.FmtNewtError("Failed to read from %s: %s",
+				image.SourceBin, err.Error())
 		}
 
 		nonZero := false
@@ -1049,16 +1046,16 @@ func (image *Image) generateV2(loader *Image) error {
 	for {
 		cnt, err := binFile.Read(dataBuf)
 		if err != nil && err != io.EOF {
-			return util.NewNewtError(fmt.Sprintf("Failed to read from %s: %s",
-				image.SourceBin, err.Error()))
+			return util.FmtNewtError("Failed to read from %s: %s",
+				image.SourceBin, err.Error())
 		}
 		if cnt == 0 {
 			break
 		}
 		_, err = hash.Write(dataBuf[0:cnt])
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to hash data: %s",
-				err.Error()))
+			return util.FmtNewtError("Failed to hash data: %s",
+				err.Error())
 		}
 		if cipherSecret == nil {
 			_, err = imgFile.Write(dataBuf[0:cnt])
@@ -1067,8 +1064,8 @@ func (image *Image) generateV2(loader *Image) error {
 			_, err = imgFile.Write(encBuf[0:cnt])
 		}
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to write to %s: %s",
-				image.TargetImg, err.Error()))
+			return util.FmtNewtError("Failed to write to %s: %s",
+				image.TargetImg, err.Error())
 		}
 	}
 
@@ -1088,8 +1085,8 @@ func (image *Image) generateV2(loader *Image) error {
 	}
 	err = binary.Write(imgFile, binary.LittleEndian, tlvInfo)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to serialize image hdr: %s",
+			err.Error())
 	}
 
 	/*
@@ -1215,22 +1212,20 @@ func (image *Image) generateV2(loader *Image) error {
 		} else if len(cipherSecret) == 24 {
 			_type = IMAGE_TLV_ENC_KEK
 		} else {
-			return util.NewNewtError(fmt.Sprintf("Invalid enc TLV size "))
+			return util.FmtNewtError("Invalid enc TLV size ")
 		}
 		tlv := &ImageTrailerTlv{
 			Type: _type,
 			Pad:  0,
 			Len:  uint16(len(cipherSecret)),
 		}
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
+		if err := binary.Write(imgFile, binary.LittleEndian, tlv); err != nil {
+			return util.FmtNewtError(
+				"Failed to serialize cipher secret TLV: %s", err.Error())
 		}
-		_, err = imgFile.Write(cipherSecret)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append encrypted key: %s",
-				err.Error()))
+		if _, err := imgFile.Write(cipherSecret); err != nil {
+			return util.FmtNewtError("Failed to append encrypted key: %s",
+				err.Error())
 		}
 	}
 
@@ -1258,8 +1253,8 @@ func (image *Image) generateV2(loader *Image) error {
 	}
 	err = binary.Write(imgFile, binary.LittleEndian, tlvInfo)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image hdr: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to serialize image hdr: %s",
+			err.Error())
 	}
 
 	return nil
