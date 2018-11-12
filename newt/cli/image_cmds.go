@@ -32,9 +32,28 @@ import (
 var useV1 bool
 var useV2 bool
 
+func parseKeyArgs(args []string) ([]string, uint8, error) {
+	if len(args) == 0 {
+		return nil, 0, nil
+	}
+
+	if len(args) == 1 {
+		return args, 0, nil
+	}
+
+	if image.UseV1 {
+		keyId64, err := strconv.ParseUint(args[1], 10, 8)
+		if err != nil {
+			return nil, 0, util.NewNewtError("Key ID must be between 0-255")
+		}
+		return args[:1], uint8(keyId64), nil
+	}
+
+	return args, 0, nil
+}
+
 func createImageRunCmd(cmd *cobra.Command, args []string) {
 	var keyId uint8
-	var keystr string
 
 	if len(args) < 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
@@ -59,26 +78,18 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 
 	version := args[1]
 
-	if len(args) > 2 {
-		if len(args) > 3 {
-			keyId64, err := strconv.ParseUint(args[3], 10, 8)
-			if err != nil {
-				NewtUsage(cmd,
-					util.NewNewtError("Key ID must be between 0-255"))
-			}
-			keyId = uint8(keyId64)
-		}
-		keystr = args[2]
-	}
-
 	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	if _, _, err := b.CreateImages(version, keystr, keyId); err != nil {
+	keystrs, keyId, err := parseKeyArgs(args[2:])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if _, _, err := b.CreateImages(version, keystrs, keyId); err != nil {
 		NewtUsage(nil, err)
-		return
 	}
 }
 
@@ -116,7 +127,7 @@ func resignImageRunCmd(cmd *cobra.Command, args []string) {
 			keyId = uint8(keyId64)
 		}
 		keystr = args[1]
-		err = img.SetSigningKey(keystr, keyId)
+		err = img.SetKeyV1(keystr, keyId)
 		if err != nil {
 			NewtUsage(nil, err)
 			return
@@ -151,10 +162,12 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageHelpEx := "  newt create-image my_target1 1.3.0\n"
 	createImageHelpEx += "  newt create-image my_target1 1.3.0.3\n"
 	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 private.pem\n"
-	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 private.pem 5\n"
+	createImageHelpEx +=
+		"  newt create-image -2 my_target1 1.3.0.3 private-1.pem private-2.pem\n"
 
 	createImageCmd := &cobra.Command{
-		Use:     "create-image <target-name> <version> [signing-key [key-id]]",
+		Use: "create-image <target-name> <version> [signing-key-1] " +
+			"[signing-key-2] [...]",
 		Short:   "Add image header to target binary",
 		Long:    createImageHelpText,
 		Example: createImageHelpEx,

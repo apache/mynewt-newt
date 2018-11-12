@@ -794,7 +794,8 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 }
 
 func (b *Builder) CreateImage(version string,
-	keystr string, keyId uint8, loaderImg *image.Image) (*image.Image, error) {
+	keystrs []string, keyId uint8,
+	loaderImg *image.Image) (*image.Image, error) {
 
 	img, err := image.NewImage(b.AppBinPath(), b.AppImgPath())
 	if err != nil {
@@ -806,9 +807,12 @@ func (b *Builder) CreateImage(version string,
 		return nil, err
 	}
 
-	if keystr != "" {
-		err = img.SetSigningKey(keystr, keyId)
-		if err != nil {
+	if len(keystrs) == 1 {
+		if err := img.SetKeyV1(keystrs[0], keyId); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := img.SetKeys(keystrs); err != nil {
 			return nil, err
 		}
 	}
