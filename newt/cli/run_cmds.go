@@ -88,11 +88,20 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		}
 
 		if len(version) > 0 {
-			_, _, err = b.CreateImages(version, "", 0)
+			var keystrs []string
+			var keyId uint8
+
+			if len(args) > 2 {
+				keystrs, keyId, err = parseKeyArgs(args[2:])
+				if err != nil {
+					NewtUsage(cmd, err)
+				}
+			}
+
+			_, _, err = b.CreateImages(version, keystrs, keyId)
 			if err != nil {
 				NewtUsage(cmd, err)
 			}
-
 		}
 
 		if err := b.Load(extraJtagCmd); err != nil {
@@ -113,6 +122,8 @@ func AddRunCommands(cmd *cobra.Command) {
 		" - debug <target>\n\n" +
 		"Note if version number is omitted, create-image step is skipped\n"
 	runHelpEx := "  newt run <target-name> [<version>]\n"
+	runHelpEx +=
+		"  newt run -2 my_target1 1.3.0.3 private-1.pem private-2.pem\n"
 
 	runCmd := &cobra.Command{
 		Use:     "run",
