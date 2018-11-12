@@ -67,13 +67,18 @@ type ImageVersion struct {
 	BuildNum uint32
 }
 
+type ImageKey struct {
+	// Only one of these members is non-nil.
+	Rsa *rsa.PrivateKey
+	Ec  *ecdsa.PrivateKey
+}
+
 type Image struct {
 	SourceBin  string
 	SourceImg  string
 	TargetImg  string
 	Version    ImageVersion
-	SigningRSA *rsa.PrivateKey
-	SigningEC  *ecdsa.PrivateKey
+	Keys       []ImageKey
 	KeyId      uint8
 	Hash       []byte
 	SrcSkip    uint // Number of bytes to skip from the source image.
@@ -367,77 +372,115 @@ func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
 	return privKey, nil
 }
 
-func (image *Image) SetSigningKey(fileName string, keyId uint8) error {
-	keyBytes, err := ioutil.ReadFile(fileName)
+func readKey(filename string) (ImageKey, error) {
+	key := ImageKey{}
+
+	keyBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Error reading key file: %s", err))
+		return key, util.FmtNewtError("Error reading key file: %s", err)
 	}
 
-	image.KeyId = keyId
 	privKey, err := ParsePrivateKey(keyBytes)
 	if err != nil {
-		return err
+		return key, err
 	}
 
 	switch priv := privKey.(type) {
 	case *rsa.PrivateKey:
-		image.SigningRSA = priv
+		key.Rsa = priv
 	case *ecdsa.PrivateKey:
-		image.SigningEC = priv
+		key.Ec = priv
 	default:
-		return util.NewNewtError("Unknown private key format")
+		return key, util.NewNewtError("Unknown private key format")
+	}
+
+	return key, nil
+}
+
+func (key *ImageKey) assertValid() {
+	if key.Rsa == nil && key.Ec == nil {
+		panic("invalid key; neither RSA nor ECC")
+	}
+
+	if key.Rsa != nil && key.Ec != nil {
+		panic("invalid key; neither RSA nor ECC")
+	}
+}
+
+func (image *Image) SetKeys(filenames []string) error {
+	for _, filename := range filenames {
+		key, err := readKey(filename)
+		if err != nil {
+			return err
+		}
+
+		image.Keys = append(image.Keys, key)
 	}
 
 	return nil
 }
 
-func (image *Image) sigHdrTypeV1() (uint32, error) {
-	if image.SigningRSA != nil {
+func (image *Image) SetKeyV1(filename string, keyId uint8) error {
+	key, err := readKey(filename)
+	if err != nil {
+		return err
+	}
+
+	image.KeyId = keyId
+	image.Keys = []ImageKey{key}
+
+	return nil
+}
+
+func (key *ImageKey) sigHdrTypeV1() (uint32, error) {
+	key.assertValid()
+
+	if key.Rsa != nil {
 		if UseRsaPss {
 			return IMAGEv1_F_PKCS1_PSS_RSA2048_SHA256, nil
 		} else {
 			return IMAGEv1_F_PKCS15_RSA2048_SHA256, nil
 		}
-	} else if image.SigningEC != nil {
-		switch image.SigningEC.Curve.Params().Name {
+	} else {
+		switch key.Ec.Curve.Params().Name {
 		case "P-224":
 			return IMAGEv1_F_ECDSA224_SHA256, nil
 		case "P-256":
 			return IMAGEv1_F_ECDSA256_SHA256, nil
 		default:
-			return 0, util.NewNewtError("Unsupported ECC curve")
+			return 0, util.FmtNewtError("Unsupported ECC curve")
 		}
-	} else {
-		return 0, nil
 	}
 }
 
-func (image *Image) sigKeyHash() ([]uint8, error) {
-	if image.SigningRSA != nil {
-		pubkey, _ := asn1.Marshal(image.SigningRSA.PublicKey)
+func (key *ImageKey) sigKeyHash() ([]uint8, error) {
+	key.assertValid()
+
+	if key.Rsa != nil {
+		pubkey, _ := asn1.Marshal(key.Rsa.PublicKey)
 		sum := sha256.Sum256(pubkey)
 		return sum[:4], nil
-	} else if image.SigningEC != nil {
-		switch image.SigningEC.Curve.Params().Name {
+	} else {
+		switch key.Ec.Curve.Params().Name {
 		case "P-224":
 			fallthrough
 		case "P-256":
-			pubkey, _ := x509.MarshalPKIXPublicKey(&image.SigningEC.PublicKey)
+			pubkey, _ := x509.MarshalPKIXPublicKey(&key.Ec.PublicKey)
 			sum := sha256.Sum256(pubkey)
 			return sum[:4], nil
 		default:
-			return []uint8{}, util.NewNewtError("Unsupported ECC curve")
+			return nil, util.NewNewtError("Unsupported ECC curve")
 		}
-	} else {
-		return []uint8{}, util.NewNewtError("No public key to hash")
 	}
 }
 
-func (image *Image) sigLen() uint16 {
-	if image.SigningRSA != nil {
+func (key *ImageKey) sigLen() uint16 {
+	key.assertValid()
+
+	if key.Rsa != nil {
 		return 256
-	} else if image.SigningEC != nil {
-		switch image.SigningEC.Curve.Params().Name {
+	} else {
+		switch key.Ec.Curve.Params().Name {
 		case "P-224":
 			return 68
 		case "P-256":
@@ -445,42 +488,38 @@ func (image *Image) sigLen() uint16 {
 		default:
 			return 0
 		}
-	} else {
-		return 0
 	}
 }
 
-func (image *Image) sigTlvTypeV1() uint8 {
-	if image.SigningRSA != nil {
-		return IMAGEv1_TLV_RSA2048
-	} else if image.SigningEC != nil {
-		switch image.SigningEC.Curve.Params().Name {
-		case "P-224":
-			return IMAGEv1_TLV_ECDSA224
-		case "P-256":
-			return IMAGEv1_TLV_ECDSA256
-		default:
-			return 0
-		}
-	} else {
-		return 0
-	}
-}
+func (key *ImageKey) sigTlvType() uint8 {
+	key.assertValid()
 
-func (image *Image) sigTlvType() uint8 {
-	if image.SigningRSA != nil {
-		return IMAGE_TLV_RSA2048
-	} else if image.SigningEC != nil {
-		switch image.SigningEC.Curve.Params().Name {
-		case "P-224":
-			return IMAGE_TLV_ECDSA224
-		case "P-256":
-			return IMAGE_TLV_ECDSA256
-		default:
-			return 0
+	if UseV1 {
+		if key.Rsa != nil {
+			return IMAGEv1_TLV_RSA2048
+		} else {
+			switch key.Ec.Curve.Params().Name {
+			case "P-224":
+				return IMAGEv1_TLV_ECDSA224
+			case "P-256":
+				return IMAGEv1_TLV_ECDSA256
+			default:
+				return 0
+			}
 		}
 	} else {
-		return 0
+		if key.Rsa != nil {
+			return IMAGE_TLV_RSA2048
+		} else {
+			switch key.Ec.Curve.Params().Name {
+			case "P-224":
+				return IMAGE_TLV_ECDSA224
+			case "P-256":
+				return IMAGE_TLV_ECDSA256
+			default:
+				return 0
+			}
+		}
 	}
 }
 
@@ -568,6 +607,151 @@ func (image *Image) ReSign() error {
 	return image.Generate(nil)
 }
 
+func generateSigRsa(key *rsa.PrivateKey, hash []byte) ([]byte, error) {
+	var signature []byte
+	var err error
+
+	if UseRsaPss || !UseV1 {
+		opts := rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthEqualsHash,
+		}
+		signature, err = rsa.SignPSS(
+			rand.Reader, key, crypto.SHA256, hash, &opts)
+	} else {
+		signature, err = rsa.SignPKCS1v15(
+			rand.Reader, key, crypto.SHA256, hash)
+	}
+	if err != nil {
+		return nil, util.FmtNewtError("Failed to compute signature: %s", err)
+	}
+
+	return signature, nil
+}
+
+func generateSigEc(key *ecdsa.PrivateKey, hash []byte) ([]byte, error) {
+	r, s, err := ecdsa.Sign(rand.Reader, key, hash)
+	if err != nil {
+		return nil, util.FmtNewtError("Failed to compute signature: %s", err)
+	}
+
+	ECDSA := ECDSASig{
+		R: r,
+		S: s,
+	}
+
+	signature, err := asn1.Marshal(ECDSA)
+	if err != nil {
+		return nil, util.FmtNewtError("Failed to construct signature: %s", err)
+	}
+
+	return signature, nil
+}
+
+func generateSigTlvRsa(key ImageKey, hash []byte) ([]byte, error) {
+	tlv := &ImageTrailerTlv{
+		Type: key.sigTlvType(),
+		Pad:  0,
+		Len:  256, /* 2048 bits */
+	}
+
+	sig, err := generateSigRsa(key.Rsa, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	b := &bytes.Buffer{}
+
+	err = binary.Write(b, binary.LittleEndian, tlv)
+	if err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to serialize image trailer: %s", err.Error())
+	}
+	_, err = b.Write(sig)
+	if err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to append sig: %s", err.Error())
+	}
+
+	return b.Bytes(), nil
+}
+
+func generateSigTlvEc(key ImageKey, hash []byte) ([]byte, error) {
+	sig, err := generateSigEc(key.Ec, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	sigLen := key.sigLen()
+	if len(sig) > int(sigLen) {
+		return nil, util.FmtNewtError("Something is really wrong\n")
+	}
+
+	tlv := &ImageTrailerTlv{
+		Type: key.sigTlvType(),
+		Pad:  0,
+		Len:  sigLen,
+	}
+
+	b := &bytes.Buffer{}
+
+	if err := binary.Write(b, binary.LittleEndian, tlv); err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to serialize image trailer: %s", err.Error())
+	}
+
+	if _, err := b.Write(sig); err != nil {
+		return nil, util.FmtNewtError("Failed to append sig: %s", err.Error())
+	}
+
+	pad := make([]byte, int(sigLen)-len(sig))
+	if _, err := b.Write(pad); err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to serialize image trailer: %s", err.Error())
+	}
+
+	return b.Bytes(), nil
+}
+
+func generateSigTlv(key ImageKey, hash []byte) ([]byte, error) {
+	key.assertValid()
+
+	if key.Rsa != nil {
+		return generateSigTlvRsa(key, hash)
+	} else {
+		return generateSigTlvEc(key, hash)
+	}
+}
+
+func generateKeyHashTlv(key ImageKey) ([]byte, error) {
+	key.assertValid()
+
+	keyHash, err := key.sigKeyHash()
+	if err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to compute hash of the public key: %s", err.Error())
+	}
+
+	tlv := &ImageTrailerTlv{
+		Type: IMAGE_TLV_KEYHASH,
+		Pad:  0,
+		Len:  uint16(len(keyHash)),
+	}
+
+	b := &bytes.Buffer{}
+
+	if err := binary.Write(b, binary.LittleEndian, tlv); err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to serial image trailer: %s", err.Error())
+	}
+
+	if _, err := b.Write(keyHash); err != nil {
+		return nil, util.FmtNewtError(
+			"Failed to append key hash: %s", err.Error())
+	}
+
+	return b.Bytes(), nil
+}
+
 func (image *Image) generateV1(loader *Image) error {
 	binFile, err := os.Open(image.SourceBin)
 	if err != nil {
@@ -618,15 +802,13 @@ func (image *Image) generateV1(loader *Image) error {
 		Pad3:  0,
 	}
 
-	hdr.Flags, err = image.sigHdrTypeV1()
-	if err != nil {
-		return err
-	}
-	if hdr.Flags != 0 {
-		/*
-		 * Signature present
-		 */
-		hdr.TlvSz = 4 + image.sigLen()
+	if len(image.Keys) > 0 {
+		hdr.Flags, err = image.Keys[0].sigHdrTypeV1()
+		if err != nil {
+			return err
+		}
+
+		hdr.TlvSz = 4 + image.Keys[0].sigLen()
 		hdr.KeyId = image.KeyId
 	}
 
@@ -747,87 +929,18 @@ func (image *Image) generateV1(loader *Image) error {
 	}
 	_, err = imgFile.Write(image.Hash)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
-			err.Error()))
+		return util.FmtNewtError(
+			"Failed to append hash: %s", err.Error())
 	}
 
-	if image.SigningRSA != nil {
-		/*
-		 * If signing key was set, generate TLV for that.
-		 */
-		tlv := &ImageTrailerTlv{
-			Type: IMAGEv1_TLV_RSA2048,
-			Pad:  0,
-			Len:  256, /* 2048 bits */
-		}
-		var signature []byte
-		if UseRsaPss {
-			opts := rsa.PSSOptions{
-				SaltLength: rsa.PSSSaltLengthEqualsHash,
-			}
-			signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
-				crypto.SHA256, image.Hash, &opts)
-		} else {
-			signature, err = rsa.SignPKCS1v15(rand.Reader, image.SigningRSA,
-				crypto.SHA256, image.Hash)
-		}
+	if len(image.Keys) > 0 {
+		tlvBytes, err := generateSigTlv(image.Keys[0], image.Hash)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf(
-				"Failed to compute signature: %s", err))
+			return err
 		}
-
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
-		}
-		_, err = imgFile.Write(signature)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
-				err.Error()))
-		}
-	}
-	if image.SigningEC != nil {
-		r, s, err := ecdsa.Sign(rand.Reader, image.SigningEC, image.Hash)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf(
-				"Failed to compute signature: %s", err))
-		}
-
-		sigLen := image.sigLen()
-
-		var ECDSA ECDSASig
-		ECDSA.R = r
-		ECDSA.S = s
-		signature, err := asn1.Marshal(ECDSA)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf(
-				"Failed to construct signature: %s", err))
-		}
-		if len(signature) > int(sigLen) {
-			return util.NewNewtError(fmt.Sprintf(
-				"Something is really wrong\n"))
-		}
-		tlv := &ImageTrailerTlv{
-			Type: image.sigTlvTypeV1(),
-			Pad:  0,
-			Len:  sigLen,
-		}
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
-		}
-		_, err = imgFile.Write(signature)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
-				err.Error()))
-		}
-		pad := make([]byte, int(sigLen)-len(signature))
-		_, err = imgFile.Write(pad)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
+		if _, err := imgFile.Write(tlvBytes); err != nil {
+			return util.FmtNewtError(
+				"Failed to append sig TLV: %s", err.Error())
 		}
 	}
 
@@ -1099,110 +1212,36 @@ func (image *Image) generateV2(loader *Image) error {
 	}
 	err = binary.Write(imgFile, binary.LittleEndian, tlv)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-			"trailer: %s", err.Error()))
+		return util.FmtNewtError("Failed to serialize image "+
+			"trailer: %s", err.Error())
 	}
 	_, err = imgFile.Write(image.Hash)
 	if err != nil {
-		return util.NewNewtError(fmt.Sprintf("Failed to append hash: %s",
-			err.Error()))
+		return util.FmtNewtError("Failed to append hash: %s",
+			err.Error())
 	}
 
-	if image.SigningRSA != nil || image.SigningEC != nil {
-		keyHash, err := image.sigKeyHash()
+	for _, key := range image.Keys {
+		key.assertValid()
+
+		tlvBytes, err := generateKeyHashTlv(key)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to compute hash " +
-				"of the public key"))
+			return err
 		}
 
-		tlv = &ImageTrailerTlv{
-			Type: IMAGE_TLV_KEYHASH,
-			Pad:  0,
-			Len:  uint16(len(keyHash)),
-		}
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serial image "+
-				"trailer: %s", err.Error()))
-		}
-		_, err = imgFile.Write(keyHash)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append "+
-				"key hash: %s", err.Error()))
-		}
-	}
-	if image.SigningRSA != nil {
-		/*
-		 * If signing key was set, generate TLV for that.
-		 */
-		tlv := &ImageTrailerTlv{
-			Type: IMAGE_TLV_RSA2048,
-			Pad:  0,
-			Len:  256, /* 2048 bits */
-		}
-		var signature []byte
-		opts := rsa.PSSOptions{
-			SaltLength: rsa.PSSSaltLengthEqualsHash,
-		}
-		signature, err = rsa.SignPSS(rand.Reader, image.SigningRSA,
-			crypto.SHA256, image.Hash, &opts)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf(
-				"Failed to compute signature: %s", err))
+		if _, err = imgFile.Write(tlvBytes); err != nil {
+			return util.FmtNewtError(
+				"Failed to append key hash: %s", err.Error())
 		}
 
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
+		tlvBytes, err = generateSigTlv(key, image.Hash)
 		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
-		}
-		_, err = imgFile.Write(signature)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
-				err.Error()))
-		}
-	}
-	if image.SigningEC != nil {
-		r, s, err := ecdsa.Sign(rand.Reader, image.SigningEC, image.Hash)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf(
-				"Failed to compute signature: %s", err))
+			return err
 		}
 
-		sigLen := image.sigLen()
-
-		var ECDSA ECDSASig
-		ECDSA.R = r
-		ECDSA.S = s
-		signature, err := asn1.Marshal(ECDSA)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf(
-				"Failed to construct signature: %s", err))
-		}
-		if len(signature) > int(sigLen) {
-			return util.NewNewtError(fmt.Sprintf(
-				"Something is really wrong\n"))
-		}
-		tlv := &ImageTrailerTlv{
-			Type: image.sigTlvType(),
-			Pad:  0,
-			Len:  sigLen,
-		}
-		err = binary.Write(imgFile, binary.LittleEndian, tlv)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
-		}
-		_, err = imgFile.Write(signature)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to append sig: %s",
-				err.Error()))
-		}
-		pad := make([]byte, int(sigLen)-len(signature))
-		_, err = imgFile.Write(pad)
-		if err != nil {
-			return util.NewNewtError(fmt.Sprintf("Failed to serialize image "+
-				"trailer: %s", err.Error()))
+		if _, err = imgFile.Write(tlvBytes); err != nil {
+			return util.FmtNewtError(
+				"Failed to append signature: %s", err.Error())
 		}
 	}
 

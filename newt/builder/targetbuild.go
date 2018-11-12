@@ -867,7 +867,7 @@ func (t *TargetBuilder) verifyImgSizes(li *image.Image, ai *image.Image) error {
 
 // @return                      app-image, loader-image, error
 func (t *TargetBuilder) CreateImages(version string,
-	keystr string, keyId uint8) (*image.Image, *image.Image, error) {
+	keystrs []string, keyId uint8) (*image.Image, *image.Image, error) {
 
 	if err := t.Build(); err != nil {
 		return nil, nil, err
@@ -883,7 +883,7 @@ func (t *TargetBuilder) CreateImages(version string,
 	}
 
 	if t.LoaderBuilder != nil {
-		loaderImg, err = t.LoaderBuilder.CreateImage(version, keystr, keyId,
+		loaderImg, err = t.LoaderBuilder.CreateImage(version, keystrs, keyId,
 			nil)
 		if err != nil {
 			return nil, nil, err
@@ -900,7 +900,7 @@ func (t *TargetBuilder) CreateImages(version string,
 		}
 	}
 
-	appImg, err = t.AppBuilder.CreateImage(version, keystr, keyId, loaderImg)
+	appImg, err = t.AppBuilder.CreateImage(version, keystrs, keyId, loaderImg)
 	if err != nil {
 		return nil, nil, err
 	}
