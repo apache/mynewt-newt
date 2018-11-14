@@ -67,3 +67,13 @@ through the ``-h`` or ``--help`` options.
           -v, --verbose           Enable verbose output when executing commands
 
         Use "newt target [command] --help" for more information about a command.
+
+
+It is possible to use *newt* to debug multiple boards simultaneously. To do that, you'll need to select TCP port gdb uses to talk with JTAG adapter software, and also pick the JTAG adapter to use. Selected TCP ports should be unique, and available for use. These can be passed within parameter ``-extrajtagcmd`` wnen invoking ``newt load``, ``newt debug`` or ``newt run``.
+
+Here are few examples:
+
+.. code-block:: console
+
+        newt debug blinky_nrf52 --extrajtagcmd="-port 3338 -select usb=682223238"
+	newt run slinky_zero 4.0 --extrajtagcmd="cmsis_dap_serial 00000000AZE000001422 -port 3400"
