@@ -197,6 +197,10 @@ func (bpkg *BuildPackage) CompilerInfo(
 func (bpkg *BuildPackage) findSdkIncludes() []string {
 	sdkDir := bpkg.rpkg.Lpkg.BasePath() + "/src/ext/"
 
+	if _, err := os.Stat(sdkDir); err != nil {
+		return []string{}
+	}
+
 	sdkPathList := []string{}
 	err := filepath.Walk(sdkDir,
 		func(path string, info os.FileInfo, err error) error {
