@@ -49,9 +49,9 @@ func (scfg *SysinitCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg) {
 		sf, err := stage.NewStageFunc(name, stageStr, lpkg, cfg)
 		if err != nil {
 			scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
+		} else {
+			scfg.StageFuncs = append(scfg.StageFuncs, sf)
 		}
-
-		scfg.StageFuncs = append(scfg.StageFuncs, sf)
 	}
 }
 
