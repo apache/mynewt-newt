@@ -72,7 +72,9 @@ func (scfg *SysinitCfg) detectConflicts() {
 }
 
 func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysinitCfg {
-	scfg := SysinitCfg{}
+	scfg := SysinitCfg{
+		Conflicts: map[string][]stage.StageFunc{},
+	}
 
 	for _, lpkg := range lpkgs {
 		scfg.readOnePkg(lpkg, cfg)
