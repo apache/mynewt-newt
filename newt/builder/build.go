@@ -29,7 +29,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/image"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -92,7 +91,7 @@ func NewBuilder(
 	for api, rpkg := range apiMap {
 		bpkg := b.PkgMap[rpkg]
 		if bpkg == nil {
-			for _, rpkg := range b.sortedRpkgs() {
+			for _, rpkg := range b.SortedRpkgs() {
 				log.Debugf("    * %s", rpkg.Lpkg.Name())
 			}
 			return nil, util.FmtNewtError(
@@ -791,41 +790,6 @@ func (b *Builder) buildRomElf(common *symbol.SymbolMap) error {
 		return err
 	}
 	return nil
-}
-
-func (b *Builder) CreateImage(version string,
-	keystrs []string, keyId uint8,
-	loaderImg *image.Image) (*image.Image, error) {
-
-	img, err := image.NewImage(b.AppBinPath(), b.AppImgPath())
-	if err != nil {
-		return nil, err
-	}
-
-	err = img.SetVersion(version)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(keystrs) == 1 {
-		if err := img.SetKeyV1(keystrs[0], keyId); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := img.SetKeys(keystrs); err != nil {
-			return nil, err
-		}
-	}
-
-	img.HeaderSize = uint(b.targetBuilder.target.HeaderSize)
-	if err := img.Generate(loaderImg); err != nil {
-		return nil, err
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"App image succesfully generated: %s\n", img.TargetImg)
-
-	return img, nil
 }
 
 // Deletes files that should never be reused for a subsequent build.  This

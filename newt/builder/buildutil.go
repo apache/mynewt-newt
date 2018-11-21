@@ -83,7 +83,7 @@ func (b *Builder) sortedBuildPackages() []*BuildPackage {
 	return sorter.bpkgs
 }
 
-func (b *Builder) sortedRpkgs() []*resolve.ResolvePackage {
+func (b *Builder) SortedRpkgs() []*resolve.ResolvePackage {
 	bpkgs := b.sortedBuildPackages()
 
 	rpkgs := make([]*resolve.ResolvePackage, len(bpkgs), len(bpkgs))
