@@ -22,7 +22,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/artifact/image"
 	"mynewt.apache.org/newt/newt/mfg"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"

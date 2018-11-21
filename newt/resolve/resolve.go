@@ -26,7 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/flash"
+	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/logcfg"
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -61,7 +61,7 @@ type Resolver struct {
 	pkgMap           map[*pkg.LocalPackage]*ResolvePackage
 	seedPkgs         []*pkg.LocalPackage
 	injectedSettings map[string]string
-	flashMap         flash.FlashMap
+	flashMap         flashmap.FlashMap
 	cfg              syscfg.Cfg
 	lcfg             logcfg.LCfg
 	sysinitCfg       sysinit.SysinitCfg
@@ -131,7 +131,7 @@ type Resolution struct {
 func newResolver(
 	seedPkgs []*pkg.LocalPackage,
 	injectedSettings map[string]string,
-	flashMap flash.FlashMap) *Resolver {
+	flashMap flashmap.FlashMap) *Resolver {
 
 	r := &Resolver{
 		apis:             map[string]resolveApi{},
@@ -800,7 +800,7 @@ func ResolveFull(
 	loaderSeeds []*pkg.LocalPackage,
 	appSeeds []*pkg.LocalPackage,
 	injectedSettings map[string]string,
-	flashMap flash.FlashMap) (*Resolution, error) {
+	flashMap flashmap.FlashMap) (*Resolution, error) {
 
 	// First, calculate syscfg and determine which package provides each
 	// required API.  Syscfg and APIs are project-wide; that is, they are

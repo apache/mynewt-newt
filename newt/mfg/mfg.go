@@ -22,7 +22,7 @@ package mfg
 import (
 	"sort"
 
-	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/artifact/image"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"

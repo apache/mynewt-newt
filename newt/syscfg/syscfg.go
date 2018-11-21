@@ -34,7 +34,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
-	"mynewt.apache.org/newt/newt/flash"
+	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/parse"
@@ -738,7 +738,7 @@ func (cfg *Cfg) detectPriorityViolations() {
 }
 
 // Detects all flash conflict errors in the syscfg and records them internally.
-func (cfg *Cfg) detectFlashConflicts(flashMap flash.FlashMap) {
+func (cfg *Cfg) detectFlashConflicts(flashMap flashmap.FlashMap) {
 	entries := cfg.settingsOfType(CFG_SETTING_TYPE_FLASH_OWNER)
 
 	areaEntryMap := map[string][]CfgEntry{}
@@ -1072,7 +1072,7 @@ func (cfg *Cfg) detectAmbiguities() {
 
 // Detects and records errors in the build's syscfg.  This should only be
 // called after APIs are resolved to avoid false positives.
-func (cfg *Cfg) DetectErrors(flashMap flash.FlashMap) {
+func (cfg *Cfg) DetectErrors(flashMap flashmap.FlashMap) {
 	cfg.detectAmbiguities()
 	cfg.detectViolations()
 	cfg.detectPriorityViolations()
@@ -1081,7 +1081,7 @@ func (cfg *Cfg) DetectErrors(flashMap flash.FlashMap) {
 
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
 	injectedSettings map[string]string, settings map[string]string,
-	flashMap flash.FlashMap) (Cfg, error) {
+	flashMap flashmap.FlashMap) (Cfg, error) {
 
 	cfg := NewCfg()
 	for k, v := range injectedSettings {
