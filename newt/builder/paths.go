@@ -166,6 +166,10 @@ func (b *Builder) AppHexPath() string {
 		".hex"
 }
 
+func (b *Builder) AppMapPath() string {
+	return b.AppElfPath() + ".map"
+}
+
 func (b *Builder) AppBinPath() string {
 	return b.AppElfPath() + ".bin"
 }

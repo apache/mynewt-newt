@@ -76,7 +76,6 @@ func runAddr2lineCommand(elfFilePath string, address string) ([]byte, error) {
 	return cmdOut, err
 }
 
-
 func loadSymbolsAndPaths(elfFilePath, pathToStrip string) (map[string]string,
 	error) {
 	symbolsPath := make(map[string]string)

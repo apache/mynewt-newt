@@ -28,9 +28,8 @@ import (
 	"strconv"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/image"
-	"mynewt.apache.org/newt/util"
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/util"
 )
 
 /*
@@ -418,58 +417,6 @@ func (b *Builder) FindPkgNameByArName(arName string) string {
 		}
 	}
 	return filepath.Base(arName)
-}
-
-func (b *Builder) PkgSizes() (*image.ImageManifestSizeCollector, error) {
-	if b.appPkg == nil {
-		return nil, util.NewNewtError("app package not specified for this target")
-	}
-
-	if b.targetBuilder.bspPkg.Arch == "sim" {
-		return nil, util.NewNewtError("'newt size' not supported for sim targets")
-	}
-	mapFile := b.AppElfPath() + ".map"
-
-	libs, err := ParseMapFileSizes(mapFile)
-	if err != nil {
-		return nil, err
-	}
-
-	/*
-	 * Order libraries by name.
-	 */
-	pkgSizes := make(PkgSizeArray, len(libs))
-	i := 0
-	for _, es := range libs {
-		pkgSizes[i] = es
-		i++
-	}
-	sort.Sort(pkgSizes)
-
-	c := image.NewImageManifestSizeCollector()
-	for _, es := range pkgSizes {
-		p := c.AddPkg(b.FindPkgNameByArName(es.Name))
-
-		/*
-		 * Order symbols by name.
-		 */
-		symbols := make(SymbolDataArray, len(es.Syms))
-		i := 0
-		for _, sym := range es.Syms {
-			symbols[i] = sym
-			i++
-		}
-		sort.Sort(symbols)
-		for _, sym := range symbols {
-			for area, areaSz := range sym.Sizes {
-				if areaSz != 0 {
-					p.AddSymbol(sym.ObjName, sym.Name, area, areaSz)
-				}
-			}
-		}
-	}
-
-	return c, nil
 }
 
 func (b *Builder) Size() error {
