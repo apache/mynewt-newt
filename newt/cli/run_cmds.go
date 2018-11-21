@@ -23,7 +23,8 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 
-	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/newt/imgprod"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/util"
@@ -37,10 +38,8 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	if useV1 && useV2 {
 		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
 	}
-	if useV2 {
-		image.UseV1 = false
-	} else {
-		image.UseV1 = true
+	if !useV2 {
+		useV1 = true
 	}
 
 	TryGetProject()
@@ -60,9 +59,9 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 	} else {
-		var version string = ""
+		var verStr string
 		if len(args) > 1 {
-			version = args[1]
+			verStr = args[1]
 		} else {
 			// If user did not provide version number and the target is not a
 			// bootloader and doesn't run in the simulator, then ask the user
@@ -78,29 +77,38 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			if !parse.ValueIsTrue(settings["BOOT_LOADER"]) &&
 				!parse.ValueIsTrue(settings["BSP_SIMULATED"]) {
 
-				version = "0"
+				verStr = "0"
 				fmt.Println("Enter image version(default 0):")
-				fmt.Scanf("%s\n", &version)
+				fmt.Scanf("%s\n", &verStr)
 			}
 		}
+
 		if err := b.Build(); err != nil {
 			NewtUsage(nil, err)
 		}
 
-		if len(version) > 0 {
-			var keystrs []string
-			var keyId uint8
+		if len(verStr) > 0 {
+			ver, err := image.ParseVersion(verStr)
+			if err != nil {
+				NewtUsage(cmd, err)
+			}
+
+			var keys []image.ImageSigKey
 
 			if len(args) > 2 {
-				keystrs, keyId, err = parseKeyArgs(args[2:])
+				keys, _, err = parseKeyArgs(args[2:])
 				if err != nil {
 					NewtUsage(cmd, err)
 				}
 			}
 
-			_, _, err = b.CreateImages(version, keystrs, keyId)
+			if useV1 {
+				err = imgprod.ProduceAllV1(b, ver, keys, "")
+			} else {
+				err = imgprod.ProduceAll(b, ver, keys, "")
+			}
 			if err != nil {
-				NewtUsage(cmd, err)
+				NewtUsage(nil, err)
 			}
 		}
 
