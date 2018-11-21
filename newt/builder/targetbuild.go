@@ -24,22 +24,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/flash"
-	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/artifact/flash"
+	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/resolve"
@@ -104,6 +100,10 @@ func NewTargetTester(target *target.Target,
 
 func NewTargetBuilder(target *target.Target) (*TargetBuilder, error) {
 	return NewTargetTester(target, nil)
+}
+
+func (t *TargetBuilder) BspPkg() *pkg.BspPackage {
+	return t.bspPkg
 }
 
 func (t *TargetBuilder) NewCompiler(dstDir string, buildProfile string) (
@@ -288,7 +288,10 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	}
 
 	// Generate flash map.
-	if err := t.bspPkg.FlashMap.EnsureWritten(srcDir, incDir,
+	if err := flashmap.EnsureFlashMapWritten(
+		t.bspPkg.FlashMap,
+		srcDir,
+		incDir,
 		pkg.ShortName(t.target.Package())); err != nil {
 
 		return err
@@ -504,11 +507,6 @@ func (t *TargetBuilder) Build() error {
 		return err
 	}
 
-	/* Create manifest. */
-	if err := t.createManifest(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -522,11 +520,11 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 
 	/* fetch symbols from the elf and from the libraries themselves */
 	log.Debugf("Loader packages:")
-	for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
+	for _, rpkg := range t.LoaderBuilder.SortedRpkgs() {
 		log.Debugf("    * %s", rpkg.Lpkg.Name())
 	}
 	log.Debugf("App packages:")
-	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
+	for _, rpkg := range t.AppBuilder.SortedRpkgs() {
 		log.Debugf("    * %s", rpkg.Lpkg.Name())
 	}
 	err, appLibSym := t.AppBuilder.ExtractSymbolInfo()
@@ -651,137 +649,6 @@ func (t *TargetBuilder) InjectSetting(key string, value string) {
 	t.injectedSettings[key] = value
 }
 
-func readManifest(path string) (*image.ImageManifest, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	manifest := &image.ImageManifest{}
-	if err := json.Unmarshal(content, &manifest); err != nil {
-		return nil, util.FmtNewtError(
-			"Failure decoding manifest with path \"%s\": %s", err.Error())
-	}
-
-	return manifest, nil
-}
-
-func (t *TargetBuilder) createManifest() error {
-	manifest := &image.ImageManifest{
-		Date: time.Now().Format(time.RFC3339),
-		Name: t.GetTarget().FullName(),
-	}
-
-	rm := image.NewRepoManager()
-	for _, rpkg := range t.AppBuilder.sortedRpkgs() {
-		manifest.Pkgs = append(manifest.Pkgs,
-			rm.GetImageManifestPkg(rpkg.Lpkg))
-	}
-
-	if t.LoaderBuilder != nil {
-		for _, rpkg := range t.LoaderBuilder.sortedRpkgs() {
-			manifest.LoaderPkgs = append(manifest.LoaderPkgs,
-				rm.GetImageManifestPkg(rpkg.Lpkg))
-		}
-	}
-
-	manifest.Repos = rm.AllRepos()
-
-	vars := t.GetTarget().TargetY.AllSettingsAsStrings()
-	keys := make([]string, 0, len(vars))
-	for k := range vars {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		manifest.TgtVars = append(manifest.TgtVars, k+"="+vars[k])
-	}
-	syscfgKV := t.GetTarget().Package().SyscfgY.GetValStringMapString(
-		"syscfg.vals", nil)
-	if len(syscfgKV) > 0 {
-		tgtSyscfg := fmt.Sprintf("target.syscfg=%s",
-			syscfg.KeyValueToStr(syscfgKV))
-		manifest.TgtVars = append(manifest.TgtVars, tgtSyscfg)
-	}
-
-	c, err := t.AppBuilder.PkgSizes()
-	if err == nil {
-		manifest.PkgSizes = c.Pkgs
-	}
-	if t.LoaderBuilder != nil {
-		c, err = t.LoaderBuilder.PkgSizes()
-		if err == nil {
-			manifest.LoaderPkgSizes = c.Pkgs
-		}
-	}
-	file, err := os.Create(t.AppBuilder.ManifestPath())
-	if err != nil {
-		return util.FmtNewtError("Cannot create manifest file %s: %s",
-			t.AppBuilder.ManifestPath(), err.Error())
-	}
-	defer file.Close()
-
-	buffer, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return util.FmtNewtError("Cannot encode manifest: %s", err.Error())
-	}
-	_, err = file.Write(buffer)
-	if err != nil {
-		return util.FmtNewtError("Cannot write manifest file: %s",
-			err.Error())
-	}
-
-	return nil
-}
-
-// Reads an existing manifest file and augments it with image fields:
-//     * Image version
-//     * App image path
-//     * App image hash
-//     * Loader image path
-//     * Loader image hash
-//     * Build ID
-func (t *TargetBuilder) augmentManifest(
-	appImg *image.Image,
-	loaderImg *image.Image,
-	buildId []byte) error {
-
-	manifest, err := readManifest(t.AppBuilder.ManifestPath())
-	if err != nil {
-		return err
-	}
-
-	manifest.Version = appImg.Version.String()
-	manifest.ImageHash = fmt.Sprintf("%x", appImg.Hash)
-	manifest.Image = filepath.Base(appImg.TargetImg)
-
-	if loaderImg != nil {
-		manifest.Loader = filepath.Base(loaderImg.TargetImg)
-		manifest.LoaderHash = fmt.Sprintf("%x", loaderImg.Hash)
-	}
-
-	manifest.BuildID = fmt.Sprintf("%x", buildId)
-
-	file, err := os.Create(t.AppBuilder.ManifestPath())
-	if err != nil {
-		return util.FmtNewtError("Cannot create manifest file %s: %s",
-			t.AppBuilder.ManifestPath(), err.Error())
-	}
-	defer file.Close()
-
-	buffer, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return util.FmtNewtError("Cannot encode manifest: %s", err.Error())
-	}
-	_, err = file.Write(buffer)
-	if err != nil {
-		return util.FmtNewtError("Cannot write manifest file: %s",
-			err.Error())
-	}
-
-	return nil
-}
-
 // Calculates the size of a single boot trailer.  This is the amount of flash
 // that must be reserved at the end of each image slot.
 func (t *TargetBuilder) bootTrailerSize() int {
@@ -835,7 +702,7 @@ func (t *TargetBuilder) bootTrailerSize() int {
 
 // Calculates the size of the largest image that can be written to each image
 // slot.
-func (t *TargetBuilder) maxImgSizes() []int {
+func (t *TargetBuilder) MaxImgSizes() []int {
 	sz0 := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0].Size
 	sz1 := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_1].Size
 	trailerSz := t.bootTrailerSize()
@@ -844,119 +711,6 @@ func (t *TargetBuilder) maxImgSizes() []int {
 		sz0 - trailerSz,
 		sz1 - trailerSz,
 	}
-}
-
-// Verifies that each already-built image leaves enough room for a boot trailer
-// a the end of its slot.
-func (t *TargetBuilder) verifyImgSizes(li *image.Image, ai *image.Image) error {
-	maxSizes := t.maxImgSizes()
-
-	errLines := []string{}
-	if li != nil {
-		if overflow := int(li.TotalSize) - maxSizes[0]; overflow > 0 {
-			errLines = append(errLines,
-				fmt.Sprintf("loader overflows slot-0 by %d bytes "+
-					"(image=%d max=%d)",
-					overflow, li.TotalSize, maxSizes[0]))
-		}
-		if overflow := int(ai.TotalSize) - maxSizes[1]; overflow > 0 {
-			errLines = append(errLines,
-				fmt.Sprintf("app overflows slot-1 by %d bytes "+
-					"(image=%d max=%d)",
-					overflow, ai.TotalSize, maxSizes[1]))
-
-		}
-	} else {
-		if overflow := int(ai.TotalSize) - maxSizes[0]; overflow > 0 {
-			errLines = append(errLines,
-				fmt.Sprintf("app overflows slot-0 by %d bytes "+
-					"(image=%d max=%d)",
-					overflow, ai.TotalSize, maxSizes[0]))
-		}
-	}
-
-	if len(errLines) > 0 {
-		if !newtutil.NewtForce {
-			return util.NewNewtError(strings.Join(errLines, "; "))
-		} else {
-			for _, e := range errLines {
-				util.StatusMessage(util.VERBOSITY_QUIET,
-					"* Warning: %s (ignoring due to force flag)\n", e)
-			}
-		}
-	}
-
-	return nil
-}
-
-// @return                      app-image, loader-image, error
-func (t *TargetBuilder) CreateImages(version string,
-	keystrs []string, keyId uint8) (*image.Image, *image.Image, error) {
-
-	if err := t.Build(); err != nil {
-		return nil, nil, err
-	}
-
-	var err error
-	var appImg *image.Image
-	var loaderImg *image.Image
-
-	c, err := t.NewCompiler("", "")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if t.LoaderBuilder != nil {
-		loaderImg, err = t.LoaderBuilder.CreateImage(version, keystrs, keyId,
-			nil)
-		if err != nil {
-			return nil, nil, err
-		}
-		tgtArea := t.bspPkg.FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0]
-		log.Debugf("Convert %s -> %s at offset 0x%x",
-			t.LoaderBuilder.AppImgPath(),
-			t.LoaderBuilder.AppHexPath(),
-			tgtArea.Offset)
-		err = c.ConvertBinToHex(t.LoaderBuilder.AppImgPath(),
-			t.LoaderBuilder.AppHexPath(), tgtArea.Offset)
-		if err != nil {
-			log.Errorf("Can't convert to hexfile %s\n", err.Error())
-		}
-	}
-
-	appImg, err = t.AppBuilder.CreateImage(version, keystrs, keyId, loaderImg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	flashTargetArea := ""
-	if t.LoaderBuilder == nil {
-		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_0
-	} else {
-		flashTargetArea = flash.FLASH_AREA_NAME_IMAGE_1
-	}
-	tgtArea := t.bspPkg.FlashMap.Areas[flashTargetArea]
-	if tgtArea.Name != "" {
-		log.Debugf("Convert %s -> %s at offset 0x%x",
-			t.AppBuilder.AppImgPath(),
-			t.AppBuilder.AppHexPath(),
-			tgtArea.Offset)
-		err = c.ConvertBinToHex(t.AppBuilder.AppImgPath(),
-			t.AppBuilder.AppHexPath(), tgtArea.Offset)
-		if err != nil {
-			log.Errorf("Can't convert to hexfile %s\n", err.Error())
-		}
-	}
-	buildId := image.CreateBuildId(appImg, loaderImg)
-	if err := t.augmentManifest(appImg, loaderImg, buildId); err != nil {
-		return nil, nil, err
-	}
-
-	if err := t.verifyImgSizes(loaderImg, appImg); err != nil {
-		return nil, nil, err
-	}
-
-	return appImg, loaderImg, nil
 }
 
 func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
