@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"strings"
 
-	"mynewt.apache.org/newt/newt/flash"
+	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/ycfg"
@@ -41,7 +41,7 @@ type BspPackage struct {
 	Part2LinkerScripts []string /* scripts to link app to second partition */
 	DownloadScript     string
 	DebugScript        string
-	FlashMap           flash.FlashMap
+	FlashMap           flashmap.FlashMap
 	BspV               ycfg.YCfg
 }
 
@@ -162,7 +162,7 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 		return util.NewNewtError("BSP does not specify a flash map " +
 			"(bsp.flash_map)")
 	}
-	bsp.FlashMap, err = flash.Read(ymlFlashMap)
+	bsp.FlashMap, err = flashmap.Read(ymlFlashMap)
 	if err != nil {
 		return err
 	}

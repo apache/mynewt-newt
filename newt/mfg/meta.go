@@ -24,7 +24,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"mynewt.apache.org/newt/newt/flash"
+	"mynewt.apache.org/newt/artifact/flash"
+	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -172,7 +173,7 @@ func writeZeroHash(buf *bytes.Buffer) error {
 }
 
 // @return						meta-offset, hash-offset, error
-func insertMeta(section0Data []byte, flashMap flash.FlashMap) (
+func insertMeta(section0Data []byte, flashMap flashmap.FlashMap) (
 	int, int, error) {
 
 	buf := &bytes.Buffer{}
