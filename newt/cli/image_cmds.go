@@ -23,38 +23,50 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"mynewt.apache.org/newt/artifact/image"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/image"
+	"mynewt.apache.org/newt/newt/imgprod"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
 
 var useV1 bool
 var useV2 bool
+var encKeyFilename string
 
-func parseKeyArgs(args []string) ([]string, uint8, error) {
+// @return                      keys, key ID, error
+func parseKeyArgs(args []string) ([]image.ImageSigKey, uint8, error) {
 	if len(args) == 0 {
 		return nil, 0, nil
 	}
 
-	if len(args) == 1 {
-		return args, 0, nil
-	}
+	var keyId uint8
+	var keyFilenames []string
 
-	if image.UseV1 {
-		keyId64, err := strconv.ParseUint(args[1], 10, 8)
+	if len(args) == 1 {
+		keyFilenames = append(keyFilenames, args[0])
+	} else if useV1 {
+		keyIdUint, err := strconv.ParseUint(args[1], 10, 8)
 		if err != nil {
 			return nil, 0, util.NewNewtError("Key ID must be between 0-255")
 		}
-		return args[:1], uint8(keyId64), nil
+		keyId = uint8(keyIdUint)
+		keyFilenames = args[:1]
+	} else {
+		keyId = 0
+		keyFilenames = args
 	}
 
-	return args, 0, nil
+	keys, err := image.ReadKeys(keyFilenames)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return keys, keyId, nil
 }
 
 func createImageRunCmd(cmd *cobra.Command, args []string) {
-	var keyId uint8
-
 	if len(args) < 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
 	}
@@ -62,10 +74,9 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	if useV1 && useV2 {
 		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
 	}
-	if useV2 {
-		image.UseV1 = false
-	} else {
-		image.UseV1 = true
+
+	if !useV2 {
+		useV1 = true
 	}
 
 	TryGetProject()
@@ -76,65 +87,30 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+targetName))
 	}
 
-	version := args[1]
+	ver, err := image.ParseVersion(args[1])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
 
 	b, err := builder.NewTargetBuilder(t)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	keystrs, keyId, err := parseKeyArgs(args[2:])
+	keys, _, err := parseKeyArgs(args[2:])
 	if err != nil {
 		NewtUsage(cmd, err)
 	}
 
-	if _, _, err := b.CreateImages(version, keystrs, keyId); err != nil {
+	if err := b.Build(); err != nil {
 		NewtUsage(nil, err)
 	}
-}
 
-func resignImageRunCmd(cmd *cobra.Command, args []string) {
-	var keyId uint8
-	var keystr string
-
-	if len(args) < 1 {
-		NewtUsage(cmd, util.NewNewtError("Must specify image to re-sign."))
-	}
-
-	if useV1 && useV2 {
-		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
-	}
-	if useV2 {
-		image.UseV1 = false
+	if useV1 {
+		err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename)
 	} else {
-		image.UseV1 = true
+		err = imgprod.ProduceAll(b, ver, keys, encKeyFilename)
 	}
-
-	imgName := args[0]
-	img, err := image.OldImage(imgName)
-	if err != nil {
-		NewtUsage(nil, err)
-		return
-	}
-
-	if len(args) > 1 {
-		if len(args) > 2 {
-			keyId64, err := strconv.ParseUint(args[2], 10, 8)
-			if err != nil {
-				NewtUsage(cmd,
-					util.NewNewtError("Key ID must be between 0-255"))
-			}
-			keyId = uint8(keyId64)
-		}
-		keystr = args[1]
-		err = img.SetKeyV1(keystr, keyId)
-		if err != nil {
-			NewtUsage(nil, err)
-			return
-		}
-	}
-
-	err = img.ReSign()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -185,44 +161,23 @@ func AddImageCommands(cmd *cobra.Command) {
 		"1", "1", false, "Use old image header format")
 	createImageCmd.PersistentFlags().BoolVarP(&useV2,
 		"2", "2", false, "Use new image header format")
-	createImageCmd.PersistentFlags().StringVarP(&image.PubKeyFile,
+	createImageCmd.PersistentFlags().StringVarP(&encKeyFilename,
 		"encrypt", "e", "", "Encrypt image using this public key")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
 
-	resignImageHelpText := "Sign/Re-sign an existing image file with the specified signing key.\nIf a signing key is not specified, the signing key in the current image\nis stripped.  "
-	resignImageHelpText += "A image header will be recreated!\n"
-	resignImageHelpText += "\nWarning: The image hash will change if you change key-id "
-	resignImageHelpText += "or the type of key used for signing.\n"
-	resignImageHelpText += "Default image format is version 1.\n"
-	resignImageHelpText += "RSA signature format by default for ver 1 image is PKCSv1.5\n"
-	resignImageHelpText += "RSA signature format for ver 2 image is RSA-PSS\n"
-
-	resignImageHelpEx := "  newt resign-image my_target1.img private.pem\n"
-	resignImageHelpEx += "  newt resign-image my_target1.img private.pem 5\n"
+	resignImageHelpText :=
+		"This command is obsolete; use the `larva` tool to resign images."
 
 	resignImageCmd := &cobra.Command{
-		Use:     "resign-image <image-file> [signing-key [key-id]]",
-		Short:   "Re-sign an image.",
-		Long:    resignImageHelpText,
-		Example: resignImageHelpEx,
-		Run:     resignImageRunCmd,
+		Use:   "resign-image",
+		Short: "Obsolete",
+		Long:  resignImageHelpText,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
 	}
-
-	resignImageCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
-		"force", "f", false,
-		"Ignore flash overflow errors during image creation")
-	resignImageCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
-		"rsa-pss", false,
-		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sig. "+
-			"Meaningful for version 1 image format.")
-	resignImageCmd.PersistentFlags().BoolVarP(&useV1,
-		"1", "1", false, "Use old image header format")
-	resignImageCmd.PersistentFlags().BoolVarP(&useV2,
-		"2", "2", false, "Use new image header format")
-	resignImageCmd.PersistentFlags().StringVarP(&image.PubKeyFile,
-		"encrypt", "e", "", "Encrypt image using this public key")
 
 	cmd.AddCommand(resignImageCmd)
 }

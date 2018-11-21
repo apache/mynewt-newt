@@ -28,8 +28,8 @@ import (
 	"sort"
 	"time"
 
+	"mynewt.apache.org/newt/artifact/flash"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/flash"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
@@ -44,8 +44,8 @@ type mfgManifest struct {
 }
 
 type mfgSection struct {
-	offset     int
-	blob       []byte
+	offset int
+	blob   []byte
 }
 
 type createState struct {
