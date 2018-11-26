@@ -234,6 +234,12 @@ func (r *Resolver) resolveDep(dep *pkg.Dependency,
 func (rpkg *ResolvePackage) AddDep(
 	depPkg *ResolvePackage, api string, expr string) bool {
 
+	norm, err := parse.NormalizeExpr(expr)
+	if err != nil {
+		panic("invalid expression, should have been caught earlier: " +
+			err.Error())
+	}
+
 	if dep := rpkg.Deps[depPkg]; dep != nil {
 		// This package already depends on dep.  If the conditional expression
 		// is new, or if the API string is different, then the existing
@@ -243,18 +249,11 @@ func (rpkg *ResolvePackage) AddDep(
 		// Determine if this is a new conditional expression.
 		oldExpr := dep.ExprString()
 
-		norm, err := parse.NormalizeExpr(expr)
-		if err != nil {
-			panic("invalid expression, should have been caught earlier: " +
-				err.Error())
-		}
-
-		dep.ExprMap[norm] = struct{}{}
-		merged := dep.ExprString()
-
 		changed := false
+		if _, ok := dep.ExprMap[norm]; !ok {
+			dep.ExprMap[norm] = struct{}{}
+			merged := dep.ExprString()
 
-		if oldExpr != merged {
 			log.Debugf("Package %s has conflicting dependencies on %s: "+
 				"old=`%s` new=`%s`; merging them into a single conditional: "+
 				"`%s`",
@@ -274,7 +273,7 @@ func (rpkg *ResolvePackage) AddDep(
 			Rpkg: depPkg,
 			Api:  api,
 			ExprMap: map[string]struct{}{
-				expr: struct{}{},
+				norm: struct{}{},
 			},
 		}
 	}
