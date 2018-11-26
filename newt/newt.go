@@ -127,7 +127,10 @@ func newtCmd() *cobra.Command {
 		Long:    versHelpText,
 		Example: versHelpEx,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%s\n", newtutil.NewtVersionStr)
+			fmt.Printf("Apache Newt\n")
+			fmt.Printf("   Version: %s\n", newtutil.NewtVersionStr)
+			fmt.Printf("  Git Hash: %s\n", newtutil.NewtGitHash)
+			fmt.Printf("Build Date: %s\n", newtutil.NewtDate)
 		},
 	}
 

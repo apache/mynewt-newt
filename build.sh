@@ -67,12 +67,24 @@ dstfile="$installdir"/newt/newt
 mkdir -p "$mynewtdir"
 ln -s "$installdir" "$repodir"
 
+### Collect version information.
+GIT_HASH="$(git rev-parse --short HEAD)"
+GIT_DIRTY="$(git status --porcelain)"
+if [ ! -z "$GIT_DIRTY" ]; then
+    GIT_HASH=$GIT_HASH"-dirty"
+fi
+
+DATE="$(date +%F_%R)"
+
 ### Build newt.
 (
     cd "$newtdir"
 
     printf "Building newt.  This may take a minute...\n"
-    GOPATH="$godir" GO15VENDOREXPERIMENT=1 go install
+    GOPATH="$godir" GO15VENDOREXPERIMENT=1 go install -ldflags "        \
+        -X mynewt.apache.org/newt/newt/newtutil.NewtGitHash=$GIT_HASH   \
+        -X mynewt.apache.org/newt/newt/newtutil.NewtDate=$DATE          \
+    "
 
     mv "$godir"/bin/newt "$dstfile"
 
