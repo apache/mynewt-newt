@@ -11,7 +11,7 @@ when available.  To find these, please go to https://mynewt.apache.org/.
 # Installing From Source
 
 The newt tool is written in Go (https://golang.org/).  In order to build Apache
-Mynewt, you must have Go 1.7 or later installed on your system.  Please visit
+Mynewt, you must have Go 1.10 or later installed on your system.  Please visit
 the Golang website for more information on installing Go (https://golang.org/).
 
 Once you have Go installed, you can build newt by running the contained
