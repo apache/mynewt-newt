@@ -20,6 +20,7 @@
 package mfg
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -144,4 +145,34 @@ func Join(mm MfgMap, eraseVal byte, areas []flash.FlashArea) ([]byte, error) {
 	}
 
 	return joined, nil
+}
+
+func ReplaceBootKey(sec0 []byte, okey []byte, nkey []byte) error {
+	if len(okey) != len(nkey) {
+		return util.FmtNewtError(
+			"key lengths differ (%d != %d)", len(okey), len(nkey))
+	}
+
+	if len(okey) > len(sec0) {
+		return util.FmtNewtError(
+			"key longer than flash section (%d > %d)", len(okey), len(sec0))
+	}
+
+	idx := bytes.Index(sec0, okey)
+	if idx == -1 {
+		return util.FmtNewtError("old key not present in flash section")
+	}
+
+	lastIdx := bytes.LastIndex(sec0, okey)
+	if idx != lastIdx {
+		return util.FmtNewtError(
+			"multiple instances of old key in flash section")
+	}
+
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"Replacing boot key at offset %d\n", idx)
+
+	copy(sec0[idx:idx+len(okey)], nkey)
+
+	return nil
 }
