@@ -150,6 +150,47 @@ func runJoinCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func runBootKeyCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 3 {
+		LarvaUsage(cmd, nil)
+	}
+
+	sec0Filename := args[0]
+	okeyFilename := args[1]
+	nkeyFilename := args[2]
+
+	outFilename, err := CalcOutFilename(sec0Filename)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	sec0, err := ioutil.ReadFile(sec0Filename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read sec0 file: %s", err.Error()))
+	}
+
+	okey, err := ioutil.ReadFile(okeyFilename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read old key der: %s", err.Error()))
+	}
+
+	nkey, err := ioutil.ReadFile(nkeyFilename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read new key der: %s", err.Error()))
+	}
+
+	if err := mfg.ReplaceBootKey(sec0, okey, nkey); err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	if err := ioutil.WriteFile(outFilename, sec0, os.ModePerm); err != nil {
+		LarvaUsage(nil, util.ChildNewtError(err))
+	}
+}
+
 func AddMfgCommands(cmd *cobra.Command) {
 	mfgCmd := &cobra.Command{
 		Use:   "mfg",
@@ -181,4 +222,17 @@ func AddMfgCommands(cmd *cobra.Command) {
 		"Flash device number")
 
 	mfgCmd.AddCommand(joinCmd)
+
+	bootKeyCmd := &cobra.Command{
+		Use:   "bootkey <sec0-bin> <cur-key-der> <new-key-der>",
+		Short: "Replaces the boot key in a manufacturing image",
+		Run:   runBootKeyCmd,
+	}
+
+	bootKeyCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o", "",
+		"File to write to")
+	bootKeyCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input file")
+
+	mfgCmd.AddCommand(bootKeyCmd)
 }

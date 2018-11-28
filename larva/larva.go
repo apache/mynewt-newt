@@ -30,7 +30,10 @@ import (
 )
 
 var LarvaLogLevel log.Level
-var larvaVersion = "0.0.1"
+var larvaSilent bool
+var larvaQuiet bool
+var larvaVerbose bool
+var larvaVersion = "0.0.2"
 
 func main() {
 	larvaHelpText := ""
@@ -43,15 +46,22 @@ func main() {
 		Long:    larvaHelpText,
 		Example: larvaHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			verbosity := util.VERBOSITY_DEFAULT
+			if larvaSilent {
+				verbosity = util.VERBOSITY_SILENT
+			} else if larvaQuiet {
+				verbosity = util.VERBOSITY_QUIET
+			} else if larvaVerbose {
+				verbosity = util.VERBOSITY_VERBOSE
+			}
+
 			logLevel, err := log.ParseLevel(logLevelStr)
 			if err != nil {
 				cli.LarvaUsage(nil, util.ChildNewtError(err))
 			}
 			LarvaLogLevel = logLevel
 
-			if err := util.Init(LarvaLogLevel, "",
-				util.VERBOSITY_DEFAULT); err != nil {
-
+			if err := util.Init(LarvaLogLevel, "", verbosity); err != nil {
 				cli.LarvaUsage(nil, err)
 			}
 		},
@@ -61,6 +71,12 @@ func main() {
 		},
 	}
 
+	larvaCmd.PersistentFlags().BoolVarP(&larvaVerbose, "verbose", "v", false,
+		"Enable verbose output when executing commands")
+	larvaCmd.PersistentFlags().BoolVarP(&larvaQuiet, "quiet", "q", false,
+		"Be quiet; only display error output")
+	larvaCmd.PersistentFlags().BoolVarP(&larvaSilent, "silent", "s", false,
+		"Be silent; don't output anything")
 	larvaCmd.PersistentFlags().StringVarP(&logLevelStr, "loglevel", "l",
 		"WARN", "Log level")
 
