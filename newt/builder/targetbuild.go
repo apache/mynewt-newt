@@ -141,6 +141,10 @@ func (t *TargetBuilder) injectBuildSettings() {
 	bspName := filepath.Base(t.bspPkg.Name())
 	t.InjectSetting("BSP_NAME", "\""+bspName+"\"")
 	t.InjectSetting("BSP_"+util.CIdentifier(bspName), "1")
+
+	tgtName := filepath.Base(t.target.Name())
+	t.InjectSetting("TARGET_NAME", "\""+tgtName+"\"")
+	t.InjectSetting("TARGET_"+util.CIdentifier(tgtName), "1")
 }
 
 func (t *TargetBuilder) ensureResolved() error {
