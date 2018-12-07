@@ -486,7 +486,8 @@ func (b *Builder) PrepBuild() error {
 
 	// Define a cpp symbol indicating the BSP architecture, name of the
 	// BSP and app.
-
+	// The arch, app, and bsp defines are kept here for backwards compatiblity.
+	// Users should prefer the equivalent syscfg defines.
 	archName := b.targetBuilder.bspPkg.Arch
 	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+util.CIdentifier(archName))
 	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_NAME="+archName+"")
