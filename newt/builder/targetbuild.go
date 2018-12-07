@@ -99,9 +99,6 @@ func NewTargetTester(target *target.Target,
 		injectedSettings: map[string]string{},
 	}
 
-	// Indicate that this version of newt supports the generated logcfg header.
-	t.InjectSetting("NEWT_FEATURE_LOGCFG", "1")
-
 	return t, nil
 }
 
@@ -122,10 +119,37 @@ func (t *TargetBuilder) NewCompiler(dstDir string, buildProfile string) (
 	return c, err
 }
 
+func (t *TargetBuilder) injectNewtSettings() {
+	// Indicate that this version of newt supports the generated logcfg header.
+	t.InjectSetting("NEWT_FEATURE_LOGCFG", "1")
+
+	// Indicate to the apache-mynewt-core code that this version of newt
+	// supports the sysdown mechanism (generated package shutdown functions).
+	t.InjectSetting("NEWT_FEATURE_SYSDOWN", "1")
+}
+
+func (t *TargetBuilder) injectBuildSettings() {
+	t.InjectSetting("ARCH_NAME", "\""+t.bspPkg.Arch+"\"")
+	t.InjectSetting("ARCH_"+util.CIdentifier(t.bspPkg.Arch), "1")
+
+	if t.appPkg != nil {
+		appName := filepath.Base(t.appPkg.Name())
+		t.InjectSetting("APP_NAME", "\""+appName+"\"")
+		t.InjectSetting("APP_"+util.CIdentifier(appName), "1")
+	}
+
+	bspName := filepath.Base(t.bspPkg.Name())
+	t.InjectSetting("BSP_NAME", "\""+bspName+"\"")
+	t.InjectSetting("BSP_"+util.CIdentifier(bspName), "1")
+}
+
 func (t *TargetBuilder) ensureResolved() error {
 	if t.res != nil {
 		return nil
 	}
+
+	t.injectNewtSettings()
+	t.injectBuildSettings()
 
 	var loaderSeeds []*pkg.LocalPackage
 	if t.loaderPkg != nil {
@@ -149,7 +173,7 @@ func (t *TargetBuilder) ensureResolved() error {
 
 		// Inject the SPLIT_IMAGE setting into the entire target.  All packages
 		// now know that they are part of a split image build.
-		t.injectedSettings["SPLIT_IMAGE"] = "1"
+		t.InjectSetting("SPLIT_IMAGE", "1")
 	}
 
 	appSeeds := []*pkg.LocalPackage{
@@ -168,15 +192,11 @@ func (t *TargetBuilder) ensureResolved() error {
 		//     * TEST:      lets packages know that this is a test app
 		//     * SELFTEST:  indicates that the "newt test" command is used;
 		//                  causes a package to define a main() function.
-		t.injectedSettings["TEST"] = "1"
-		t.injectedSettings["SELFTEST"] = "1"
+		t.InjectSetting("TEST", "1")
+		t.InjectSetting("SELFTEST", "1")
 
 		appSeeds = append(appSeeds, t.testPkg)
 	}
-
-	// Indicate to the apache-mynewt-core code that this version of newt
-	// supports the sysdown mechanism (generated package shutdown functions).
-	t.injectedSettings["NEWT_FEATURE_SYSDOWN"] = "1"
 
 	var err error
 	t.res, err = resolve.ResolveFull(
