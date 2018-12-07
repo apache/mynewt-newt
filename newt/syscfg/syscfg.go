@@ -998,12 +998,8 @@ func (cfg *Cfg) DeprecatedWarning() []string {
 	return lines
 }
 
-func escapeStr(s string) string {
-	return strings.ToUpper(util.CIdentifier(s))
-}
-
 func settingName(setting string) string {
-	return SYSCFG_PREFIX_SETTING + escapeStr(setting)
+	return SYSCFG_PREFIX_SETTING + util.CIdentifier(setting)
 }
 
 func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
