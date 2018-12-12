@@ -1,12 +1,12 @@
 Installing Newt on Linux
 ------------------------
 
-You can install the latest release (1.3.0) of the newt tool from a Debian binary package (amd64). You can also download
+You can install the latest release (1.5.0) of the newt tool from a Debian binary package (amd64). You can also download
 and build the latest release version of newt from source.
 
 This page shows you how to:
 
-1. Set up your computer to download Debian binary packages from the runtimeco APT repository.
+1. Set up your computer to download Debian binary packages from the JuulLabs-OSS APT repository.
 
    **Note:** The key for signing the repository has changed. If you set up your computer before release 1.1.0, you will
    need to download and import the public key again.
@@ -20,7 +20,7 @@ If you are installing on an amd64 platform, we recommend that you install from t
 
 See :doc:`prev_releases` to install an earlier version of newt.
 
-**Note:** We have tested the newt tool binary and apt-get install from the runtimeco APT repository for Ubuntu version
+**Note:** We have tested the newt tool binary and apt-get install from the JuulLabs-OSS APT repository for Ubuntu version
 1704. Earlier Ubuntu versions (for example: Ubuntu 14) may have incompatibility with the repository. You can manually
 download and install the Debian binary package.
 
@@ -33,28 +33,32 @@ download and install the Debian binary package.
 Setting Up Your Computer to use apt-get to Install the Package
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The newt Debian packages are stored in a private APT repository on **https://github/runtimeco/debian-mynewt**. To use
-apt-get, you must set up the following on your computer to retrieve packages from the repository:
+The newt Debian packages are stored in a private APT repository on **https://github.com/JuulLabs-OSS/debian-mynewt**.
+To use apt-get, you must set up the following on your computer to retrieve packages from the repository:
 
 **Note**: You only need to perform this setup once on your computer. However, if you previously downloaded and imported
-the public key for the runtimeco APT repository, you will need to perform step 2 again as the key has changed.
+the public key for the JuulLabs-OSS APT repository, you will need to perform step 2 again as the key has changed.
 
-1. Download the public key for the runtimeco APT repository and import the key into the apt keychain.
+1. Download the public key for the JuulLabs-OSS APT repository and import the key into the apt keychain.
 2. Add the repository for the binary and source packages to the apt source list.
 
-Download the public key for the runtimeco apt repo (**Note:** There is a ``-`` after ``apt-key add``):
+Download the public key for the JuulLabs-OSS apt repo (**Note:** There is a ``-`` after ``apt-key add``):
 
 .. code-block:: console
 
-    $ wget -qO - https://raw.githubusercontent.com/runtimeco/debian-mynewt/master/mynewt.gpg.key | sudo apt-key add -
+    $ wget -qO - https://raw.githubusercontent.com/JuulLabs-OSS/debian-mynewt/master/mynewt.gpg.key | sudo apt-key add -
 
 Add the repository for the binary and source packages to the ``mynewt.list`` apt source list file:
 
 .. code-block:: console
 
     $ sudo tee /etc/apt/sources.list.d/mynewt.list <<EOF
-    deb https://raw.githubusercontent.com/runtimeco/debian-mynewt/master latest main
+    deb https://raw.githubusercontent.com/JuulLabs-OSS/debian-mynewt/master latest main
     EOF
+
+**Note:** Previously the repository lived under ``runtimeco/debian-mynewt``, and although
+updating should remain working, if it stops pulling in the latest releases, please try updating
+``/etc/apt/sources.list.d/mynewt.list`` and substitute ``runtimeco`` by ``JuulLabs-OSS``.
 
 Update the available packages:
 
@@ -67,7 +71,7 @@ how to manually download and install the binary package.
 
 .. code-block:: console
 
-    W: Failed to fetch https://raw.githubusercontent.com/runtimeco/debian-mynewt/master/dists/latest/main/source/Sources  HttpError404
+    W: Failed to fetch https://raw.githubusercontent.com/JuulLabs-OSS/debian-mynewt/master/dists/latest/main/source/Sources  HttpError404
 
 Installing the Latest Release of Newt from a Binary Package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,8 +101,8 @@ Download and install the package manually.
 
 .. code-block:: console
 
-    $ wget https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.4.1/newt_1.4.1-1_amd64.deb
-    $ sudo dpkg -i newt_1.4.1-1_amd64.deb
+    $ wget https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.5.0/newt_1.5.0-1_amd64.deb
+    $ sudo dpkg -i newt_1.5.0-1_amd64.deb
 
 See `Checking the Installed Version of Newt`_ to verify that you are using the installed version of newt.
 
@@ -112,16 +116,16 @@ source.
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_4_1_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_4_1_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_5_0_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_1_5_0_tag.tar.gz
 
 #. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_4_1_tag
+    $ cd mynewt-newt-mynewt_1_5_0_tag
     $ ./build.sh
-    $ rm /tmp/mynewt_1_4_1_tag.tar.gz
+    $ rm /tmp/mynewt_1_5_0_tag.tar.gz
 
 #. You should see the ``newt/newt`` executable. Move the executable to a bin directory in your PATH:
 
@@ -148,7 +152,7 @@ Checking the Installed Version of Newt
     $ which newt
     /usr/bin/newt
     $ newt version
-    Apache Newt version: 1.4.1
+    Apache Newt version: 1.5.0
 
 2. Get information about newt:
 
@@ -179,6 +183,7 @@ Checking the Installed Version of Newt
       clean        Delete build artifacts for one or more targets
       create-image Add image header to target binary
       debug        Open debugger session to target
+      help         Help about any command
       info         Show project info
       install      Install project dependencies
       load         Load built target to board
@@ -197,7 +202,7 @@ Checking the Installed Version of Newt
 
     Flags:
       -h, --help              Help for newt commands
-      -j, --jobs int          Number of concurrent build jobs (default 8)
+      -j, --jobs int          Number of concurrent build jobs (default 4)
       -l, --loglevel string   Log level (default "WARN")
       -o, --outfile string    Filename to tee output to
       -q, --quiet             Be quiet; only display error output

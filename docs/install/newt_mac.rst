@@ -1,8 +1,8 @@
-Installing Newt on Mac OS
--------------------------
+Installing Newt on macOS
+------------------------
 
-Newt is supported on Mac OS X 64 bit platforms and has been tested on
-Mac OS 10.10 and higher.
+Newt is supported on macOS 64 bit platforms and has been tested on
+macOS 10.12 and higher.
 
 This page shows you how to:
 
@@ -30,12 +30,20 @@ You can also extract (or ``git clone``) Homebrew and install it to
 Adding the Mynewt Homebrew Tap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If this is your first time installing newt, add the
-**runtimeco/homebrew-mynewt** tap:
+If this is your first time installing newt, add the **JuulLabs-OSS/mynewt**
+tap:
 
 .. code-block:: console
 
-    $ brew tap runtimeco/homebrew-mynewt
+    $ brew tap JuulLabs-OSS/mynewt
+    ==> Tapping juullabs-oss/mynewt
+    Cloning into '/usr/local/Homebrew/Library/Taps/juullabs-oss/homebrew-mynewt'...
+    remote: Enumerating objects: 16, done.
+    remote: Counting objects: 100% (16/16), done.
+    remote: Compressing objects: 100% (13/13), done.
+    remote: Total 16 (delta 12), reused 3 (delta 3), pack-reused 0
+    Unpacking objects: 100% (16/16), done.
+    Tapped 14 formulae (52 files, 51.9KB).
     $ brew update
 
 Upgrading to or Installing the Latest Release Version
@@ -43,6 +51,15 @@ Upgrading to or Installing the Latest Release Version
 
 Perform the following to upgrade or install the latest release version
 of newt.
+
+**Note:** The homebrew tap used to live under ``runtimeco/mynewt``, and
+although updating should still work, if the tap stops pulling in the latest
+releases, please try removing the old tap and adding the new one:
+
+.. code-block:: console
+
+    $ brew untap runtimeco/mynewt
+    $ brew tap JuulLabs-OSS/mynewt
 
 Upgrading to the Latest Release Version of Newt
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,13 +72,13 @@ commands to upgrade to newt latest:
     $ brew update
     $ brew upgrade mynewt-newt
     ==> Upgrading 1 outdated package, with result:
-    runtimeco/mynewt/mynewt-newt 1.4.1
-    ==> Upgrading runtimeco/mynewt/mynewt-newt
-    ==> Downloading https://github.com/runtimeco/binary-releases/raw/master/mynewt-newt-tools_1.4.1/mynewt-newt-1.4.1.sierra.bottle.tar.gz
-    ==> Downloading from https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.4.1/mynewt-newt-1.4.1.sierra.bottle.tar.gz
+    juullabs-oss/mynewt/mynewt-newt 1.5.0
+    ==> Upgrading juullabs-oss/mynewt/mynewt-newt
+    ==> Downloading https://github.com/juullabs-oss/binary-releases/raw/master/mynewt-newt-tools_1.5.0/mynewt-newt-1.5.0.sierra.bottle.tar.gz
+    ==> Downloading from https://raw.githubusercontent.com/juullabs-oss/binary-releases/master/mynewt-newt-tools_1.5.0/mynewt-newt-1.5.0.sierra.bottle.tar.gz
     ######################################################################## 100.0%
-    ==> Pouring mynewt-newt-1.4.1.sierra.bottle.tar.gz
-    🍺  /usr/local/Cellar/mynewt-newt/1.4.1: 3 files, 7.9MB
+    ==> Pouring mynewt-newt-1.5.0.sierra.bottle.tar.gz
+    🍺  /usr/local/Cellar/mynewt-newt/1.5.0: 3 files, 8.1MB
 
 Installing the Latest Release Version of Newt
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -72,13 +89,14 @@ Run the following command to install the latest release version of newt:
 
     $ brew update
     $ brew install mynewt-newt
-    ==> Installing mynewt-newt from runtimeco/mynewt
-    ==> Downloading https://github.com/runtimeco/binary-releases/raw/master/mynewt-newt-tools_1.4.1/mynewt-newt-1.4.1.sierra.bottle.tar.gz
-    Already downloaded: /Users/gavin/Library/Caches/Homebrew/mynewt-newt-1.4.1.sierra.bottle.tar.gz
-    ==> Pouring mynewt-newt-1.4.1.sierra.bottle.tar.gz
-    🍺  /usr/local/Cellar/mynewt-newt/1.4.1: 3 files, 7.9MB
+    ==> Installing mynewt-newt from juullabs-oss/mynewt
+    ==> Downloading https://github.com/juullabs-oss/binary-releases/raw/master/mynewt-newt-tools_1.5.0/mynewt-newt-1.5.0.sierra.bottle
+    ==> Downloading from https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.5.0/mynewt-newt-
+    ######################################################################## 100.0%
+    ==> Pouring mynewt-newt-1.5.0.sierra.bottle.tar.gz
+    🍺  /usr/local/Cellar/mynewt-newt/1.5.0: 3 files, 8.1MB
 
-**Notes:** Homebrew bottles for newt are available for Mac OS Sierra. If you are running an earlier version of Mac OS,
+**Notes:** Homebrew bottles for newt are available for macOS Sierra. If you are running an earlier version of macOS,
 the installation will install the latest version of Go and compile newt locally.
 
 Checking the Installed Version
@@ -91,7 +109,7 @@ Check that you are using the installed version of newt:
     $ which newt
     /usr/local/bin/newt
     $ newt version
-    Apache Newt version: 1.4.1
+    Apache Newt version: 1.5.0
 
 **Note:** If you previously built newt from source and the output of
 ``which newt`` shows
@@ -128,6 +146,7 @@ Get information about newt:
       clean        Delete build artifacts for one or more targets
       create-image Add image header to target binary
       debug        Open debugger session to target
+      help         Help about any command
       info         Show project info
       install      Install project dependencies
       load         Load built target to board
@@ -146,7 +165,7 @@ Get information about newt:
 
     Flags:
       -h, --help              Help for newt commands
-      -j, --jobs int          Number of concurrent build jobs (default 8)
+      -j, --jobs int          Number of concurrent build jobs (default 4)
       -l, --loglevel string   Log level (default "WARN")
       -o, --outfile string    Filename to tee output to
       -q, --quiet             Be quiet; only display error output
@@ -186,4 +205,4 @@ you can run:
 
 .. code-block:: console
 
-    $ brew switch mynewt-newt 1.4.1
+    $ brew switch mynewt-newt 1.5.0

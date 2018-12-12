@@ -1,10 +1,10 @@
 Installing Previous Releases of Newt
 ------------------------------------
 
-This page shows you how to install previous releases of newt for Mac OS, Linux, and Windows.
+This page shows you how to install previous releases of newt for macOS, Linux, and Windows.
 
-Mac OS
-~~~~~~
+macOS
+~~~~~
 
 You can install previous releases of newt using ``mynewt-newt@X.Y`` Homebrew formulas, where X.Y is a version number.
 
@@ -48,11 +48,15 @@ Linux
    +-----------+----------------------------------------------------------------------------------------------------------------------------------------------------+
    | Version   | Download                                                                                                                                           |
    +===========+====================================================================================================================================================+
-   | 1.0.0     | `newt\_1.0.0-1\_amd64.deb <https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.0.0/newt_1.0.0-1_amd64.deb>`__   |
+   | 1.0.0     | `newt\_1.0.0-1\_amd64.deb <https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.0.0/newt_1.0.0-1_amd64.deb>`__   |
    +-----------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | 1.1.0     | `newt\_1.1.0-1\_amd64.deb <https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.1.0/newt_1.1.0-1_amd64.deb>`__   |
+   | 1.1.0     | `newt\_1.1.0-1\_amd64.deb <https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.1.0/newt_1.1.0-1_amd64.deb>`__   |
    +-----------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | 1.3.0     | `newt\_1.3.0-1\_amd64.deb <https://raw.githubusercontent.com/runtimeco/binary-releases/master/mynewt-newt-tools_1.3.0/newt_1.3.0-1_amd64.deb>`__   |
+   | 1.3.0     | `newt\_1.3.0-1\_amd64.deb <https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.3.0/newt_1.3.0-1_amd64.deb>`__   |
+   +-----------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | 1.4.0     | `newt\_1.4.0-1\_amd64.deb <https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.4.0/newt_1.4.0-1_amd64.deb>`__   |
+   +-----------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | 1.4.1     | `newt\_1.4.1-1\_amd64.deb <https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.4.1/newt_1.4.1-1_amd64.deb>`__   |
    +-----------+----------------------------------------------------------------------------------------------------------------------------------------------------+
 
 2. Run the ``sudo apt-get remove newt`` command to remove the the current installation.
