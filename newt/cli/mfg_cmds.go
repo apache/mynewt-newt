@@ -20,6 +20,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/artifact/image"
@@ -50,31 +52,34 @@ func ResolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
 	return lpkg, nil
 }
 
-func mfgCreate(mi *mfg.MfgImage) {
-	pathStr := ""
-	for _, path := range mi.FromPaths() {
-		pathStr += "    * " + path + "\n"
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Creating a manufacturing image from the following files:\n%s\n",
-		pathStr)
-
-	outputPaths, err := mi.CreateMfgImage()
+func mfgCreate(me mfg.MfgEmitter) {
+	srcPaths, dstPaths, err := me.Emit()
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	pathStr = ""
-	for _, path := range outputPaths {
-		pathStr += "    * " + path + "\n"
+	srcStr := ""
+	dstStr := ""
+
+	for _, p := range srcPaths {
+		srcStr += fmt.Sprintf("    %s\n", p)
 	}
+
+	for _, p := range dstPaths {
+		dstStr += fmt.Sprintf("    %s\n", p)
+	}
+
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Generated the following files:\n%s", pathStr)
+		"Creating a manufacturing image from the following files:\n%s\n",
+		srcStr)
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Generated the following files:\n%s\n",
+		dstStr)
 }
 
-func mfgLoad(mi *mfg.MfgImage) {
-	binPath, err := mi.Upload()
+func mfgLoad(basePkg *pkg.LocalPackage) {
+	binPath, err := mfg.Upload(basePkg)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -101,13 +106,12 @@ func mfgCreateRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	mi, err := mfg.Load(lpkg)
+	me, err := mfg.LoadMfgEmitter(lpkg, ver)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	mi.SetVersion(ver)
-	mfgCreate(mi)
+	mfgCreate(me)
 }
 
 func mfgLoadRunCmd(cmd *cobra.Command, args []string) {
@@ -121,12 +125,7 @@ func mfgLoadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	mi, err := mfg.Load(lpkg)
-	if err != nil {
-		NewtUsage(nil, err)
-	}
-
-	mfgLoad(mi)
+	mfgLoad(lpkg)
 }
 
 func mfgDeployRunCmd(cmd *cobra.Command, args []string) {
@@ -149,15 +148,14 @@ func mfgDeployRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	mi, err := mfg.Load(lpkg)
+	me, err := mfg.LoadMfgEmitter(lpkg, ver)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
 
-	mi.SetVersion(ver)
-	mfgCreate(mi)
+	mfgCreate(me)
 
-	mfgLoad(mi)
+	mfgLoad(lpkg)
 }
 
 func AddMfgCommands(cmd *cobra.Command) {

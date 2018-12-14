@@ -195,11 +195,10 @@ func ProduceAllV1(t *builder.TargetBuilder, ver image.ImageVersion,
 	}
 
 	mopts := manifest.ManifestCreateOpts{
-		TgtBldr:    t,
-		AppHash:    pset.App.Hash,
-		Version:    ver,
-		BuildID:    fmt.Sprintf("%x", pset.App.Hash),
-		FlashAreas: t.BspPkg().FlashMap.SortedAreas(),
+		TgtBldr: t,
+		AppHash: pset.App.Hash,
+		Version: ver,
+		BuildID: fmt.Sprintf("%x", pset.App.Hash),
 	}
 
 	if pset.Loader != nil {

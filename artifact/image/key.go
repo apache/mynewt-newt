@@ -152,25 +152,30 @@ func (key *ImageSigKey) assertValid() {
 	}
 }
 
-func (key *ImageSigKey) sigKeyHash() ([]uint8, error) {
+func (key *ImageSigKey) PubBytes() ([]uint8, error) {
 	key.assertValid()
 
+	var pubkey []byte
+
 	if key.Rsa != nil {
-		pubkey, _ := asn1.Marshal(key.Rsa.PublicKey)
-		sum := sha256.Sum256(pubkey)
-		return sum[:4], nil
+		pubkey, _ = asn1.Marshal(key.Rsa.PublicKey)
 	} else {
 		switch key.Ec.Curve.Params().Name {
 		case "P-224":
 			fallthrough
 		case "P-256":
-			pubkey, _ := x509.MarshalPKIXPublicKey(&key.Ec.PublicKey)
-			sum := sha256.Sum256(pubkey)
-			return sum[:4], nil
+			pubkey, _ = x509.MarshalPKIXPublicKey(&key.Ec.PublicKey)
 		default:
 			return nil, util.NewNewtError("Unsupported ECC curve")
 		}
 	}
+
+	return pubkey, nil
+}
+
+func RawKeyHash(pubKeyBytes []byte) []byte {
+	sum := sha256.Sum256(pubKeyBytes)
+	return sum[:4]
 }
 
 func (key *ImageSigKey) sigLen() uint16 {

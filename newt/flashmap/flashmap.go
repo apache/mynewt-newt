@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -170,22 +169,6 @@ func (flashMap FlashMap) unSortedAreas() []flash.FlashArea {
 func (flashMap FlashMap) SortedAreas() []flash.FlashArea {
 	areas := flashMap.unSortedAreas()
 	return flash.SortFlashAreasById(areas)
-}
-
-func (flashMap FlashMap) DeviceIds() []int {
-	deviceMap := map[int]struct{}{}
-
-	for _, area := range flashMap.Areas {
-		deviceMap[area.Device] = struct{}{}
-	}
-
-	devices := make([]int, 0, len(deviceMap))
-	for device, _ := range deviceMap {
-		devices = append(devices, device)
-	}
-	sort.Ints(devices)
-
-	return devices
 }
 
 func areasDistinct(a flash.FlashArea, b flash.FlashArea) bool {

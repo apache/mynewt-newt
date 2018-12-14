@@ -262,16 +262,14 @@ func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
 		return err
 	}
 
-	mopts := manifest.ManifestCreateOpts{
-		TgtBldr:    t,
-		AppHash:    pset.App.Hash,
-		Version:    ver,
-		BuildID:    fmt.Sprintf("%x", pset.App.Hash),
-		FlashAreas: t.BspPkg().FlashMap.SortedAreas(),
+	var loaderHash []byte
+	if pset.Loader != nil {
+		loaderHash = pset.Loader.Hash
 	}
 
-	if pset.Loader != nil {
-		mopts.LoaderHash = pset.Loader.Hash
+	mopts, err := manifest.OptsForImage(t, ver, pset.App.Hash, loaderHash)
+	if err != nil {
+		return err
 	}
 
 	if err := ProduceManifest(mopts); err != nil {

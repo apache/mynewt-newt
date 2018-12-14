@@ -30,7 +30,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/artifact/flash"
 	"mynewt.apache.org/newt/artifact/image"
 	"mynewt.apache.org/newt/artifact/manifest"
 	"mynewt.apache.org/newt/newt/builder"
@@ -49,7 +48,7 @@ type ManifestCreateOpts struct {
 	AppHash    []byte
 	Version    image.ImageVersion
 	BuildID    string
-	FlashAreas []flash.FlashArea
+	Syscfg     map[string]string
 }
 
 type RepoManager struct {
@@ -245,17 +244,47 @@ func ManifestPkgSizes(b *builder.Builder) (ManifestSizeCollector, error) {
 	return msc, nil
 }
 
+func OptsForNonImage(t *builder.TargetBuilder) (ManifestCreateOpts, error) {
+	res, err := t.Resolve()
+	if err != nil {
+		return ManifestCreateOpts{}, err
+	}
+
+	return ManifestCreateOpts{
+		TgtBldr: t,
+		Syscfg:  res.Cfg.SettingValues(),
+	}, nil
+}
+
+func OptsForImage(t *builder.TargetBuilder, ver image.ImageVersion,
+	appHash []byte, loaderHash []byte) (ManifestCreateOpts, error) {
+
+	res, err := t.Resolve()
+	if err != nil {
+		return ManifestCreateOpts{}, err
+	}
+
+	return ManifestCreateOpts{
+		TgtBldr:    t,
+		AppHash:    appHash,
+		LoaderHash: loaderHash,
+		Version:    ver,
+		BuildID:    fmt.Sprintf("%x", appHash),
+		Syscfg:     res.Cfg.SettingValues(),
+	}, nil
+}
+
 func CreateManifest(opts ManifestCreateOpts) (manifest.Manifest, error) {
 	t := opts.TgtBldr
 
 	m := manifest.Manifest{
-		Name:       t.GetTarget().FullName(),
-		Date:       time.Now().Format(time.RFC3339),
-		Version:    opts.Version.String(),
-		BuildID:    opts.BuildID,
-		Image:      t.AppBuilder.AppImgPath(),
-		ImageHash:  fmt.Sprintf("%x", opts.AppHash),
-		FlashAreas: opts.FlashAreas,
+		Name:      t.GetTarget().FullName(),
+		Date:      time.Now().Format(time.RFC3339),
+		Version:   opts.Version.String(),
+		BuildID:   opts.BuildID,
+		Image:     t.AppBuilder.AppImgPath(),
+		ImageHash: fmt.Sprintf("%x", opts.AppHash),
+		Syscfg:    opts.Syscfg,
 	}
 
 	rm := NewRepoManager()

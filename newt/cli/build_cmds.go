@@ -27,6 +27,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/imgprod"
+	"mynewt.apache.org/newt/newt/manifest"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
@@ -157,6 +159,15 @@ func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, execute
 		}
 
 		if err := b.Build(); err != nil {
+			NewtUsage(nil, err)
+		}
+
+		// Produce bare "imageless" manifest.
+		mopts, err := manifest.OptsForNonImage(b)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+		if err := imgprod.ProduceManifest(mopts); err != nil {
 			NewtUsage(nil, err)
 		}
 

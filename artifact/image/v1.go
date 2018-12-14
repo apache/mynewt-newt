@@ -233,7 +233,7 @@ func generateV1SigTlvRsa(key ImageSigKey, hash []byte) (ImageTlv, error) {
 }
 
 func generateV1SigTlvEc(key ImageSigKey, hash []byte) (ImageTlv, error) {
-	sig, err := generateSigEc(key.Ec, hash)
+	sig, err := generateSigEc(key, hash)
 	if err != nil {
 		return ImageTlv{}, err
 	}
