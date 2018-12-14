@@ -29,36 +29,39 @@ import (
 
 	"mynewt.apache.org/newt/artifact/flash"
 	"mynewt.apache.org/newt/artifact/manifest"
-	"mynewt.apache.org/newt/larva/mfg"
+	"mynewt.apache.org/newt/artifact/mfg"
+	"mynewt.apache.org/newt/larva/lvmfg"
 	"mynewt.apache.org/newt/util"
 )
 
-var optDeviceNum int
-
-func readManifest(filename string) (manifest.Manifest, error) {
-	man, err := manifest.ReadManifest(filename)
+func readMfgBin(filename string) ([]byte, error) {
+	bin, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return man, err
+		return nil, util.FmtNewtError(
+			"Failed to read manufacturing image: %s", err.Error())
 	}
 
-	log.Debugf("Successfully read manifest %s", filename)
-	return man, nil
+	return bin, nil
 }
 
-func readFlashAreas(manifestFilename string) ([]flash.FlashArea, error) {
-	man, err := readManifest(manifestFilename)
-	if err != nil {
-		return nil, err
-	}
+func readManifest(mfgDir string) (manifest.MfgManifest, error) {
+	return manifest.ReadMfgManifest(mfgDir + "/" + mfg.MANIFEST_FILENAME)
+}
 
-	areas := flash.SortFlashAreasByDevOff(man.FlashAreas)
+func extractFlashAreas(mman manifest.MfgManifest) ([]flash.FlashArea, error) {
+	areas := flash.SortFlashAreasByDevOff(mman.FlashAreas)
+
+	if len(areas) == 0 {
+		LarvaUsage(nil, util.FmtNewtError(
+			"Boot loader manifest does not contain flash map"))
+	}
 
 	overlaps, conflicts := flash.DetectErrors(areas)
 	if len(overlaps) > 0 || len(conflicts) > 0 {
 		return nil, util.NewNewtError(flash.ErrorText(overlaps, conflicts))
 	}
 
-	if err := mfg.VerifyAreas(areas, optDeviceNum); err != nil {
+	if err := lvmfg.VerifyAreas(areas); err != nil {
 		return nil, err
 	}
 
@@ -66,8 +69,10 @@ func readFlashAreas(manifestFilename string) ([]flash.FlashArea, error) {
 	return areas, nil
 }
 
-func createMfgMap(binDir string, areas []flash.FlashArea) (mfg.MfgMap, error) {
-	mm := mfg.MfgMap{}
+func createNameBlobMap(binDir string,
+	areas []flash.FlashArea) (lvmfg.NameBlobMap, error) {
+
+	mm := lvmfg.NameBlobMap{}
 
 	for _, area := range areas {
 		filename := fmt.Sprintf("%s/%s.bin", binDir, area.Name)
@@ -84,27 +89,68 @@ func createMfgMap(binDir string, areas []flash.FlashArea) (mfg.MfgMap, error) {
 	return mm, nil
 }
 
-func runSplitCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 3 {
+func runMfgShowCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
 		LarvaUsage(cmd, nil)
 	}
+	inFilename := args[0]
 
-	imgFilename := args[0]
-	manFilename := args[1]
-	outDir := args[2]
-
-	mfgBin, err := ioutil.ReadFile(imgFilename)
+	metaEndOff, err := util.AtoiNoOct(args[1])
 	if err != nil {
 		LarvaUsage(cmd, util.FmtNewtError(
-			"Failed to read manufacturing image: %s", err.Error()))
+			"invalid meta offset \"%s\"", args[1]))
 	}
 
-	areas, err := readFlashAreas(manFilename)
+	bin, err := readMfgBin(inFilename)
 	if err != nil {
 		LarvaUsage(cmd, err)
 	}
 
-	mm, err := mfg.Split(mfgBin, optDeviceNum, areas)
+	m, err := mfg.Parse(bin, metaEndOff, 0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	if m.Meta == nil {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Manufacturing image %s does not contain an MMR\n", inFilename)
+	} else {
+		s, err := m.Meta.Json(metaEndOff)
+		if err != nil {
+			LarvaUsage(nil, err)
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Manufacturing image %s contains an MMR with "+
+				"the following properties:\n%s\n", inFilename, s)
+	}
+}
+
+func runSplitCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
+		LarvaUsage(cmd, nil)
+	}
+
+	mfgDir := args[0]
+	outDir := args[1]
+
+	mm, err := readManifest(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	areas, err := extractFlashAreas(mm)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	binPath := fmt.Sprintf("%s/%s", mfgDir, mm.BinPath)
+	bin, err := ioutil.ReadFile(binPath)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read \"%s\": %s", binPath, err.Error()))
+	}
+
+	nbmap, err := lvmfg.Split(bin, mm.Device, areas, 0xff)
 	if err != nil {
 		LarvaUsage(nil, err)
 	}
@@ -113,39 +159,88 @@ func runSplitCmd(cmd *cobra.Command, args []string) {
 		LarvaUsage(nil, util.ChildNewtError(err))
 	}
 
-	for name, data := range mm {
+	for name, data := range nbmap {
 		filename := fmt.Sprintf("%s/%s.bin", outDir, name)
-		if err := ioutil.WriteFile(filename, data, os.ModePerm); err != nil {
+		if err := ioutil.WriteFile(filename, data,
+			os.ModePerm); err != nil {
+
 			LarvaUsage(nil, util.ChildNewtError(err))
 		}
+	}
+
+	mfgDstDir := fmt.Sprintf("%s/mfg", outDir)
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Copying source mfg directory to %s\n", mfgDstDir)
+	if err := util.CopyDir(mfgDir, mfgDstDir); err != nil {
+		LarvaUsage(nil, err)
 	}
 }
 
 func runJoinCmd(cmd *cobra.Command, args []string) {
-	if len(args) < 3 {
+	if len(args) < 2 {
 		LarvaUsage(cmd, nil)
 	}
 
-	binDir := args[0]
-	manFilename := args[1]
-	outFilename := args[2]
+	splitDir := args[0]
+	outDir := args[1]
 
-	areas, err := readFlashAreas(manFilename)
+	if util.NodeExist(outDir) {
+		LarvaUsage(nil, util.FmtNewtError(
+			"Destination \"%s\" already exists", outDir))
+	}
+
+	mm, err := readManifest(splitDir + "/mfg")
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+	areas, err := extractFlashAreas(mm)
 	if err != nil {
 		LarvaUsage(cmd, err)
 	}
 
-	mm, err := createMfgMap(binDir, areas)
+	nbmap, err := createNameBlobMap(splitDir, areas)
 	if err != nil {
 		LarvaUsage(nil, err)
 	}
 
-	mfgBin, err := mfg.Join(mm, 0xff, areas)
+	bin, err := lvmfg.Join(nbmap, 0xff, areas)
 	if err != nil {
 		LarvaUsage(nil, err)
 	}
 
-	if err := ioutil.WriteFile(outFilename, mfgBin, os.ModePerm); err != nil {
+	m, err := mfg.Parse(bin, mm.Meta.EndOffset, 0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	infos, err := ioutil.ReadDir(splitDir + "/mfg")
+	if err != nil {
+		LarvaUsage(nil, util.FmtNewtError(
+			"Error reading source mfg directory: %s", err.Error()))
+	}
+	for _, info := range infos {
+		if info.Name() != mfg.MFG_IMG_FILENAME {
+			src := splitDir + "/mfg/" + info.Name()
+			dst := outDir + "/" + info.Name()
+			if info.IsDir() {
+				err = util.CopyDir(src, dst)
+			} else {
+				err = util.CopyFile(src, dst)
+			}
+			if err != nil {
+				LarvaUsage(nil, err)
+			}
+		}
+	}
+
+	finalBin, err := m.Bytes(0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	if err := ioutil.WriteFile(outDir+"/"+mfg.MFG_IMG_FILENAME, finalBin,
+		os.ModePerm); err != nil {
+
 		LarvaUsage(nil, util.ChildNewtError(err))
 	}
 }
@@ -182,7 +277,7 @@ func runBootKeyCmd(cmd *cobra.Command, args []string) {
 			"Failed to read new key der: %s", err.Error()))
 	}
 
-	if err := mfg.ReplaceBootKey(sec0, okey, nkey); err != nil {
+	if err := lvmfg.ReplaceBootKey(sec0, okey, nkey); err != nil {
 		LarvaUsage(nil, err)
 	}
 
@@ -201,25 +296,27 @@ func AddMfgCommands(cmd *cobra.Command) {
 	}
 	cmd.AddCommand(mfgCmd)
 
+	showCmd := &cobra.Command{
+		Use:   "show <mfgimg.bin> <meta-end-offset>",
+		Short: "Displays JSON describing a manufacturing image",
+		Run:   runMfgShowCmd,
+	}
+
+	mfgCmd.AddCommand(showCmd)
+
 	splitCmd := &cobra.Command{
-		Use:   "split <mfg-image> <manifest> <out-dir>",
+		Use:   "split <mfg-image-dir> <out-dir>",
 		Short: "Splits a Mynewt mfg section into several files",
 		Run:   runSplitCmd,
 	}
 
-	splitCmd.PersistentFlags().IntVarP(&optDeviceNum, "device", "d", 0,
-		"Flash device number")
-
 	mfgCmd.AddCommand(splitCmd)
 
 	joinCmd := &cobra.Command{
-		Use:   "join <bin-dir> <manifest> <out-mfg-image>",
+		Use:   "join <split-dir> <out-dir>",
 		Short: "Joins a split mfg section into a single file",
 		Run:   runJoinCmd,
 	}
-
-	joinCmd.PersistentFlags().IntVarP(&optDeviceNum, "device", "d", 0,
-		"Flash device number")
 
 	mfgCmd.AddCommand(joinCmd)
 

@@ -134,6 +134,12 @@ func ImageTlvTypeName(tlvType uint8) string {
 	return name
 }
 
+func ImageTlvTypeIsSig(tlvType uint8) bool {
+	return tlvType == IMAGE_TLV_RSA2048 ||
+		tlvType == IMAGE_TLV_ECDSA224 ||
+		tlvType == IMAGE_TLV_ECDSA256
+}
+
 func ParseVersion(versStr string) (ImageVersion, error) {
 	var err error
 	var major uint64

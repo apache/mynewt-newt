@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 
-	"mynewt.apache.org/newt/artifact/flash"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -57,7 +56,7 @@ type Manifest struct {
 	LoaderPkgs []*ManifestPkg    `json:"loader_pkgs,omitempty"`
 	TgtVars    []string          `json:"target"`
 	Repos      []*ManifestRepo   `json:"repos"`
-	FlashAreas []flash.FlashArea `json:"flash_map"`
+	Syscfg     map[string]string `json:"syscfg"`
 
 	PkgSizes       []*ManifestSizePkg `json:"pkgsz"`
 	LoaderPkgSizes []*ManifestSizePkg `json:"loader_pkgsz,omitempty"`

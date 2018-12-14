@@ -20,21 +20,16 @@
 package mfg
 
 import (
-	"strings"
-
-	"mynewt.apache.org/newt/newt/builder"
+	"fmt"
+	"path/filepath"
 )
 
-// @return						mfg-image-path, error
-func (mi *MfgImage) Upload() (string, error) {
-	// For now, we always upload section 0 only.
-	section0Path := MfgSectionBinPath(mi.basePkg.Name(), 0)
-	baseName := strings.TrimSuffix(section0Path, ".bin")
+const MANIFEST_FILENAME = "manifest.json"
+const BOOT_DIR = "bootloader"
+const BOOT_MANIFEST_PATH = BOOT_DIR + "/manifest.json"
+const SECTION_BIN_DIR = "sections"
 
-	envSettings := map[string]string{"MFG_IMAGE": "1"}
-	if err := builder.Load(baseName, mi.bsp, envSettings); err != nil {
-		return "", err
-	}
-
-	return section0Path, nil
+func SectionBinPath(mfgPkgName string, sectionNum int) string {
+	return fmt.Sprintf("%s/%s-s%d.bin", SECTION_BIN_DIR,
+		filepath.Base(mfgPkgName), sectionNum)
 }

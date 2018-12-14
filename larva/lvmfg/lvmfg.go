@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package mfg
+package lvmfg
 
 import (
 	"bytes"
@@ -26,10 +26,17 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/artifact/flash"
+	"mynewt.apache.org/newt/artifact/mfg"
 	"mynewt.apache.org/newt/util"
 )
 
-type MfgMap map[string][]byte
+type NameBlobMap map[string][]byte
+
+func (to NameBlobMap) Union(from NameBlobMap) {
+	for k, v := range from {
+		to[k] = v
+	}
+}
 
 func errInvalidArea(areaName string, format string,
 	args ...interface{}) error {
@@ -52,24 +59,27 @@ func verifyArea(area flash.FlashArea, minOffset int) error {
 }
 
 // `areas` must be sorted by device ID, then by offset.
-func VerifyAreas(areas []flash.FlashArea, deviceNum int) error {
+func VerifyAreas(areas []flash.FlashArea) error {
+	prevDevice := -1
 	off := 0
 	for _, area := range areas {
-		if area.Device == deviceNum {
-			if err := verifyArea(area, off); err != nil {
-				return err
-			}
-			off += area.Size
+		if area.Device != prevDevice {
+			off = 0
 		}
+
+		if err := verifyArea(area, off); err != nil {
+			return err
+		}
+		off += area.Size
 	}
 
 	return nil
 }
 
 func Split(mfgBin []byte, deviceNum int,
-	areas []flash.FlashArea) (MfgMap, error) {
+	areas []flash.FlashArea, eraseVal byte) (NameBlobMap, error) {
 
-	mm := MfgMap{}
+	mm := NameBlobMap{}
 
 	for _, area := range areas {
 		if _, ok := mm[area.Name]; ok {
@@ -77,16 +87,18 @@ func Split(mfgBin []byte, deviceNum int,
 				"two or more flash areas with same name: \"%s\"", area.Name)
 		}
 
-		if area.Device == deviceNum && area.Offset < len(mfgBin) {
-			end := area.Offset + area.Size
-			if end > len(mfgBin) {
-				return nil, util.FmtNewtError(
-					"area \"%s\" (offset=%d size=%d) "+
-						"extends beyond end of manufacturing image",
-					area.Name, area.Offset, area.Size)
+		if area.Device == deviceNum {
+			var areaBin []byte
+			if area.Offset < len(mfgBin) {
+				end := area.Offset + area.Size
+				overflow := end - len(mfgBin)
+				if overflow > 0 {
+					end -= overflow
+				}
+				areaBin = mfgBin[area.Offset:end]
 			}
 
-			mm[area.Name] = mfgBin[area.Offset:end]
+			mm[area.Name] = StripPadding(areaBin, eraseVal)
 		}
 	}
 
@@ -94,19 +106,8 @@ func Split(mfgBin []byte, deviceNum int,
 }
 
 // `areas` must be sorted by device ID, then by offset.
-func Join(mm MfgMap, eraseVal byte, areas []flash.FlashArea) ([]byte, error) {
-	// Ensure all areas in the mfg map belong to the same flash device.
-	device := -1
-	for _, area := range areas {
-		if _, ok := mm[area.Name]; ok {
-			if device == -1 {
-				device = area.Device
-			} else if device != area.Device {
-				return nil, util.FmtNewtError(
-					"multiple flash devices: %d != %d", device, area.Device)
-			}
-		}
-	}
+func Join(mm NameBlobMap, eraseVal byte,
+	areas []flash.FlashArea) ([]byte, error) {
 
 	// Keep track of which areas we haven't seen yet.
 	unseen := map[string]struct{}{}
@@ -115,24 +116,33 @@ func Join(mm MfgMap, eraseVal byte, areas []flash.FlashArea) ([]byte, error) {
 	}
 
 	joined := []byte{}
-
-	off := 0
 	for _, area := range areas {
 		bin := mm[area.Name]
-		if bin == nil {
-			break
-		}
-		delete(unseen, area.Name)
 
-		padSize := area.Offset - off
-		for i := 0; i < padSize; i++ {
-			joined = append(joined, 0xff)
-		}
+		// Only include this area if it belongs to the mfg image we are
+		// joining.
+		if bin != nil {
+			delete(unseen, area.Name)
 
-		joined = append(joined, bin...)
+			// Pad remainder of previous area in this section.
+			padSize := area.Offset - len(joined)
+			if padSize > 0 {
+				joined = mfg.AddPadding(joined, eraseVal, padSize)
+			}
+
+			// Append data to joined binary.
+			binstr := ""
+			if len(bin) >= 4 {
+				binstr = fmt.Sprintf("%x", bin[:4])
+			}
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"inserting %s (%x) at offset %d (0x%x)\n",
+				area.Name, binstr, len(joined), len(joined))
+			joined = append(joined, bin...)
+		}
 	}
 
-	// Ensure we processed every area in the mfg map.
+	// Ensure we processed every area in the map.
 	if len(unseen) > 0 {
 		names := []string{}
 		for name, _ := range unseen {
@@ -143,6 +153,9 @@ func Join(mm MfgMap, eraseVal byte, areas []flash.FlashArea) ([]byte, error) {
 		return nil, util.FmtNewtError(
 			"unprocessed flash areas: %s", strings.Join(names, ", "))
 	}
+
+	// Strip padding from the end of the joined bianry.
+	joined = StripPadding(joined, eraseVal)
 
 	return joined, nil
 }
@@ -175,4 +188,16 @@ func ReplaceBootKey(sec0 []byte, okey []byte, nkey []byte) error {
 	copy(sec0[idx:idx+len(okey)], nkey)
 
 	return nil
+}
+
+func StripPadding(b []byte, eraseVal byte) []byte {
+	var pad int
+	for pad = 0; pad < len(b); pad++ {
+		off := len(b) - pad - 1
+		if b[off] != eraseVal {
+			break
+		}
+	}
+
+	return b[:len(b)-pad]
 }

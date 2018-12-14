@@ -90,12 +90,12 @@ func generateEncTlv(cipherSecret []byte) (ImageTlv, error) {
 	}, nil
 }
 
-func generateSigRsa(key *rsa.PrivateKey, hash []byte) ([]byte, error) {
+func generateSigRsa(key ImageSigKey, hash []byte) ([]byte, error) {
 	opts := rsa.PSSOptions{
 		SaltLength: rsa.PSSSaltLengthEqualsHash,
 	}
 	signature, err := rsa.SignPSS(
-		rand.Reader, key, crypto.SHA256, hash, &opts)
+		rand.Reader, key.Rsa, crypto.SHA256, hash, &opts)
 	if err != nil {
 		return nil, util.FmtNewtError("Failed to compute signature: %s", err)
 	}
@@ -103,24 +103,8 @@ func generateSigRsa(key *rsa.PrivateKey, hash []byte) ([]byte, error) {
 	return signature, nil
 }
 
-func generateSigTlvRsa(key ImageSigKey, hash []byte) (ImageTlv, error) {
-	sig, err := generateSigRsa(key.Rsa, hash)
-	if err != nil {
-		return ImageTlv{}, err
-	}
-
-	return ImageTlv{
-		Header: ImageTlvHdr{
-			Type: key.sigTlvType(),
-			Pad:  0,
-			Len:  256, /* 2048 bits */
-		},
-		Data: sig,
-	}, nil
-}
-
-func generateSigEc(key *ecdsa.PrivateKey, hash []byte) ([]byte, error) {
-	r, s, err := ecdsa.Sign(rand.Reader, key, hash)
+func generateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
+	r, s, err := ecdsa.Sign(rand.Reader, key.Ec, hash)
 	if err != nil {
 		return nil, util.FmtNewtError("Failed to compute signature: %s", err)
 	}
@@ -135,87 +119,64 @@ func generateSigEc(key *ecdsa.PrivateKey, hash []byte) ([]byte, error) {
 		return nil, util.FmtNewtError("Failed to construct signature: %s", err)
 	}
 
+	sigLen := key.sigLen()
+	if len(signature) > int(sigLen) {
+		return nil, util.FmtNewtError("Something is really wrong\n")
+	}
+
+	pad := make([]byte, int(sigLen)-len(signature))
+	signature = append(signature, pad...)
+
 	return signature, nil
 }
 
-func generateSigTlvEc(key ImageSigKey, hash []byte) (ImageTlv, error) {
-	sig, err := generateSigEc(key.Ec, hash)
-	if err != nil {
-		return ImageTlv{}, err
-	}
-
-	sigLen := key.sigLen()
-	if len(sig) > int(sigLen) {
-		return ImageTlv{}, util.FmtNewtError("Something is really wrong\n")
-	}
-
-	b := &bytes.Buffer{}
-
-	if _, err := b.Write(sig); err != nil {
-		return ImageTlv{},
-			util.FmtNewtError("Failed to append sig: %s", err.Error())
-	}
-
-	pad := make([]byte, int(sigLen)-len(sig))
-	if _, err := b.Write(pad); err != nil {
-		return ImageTlv{}, util.FmtNewtError(
-			"Failed to serialize image trailer: %s", err.Error())
-	}
-
-	return ImageTlv{
-		Header: ImageTlvHdr{
-			Type: key.sigTlvType(),
-			Pad:  0,
-			Len:  sigLen,
-		},
-		Data: b.Bytes(),
-	}, nil
-}
-
-func generateSigTlv(key ImageSigKey, hash []byte) (ImageTlv, error) {
+func generateSig(key ImageSigKey, hash []byte) ([]byte, error) {
 	key.assertValid()
 
 	if key.Rsa != nil {
-		return generateSigTlvRsa(key, hash)
+		return generateSigRsa(key, hash)
 	} else {
-		return generateSigTlvEc(key, hash)
+		return generateSigEc(key, hash)
 	}
 }
 
-func generateKeyHashTlv(key ImageSigKey) (ImageTlv, error) {
-	key.assertValid()
-
-	keyHash, err := key.sigKeyHash()
-	if err != nil {
-		return ImageTlv{}, util.FmtNewtError(
-			"Failed to compute hash of the public key: %s", err.Error())
-	}
-
+func BuildKeyHashTlv(keyBytes []byte) ImageTlv {
+	data := RawKeyHash(keyBytes)
 	return ImageTlv{
 		Header: ImageTlvHdr{
 			Type: IMAGE_TLV_KEYHASH,
 			Pad:  0,
-			Len:  uint16(len(keyHash)),
+			Len:  uint16(len(data)),
 		},
-		Data: keyHash,
-	}, nil
+		Data: data,
+	}
 }
 
-func GenerateSigTlvs(keys []ImageSigKey, hash []byte) ([]ImageTlv, error) {
+func BuildSigTlvs(keys []ImageSigKey, hash []byte) ([]ImageTlv, error) {
 	var tlvs []ImageTlv
 
 	for _, key := range keys {
 		key.assertValid()
 
-		tlv, err := generateKeyHashTlv(key)
+		// Key hash TLV.
+		pubKey, err := key.PubBytes()
 		if err != nil {
 			return nil, err
 		}
+		tlv := BuildKeyHashTlv(pubKey)
 		tlvs = append(tlvs, tlv)
 
-		tlv, err = generateSigTlv(key, hash)
+		// Signature TLV.
+		sig, err := generateSig(key, hash)
 		if err != nil {
 			return nil, err
+		}
+		tlv = ImageTlv{
+			Header: ImageTlvHdr{
+				Type: key.sigTlvType(),
+				Len:  uint16(len(sig)),
+			},
+			Data: sig,
 		}
 		tlvs = append(tlvs, tlv)
 	}
@@ -409,7 +370,7 @@ func (ic *ImageCreator) Create() (Image, error) {
 	}
 	ri.Tlvs = append(ri.Tlvs, tlv)
 
-	tlvs, err := GenerateSigTlvs(ic.SigKeys, hashBytes)
+	tlvs, err := BuildSigTlvs(ic.SigKeys, hashBytes)
 	if err != nil {
 		return ri, err
 	}
