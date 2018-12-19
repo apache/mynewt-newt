@@ -20,7 +20,6 @@
 package mfg
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,6 +29,7 @@ import (
 	"mynewt.apache.org/newt/artifact/image"
 	"mynewt.apache.org/newt/artifact/manifest"
 	"mynewt.apache.org/newt/artifact/mfg"
+	"mynewt.apache.org/newt/artifact/misc"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/target"
@@ -234,22 +234,16 @@ func copyBinFiles(entries []CpEntry) error {
 
 // emitManifest generates an mfg manifest.
 func (me *MfgEmitter) emitManifest() ([]byte, error) {
-	hashBytes := me.Mfg.Meta.Hash()
-	if hashBytes == nil {
-		// No hash TLV; calculate hash manually.
-		bin, err := me.Mfg.Bytes(0xff)
-		if err != nil {
-			return nil, err
-		}
-		hashBytes = mfg.CalcHash(bin)
+	hashBytes, err := me.Mfg.Hash()
+	if err != nil {
+		return nil, err
 	}
-	hashStr := fmt.Sprintf("%x", hashBytes)
 
 	mm := manifest.MfgManifest{
 		Name:       me.Name,
 		BuildTime:  time.Now().Format(time.RFC3339),
 		Format:     MANIFEST_FORMAT,
-		MfgHash:    hashStr,
+		MfgHash:    misc.HashString(hashBytes),
 		Version:    me.Ver.String(),
 		Device:     me.Device,
 		BinPath:    mfg.MFG_IMG_FILENAME,
@@ -297,6 +291,10 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 
 // @return                      [source-paths], [dest-paths], error
 func (me *MfgEmitter) Emit() ([]string, []string, error) {
+	if err := me.Mfg.RecalcHash(0xff); err != nil {
+		return nil, nil, err
+	}
+
 	mbin, err := me.Mfg.Bytes(0xff)
 	if err != nil {
 		return nil, nil, err
