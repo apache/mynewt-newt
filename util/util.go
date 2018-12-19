@@ -103,6 +103,14 @@ func ChildNewtError(parent error) *NewtError {
 	return newtErr
 }
 
+func FmtChildNewtError(parent error, format string,
+	args ...interface{}) *NewtError {
+
+	ne := ChildNewtError(parent)
+	ne.Text = fmt.Sprintf(format, args...)
+	return ne
+}
+
 // Print Silent, Quiet and Verbose aware status messages to stdout.
 func WriteMessage(f *os.File, level int, message string,
 	args ...interface{}) {

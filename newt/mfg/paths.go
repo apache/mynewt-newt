@@ -38,7 +38,7 @@ func MfgBinPath(mfgPkgName string) string {
 }
 
 func MfgManifestPath(mfgPkgName string) string {
-	return MfgBinDir(mfgPkgName) + "/" + mfg.MFG_MANIFEST_FILENAME
+	return MfgBinDir(mfgPkgName) + "/" + mfg.MANIFEST_FILENAME
 }
 
 func MfgTargetDir(targetNum int) string {
