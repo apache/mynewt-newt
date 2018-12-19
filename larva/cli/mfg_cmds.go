@@ -30,6 +30,7 @@ import (
 	"mynewt.apache.org/newt/artifact/flash"
 	"mynewt.apache.org/newt/artifact/manifest"
 	"mynewt.apache.org/newt/artifact/mfg"
+	"mynewt.apache.org/newt/artifact/misc"
 	"mynewt.apache.org/newt/larva/lvmfg"
 	"mynewt.apache.org/newt/util"
 )
@@ -37,7 +38,7 @@ import (
 func readMfgBin(filename string) ([]byte, error) {
 	bin, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, util.FmtNewtError(
+		return nil, util.FmtChildNewtError(err,
 			"Failed to read manufacturing image: %s", err.Error())
 	}
 
@@ -76,9 +77,9 @@ func createNameBlobMap(binDir string,
 
 	for _, area := range areas {
 		filename := fmt.Sprintf("%s/%s.bin", binDir, area.Name)
-		bin, err := ioutil.ReadFile(filename)
+		bin, err := readMfgBin(filename)
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !util.IsNotExist(err) {
 				return nil, util.ChildNewtError(err)
 			}
 		} else {
@@ -144,7 +145,7 @@ func runSplitCmd(cmd *cobra.Command, args []string) {
 	}
 
 	binPath := fmt.Sprintf("%s/%s", mfgDir, mm.BinPath)
-	bin, err := ioutil.ReadFile(binPath)
+	bin, err := readMfgBin(binPath)
 	if err != nil {
 		LarvaUsage(cmd, util.FmtNewtError(
 			"Failed to read \"%s\": %s", binPath, err.Error()))
@@ -161,17 +162,13 @@ func runSplitCmd(cmd *cobra.Command, args []string) {
 
 	for name, data := range nbmap {
 		filename := fmt.Sprintf("%s/%s.bin", outDir, name)
-		if err := ioutil.WriteFile(filename, data,
-			os.ModePerm); err != nil {
-
-			LarvaUsage(nil, util.ChildNewtError(err))
+		if err := WriteFile(data, filename); err != nil {
+			LarvaUsage(nil, err)
 		}
 	}
 
 	mfgDstDir := fmt.Sprintf("%s/mfg", outDir)
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Copying source mfg directory to %s\n", mfgDstDir)
-	if err := util.CopyDir(mfgDir, mfgDstDir); err != nil {
+	if err := CopyDir(mfgDir, mfgDstDir); err != nil {
 		LarvaUsage(nil, err)
 	}
 }
@@ -223,9 +220,9 @@ func runJoinCmd(cmd *cobra.Command, args []string) {
 			src := splitDir + "/mfg/" + info.Name()
 			dst := outDir + "/" + info.Name()
 			if info.IsDir() {
-				err = util.CopyDir(src, dst)
+				err = CopyDir(src, dst)
 			} else {
-				err = util.CopyFile(src, dst)
+				err = CopyFile(src, dst)
 			}
 			if err != nil {
 				LarvaUsage(nil, err)
@@ -238,31 +235,30 @@ func runJoinCmd(cmd *cobra.Command, args []string) {
 		LarvaUsage(nil, err)
 	}
 
-	if err := ioutil.WriteFile(outDir+"/"+mfg.MFG_IMG_FILENAME, finalBin,
-		os.ModePerm); err != nil {
-
-		LarvaUsage(nil, util.ChildNewtError(err))
+	binPath := fmt.Sprintf("%s/%s", outDir, mfg.MFG_IMG_FILENAME)
+	if err := WriteFile(finalBin, binPath); err != nil {
+		LarvaUsage(nil, err)
 	}
 }
 
-func runBootKeyCmd(cmd *cobra.Command, args []string) {
+func runSwapKeyCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 3 {
 		LarvaUsage(cmd, nil)
 	}
 
-	sec0Filename := args[0]
+	mfgimgFilename := args[0]
 	okeyFilename := args[1]
 	nkeyFilename := args[2]
 
-	outFilename, err := CalcOutFilename(sec0Filename)
+	outFilename, err := CalcOutFilename(mfgimgFilename)
 	if err != nil {
 		LarvaUsage(cmd, err)
 	}
 
-	sec0, err := ioutil.ReadFile(sec0Filename)
+	bin, err := readMfgBin(mfgimgFilename)
 	if err != nil {
 		LarvaUsage(cmd, util.FmtNewtError(
-			"Failed to read sec0 file: %s", err.Error()))
+			"Failed to read mfgimg file: %s", err.Error()))
 	}
 
 	okey, err := ioutil.ReadFile(okeyFilename)
@@ -277,12 +273,87 @@ func runBootKeyCmd(cmd *cobra.Command, args []string) {
 			"Failed to read new key der: %s", err.Error()))
 	}
 
-	if err := lvmfg.ReplaceBootKey(sec0, okey, nkey); err != nil {
+	if err := lvmfg.ReplaceKey(bin, okey, nkey); err != nil {
 		LarvaUsage(nil, err)
 	}
 
-	if err := ioutil.WriteFile(outFilename, sec0, os.ModePerm); err != nil {
-		LarvaUsage(nil, util.ChildNewtError(err))
+	if err := WriteFile(bin, outFilename); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
+func runRehashCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		LarvaUsage(cmd, nil)
+	}
+
+	mfgDir := args[0]
+
+	outDir, err := CalcOutFilename(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	// Read manifest and mfgimg.bin.
+	mman, err := readManifest(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	binPath := fmt.Sprintf("%s/%s", mfgDir, mman.BinPath)
+	bin, err := readMfgBin(binPath)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read \"%s\": %s", binPath, err.Error()))
+	}
+
+	// Calculate accurate hash.
+	metaOff := -1
+	if mman.Meta != nil {
+		metaOff = mman.Meta.EndOffset
+	}
+	m, err := mfg.Parse(bin, metaOff, 0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	if err := m.RecalcHash(0xff); err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	hash, err := m.Hash()
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	// Update manifest.
+	mman.MfgHash = misc.HashString(hash)
+
+	// Write new artifacts.
+	if outDir != mfgDir {
+		// Not an in-place operation; copy input directory.
+		if err := CopyDir(mfgDir, outDir); err != nil {
+			LarvaUsage(nil, err)
+		}
+		binPath = fmt.Sprintf("%s/%s", outDir, mman.BinPath)
+	}
+
+	newBin, err := m.Bytes(0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+	if err := WriteFile(newBin, binPath); err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	json, err := mman.MarshalJson()
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	manPath := fmt.Sprintf("%s/%s", outDir, mfg.MANIFEST_FILENAME)
+	if err := WriteFile(json, manPath); err != nil {
+		LarvaUsage(nil, err)
 	}
 }
 
@@ -305,7 +376,7 @@ func AddMfgCommands(cmd *cobra.Command) {
 	mfgCmd.AddCommand(showCmd)
 
 	splitCmd := &cobra.Command{
-		Use:   "split <mfg-image-dir> <out-dir>",
+		Use:   "split <mfgimage-dir> <out-dir>",
 		Short: "Splits a Mynewt mfg section into several files",
 		Run:   runSplitCmd,
 	}
@@ -320,16 +391,28 @@ func AddMfgCommands(cmd *cobra.Command) {
 
 	mfgCmd.AddCommand(joinCmd)
 
-	bootKeyCmd := &cobra.Command{
-		Use:   "bootkey <sec0-bin> <cur-key-der> <new-key-der>",
-		Short: "Replaces the boot key in a manufacturing image",
-		Run:   runBootKeyCmd,
+	swapKeyCmd := &cobra.Command{
+		Use:   "swapkey <mfgimg-bin> <cur-key-der> <new-key-der>",
+		Short: "Replaces a key in a manufacturing image",
+		Run:   runSwapKeyCmd,
 	}
 
-	bootKeyCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o", "",
-		"File to write to")
-	bootKeyCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+	swapKeyCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+		"", "File to write to")
+	swapKeyCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
 		"Replace input file")
 
-	mfgCmd.AddCommand(bootKeyCmd)
+	mfgCmd.AddCommand(swapKeyCmd)
+
+	rehashCmd := &cobra.Command{
+		Use:   "rehash <mfgimage-dir>",
+		Short: "Replaces an outdated mfgimage hash with an accurate one",
+		Run:   runRehashCmd,
+	}
+	rehashCmd.PersistentFlags().StringVarP(&OptOutFilename, "outdir", "o",
+		"", "Directory to write to")
+	rehashCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input files")
+
+	mfgCmd.AddCommand(rehashCmd)
 }

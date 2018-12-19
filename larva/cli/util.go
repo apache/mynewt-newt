@@ -21,6 +21,7 @@ package cli
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
@@ -40,7 +41,6 @@ func LarvaUsage(cmd *cobra.Command, err error) {
 	}
 
 	if cmd != nil {
-		fmt.Printf("\n")
 		fmt.Printf("%s - ", cmd.Name())
 		cmd.Help()
 	}
@@ -63,4 +63,38 @@ func CalcOutFilename(inFilename string) (string, error) {
 	}
 
 	return inFilename, nil
+}
+
+func CopyDir(src string, dst string) error {
+	if err := util.CopyDir(src, dst); err != nil {
+		return util.FmtNewtError(
+			"Failed to copy directory \"%s\" to \"%s\": %s",
+			src, dst, err.Error())
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Copied directory \"%s\" to \"%s\"\n", src, dst)
+	return nil
+}
+
+func CopyFile(src string, dst string) error {
+	if err := util.CopyFile(src, dst); err != nil {
+		return util.FmtNewtError(
+			"Failed to copy file \"%s\" to \"%s\": %s",
+			src, dst, err.Error())
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Copied file \"%s\" to \"%s\"\n", src, dst)
+	return nil
+}
+
+func WriteFile(data []byte, filename string) error {
+	if err := ioutil.WriteFile(filename, data, os.ModePerm); err != nil {
+		return util.FmtNewtError(
+			"Failed to write file \"%s\": %s", filename, err.Error())
+	}
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Wrote file \"%s\"\n", filename)
+	return nil
 }
