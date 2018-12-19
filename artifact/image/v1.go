@@ -233,7 +233,7 @@ func generateV1SigTlvRsa(key ImageSigKey, hash []byte) (ImageTlv, error) {
 }
 
 func generateV1SigTlvEc(key ImageSigKey, hash []byte) (ImageTlv, error) {
-	sig, err := generateSigEc(key, hash)
+	sig, err := GenerateSigEc(key, hash)
 	if err != nil {
 		return ImageTlv{}, err
 	}
@@ -463,13 +463,17 @@ func GenerateV1Image(opts ImageCreateOpts) (ImageV1, error) {
 	}
 
 	if opts.SrcEncKeyFilename != "" {
-		plainSecret := make([]byte, 16)
-		if _, err := rand.Read(plainSecret); err != nil {
-			return ImageV1{}, util.FmtNewtError(
-				"Random generation error: %s\n", err)
+		plainSecret, err := GeneratePlainSecret()
+		if err != nil {
+			return ImageV1{}, err
 		}
 
-		cipherSecret, err := ReadEncKey(opts.SrcEncKeyFilename, plainSecret)
+		pubKeBytes, err := ioutil.ReadFile(opts.SrcEncKeyFilename)
+		if err != nil {
+			return ImageV1{}, util.FmtNewtError(
+				"Error reading pubkey file: %s", err.Error())
+		}
+		cipherSecret, err := GenerateCipherSecret(pubKeBytes, plainSecret)
 		if err != nil {
 			return ImageV1{}, err
 		}

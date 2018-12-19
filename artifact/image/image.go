@@ -113,6 +113,7 @@ type ImageTrailer struct {
 
 type Image struct {
 	Header ImageHdr
+	Pad    []byte
 	Body   []byte
 	Tlvs   []ImageTlv
 }
@@ -186,36 +187,36 @@ func (ver ImageVersion) String() string {
 
 func (h *ImageHdr) Map(offset int) map[string]interface{} {
 	return map[string]interface{}{
-		"Magic":  h.Magic,
-		"HdrSz":  h.HdrSz,
-		"ImgSz":  h.ImgSz,
-		"Flags":  h.Flags,
-		"Vers":   h.Vers.String(),
-		"offset": offset,
+		"magic":   h.Magic,
+		"hdr_sz":  h.HdrSz,
+		"img_sz":  h.ImgSz,
+		"flags":   h.Flags,
+		"vers":    h.Vers.String(),
+		"_offset": offset,
 	}
 }
 
 func rawBodyMap(offset int) map[string]interface{} {
 	return map[string]interface{}{
-		"offset": offset,
+		"_offset": offset,
 	}
 }
 
 func (t *ImageTrailer) Map(offset int) map[string]interface{} {
 	return map[string]interface{}{
-		"Magic":     t.Magic,
-		"TlvTotLen": t.TlvTotLen,
-		"offset":    offset,
+		"magic":       t.Magic,
+		"tlv_tot_len": t.TlvTotLen,
+		"_offset":     offset,
 	}
 }
 
 func (t *ImageTlv) Map(offset int) map[string]interface{} {
 	return map[string]interface{}{
-		"Type":    t.Header.Type,
-		"typestr": ImageTlvTypeName(t.Header.Type),
-		"Len":     t.Header.Len,
-		"offset":  offset,
-		"data":    hex.EncodeToString(t.Data),
+		"type":     t.Header.Type,
+		"len":      t.Header.Len,
+		"data":     hex.EncodeToString(t.Data),
+		"_typestr": ImageTlvTypeName(t.Header.Type),
+		"_offset":  offset,
 	}
 }
 
@@ -297,19 +298,26 @@ func (i *Image) FindUniqueTlv(tlvType uint8) (*ImageTlv, error) {
 	return &tlvs[0], nil
 }
 
-func (i *Image) RemoveTlvsIf(pred func(tlv ImageTlv) bool) int {
-	numRmed := 0
+func (i *Image) RemoveTlvsIf(pred func(tlv ImageTlv) bool) []ImageTlv {
+	rmed := []ImageTlv{}
+
 	for idx := 0; idx < len(i.Tlvs); {
 		tlv := i.Tlvs[idx]
 		if pred(tlv) {
+			rmed = append(rmed, tlv)
 			i.Tlvs = append(i.Tlvs[:idx], i.Tlvs[idx+1:]...)
-			numRmed++
 		} else {
 			idx++
 		}
 	}
 
-	return numRmed
+	return rmed
+}
+
+func (i *Image) RemoveTlvsWithType(tlvType uint8) []ImageTlv {
+	return i.RemoveTlvsIf(func(tlv ImageTlv) bool {
+		return tlv.Header.Type == tlvType
+	})
 }
 
 func (img *Image) Trailer() ImageTrailer {
@@ -348,6 +356,12 @@ func (i *Image) WritePlusOffsets(w io.Writer) (ImageOffsets, error) {
 		return offs, util.ChildNewtError(err)
 	}
 	offset += IMAGE_HEADER_SIZE
+
+	err = binary.Write(w, binary.LittleEndian, i.Pad)
+	if err != nil {
+		return offs, util.ChildNewtError(err)
+	}
+	offset += len(i.Pad)
 
 	offs.Body = offset
 	size, err := w.Write(i.Body)

@@ -21,6 +21,7 @@ package image
 
 import (
 	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
@@ -212,7 +213,7 @@ func (key *ImageSigKey) sigTlvType() uint8 {
 	}
 }
 
-func parseEncKeyPem(keyBytes []byte, plainSecret []byte) ([]byte, error) {
+func ParsePubKePem(keyBytes []byte) (*rsa.PublicKey, error) {
 	b, _ := pem.Decode(keyBytes)
 	if b == nil {
 		return nil, nil
@@ -237,6 +238,20 @@ func parseEncKeyPem(keyBytes []byte, plainSecret []byte) ([]byte, error) {
 			"Error parsing pubkey file: %s", err.Error())
 	}
 
+	return pubk, nil
+}
+
+func ParsePrivKeDer(keyBytes []byte) (*rsa.PrivateKey, error) {
+	privKey, err := x509.ParsePKCS1PrivateKey(keyBytes)
+	if err != nil {
+		return nil, util.FmtNewtError(
+			"Error parsing private key file: %s", err.Error())
+	}
+
+	return privKey, nil
+}
+
+func EncryptSecretRsa(pubk *rsa.PublicKey, plainSecret []byte) ([]byte, error) {
 	rng := rand.Reader
 	cipherSecret, err := rsa.EncryptOAEP(
 		sha256.New(), rng, pubk, plainSecret, nil)
@@ -248,7 +263,21 @@ func parseEncKeyPem(keyBytes []byte, plainSecret []byte) ([]byte, error) {
 	return cipherSecret, nil
 }
 
-func parseEncKeyBase64(keyBytes []byte, plainSecret []byte) ([]byte, error) {
+func DecryptSecretRsa(privk *rsa.PrivateKey,
+	cipherSecret []byte) ([]byte, error) {
+
+	rng := rand.Reader
+	plainSecret, err := rsa.DecryptOAEP(
+		sha256.New(), rng, privk, cipherSecret, nil)
+	if err != nil {
+		return nil, util.FmtNewtError(
+			"Error from encryption: %s\n", err.Error())
+	}
+
+	return plainSecret, nil
+}
+
+func ParseKeBase64(keyBytes []byte) (cipher.Block, error) {
 	kek, err := base64.StdEncoding.DecodeString(string(keyBytes))
 	if err != nil {
 		return nil, util.FmtNewtError(
@@ -265,7 +294,11 @@ func parseEncKeyBase64(keyBytes []byte, plainSecret []byte) ([]byte, error) {
 			"Error creating keywrap cipher: %s", err.Error())
 	}
 
-	cipherSecret, err := keywrap.Wrap(cipher, plainSecret)
+	return cipher, nil
+}
+
+func encryptSecretAes(c cipher.Block, plainSecret []byte) ([]byte, error) {
+	cipherSecret, err := keywrap.Wrap(c, plainSecret)
 	if err != nil {
 		return nil, util.FmtNewtError("Error key-wrapping: %s", err.Error())
 	}
@@ -273,27 +306,36 @@ func parseEncKeyBase64(keyBytes []byte, plainSecret []byte) ([]byte, error) {
 	return cipherSecret, nil
 }
 
-func ReadEncKey(filename string, plainSecret []byte) ([]byte, error) {
-	keyBytes, err := ioutil.ReadFile(filename)
-	if err != nil {
+func GeneratePlainSecret() ([]byte, error) {
+	plainSecret := make([]byte, 16)
+	if _, err := rand.Read(plainSecret); err != nil {
 		return nil, util.FmtNewtError(
-			"Error reading pubkey file: %s", err.Error())
+			"Random generation error: %s\n", err)
 	}
 
+	return plainSecret, nil
+}
+
+func GenerateCipherSecret(pubKeBytes []byte,
+	plainSecret []byte) ([]byte, error) {
+
 	// Try reading as PEM (asymetric key).
-	cipherSecret, err := parseEncKeyPem(keyBytes, plainSecret)
+	rsaPubKe, err := ParsePubKePem(pubKeBytes)
 	if err != nil {
 		return nil, err
 	}
-	if cipherSecret != nil {
-		return cipherSecret, nil
+	if rsaPubKe != nil {
+		return EncryptSecretRsa(rsaPubKe, plainSecret)
 	}
 
 	// Not PEM; assume this is a base64 encoded symetric key
-	cipherSecret, err = parseEncKeyBase64(keyBytes, plainSecret)
+	aesPubKe, err := ParseKeBase64(pubKeBytes)
 	if err != nil {
 		return nil, err
 	}
+	if aesPubKe != nil {
+		return encryptSecretAes(aesPubKe, plainSecret)
+	}
 
-	return cipherSecret, nil
+	return nil, util.FmtNewtError("Invalid image-crypt key")
 }
