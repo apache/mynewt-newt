@@ -17,19 +17,12 @@
  * under the License.
  */
 
-package mfg
+package misc
 
 import (
 	"fmt"
-	"path/filepath"
 )
 
-const MANIFEST_FILENAME = "manifest.json"
-const BOOT_DIR = "bootloader"
-const BOOT_MANIFEST_PATH = BOOT_DIR + "/manifest.json"
-const SECTION_BIN_DIR = "sections"
-
-func SectionBinPath(mfgPkgName string, sectionNum int) string {
-	return fmt.Sprintf("%s/%s-s%d.bin", SECTION_BIN_DIR,
-		filepath.Base(mfgPkgName), sectionNum)
+func HashString(hash []byte) string {
+	return fmt.Sprintf("%x", hash)
 }

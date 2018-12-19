@@ -38,11 +38,11 @@ var SYSTEM_AREA_NAME_ID_MAP = map[string]int{
 }
 
 type FlashArea struct {
-	Name   string
-	Id     int
-	Device int
-	Offset int
-	Size   int
+	Name   string `json:"name"`
+	Id     int    `json:"id"`
+	Device int    `json:"device"`
+	Offset int    `json:"offset"`
+	Size   int    `json:"size"`
 }
 
 type areaOffSorter struct {

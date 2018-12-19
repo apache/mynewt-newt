@@ -7,7 +7,7 @@ import (
 )
 
 const MFG_IMG_FILENAME = "mfgimg.bin"
-const MFG_MANIFEST_FILENAME = "manifest.json"
+const MANIFEST_FILENAME = "manifest.json"
 
 type Mfg struct {
 	Bin  []byte
@@ -53,11 +53,67 @@ func AddPadding(b []byte, eraseVal byte, padLen int) []byte {
 	return b
 }
 
-func (m *Mfg) bytesZeroedHash(eraseVal byte) ([]byte, error) {
+// Calculates the SHA256 hash, using the full manufacturing image as input.
+// Hash-calculation algorithm is as follows:
+// 1. Zero out the 32 bytes that will contain the hash.
+// 2. Apply SHA256 to the result.
+//
+// This function assumes that the 32 bytes of hash data have already been
+// zeroed.
+func CalcHash(bin []byte) []byte {
+	hash := sha256.Sum256(bin)
+	return hash[:]
+}
+
+func (m *Mfg) RecalcHash(eraseVal byte) error {
+	if m.Meta == nil || m.Meta.Hash() == nil {
+		return nil
+	}
+
+	// First, write with zeroed hash.
+	m.Meta.ClearHash()
+	bin, err := m.Bytes(eraseVal)
+	if err != nil {
+		return err
+	}
+
+	// Calculate hash and fill TLV.
+	tlv := m.Meta.FindFirstTlv(META_TLV_TYPE_HASH)
+	if tlv != nil {
+		hashData := CalcHash(bin)
+		copy(tlv.Data, hashData)
+
+		hashOff := m.MetaOff + m.Meta.HashOffset()
+		if hashOff+META_HASH_SZ > len(bin) {
+			return util.FmtNewtError(
+				"unexpected error: hash extends beyond end " +
+					"of manufacturing image")
+		}
+	}
+
+	return nil
+}
+
+func (m *Mfg) Hash() ([]byte, error) {
+	var hashBytes []byte
+	if m.Meta != nil {
+		hashBytes = m.Meta.Hash()
+	}
+	if hashBytes == nil {
+		// No hash TLV; calculate hash manually.
+		bin, err := m.Bytes(0xff)
+		if err != nil {
+			return nil, err
+		}
+		hashBytes = CalcHash(bin)
+	}
+
+	return hashBytes, nil
+}
+
+func (m *Mfg) Bytes(eraseVal byte) ([]byte, error) {
 	binCopy := make([]byte, len(m.Bin))
 	copy(binCopy, m.Bin)
-
-	m.Meta.ClearHash()
 
 	metaBytes, err := m.Meta.Bytes()
 	if err != nil {
@@ -72,42 +128,4 @@ func (m *Mfg) bytesZeroedHash(eraseVal byte) ([]byte, error) {
 	copy(binCopy[m.MetaOff:m.MetaOff+len(metaBytes)], metaBytes)
 
 	return binCopy, nil
-}
-
-// Calculates the SHA256 hash, using the full manufacturing image as input.
-// Hash-calculation algorithm is as follows:
-// 1. Zero out the 32 bytes that will contain the hash.
-// 2. Apply SHA256 to the result.
-//
-// This function assumes that the 32 bytes of hash data have already been
-// zeroed.
-func CalcHash(bin []byte) []byte {
-	hash := sha256.Sum256(bin)
-	return hash[:]
-}
-
-func (m *Mfg) Bytes(eraseVal byte) ([]byte, error) {
-	// First, write with zeroed hash.
-	bin, err := m.bytesZeroedHash(eraseVal)
-	if err != nil {
-		return nil, err
-	}
-
-	// Calculate hash and fill TLV.
-	tlv := m.Meta.FindFirstTlv(META_TLV_TYPE_HASH)
-	if tlv != nil {
-		hashData := CalcHash(bin)
-		copy(tlv.Data, hashData)
-
-		hashOff := m.MetaOff + m.Meta.HashOffset()
-		if hashOff+META_HASH_SZ > len(bin) {
-			return nil, util.FmtNewtError(
-				"unexpected error: hash extends beyond end " +
-					"of manufacturing image")
-		}
-
-		copy(bin[hashOff:hashOff+META_HASH_SZ], tlv.Data)
-	}
-
-	return bin, nil
 }

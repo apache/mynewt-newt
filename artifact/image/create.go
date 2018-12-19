@@ -69,7 +69,7 @@ func NewImageCreator() ImageCreator {
 	}
 }
 
-func generateEncTlv(cipherSecret []byte) (ImageTlv, error) {
+func GenerateEncTlv(cipherSecret []byte) (ImageTlv, error) {
 	var encType uint8
 
 	if len(cipherSecret) == 256 {
@@ -90,7 +90,7 @@ func generateEncTlv(cipherSecret []byte) (ImageTlv, error) {
 	}, nil
 }
 
-func generateSigRsa(key ImageSigKey, hash []byte) ([]byte, error) {
+func GenerateSigRsa(key ImageSigKey, hash []byte) ([]byte, error) {
 	opts := rsa.PSSOptions{
 		SaltLength: rsa.PSSSaltLengthEqualsHash,
 	}
@@ -103,7 +103,7 @@ func generateSigRsa(key ImageSigKey, hash []byte) ([]byte, error) {
 	return signature, nil
 }
 
-func generateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
+func GenerateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand.Reader, key.Ec, hash)
 	if err != nil {
 		return nil, util.FmtNewtError("Failed to compute signature: %s", err)
@@ -130,13 +130,13 @@ func generateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
 	return signature, nil
 }
 
-func generateSig(key ImageSigKey, hash []byte) ([]byte, error) {
+func GenerateSig(key ImageSigKey, hash []byte) ([]byte, error) {
 	key.assertValid()
 
 	if key.Rsa != nil {
-		return generateSigRsa(key, hash)
+		return GenerateSigRsa(key, hash)
 	} else {
-		return generateSigEc(key, hash)
+		return GenerateSigEc(key, hash)
 	}
 }
 
@@ -167,7 +167,7 @@ func BuildSigTlvs(keys []ImageSigKey, hash []byte) ([]ImageTlv, error) {
 		tlvs = append(tlvs, tlv)
 
 		// Signature TLV.
-		sig, err := generateSig(key, hash)
+		sig, err := GenerateSig(key, hash)
 		if err != nil {
 			return nil, err
 		}
@@ -205,13 +205,18 @@ func GenerateImage(opts ImageCreateOpts) (Image, error) {
 	}
 
 	if opts.SrcEncKeyFilename != "" {
-		plainSecret := make([]byte, 16)
-		if _, err := rand.Read(plainSecret); err != nil {
-			return Image{}, util.FmtNewtError(
-				"Random generation error: %s\n", err)
+		plainSecret, err := GeneratePlainSecret()
+		if err != nil {
+			return Image{}, err
 		}
 
-		cipherSecret, err := ReadEncKey(opts.SrcEncKeyFilename, plainSecret)
+		pubKeBytes, err := ioutil.ReadFile(opts.SrcEncKeyFilename)
+		if err != nil {
+			return Image{}, util.FmtNewtError(
+				"Error reading pubkey file: %s", err.Error())
+		}
+
+		cipherSecret, err := GenerateCipherSecret(pubKeBytes, plainSecret)
 		if err != nil {
 			return Image{}, err
 		}
@@ -228,7 +233,7 @@ func GenerateImage(opts ImageCreateOpts) (Image, error) {
 	return ri, nil
 }
 
-func calcHash(initialHash []byte, hdr ImageHdr,
+func calcHash(initialHash []byte, hdr ImageHdr, pad []byte,
 	plainBody []byte) ([]byte, error) {
 
 	hash := sha256.New()
@@ -255,6 +260,10 @@ func calcHash(initialHash []byte, hdr ImageHdr,
 		return nil, err
 	}
 
+	if err := add(pad); err != nil {
+		return nil, err
+	}
+
 	extra := hdr.HdrSz - IMAGE_HEADER_SIZE
 	if extra > 0 {
 		b := make([]byte, extra)
@@ -270,11 +279,43 @@ func calcHash(initialHash []byte, hdr ImageHdr,
 	return hash.Sum(nil), nil
 }
 
+func EncryptImageBody(imageBody []byte, secret []byte) ([]byte, error) {
+	block, err := aes.NewCipher(secret)
+	if err != nil {
+		return nil, util.NewNewtError("Failed to create block cipher")
+	}
+	nonce := make([]byte, 16)
+	stream := cipher.NewCTR(block, nonce)
+
+	dataBuf := make([]byte, 16)
+	encBuf := make([]byte, 16)
+	r := bytes.NewReader(imageBody)
+	w := bytes.Buffer{}
+	for {
+		cnt, err := r.Read(dataBuf)
+		if err != nil && err != io.EOF {
+			return nil, util.FmtNewtError(
+				"Failed to read from image body: %s", err.Error())
+		}
+		if cnt == 0 {
+			break
+		}
+
+		stream.XORKeyStream(encBuf, dataBuf[0:cnt])
+		if _, err = w.Write(encBuf[0:cnt]); err != nil {
+			return nil, util.FmtNewtError(
+				"Failed to write to image body: %s", err.Error())
+		}
+	}
+
+	return w.Bytes(), nil
+}
+
 func (ic *ImageCreator) Create() (Image, error) {
-	ri := Image{}
+	img := Image{}
 
 	// First the header
-	hdr := ImageHdr{
+	img.Header = ImageHdr{
 		Magic: IMAGE_MAGIC,
 		Pad1:  0,
 		HdrSz: IMAGE_HEADER_SIZE,
@@ -286,75 +327,41 @@ func (ic *ImageCreator) Create() (Image, error) {
 	}
 
 	if !ic.Bootable {
-		hdr.Flags |= IMAGE_F_NON_BOOTABLE
+		img.Header.Flags |= IMAGE_F_NON_BOOTABLE
 	}
 
 	if ic.CipherSecret != nil {
-		hdr.Flags |= IMAGE_F_ENCRYPTED
+		img.Header.Flags |= IMAGE_F_ENCRYPTED
 	}
 
 	if ic.HeaderSize != 0 {
-		// Pad the header out to the given size.  There will
-		// just be zeros between the header and the start of
-		// the image when it is padded.
+		// Pad the header out to the given size.  There will just be zeros
+		// between the header and the start of the image when it is padded.
 		extra := ic.HeaderSize - IMAGE_HEADER_SIZE
 		if extra < 0 {
-			return ri, util.FmtNewtError("Image header must be at "+
+			return img, util.FmtNewtError("Image header must be at "+
 				"least %d bytes", IMAGE_HEADER_SIZE)
 		}
 
-		hdr.HdrSz = uint16(ic.HeaderSize)
-		for i := 0; i < extra; i++ {
-			ri.Body = append(ri.Body, 0)
-		}
+		img.Header.HdrSz = uint16(ic.HeaderSize)
+		img.Pad = make([]byte, extra)
 	}
 
-	ri.Header = hdr
-
-	hashBytes, err := calcHash(ic.InitialHash, hdr, ic.Body)
+	hashBytes, err := calcHash(ic.InitialHash, img.Header, img.Pad, ic.Body)
 	if err != nil {
-		return ri, err
+		return img, err
 	}
 
-	var stream cipher.Stream
+	// Followed by data.
 	if ic.CipherSecret != nil {
-		block, err := aes.NewCipher(ic.PlainSecret)
+		encBody, err := EncryptImageBody(ic.Body, ic.PlainSecret)
 		if err != nil {
-			return ri, util.NewNewtError("Failed to create block cipher")
+			return img, err
 		}
-		nonce := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-		stream = cipher.NewCTR(block, nonce)
+		img.Body = append(img.Body, encBody...)
+	} else {
+		img.Body = append(img.Body, ic.Body...)
 	}
-
-	/*
-	 * Followed by data.
-	 */
-	dataBuf := make([]byte, 16)
-	encBuf := make([]byte, 16)
-	r := bytes.NewReader(ic.Body)
-	w := bytes.Buffer{}
-	for {
-		cnt, err := r.Read(dataBuf)
-		if err != nil && err != io.EOF {
-			return ri, util.FmtNewtError(
-				"Failed to read from image body: %s", err.Error())
-		}
-		if cnt == 0 {
-			break
-		}
-
-		if ic.CipherSecret == nil {
-			_, err = w.Write(dataBuf[0:cnt])
-		} else {
-			stream.XORKeyStream(encBuf, dataBuf[0:cnt])
-			_, err = w.Write(encBuf[0:cnt])
-		}
-		if err != nil {
-			return ri, util.FmtNewtError(
-				"Failed to write to image body: %s", err.Error())
-		}
-	}
-	ri.Body = append(ri.Body, w.Bytes()...)
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Computed Hash for image as %s\n", hex.EncodeToString(hashBytes))
@@ -368,21 +375,21 @@ func (ic *ImageCreator) Create() (Image, error) {
 		},
 		Data: hashBytes,
 	}
-	ri.Tlvs = append(ri.Tlvs, tlv)
+	img.Tlvs = append(img.Tlvs, tlv)
 
 	tlvs, err := BuildSigTlvs(ic.SigKeys, hashBytes)
 	if err != nil {
-		return ri, err
+		return img, err
 	}
-	ri.Tlvs = append(ri.Tlvs, tlvs...)
+	img.Tlvs = append(img.Tlvs, tlvs...)
 
 	if ic.CipherSecret != nil {
-		tlv, err := generateEncTlv(ic.CipherSecret)
+		tlv, err := GenerateEncTlv(ic.CipherSecret)
 		if err != nil {
-			return ri, err
+			return img, err
 		}
-		ri.Tlvs = append(ri.Tlvs, tlv)
+		img.Tlvs = append(img.Tlvs, tlv)
 	}
 
-	return ri, nil
+	return img, nil
 }
