@@ -399,6 +399,74 @@ func runAddsigCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func runDecryptCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
+		LarvaUsage(cmd, nil)
+	}
+
+	imgFilename := args[0]
+	keyFilename := args[1]
+
+	outFilename, err := CalcOutFilename(imgFilename)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	img, err := readImage(imgFilename)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	keyBytes, err := ioutil.ReadFile(keyFilename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Error reading key file: %s", err.Error()))
+	}
+
+	img, err = lvimg.DecryptImage(img, keyBytes)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	if err := writeImage(img, outFilename); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
+func runEncryptCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
+		LarvaUsage(cmd, nil)
+	}
+
+	imgFilename := args[0]
+	keyFilename := args[1]
+
+	outFilename, err := CalcOutFilename(imgFilename)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	img, err := readImage(imgFilename)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	keyBytes, err := ioutil.ReadFile(keyFilename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Error reading key file: %s", err.Error()))
+	}
+
+	img, err = lvimg.EncryptImage(img, keyBytes)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	if err := writeImage(img, outFilename); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
 func AddImageCommands(cmd *cobra.Command) {
 	imageCmd := &cobra.Command{
 		Use:   "image",
@@ -499,4 +567,30 @@ func AddImageCommands(cmd *cobra.Command) {
 		"Replace input file")
 
 	imageCmd.AddCommand(addsigCmd)
+
+	decryptCmd := &cobra.Command{
+		Use:   "decrypt <image> <priv-key-der>",
+		Short: "Decrypts an encrypted Mynewt image file",
+		Run:   runDecryptCmd,
+	}
+
+	decryptCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+		"", "File to write to")
+	decryptCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input file")
+
+	imageCmd.AddCommand(decryptCmd)
+
+	encryptCmd := &cobra.Command{
+		Use:   "encrypt <image> <priv-key-der>",
+		Short: "Encrypts a Mynewt image file",
+		Run:   runEncryptCmd,
+	}
+
+	encryptCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+		"", "File to write to")
+	encryptCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input file")
+
+	imageCmd.AddCommand(encryptCmd)
 }

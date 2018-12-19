@@ -114,3 +114,75 @@ func PadEcdsa256Sig(sig []byte) ([]byte, error) {
 
 	return sig, nil
 }
+
+// XXX: Only RSA supported for now.
+func ExtractSecret(img *image.Image) ([]byte, error) {
+	tlvs := img.RemoveTlvsWithType(image.IMAGE_TLV_ENC_RSA)
+	if len(tlvs) != 1 {
+		return nil, util.FmtNewtError(
+			"Image contains invalid count of ENC_RSA TLVs: %d; must contain 1",
+			len(tlvs))
+	}
+
+	return tlvs[0].Data, nil
+}
+
+// XXX: Only RSA supported for now.
+func DecryptImage(img image.Image, privKeBytes []byte) (image.Image, error) {
+	cipherSecret, err := ExtractSecret(&img)
+	if err != nil {
+		return img, err
+	}
+
+	privKe, err := image.ParsePrivKeDer(privKeBytes)
+	if err != nil {
+		return img, err
+	}
+
+	plainSecret, err := image.DecryptSecretRsa(privKe, cipherSecret)
+	if err != nil {
+		return img, err
+	}
+
+	body, err := image.EncryptImageBody(img.Body, plainSecret)
+	if err != nil {
+		return img, err
+	}
+
+	img.Body = body
+	return img, nil
+}
+
+func EncryptImage(img image.Image, pubKeBytes []byte) (image.Image, error) {
+	tlvp, err := img.FindUniqueTlv(image.IMAGE_TLV_ENC_RSA)
+	if err != nil {
+		return img, err
+	}
+	if tlvp != nil {
+		return img, util.FmtNewtError("Image already contains an ENC_RSA TLV")
+	}
+
+	plainSecret, err := image.GeneratePlainSecret()
+	if err != nil {
+		return img, err
+	}
+
+	cipherSecret, err := image.GenerateCipherSecret(pubKeBytes, plainSecret)
+	if err != nil {
+		return img, err
+	}
+
+	body, err := image.EncryptImageBody(img.Body, plainSecret)
+	if err != nil {
+		return img, err
+	}
+	img.Body = body
+
+	tlv, err := image.GenerateEncTlv(cipherSecret)
+	if err != nil {
+		return img, err
+	}
+	img.Tlvs = append(img.Tlvs, tlv)
+
+	return img, nil
+}

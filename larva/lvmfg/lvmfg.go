@@ -136,7 +136,7 @@ func Join(mm NameBlobMap, eraseVal byte,
 				binstr = fmt.Sprintf("%x", bin[:4])
 			}
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"inserting %s (%x) at offset %d (0x%x)\n",
+				"inserting %s (%s) at offset %d (0x%x)\n",
 				area.Name, binstr, len(joined), len(joined))
 			joined = append(joined, bin...)
 		}
@@ -154,13 +154,13 @@ func Join(mm NameBlobMap, eraseVal byte,
 			"unprocessed flash areas: %s", strings.Join(names, ", "))
 	}
 
-	// Strip padding from the end of the joined bianry.
+	// Strip padding from the end of the joined binary.
 	joined = StripPadding(joined, eraseVal)
 
 	return joined, nil
 }
 
-func ReplaceBootKey(sec0 []byte, okey []byte, nkey []byte) error {
+func ReplaceKey(sec0 []byte, okey []byte, nkey []byte) error {
 	if len(okey) != len(nkey) {
 		return util.FmtNewtError(
 			"key lengths differ (%d != %d)", len(okey), len(nkey))
