@@ -80,6 +80,7 @@ type MfgEmitter struct {
 	Mfg      mfg.Mfg
 	Device   int
 	FlashMap flashmap.FlashMap
+	BspName  string
 }
 
 // Calculates the source path of a target's binary.  Boot loader targets use
@@ -150,6 +151,7 @@ func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
 		Ver:      ver,
 		Device:   device,
 		FlashMap: mb.Bsp.FlashMap,
+		BspName:  mb.Bsp.FullName(),
 	}
 
 	m, err := mb.Build()
@@ -248,6 +250,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		Device:     me.Device,
 		BinPath:    mfg.MFG_IMG_FILENAME,
 		FlashAreas: me.FlashMap.SortedAreas(),
+		Bsp:        me.BspName,
 	}
 
 	for i, t := range me.Targets {
