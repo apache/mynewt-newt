@@ -69,29 +69,33 @@ func extractIncludes(flags *[]string, includes *[]string, other *[]string) {
 	}
 }
 
-func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *[]string) {
+func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
+	includeDirs *[]string, linkFlags *[]string) {
 	c := cj.Compiler
 
-	compileFlags := []string{}
+	flags := []string{}
 	otherFlags := []string{}
 
 	switch cj.CompilerType {
 	case toolchain.COMPILER_TYPE_C:
-		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
-		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
+		flags = append(flags, c.GetCompilerInfo().Cflags...)
+		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
 	case toolchain.COMPILER_TYPE_ASM:
-		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
-		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
-		compileFlags = append(compileFlags, c.GetCompilerInfo().Aflags...)
-		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Aflags...)
+		flags = append(flags, c.GetCompilerInfo().Cflags...)
+		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
+		flags = append(flags, c.GetCompilerInfo().Aflags...)
+		flags = append(flags, c.GetLocalCompilerInfo().Aflags...)
 	case toolchain.COMPILER_TYPE_CPP:
-		compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
-		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
-		compileFlags = append(compileFlags, c.GetCompilerInfo().CXXflags...)
-		compileFlags = append(compileFlags, c.GetLocalCompilerInfo().CXXflags...)
+		flags = append(flags, c.GetCompilerInfo().Cflags...)
+		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
+		flags = append(flags, c.GetCompilerInfo().CXXflags...)
+		flags = append(flags, c.GetLocalCompilerInfo().CXXflags...)
 	}
 
-	extractIncludes(&compileFlags, includeDirs, &otherFlags)
+	*linkFlags = append(*linkFlags, c.GetCompilerInfo().Lflags...)
+	*linkFlags = append(*linkFlags, c.GetLocalCompilerInfo().Lflags...)
+
+	extractIncludes(&flags, includeDirs, &otherFlags)
 	cj.Filename = trimProjectPath(cj.Filename)
 
 	// Sort and remove duplicate flags
@@ -106,7 +110,8 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob, includeDirs *
 	fmt.Fprintln(w)
 }
 
-func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*BuildPackage, error) {
+func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
+	linkFlags *[]string) (*BuildPackage, error) {
 	entries, err := b.collectCompileEntriesBpkg(bpkg)
 	if err != nil {
 		return nil, err
@@ -126,7 +131,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 			continue
 		}
 
-		CmakeSourceObjectWrite(w, s, &otherIncludes)
+		CmakeSourceObjectWrite(w, s, &otherIncludes, linkFlags)
 		s.Filename = trimProjectPath(s.Filename)
 		files = append(files, s.Filename)
 	}
@@ -152,12 +157,15 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage) (*Buil
 
 func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
 	bpkgs := b.sortedBuildPackages()
+	var compileFlags []string
+	var linkFlags []string
 
 	c := targetCompiler
+	c.AddInfo(b.GetCompilerInfo())
 
 	builtPackages := []*BuildPackage{}
 	for _, bpkg := range bpkgs {
-		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg)
+		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg, &linkFlags)
 		if err != nil {
 			return err
 		}
@@ -189,27 +197,40 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 			elfName, targetObjectsBuffer.String())
 	}
 
-	var flags []string
-	flags = append(flags, c.GetCompilerInfo().Cflags...)
-	flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
-	flags = append(flags, c.GetCompilerInfo().CXXflags...)
-	flags = append(flags, c.GetLocalCompilerInfo().CXXflags...)
+	compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
+	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
+	compileFlags = append(compileFlags, c.GetCompilerInfo().CXXflags...)
+	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().CXXflags...)
+	compileFlags = util.SortFields(compileFlags...)
 
 	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
 														PROPERTY
 														COMPILE_FLAGS
 														"%s")`,
 		elfName,
-		strings.Replace(strings.Join(flags, " "), "\"", "\\\\\\\"", -1))
+		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\\\\\"", -1))
 	fmt.Fprintln(w)
 
 	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
+	lFlags = append(lFlags, linkFlags...)
+	lFlags = util.SortFields(lFlags...)
+
 	for _, ld := range c.LinkerScripts {
 		lFlags = append(lFlags, "-T"+ld)
 	}
 
-	lFlags = append(lFlags, c.GetLocalCompilerInfo().Cflags...)
-	lFlags = append(lFlags, c.GetLocalCompilerInfo().CXXflags...)
+	var cFlags []string
+	cFlags = append(cFlags, c.GetCompilerInfo().Cflags...)
+	cFlags = append(cFlags, c.GetLocalCompilerInfo().Cflags...)
+	cFlags = util.SortFields(cFlags...)
+	lFlags = append(lFlags, cFlags...)
+
+	var cxxFlags []string
+	cxxFlags = append(cxxFlags, c.GetCompilerInfo().CXXflags...)
+	cxxFlags = append(cxxFlags, c.GetLocalCompilerInfo().CXXflags...)
+	cxxFlags = util.SortFields(cxxFlags...)
+	lFlags = append(lFlags, cxxFlags...)
+
 	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
 							ARCHIVE_OUTPUT_DIRECTORY %s

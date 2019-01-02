@@ -722,6 +722,10 @@ func (b *Builder) FetchSymbolMap() (error, *symbol.SymbolMap) {
 	return nil, loaderSm
 }
 
+func (b *Builder) GetCompilerInfo() *toolchain.CompilerInfo {
+	return b.compilerInfo
+}
+
 func (b *Builder) GetTarget() *target.Target {
 	return b.targetBuilder.GetTarget()
 }
