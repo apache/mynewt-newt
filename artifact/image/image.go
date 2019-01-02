@@ -440,7 +440,7 @@ func parseRawHeader(imgData []byte, offset int) (ImageHdr, int, error) {
 	if hdr.Magic != IMAGE_MAGIC {
 		return hdr, 0, util.FmtNewtError(
 			"Image magic incorrect; expected 0x%08x, got 0x%08x",
-			IMAGE_MAGIC, hdr.Magic)
+			uint32(IMAGE_MAGIC), hdr.Magic)
 	}
 
 	remLen := len(imgData) - offset
