@@ -35,6 +35,10 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+const (
+	RUNTIME_MANIFEST_FILENAME = "runtime.json"
+)
+
 func readMfgBin(filename string) ([]byte, error) {
 	bin, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -357,6 +361,51 @@ func runRehashCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func runFixupRTCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		LarvaUsage(cmd, nil)
+	}
+
+	mfgDir := args[0]
+
+	outDir, err := CalcOutFilename(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	// Read manifest and runtime.json.
+	mman, err := readManifest(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	rmPath := fmt.Sprintf("%s/%s", mfgDir, RUNTIME_MANIFEST_FILENAME)
+	rm, err := ioutil.ReadFile(rmPath)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read runtime manifest: %s", err.Error()))
+	}
+
+	// Update runtime.json.
+	rm, err = lvmfg.RehashRTManifest(rm, mman)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	// Write new runtime.json file.
+	if outDir != mfgDir {
+		// Not an in-place operation; copy input directory.
+		if err := CopyDir(mfgDir, outDir); err != nil {
+			LarvaUsage(nil, err)
+		}
+	}
+
+	outPath := fmt.Sprintf("%s/%s", outDir, RUNTIME_MANIFEST_FILENAME)
+	if err := WriteFile(rm, outPath); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
 func AddMfgCommands(cmd *cobra.Command) {
 	mfgCmd := &cobra.Command{
 		Use:   "mfg",
@@ -415,4 +464,16 @@ func AddMfgCommands(cmd *cobra.Command) {
 		"Replace input files")
 
 	mfgCmd.AddCommand(rehashCmd)
+
+	fixupRTCmd := &cobra.Command{
+		Use:   "fixuprt <cloud-mfgimage-dir>",
+		Short: "Fixes up the hashes in a `runtime.json` manifest file",
+		Run:   runFixupRTCmd,
+	}
+	fixupRTCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+		"", "File to write to")
+	fixupRTCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input file")
+
+	mfgCmd.AddCommand(fixupRTCmd)
 }

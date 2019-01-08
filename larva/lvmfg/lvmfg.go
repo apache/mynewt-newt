@@ -21,14 +21,37 @@ package lvmfg
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strings"
+	"time"
 
 	"mynewt.apache.org/newt/artifact/flash"
+	"mynewt.apache.org/newt/artifact/manifest"
 	"mynewt.apache.org/newt/artifact/mfg"
 	"mynewt.apache.org/newt/util"
 )
+
+type RTManifestMeta struct {
+	Name    string `json:"name"`
+	Time    string `json:"time"`
+	Version string `json:"version"`
+}
+
+type RTManifestFile struct {
+	Sha256 string `json:"sha256"`
+}
+
+type RTManifest struct {
+	Meta    RTManifestMeta            `json:"meta"`
+	Version string                    `json:"version"`
+	ID      string                    `json:"id"`
+	Files   map[string]RTManifestFile `json:"files"`
+}
 
 type NameBlobMap map[string][]byte
 
@@ -200,4 +223,36 @@ func StripPadding(b []byte, eraseVal byte) []byte {
 	}
 
 	return b[:len(b)-pad]
+}
+
+func RehashRTManifest(rmBytes []byte,
+	mm manifest.MfgManifest) ([]byte, error) {
+
+	rm := RTManifest{}
+	if err := json.Unmarshal(rmBytes, &rm); err != nil {
+		return nil, util.ChildNewtError(err)
+	}
+
+	rm.Meta.Time = time.Now().Format(time.RFC3339)
+	rm.ID = mm.MfgHash
+
+	newFiles := map[string]RTManifestFile{}
+	for name, _ := range rm.Files {
+		fb, err := ioutil.ReadFile(name)
+		if err != nil {
+			return nil, util.ChildNewtError(err)
+		}
+		hb := sha256.Sum256(fb)
+		newFiles[name] = RTManifestFile{
+			Sha256: hex.EncodeToString(hb[:]),
+		}
+	}
+	rm.Files = newFiles
+
+	j, err := json.MarshalIndent(rm, "", "  ")
+	if err != nil {
+		return nil, util.ChildNewtError(err)
+	}
+
+	return j, nil
 }
