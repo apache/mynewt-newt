@@ -14,6 +14,7 @@ type MfgManifestTarget struct {
 	BinPath      string `json:"bin_path,omitempty"`
 	ImagePath    string `json:"image_path,omitempty"`
 	ManifestPath string `json:"manifest_path"`
+	IsBoot       bool   `json:"is_boot"`
 }
 
 type MfgManifestMetaMmr struct {

@@ -258,6 +258,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 			Name:         t.Name,
 			ManifestPath: MfgTargetManifestPath(i),
 			Offset:       t.Offset,
+			IsBoot:       t.IsBoot,
 		}
 
 		if t.IsBoot {
