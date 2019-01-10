@@ -21,6 +21,7 @@ package lvmfg
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"sort"
 	"strings"
@@ -160,32 +161,77 @@ func Join(mm NameBlobMap, eraseVal byte,
 	return joined, nil
 }
 
-func ReplaceKey(sec0 []byte, okey []byte, nkey []byte) error {
-	if len(okey) != len(nkey) {
-		return util.FmtNewtError(
-			"key lengths differ (%d != %d)", len(okey), len(nkey))
+func replaceKey(mfgBin []byte, okey []byte, nkey []byte) (int, error) {
+	if len(okey) > len(mfgBin) {
+		return 0, util.FmtNewtError(
+			"key longer than flash section (%d > %d)", len(okey), len(mfgBin))
 	}
 
-	if len(okey) > len(sec0) {
-		return util.FmtNewtError(
-			"key longer than flash section (%d > %d)", len(okey), len(sec0))
-	}
-
-	idx := bytes.Index(sec0, okey)
+	idx := bytes.Index(mfgBin, okey)
 	if idx == -1 {
-		return util.FmtNewtError("old key not present in flash section")
+		return 0, util.FmtNewtError("old key not present in flash section")
 	}
 
-	lastIdx := bytes.LastIndex(sec0, okey)
+	lastIdx := bytes.LastIndex(mfgBin, okey)
 	if idx != lastIdx {
-		return util.FmtNewtError(
+		return 0, util.FmtNewtError(
 			"multiple instances of old key in flash section")
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
-		"Replacing boot key at offset %d\n", idx)
+		"Replacing key at offset %d\n", idx)
 
-	copy(sec0[idx:idx+len(okey)], nkey)
+	copy(mfgBin[idx:idx+len(okey)], nkey)
+
+	return idx, nil
+}
+
+func ReplaceIsk(mfgBin []byte, okey []byte, nkey []byte) error {
+	if len(nkey) != len(okey) {
+		return util.FmtNewtError(
+			"key lengths differ (%d != %d)", len(nkey), len(okey))
+	}
+
+	if _, err := replaceKey(mfgBin, okey, nkey); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ReplaceKek(mfgBin []byte, okey []byte, nkey []byte) error {
+	if len(nkey) > len(okey) {
+		return util.FmtNewtError(
+			"new key longer than old key (%d > %d)", len(nkey), len(okey))
+	}
+
+	keyIdx, err := replaceKey(mfgBin, okey, nkey)
+	if err != nil {
+		return err
+	}
+
+	// The key length is an unsigned int immediately prior to the key.
+	var kl uint32
+	klIdx := keyIdx - 4
+	buf := bytes.NewBuffer(mfgBin[klIdx : klIdx+4])
+	if err := binary.Read(buf, binary.LittleEndian, &kl); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	if int(kl) != len(okey) {
+		return util.FmtNewtError(
+			"embedded key length (off=%d) has unexpected value; "+
+				"want=%d have=%d",
+			klIdx, len(okey), kl)
+	}
+
+	buf = &bytes.Buffer{}
+	kl = uint32(len(nkey))
+	if err := binary.Write(buf, binary.LittleEndian, kl); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	copy(mfgBin[klIdx:klIdx+4], buf.Bytes())
 
 	return nil
 }
