@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/imgprod"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -36,7 +37,7 @@ var useV2 bool
 var encKeyFilename string
 
 // @return                      keys, key ID, error
-func parseKeyArgs(args []string) ([]image.ImageSigKey, uint8, error) {
+func parseKeyArgs(args []string) ([]sec.SignKey, uint8, error) {
 	if len(args) == 0 {
 		return nil, 0, nil
 	}
@@ -58,7 +59,7 @@ func parseKeyArgs(args []string) ([]image.ImageSigKey, uint8, error) {
 		keyFilenames = args
 	}
 
-	keys, err := image.ReadKeys(keyFilenames)
+	keys, err := sec.ReadKeys(keyFilenames)
 	if err != nil {
 		return nil, 0, err
 	}

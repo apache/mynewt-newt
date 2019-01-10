@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package image
+package sec
 
 import (
 	"crypto/aes"
@@ -37,7 +37,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-type ImageSigKey struct {
+type SignKey struct {
 	// Only one of these members is non-nil.
 	Rsa *rsa.PrivateKey
 	Ec  *ecdsa.PrivateKey
@@ -92,24 +92,21 @@ func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
 		// encryption.
 		privKey, err = parseEncryptedPrivateKey(block.Bytes)
 		if err != nil {
-			return nil, util.FmtNewtError("Unable to decode encrypted private key: %s", err)
+			return nil, util.FmtNewtError(
+				"Unable to decode encrypted private key: %s", err)
 		}
 	}
 	if privKey == nil {
-		return nil, util.NewNewtError("Unknown private key format, EC/RSA private " +
-			"key in PEM format only.")
+		return nil, util.NewNewtError(
+			"Unknown private key format, EC/RSA private " +
+				"key in PEM format only.")
 	}
 
 	return privKey, nil
 }
 
-func ReadKey(filename string) (ImageSigKey, error) {
-	key := ImageSigKey{}
-
-	keyBytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return key, util.FmtNewtError("Error reading key file: %s", err)
-	}
+func BuildPrivateKey(keyBytes []byte) (SignKey, error) {
+	key := SignKey{}
 
 	privKey, err := ParsePrivateKey(keyBytes)
 	if err != nil {
@@ -128,8 +125,18 @@ func ReadKey(filename string) (ImageSigKey, error) {
 	return key, nil
 }
 
-func ReadKeys(filenames []string) ([]ImageSigKey, error) {
-	keys := make([]ImageSigKey, len(filenames))
+func ReadKey(filename string) (SignKey, error) {
+	keyBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return SignKey{}, util.FmtNewtError(
+			"Error reading key file: %s", err)
+	}
+
+	return BuildPrivateKey(keyBytes)
+}
+
+func ReadKeys(filenames []string) ([]SignKey, error) {
+	keys := make([]SignKey, len(filenames))
 
 	for i, filename := range filenames {
 		key, err := ReadKey(filename)
@@ -143,7 +150,7 @@ func ReadKeys(filenames []string) ([]ImageSigKey, error) {
 	return keys, nil
 }
 
-func (key *ImageSigKey) assertValid() {
+func (key *SignKey) AssertValid() {
 	if key.Rsa == nil && key.Ec == nil {
 		panic("invalid key; neither RSA nor ECC")
 	}
@@ -153,8 +160,8 @@ func (key *ImageSigKey) assertValid() {
 	}
 }
 
-func (key *ImageSigKey) PubBytes() ([]uint8, error) {
-	key.assertValid()
+func (key *SignKey) PubBytes() ([]uint8, error) {
+	key.AssertValid()
 
 	var pubkey []byte
 
@@ -179,8 +186,8 @@ func RawKeyHash(pubKeyBytes []byte) []byte {
 	return sum[:4]
 }
 
-func (key *ImageSigKey) sigLen() uint16 {
-	key.assertValid()
+func (key *SignKey) SigLen() uint16 {
+	key.AssertValid()
 
 	if key.Rsa != nil {
 		return 256
@@ -190,23 +197,6 @@ func (key *ImageSigKey) sigLen() uint16 {
 			return 68
 		case "P-256":
 			return 72
-		default:
-			return 0
-		}
-	}
-}
-
-func (key *ImageSigKey) sigTlvType() uint8 {
-	key.assertValid()
-
-	if key.Rsa != nil {
-		return IMAGE_TLV_RSA2048
-	} else {
-		switch key.Ec.Curve.Params().Name {
-		case "P-224":
-			return IMAGE_TLV_ECDSA224
-		case "P-256":
-			return IMAGE_TLV_ECDSA256
 		default:
 			return 0
 		}
@@ -297,45 +287,11 @@ func ParseKeBase64(keyBytes []byte) (cipher.Block, error) {
 	return cipher, nil
 }
 
-func encryptSecretAes(c cipher.Block, plainSecret []byte) ([]byte, error) {
+func EncryptSecretAes(c cipher.Block, plainSecret []byte) ([]byte, error) {
 	cipherSecret, err := keywrap.Wrap(c, plainSecret)
 	if err != nil {
 		return nil, util.FmtNewtError("Error key-wrapping: %s", err.Error())
 	}
 
 	return cipherSecret, nil
-}
-
-func GeneratePlainSecret() ([]byte, error) {
-	plainSecret := make([]byte, 16)
-	if _, err := rand.Read(plainSecret); err != nil {
-		return nil, util.FmtNewtError(
-			"Random generation error: %s\n", err)
-	}
-
-	return plainSecret, nil
-}
-
-func GenerateCipherSecret(pubKeBytes []byte,
-	plainSecret []byte) ([]byte, error) {
-
-	// Try reading as PEM (asymetric key).
-	rsaPubKe, err := ParsePubKePem(pubKeBytes)
-	if err != nil {
-		return nil, err
-	}
-	if rsaPubKe != nil {
-		return EncryptSecretRsa(rsaPubKe, plainSecret)
-	}
-
-	// Not PEM; assume this is a base64 encoded symetric key
-	aesPubKe, err := ParseKeBase64(pubKeBytes)
-	if err != nil {
-		return nil, err
-	}
-	if aesPubKe != nil {
-		return encryptSecretAes(aesPubKe, plainSecret)
-	}
-
-	return nil, util.FmtNewtError("Invalid image-crypt key")
 }
