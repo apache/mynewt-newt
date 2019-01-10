@@ -106,7 +106,12 @@ func mfgCreateRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, err)
 	}
 
-	me, err := mfg.LoadMfgEmitter(lpkg, ver)
+	keys, _, err := parseKeyArgs(args[2:])
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	me, err := mfg.LoadMfgEmitter(lpkg, ver, keys)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -148,7 +153,7 @@ func mfgDeployRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	me, err := mfg.LoadMfgEmitter(lpkg, ver)
+	me, err := mfg.LoadMfgEmitter(lpkg, ver, nil)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -174,7 +179,8 @@ func AddMfgCommands(cmd *cobra.Command) {
 	cmd.AddCommand(mfgCmd)
 
 	mfgCreateCmd := &cobra.Command{
-		Use:   "create <mfg-package-name> <version #.#.#.#>",
+		Use: "create <mfg-package-name> <version #.#.#.#> [signing-key-1] " +
+			"[signing-key-2] [...]",
 		Short: "Create a manufacturing flash image",
 		Run:   mfgCreateRunCmd,
 	}
