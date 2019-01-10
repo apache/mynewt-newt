@@ -20,6 +20,7 @@
 package mfg
 
 import (
+	"encoding/hex"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -77,6 +78,7 @@ type MfgEmitter struct {
 	Targets []MfgEmitTarget
 	Raws    []MfgEmitRaw
 	Meta    *MfgEmitMeta
+	Keys    []sec.SignKey
 
 	Mfg      mfg.Mfg
 	Device   int
@@ -151,6 +153,7 @@ func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
 		Name:     name,
 		Ver:      ver,
 		Device:   device,
+		Keys:     keys,
 		FlashMap: mb.Bsp.FlashMap,
 		BspName:  mb.Bsp.FullName(),
 	}
@@ -235,9 +238,42 @@ func copyBinFiles(entries []CpEntry) error {
 	return nil
 }
 
+func (me *MfgEmitter) createSigs() ([]manifest.MfgManifestSig, error) {
+	hashBytes, err := me.Mfg.Hash()
+	if err != nil {
+		return nil, err
+	}
+
+	var sigs []manifest.MfgManifestSig
+	for _, k := range me.Keys {
+		sig, err := image.GenerateSig(k, hashBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		pubKey, err := k.PubBytes()
+		if err != nil {
+			return nil, err
+		}
+		keyHash := sec.RawKeyHash(pubKey)
+
+		sigs = append(sigs, manifest.MfgManifestSig{
+			Key: hex.EncodeToString(keyHash),
+			Sig: hex.EncodeToString(sig),
+		})
+	}
+
+	return sigs, nil
+}
+
 // emitManifest generates an mfg manifest.
 func (me *MfgEmitter) emitManifest() ([]byte, error) {
 	hashBytes, err := me.Mfg.Hash()
+	if err != nil {
+		return nil, err
+	}
+
+	sigs, err := me.createSigs()
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +286,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		Version:    me.Ver.String(),
 		Device:     me.Device,
 		BinPath:    mfg.MFG_IMG_FILENAME,
+		Signatures: sigs,
 		FlashAreas: me.FlashMap.SortedAreas(),
 		Bsp:        me.BspName,
 	}
