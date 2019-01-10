@@ -241,7 +241,7 @@ func runJoinCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func runSwapKeyCmd(cmd *cobra.Command, args []string) {
+func genSwapKeyCmd(cmd *cobra.Command, args []string, isKek bool) {
 	if len(args) < 3 {
 		LarvaUsage(cmd, nil)
 	}
@@ -273,13 +273,26 @@ func runSwapKeyCmd(cmd *cobra.Command, args []string) {
 			"Failed to read new key der: %s", err.Error()))
 	}
 
-	if err := lvmfg.ReplaceKey(bin, okey, nkey); err != nil {
+	if isKek {
+		err = lvmfg.ReplaceKek(bin, okey, nkey)
+	} else {
+		err = lvmfg.ReplaceIsk(bin, okey, nkey)
+	}
+	if err != nil {
 		LarvaUsage(nil, err)
 	}
 
 	if err := WriteFile(bin, outFilename); err != nil {
 		LarvaUsage(nil, err)
 	}
+}
+
+func runSwapIskCmd(cmd *cobra.Command, args []string) {
+	genSwapKeyCmd(cmd, args, false)
+}
+
+func runSwapKekCmd(cmd *cobra.Command, args []string) {
+	genSwapKeyCmd(cmd, args, true)
 }
 
 func runRehashCmd(cmd *cobra.Command, args []string) {
@@ -391,18 +404,31 @@ func AddMfgCommands(cmd *cobra.Command) {
 
 	mfgCmd.AddCommand(joinCmd)
 
-	swapKeyCmd := &cobra.Command{
-		Use:   "swapkey <mfgimg-bin> <cur-key-der> <new-key-der>",
-		Short: "Replaces a key in a manufacturing image",
-		Run:   runSwapKeyCmd,
+	swapIskCmd := &cobra.Command{
+		Use:   "swapisk <mfgimg-bin> <cur-key-der> <new-key-der>",
+		Short: "Replaces an image-signing key in a manufacturing image",
+		Run:   runSwapIskCmd,
 	}
 
-	swapKeyCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+	swapIskCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
 		"", "File to write to")
-	swapKeyCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+	swapIskCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
 		"Replace input file")
 
-	mfgCmd.AddCommand(swapKeyCmd)
+	mfgCmd.AddCommand(swapIskCmd)
+
+	swapKekCmd := &cobra.Command{
+		Use:   "swapkek <mfgimg-bin> <cur-key-der> <new-key-der>",
+		Short: "Replaces a key-encrypting key in a manufacturing image",
+		Run:   runSwapKekCmd,
+	}
+
+	swapKekCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+		"", "File to write to")
+	swapKekCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input file")
+
+	mfgCmd.AddCommand(swapKekCmd)
 
 	rehashCmd := &cobra.Command{
 		Use:   "rehash <mfgimage-dir>",
