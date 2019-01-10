@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -31,9 +32,12 @@ import (
 	"mynewt.apache.org/newt/artifact/manifest"
 	"mynewt.apache.org/newt/artifact/mfg"
 	"mynewt.apache.org/newt/artifact/misc"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/larva/lvmfg"
 	"mynewt.apache.org/newt/util"
 )
+
+const MAX_SIG_LEN = 1024 // Bytes.
 
 func readMfgBin(filename string) ([]byte, error) {
 	bin, err := ioutil.ReadFile(filename)
@@ -343,19 +347,114 @@ func runRehashCmd(cmd *cobra.Command, args []string) {
 	mman.MfgHash = misc.HashString(hash)
 
 	// Write new artifacts.
-	if outDir != mfgDir {
-		// Not an in-place operation; copy input directory.
-		if err := CopyDir(mfgDir, outDir); err != nil {
-			LarvaUsage(nil, err)
-		}
-		binPath = fmt.Sprintf("%s/%s", outDir, mman.BinPath)
+	if err := EnsureOutDir(mfgDir, outDir); err != nil {
+		LarvaUsage(nil, err)
 	}
+	binPath = fmt.Sprintf("%s/%s", outDir, mman.BinPath)
 
 	newBin, err := m.Bytes(0xff)
 	if err != nil {
 		LarvaUsage(nil, err)
 	}
 	if err := WriteFile(newBin, binPath); err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	json, err := mman.MarshalJson()
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	manPath := fmt.Sprintf("%s/%s", outDir, mfg.MANIFEST_FILENAME)
+	if err := WriteFile(json, manPath); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
+func runRmsigsMfgCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		LarvaUsage(cmd, nil)
+	}
+
+	mfgDir := args[0]
+
+	outDir, err := CalcOutFilename(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	// Read manifest.
+	mman, err := readManifest(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	// Update manifest.
+	mman.Signatures = nil
+
+	// Write new artifacts.
+	if err := EnsureOutDir(mfgDir, outDir); err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	json, err := mman.MarshalJson()
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	manPath := fmt.Sprintf("%s/%s", outDir, mfg.MANIFEST_FILENAME)
+	if err := WriteFile(json, manPath); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
+func runAddsigMfgCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 3 {
+		LarvaUsage(cmd, nil)
+	}
+
+	mfgDir := args[0]
+	keyFilename := args[1]
+	sigFilename := args[2]
+
+	outDir, err := CalcOutFilename(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	// Read manifest.
+	mman, err := readManifest(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	// Read public key.
+	keyBytes, err := ioutil.ReadFile(keyFilename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Error reading key file: %s", err.Error()))
+	}
+
+	// Read signature.
+	sig, err := ioutil.ReadFile(sigFilename)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtChildNewtError(err,
+			"Failed to read signature: %s", err.Error()))
+	}
+	if len(sig) > MAX_SIG_LEN {
+		LarvaUsage(nil, util.FmtNewtError(
+			"signature larger than arbitrary maximum length (%d > %d)",
+			len(sig), MAX_SIG_LEN))
+	}
+
+	// Update manifest.
+	mman.Signatures = append(mman.Signatures, manifest.MfgManifestSig{
+		Key: hex.EncodeToString(sec.RawKeyHash(keyBytes)),
+		Sig: hex.EncodeToString(sig),
+	})
+
+	// Write new artifacts.
+	if err := EnsureOutDir(mfgDir, outDir); err != nil {
 		LarvaUsage(nil, err)
 	}
 
@@ -441,4 +540,28 @@ func AddMfgCommands(cmd *cobra.Command) {
 		"Replace input files")
 
 	mfgCmd.AddCommand(rehashCmd)
+
+	rmsigsCmd := &cobra.Command{
+		Use:   "rmsigs <mfgimage-dir>",
+		Short: "Removes all signatures from an mfgimage's manifest",
+		Run:   runRmsigsMfgCmd,
+	}
+	rmsigsCmd.PersistentFlags().StringVarP(&OptOutFilename, "outdir", "o",
+		"", "Directory to write to")
+	rmsigsCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input files")
+
+	mfgCmd.AddCommand(rmsigsCmd)
+
+	addsigCmd := &cobra.Command{
+		Use:   "addsig <mfgimage-dir> <pub-key-der> <sig-der>",
+		Short: "Adds a signature to an mfgimage's manifest",
+		Run:   runAddsigMfgCmd,
+	}
+	addsigCmd.PersistentFlags().StringVarP(&OptOutFilename, "outdir", "o",
+		"", "Directory to write to")
+	addsigCmd.PersistentFlags().BoolVarP(&OptInPlace, "inplace", "i", false,
+		"Replace input files")
+
+	mfgCmd.AddCommand(addsigCmd)
 }
