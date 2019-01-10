@@ -77,6 +77,17 @@ func CopyDir(src string, dst string) error {
 	return nil
 }
 
+func EnsureOutDir(inDir, outDir string) error {
+	if inDir != outDir {
+		// Not an in-place operation; copy input directory.
+		if err := CopyDir(inDir, outDir); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func CopyFile(src string, dst string) error {
 	if err := util.CopyFile(src, dst); err != nil {
 		return util.FmtNewtError(
