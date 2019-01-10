@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -134,17 +135,17 @@ func DecryptImage(img image.Image, privKeBytes []byte) (image.Image, error) {
 		return img, err
 	}
 
-	privKe, err := image.ParsePrivKeDer(privKeBytes)
+	privKe, err := sec.ParsePrivKeDer(privKeBytes)
 	if err != nil {
 		return img, err
 	}
 
-	plainSecret, err := image.DecryptSecretRsa(privKe, cipherSecret)
+	plainSecret, err := sec.DecryptSecretRsa(privKe, cipherSecret)
 	if err != nil {
 		return img, err
 	}
 
-	body, err := image.EncryptImageBody(img.Body, plainSecret)
+	body, err := sec.EncryptAES(img.Body, plainSecret)
 	if err != nil {
 		return img, err
 	}
@@ -172,7 +173,7 @@ func EncryptImage(img image.Image, pubKeBytes []byte) (image.Image, error) {
 		return img, err
 	}
 
-	body, err := image.EncryptImageBody(img.Body, plainSecret)
+	body, err := sec.EncryptAES(img.Body, plainSecret)
 	if err != nil {
 		return img, err
 	}

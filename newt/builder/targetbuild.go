@@ -34,7 +34,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/artifact/flash"
-	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -420,7 +420,7 @@ func (t *TargetBuilder) autogenKeys() error {
 	// Initially try parsing a private key in PEM format, if it fails try
 	// parsing as PEM public key, otherwise accepted as raw key data (DER)
 
-	privKey, err := image.ParsePrivateKey(keyBytes)
+	privKey, err := sec.ParsePrivateKey(keyBytes)
 	if err == nil {
 		switch pk := privKey.(type) {
 		case *rsa.PrivateKey:

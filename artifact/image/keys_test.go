@@ -22,8 +22,10 @@ package image_test
 import (
 	"io/ioutil"
 	"os"
-	"path"
 	"testing"
+
+	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 )
 
 func TestRSA(t *testing.T) {
@@ -43,15 +45,15 @@ func TestPlainEcdsaPkcs8(t *testing.T) {
 }
 
 func TestEncryptedRSA(t *testing.T) {
-	image.KeyPassword = []byte("sample")
+	sec.KeyPassword = []byte("sample")
 	signatureTest(t, rsaEncryptedPrivate)
-	image.KeyPassword = []byte{}
+	sec.KeyPassword = []byte{}
 }
 
 func TestEncryptedEcdsa(t *testing.T) {
-	image.KeyPassword = []byte("sample")
+	sec.KeyPassword = []byte("sample")
 	signatureTest(t, ecdsaEncryptedPrivate)
-	image.KeyPassword = []byte{}
+	sec.KeyPassword = []byte{}
 }
 
 func signatureTest(t *testing.T, privateKey []byte) {
@@ -65,58 +67,29 @@ func signatureTest(t *testing.T, privateKey []byte) {
 	// much, since the header will be placed on it by the image
 	// tool.
 
-	simpleName := path.Join(tmpdir, "simple.bin")
-	hashedName := path.Join(tmpdir, "simple-hashed.bin")
-	signedName := path.Join(tmpdir, "simple-signed.bin")
-	keyName := path.Join(tmpdir, "private.pem")
-
-	tmp := make([]byte, 256)
-	for i := 0; i < len(tmp); i++ {
-		tmp[i] = byte(i & 0xFF)
-	}
-	err = ioutil.WriteFile(simpleName, tmp, 0644)
-	if err != nil {
-		t.Fatal(err)
+	body := make([]byte, 256)
+	for i := 0; i < len(body); i++ {
+		body[i] = byte(i)
 	}
 
-	img, err := image.NewImage(simpleName, hashedName)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ic := image.NewImageCreator()
+	ic.Version = image.ImageVersion{1, 5, 0, 0}
+	ic.Body = body
 
-	img.SetVersion("1.5")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	img.Generate(nil)
-	if err != nil {
+	if _, err := ic.Create(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Now try with a signature.
-	err = ioutil.WriteFile(keyName, privateKey, 0644)
+	key, err := sec.BuildPrivateKey(privateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
+	ic.SigKeys = append(ic.SigKeys, key)
 
-	img, err = image.NewImage(simpleName, signedName)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ic.Version = image.ImageVersion{1, 6, 0, 0}
 
-	err = img.SetSigningKey(keyName, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = img.SetVersion("1.6")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = img.Generate(nil)
-	if err != nil {
+	if _, err := ic.Create(); err != nil {
 		t.Fatal(err)
 	}
 }

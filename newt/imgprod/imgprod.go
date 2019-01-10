@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/manifest"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -40,7 +41,7 @@ type ImageProdOpts struct {
 	AppDstFilename    string
 	EncKeyFilename    string
 	Version           image.ImageVersion
-	SigKeys           []image.ImageSigKey
+	SigKeys           []sec.SignKey
 }
 
 type ProducedImage struct {
@@ -235,7 +236,7 @@ func ProduceManifest(opts manifest.ManifestCreateOpts) error {
 }
 
 func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []image.ImageSigKey, encKeyFilename string) ImageProdOpts {
+	sigKeys []sec.SignKey, encKeyFilename string) ImageProdOpts {
 
 	opts := ImageProdOpts{
 		AppSrcFilename: b.AppBuilder.AppBinPath(),
@@ -254,7 +255,7 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 }
 
 func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []image.ImageSigKey, encKeyFilename string) error {
+	sigKeys []sec.SignKey, encKeyFilename string) error {
 
 	popts := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
 	pset, err := ProduceImages(popts)

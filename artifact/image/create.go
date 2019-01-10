@@ -22,8 +22,6 @@ package image
 import (
 	"bytes"
 	"crypto"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
@@ -31,17 +29,17 @@ import (
 	"encoding/asn1"
 	"encoding/binary"
 	"encoding/hex"
-	"io"
 	"io/ioutil"
 	"math/big"
 
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/util"
 )
 
 type ImageCreator struct {
 	Body         []byte
 	Version      ImageVersion
-	SigKeys      []ImageSigKey
+	SigKeys      []sec.SignKey
 	PlainSecret  []byte
 	CipherSecret []byte
 	HeaderSize   int
@@ -53,7 +51,7 @@ type ImageCreateOpts struct {
 	SrcBinFilename    string
 	SrcEncKeyFilename string
 	Version           ImageVersion
-	SigKeys           []ImageSigKey
+	SigKeys           []sec.SignKey
 	LoaderHash        []byte
 }
 
@@ -66,6 +64,23 @@ func NewImageCreator() ImageCreator {
 	return ImageCreator{
 		HeaderSize: IMAGE_HEADER_SIZE,
 		Bootable:   true,
+	}
+}
+
+func sigTlvType(key sec.SignKey) uint8 {
+	key.AssertValid()
+
+	if key.Rsa != nil {
+		return IMAGE_TLV_RSA2048
+	} else {
+		switch key.Ec.Curve.Params().Name {
+		case "P-224":
+			return IMAGE_TLV_ECDSA224
+		case "P-256":
+			return IMAGE_TLV_ECDSA256
+		default:
+			return 0
+		}
 	}
 }
 
@@ -90,7 +105,7 @@ func GenerateEncTlv(cipherSecret []byte) (ImageTlv, error) {
 	}, nil
 }
 
-func GenerateSigRsa(key ImageSigKey, hash []byte) ([]byte, error) {
+func GenerateSigRsa(key sec.SignKey, hash []byte) ([]byte, error) {
 	opts := rsa.PSSOptions{
 		SaltLength: rsa.PSSSaltLengthEqualsHash,
 	}
@@ -103,7 +118,7 @@ func GenerateSigRsa(key ImageSigKey, hash []byte) ([]byte, error) {
 	return signature, nil
 }
 
-func GenerateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
+func GenerateSigEc(key sec.SignKey, hash []byte) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand.Reader, key.Ec, hash)
 	if err != nil {
 		return nil, util.FmtNewtError("Failed to compute signature: %s", err)
@@ -119,7 +134,7 @@ func GenerateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
 		return nil, util.FmtNewtError("Failed to construct signature: %s", err)
 	}
 
-	sigLen := key.sigLen()
+	sigLen := key.SigLen()
 	if len(signature) > int(sigLen) {
 		return nil, util.FmtNewtError("Something is really wrong\n")
 	}
@@ -130,8 +145,8 @@ func GenerateSigEc(key ImageSigKey, hash []byte) ([]byte, error) {
 	return signature, nil
 }
 
-func GenerateSig(key ImageSigKey, hash []byte) ([]byte, error) {
-	key.assertValid()
+func GenerateSig(key sec.SignKey, hash []byte) ([]byte, error) {
+	key.AssertValid()
 
 	if key.Rsa != nil {
 		return GenerateSigRsa(key, hash)
@@ -141,7 +156,7 @@ func GenerateSig(key ImageSigKey, hash []byte) ([]byte, error) {
 }
 
 func BuildKeyHashTlv(keyBytes []byte) ImageTlv {
-	data := RawKeyHash(keyBytes)
+	data := sec.RawKeyHash(keyBytes)
 	return ImageTlv{
 		Header: ImageTlvHdr{
 			Type: IMAGE_TLV_KEYHASH,
@@ -152,11 +167,11 @@ func BuildKeyHashTlv(keyBytes []byte) ImageTlv {
 	}
 }
 
-func BuildSigTlvs(keys []ImageSigKey, hash []byte) ([]ImageTlv, error) {
+func BuildSigTlvs(keys []sec.SignKey, hash []byte) ([]ImageTlv, error) {
 	var tlvs []ImageTlv
 
 	for _, key := range keys {
-		key.assertValid()
+		key.AssertValid()
 
 		// Key hash TLV.
 		pubKey, err := key.PubBytes()
@@ -173,7 +188,7 @@ func BuildSigTlvs(keys []ImageSigKey, hash []byte) ([]ImageTlv, error) {
 		}
 		tlv = ImageTlv{
 			Header: ImageTlvHdr{
-				Type: key.sigTlvType(),
+				Type: sigTlvType(key),
 				Len:  uint16(len(sig)),
 			},
 			Data: sig,
@@ -182,6 +197,40 @@ func BuildSigTlvs(keys []ImageSigKey, hash []byte) ([]ImageTlv, error) {
 	}
 
 	return tlvs, nil
+}
+
+func GeneratePlainSecret() ([]byte, error) {
+	plainSecret := make([]byte, 16)
+	if _, err := rand.Read(plainSecret); err != nil {
+		return nil, util.FmtNewtError(
+			"Random generation error: %s\n", err)
+	}
+
+	return plainSecret, nil
+}
+
+func GenerateCipherSecret(pubKeBytes []byte,
+	plainSecret []byte) ([]byte, error) {
+
+	// Try reading as PEM (asymetric key).
+	rsaPubKe, err := sec.ParsePubKePem(pubKeBytes)
+	if err != nil {
+		return nil, err
+	}
+	if rsaPubKe != nil {
+		return sec.EncryptSecretRsa(rsaPubKe, plainSecret)
+	}
+
+	// Not PEM; assume this is a base64 encoded symetric key
+	aesPubKe, err := sec.ParseKeBase64(pubKeBytes)
+	if err != nil {
+		return nil, err
+	}
+	if aesPubKe != nil {
+		return sec.EncryptSecretAes(aesPubKe, plainSecret)
+	}
+
+	return nil, util.FmtNewtError("Invalid image-crypt key")
 }
 
 func GenerateImage(opts ImageCreateOpts) (Image, error) {
@@ -279,38 +328,6 @@ func calcHash(initialHash []byte, hdr ImageHdr, pad []byte,
 	return hash.Sum(nil), nil
 }
 
-func EncryptImageBody(imageBody []byte, secret []byte) ([]byte, error) {
-	block, err := aes.NewCipher(secret)
-	if err != nil {
-		return nil, util.NewNewtError("Failed to create block cipher")
-	}
-	nonce := make([]byte, 16)
-	stream := cipher.NewCTR(block, nonce)
-
-	dataBuf := make([]byte, 16)
-	encBuf := make([]byte, 16)
-	r := bytes.NewReader(imageBody)
-	w := bytes.Buffer{}
-	for {
-		cnt, err := r.Read(dataBuf)
-		if err != nil && err != io.EOF {
-			return nil, util.FmtNewtError(
-				"Failed to read from image body: %s", err.Error())
-		}
-		if cnt == 0 {
-			break
-		}
-
-		stream.XORKeyStream(encBuf, dataBuf[0:cnt])
-		if _, err = w.Write(encBuf[0:cnt]); err != nil {
-			return nil, util.FmtNewtError(
-				"Failed to write to image body: %s", err.Error())
-		}
-	}
-
-	return w.Bytes(), nil
-}
-
 func (ic *ImageCreator) Create() (Image, error) {
 	img := Image{}
 
@@ -354,7 +371,7 @@ func (ic *ImageCreator) Create() (Image, error) {
 
 	// Followed by data.
 	if ic.CipherSecret != nil {
-		encBody, err := EncryptImageBody(ic.Body, ic.PlainSecret)
+		encBody, err := sec.EncryptAES(ic.Body, ic.PlainSecret)
 		if err != nil {
 			return img, err
 		}

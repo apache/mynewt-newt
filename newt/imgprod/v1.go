@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/manifest"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -186,7 +187,7 @@ func ProduceImagesV1(opts ImageProdOpts) (ProducedImageSetV1, error) {
 }
 
 func ProduceAllV1(t *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []image.ImageSigKey, encKeyFilename string) error {
+	sigKeys []sec.SignKey, encKeyFilename string) error {
 
 	popts := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
 	pset, err := ProduceImagesV1(popts)

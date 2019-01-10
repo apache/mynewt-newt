@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/artifact/image"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/larva/lvimg"
 	"mynewt.apache.org/newt/util"
 )
@@ -145,7 +146,7 @@ func runSignCmd(cmd *cobra.Command, args []string) {
 		LarvaUsage(cmd, err)
 	}
 
-	keys, err := image.ReadKeys(args[1:])
+	keys, err := sec.ReadKeys(args[1:])
 	if err != nil {
 		LarvaUsage(cmd, err)
 	}

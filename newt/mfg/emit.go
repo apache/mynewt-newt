@@ -30,6 +30,7 @@ import (
 	"mynewt.apache.org/newt/artifact/manifest"
 	"mynewt.apache.org/newt/artifact/mfg"
 	"mynewt.apache.org/newt/artifact/misc"
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/target"
@@ -144,7 +145,7 @@ func newMfgEmitMeta(bm MfgBuildMeta, metaOff int) MfgEmitMeta {
 
 // NewMfgEmitter creates an mfg emitter from an mfg builder.
 func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
-	device int) (MfgEmitter, error) {
+	device int, keys []sec.SignKey) (MfgEmitter, error) {
 
 	me := MfgEmitter{
 		Name:     name,

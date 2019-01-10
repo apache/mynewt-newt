@@ -34,6 +34,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -157,8 +158,8 @@ func (img *ImageV1) Write(w io.Writer) (int, error) {
 	return offs.TotalSize, nil
 }
 
-func (key *ImageSigKey) sigHdrTypeV1() (uint32, error) {
-	key.assertValid()
+func sigHdrTypeV1(key sec.SignKey) (uint32, error) {
+	key.AssertValid()
 
 	if key.Rsa != nil {
 		if UseRsaPss {
@@ -178,8 +179,8 @@ func (key *ImageSigKey) sigHdrTypeV1() (uint32, error) {
 	}
 }
 
-func (key *ImageSigKey) sigTlvTypeV1() uint8 {
-	key.assertValid()
+func sigTlvTypeV1(key sec.SignKey) uint8 {
+	key.AssertValid()
 
 	if key.Rsa != nil {
 		return IMAGEv1_TLV_RSA2048
@@ -216,7 +217,7 @@ func generateV1SigRsa(key *rsa.PrivateKey, hash []byte) ([]byte, error) {
 	return signature, nil
 }
 
-func generateV1SigTlvRsa(key ImageSigKey, hash []byte) (ImageTlv, error) {
+func generateV1SigTlvRsa(key sec.SignKey, hash []byte) (ImageTlv, error) {
 	sig, err := generateV1SigRsa(key.Rsa, hash)
 	if err != nil {
 		return ImageTlv{}, err
@@ -224,7 +225,7 @@ func generateV1SigTlvRsa(key ImageSigKey, hash []byte) (ImageTlv, error) {
 
 	return ImageTlv{
 		Header: ImageTlvHdr{
-			Type: key.sigTlvTypeV1(),
+			Type: sigTlvTypeV1(key),
 			Pad:  0,
 			Len:  256, /* 2048 bits */
 		},
@@ -232,13 +233,13 @@ func generateV1SigTlvRsa(key ImageSigKey, hash []byte) (ImageTlv, error) {
 	}, nil
 }
 
-func generateV1SigTlvEc(key ImageSigKey, hash []byte) (ImageTlv, error) {
+func generateV1SigTlvEc(key sec.SignKey, hash []byte) (ImageTlv, error) {
 	sig, err := GenerateSigEc(key, hash)
 	if err != nil {
 		return ImageTlv{}, err
 	}
 
-	sigLen := key.sigLen()
+	sigLen := key.SigLen()
 	if len(sig) > int(sigLen) {
 		return ImageTlv{}, util.FmtNewtError("Something is really wrong\n")
 	}
@@ -258,7 +259,7 @@ func generateV1SigTlvEc(key ImageSigKey, hash []byte) (ImageTlv, error) {
 
 	return ImageTlv{
 		Header: ImageTlvHdr{
-			Type: key.sigTlvTypeV1(),
+			Type: sigTlvTypeV1(key),
 			Pad:  0,
 			Len:  sigLen + uint16(len(pad)),
 		},
@@ -266,8 +267,8 @@ func generateV1SigTlvEc(key ImageSigKey, hash []byte) (ImageTlv, error) {
 	}, nil
 }
 
-func generateV1SigTlv(key ImageSigKey, hash []byte) (ImageTlv, error) {
-	key.assertValid()
+func generateV1SigTlv(key sec.SignKey, hash []byte) (ImageTlv, error) {
+	key.AssertValid()
 
 	if key.Rsa != nil {
 		return generateV1SigTlvRsa(key, hash)
@@ -356,12 +357,12 @@ func (ic *ImageCreator) CreateV1() (ImageV1, error) {
 	}
 
 	if len(ic.SigKeys) > 0 {
-		keyFlag, err := ic.SigKeys[0].sigHdrTypeV1()
+		keyFlag, err := sigHdrTypeV1(ic.SigKeys[0])
 		if err != nil {
 			return ri, err
 		}
 		hdr.Flags |= keyFlag
-		hdr.TlvSz = 4 + ic.SigKeys[0].sigLen()
+		hdr.TlvSz = 4 + ic.SigKeys[0].SigLen()
 	}
 	hdr.TlvSz += 4 + 32
 
