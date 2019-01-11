@@ -299,6 +299,53 @@ func runSwapKekCmd(cmd *cobra.Command, args []string) {
 	genSwapKeyCmd(cmd, args, true)
 }
 
+func runMfgHashableCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		LarvaUsage(cmd, nil)
+	}
+
+	if OptOutFilename == "" {
+		LarvaUsage(cmd, util.FmtNewtError("--outfile (-o) option required"))
+	}
+
+	mfgDir := args[0]
+	outFilename := OptOutFilename
+
+	// Read manifest and mfgimg.bin.
+	mman, err := readManifest(mfgDir)
+	if err != nil {
+		LarvaUsage(cmd, err)
+	}
+
+	binPath := fmt.Sprintf("%s/%s", mfgDir, mman.BinPath)
+	bin, err := readMfgBin(binPath)
+	if err != nil {
+		LarvaUsage(cmd, util.FmtNewtError(
+			"Failed to read \"%s\": %s", binPath, err.Error()))
+	}
+
+	metaOff := -1
+	if mman.Meta != nil {
+		metaOff = mman.Meta.EndOffset
+	}
+	m, err := mfg.Parse(bin, metaOff, 0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+
+	// Zero-out hash so that the hash can be recalculated.
+	m.Meta.ClearHash()
+
+	// Write hashable content to disk.
+	newBin, err := m.Bytes(0xff)
+	if err != nil {
+		LarvaUsage(nil, err)
+	}
+	if err := WriteFile(newBin, outFilename); err != nil {
+		LarvaUsage(nil, err)
+	}
+}
+
 func runRehashCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		LarvaUsage(cmd, nil)
@@ -528,6 +575,16 @@ func AddMfgCommands(cmd *cobra.Command) {
 		"Replace input file")
 
 	mfgCmd.AddCommand(swapKekCmd)
+
+	hashableCmd := &cobra.Command{
+		Use:   "hashable <mfgimage-dir>",
+		Short: "Replaces an outdated mfgimage hash with an accurate one",
+		Run:   runMfgHashableCmd,
+	}
+	hashableCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
+		"", "File to write to")
+
+	mfgCmd.AddCommand(hashableCmd)
 
 	rehashCmd := &cobra.Command{
 		Use:   "rehash <mfgimage-dir>",
