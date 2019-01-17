@@ -261,6 +261,16 @@ func Init(logLevel log.Level, logFile string, verbosity int) error {
 	return nil
 }
 
+// Escapes special characters for Windows builds.
+func fixupCmdArgs(args []string) {
+	if runtime.GOOS == "windows" {
+		for i, _ := range args {
+			args[i] = strings.Replace(args[i], "{", "\\{", -1)
+			args[i] = strings.Replace(args[i], "}", "\\}", -1)
+		}
+	}
+}
+
 func LogShellCmd(cmdStrs []string, env []string) {
 	envLogStr := ""
 	if len(env) > 0 {
@@ -297,6 +307,9 @@ func ShellCommandLimitDbgOutput(
 
 	var name string
 	var args []string
+
+	// Escape special characters for Windows.
+	fixupCmdArgs(cmdStrs)
 
 	if logCmd {
 		LogShellCmd(cmdStrs, env)
@@ -353,12 +366,13 @@ func ShellCommand(cmdStrs []string, env []string) ([]byte, error) {
 
 // Run interactive shell command
 func ShellInteractiveCommand(cmdStr []string, env []string) error {
+	// Escape special characters for Windows.
+	fixupCmdArgs(cmdStr)
+
 	log.Print("[VERBOSE] " + cmdStr[0])
 
-	//
 	// Block SIGINT, at least.
 	// Otherwise Ctrl-C meant for gdb would kill newt.
-	//
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	signal.Notify(c, syscall.SIGTERM)
