@@ -25,10 +25,11 @@ import (
 	"sort"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -79,8 +80,8 @@ func buildProfileValues() ([]string, error) {
 
 	packs := project.GetProject().PackagesOfType(pkg.PACKAGE_TYPE_COMPILER)
 	for _, pack := range packs {
-		v, err := newtutil.ReadConfig(pack.(*pkg.LocalPackage).BasePath(),
-			"compiler")
+		v, err := config.ReadFile(
+			pack.BasePath() + "/" + toolchain.COMPILER_FILENAME)
 		if err != nil {
 			return nil, err
 		}

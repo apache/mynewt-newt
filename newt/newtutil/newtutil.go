@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -178,34 +177,7 @@ func MakeTempRepoDir() (string, error) {
 	return tmpdir, nil
 }
 
-func ReadConfigPath(path string) (ycfg.YCfg, error) {
-	yc := ycfg.NewYCfg(path)
-
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return yc, util.ChildNewtError(err)
-	}
-
-	settings := map[string]interface{}{}
-	if err := yaml.Unmarshal(file, &settings); err != nil {
-		return yc, util.FmtNewtError("Failure parsing \"%s\": %s",
-			path, err.Error())
-	}
-
-	if err := yc.Populate(settings); err != nil {
-		return yc, err
-	}
-
-	return yc, nil
-}
-
-// Read in the configuration file specified by name, in path
-// return a new viper config object if successful, and error if not
-func ReadConfig(dir string, filename string) (ycfg.YCfg, error) {
-	return ReadConfigPath(dir + "/" + filename + ".yml")
-}
-
-// Converts the provided YAML-configuration map to a YAML-encoded string.
-func YCfgToYaml(yc ycfg.YCfg) string {
-	return yaml.MapToYaml(yc.AllSettings())
+func ProjRelPath(path string) string {
+	proj := interfaces.GetProject()
+	return strings.TrimPrefix(path, proj.Path()+"/")
 }

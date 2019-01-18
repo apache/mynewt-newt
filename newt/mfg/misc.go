@@ -25,13 +25,12 @@ import (
 	"mynewt.apache.org/newt/artifact/image"
 	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
-	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/pkg"
 )
 
 func loadDecodedMfg(basePath string) (DecodedMfg, error) {
-	yc, err := newtutil.ReadConfig(basePath,
-		strings.TrimSuffix(YAML_FILENAME, ".yml"))
+	yc, err := config.ReadFile(basePath + "/" + YAML_FILENAME)
 	if err != nil {
 		return DecodedMfg{}, err
 	}

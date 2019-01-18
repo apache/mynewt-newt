@@ -28,8 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
-
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
@@ -291,12 +290,9 @@ func matchNamePath(name, path string) bool {
 
 // Load reads everything that isn't identity specific into the package
 func (pkg *LocalPackage) Load() error {
-	// Load configuration
-	log.Debugf("Loading configuration for package %s", pkg.basePath)
-
 	var err error
 
-	pkg.PkgY, err = newtutil.ReadConfigPath(pkg.PkgYamlPath())
+	pkg.PkgY, err = config.ReadFile(pkg.PkgYamlPath())
 	if err != nil {
 		return err
 	}
@@ -357,7 +353,7 @@ func (pkg *LocalPackage) Load() error {
 	}
 
 	// Load syscfg settings.
-	pkg.SyscfgY, err = newtutil.ReadConfigPath(pkg.SyscfgYamlPath())
+	pkg.SyscfgY, err = config.ReadFile(pkg.SyscfgYamlPath())
 	if err != nil && !util.IsNotExist(err) {
 		return err
 	}
@@ -409,7 +405,8 @@ func LoadLocalPackage(repo *repo.Repo, pkgDir string) (*LocalPackage, error) {
 	pkg := NewLocalPackage(repo, pkgDir)
 	err := pkg.Load()
 	if err != nil {
-		err = util.FmtNewtError("%s; ignoring package.", err.Error())
+		err = util.FmtNewtError("%s; ignoring package %s.",
+			err.Error(), pkgDir)
 		return nil, err
 	}
 
