@@ -27,6 +27,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/util"
+	"mynewt.apache.org/newt/yaml"
 )
 
 // YAML configuration object.  This is a substitute for a viper configuration
@@ -75,8 +76,9 @@ type YCfg struct {
 }
 
 type YCfgEntry struct {
-	Value interface{}
-	Expr  string
+	Value    interface{}
+	Expr     string
+	FileInfo *util.FileInfo
 }
 
 type YCfgNode struct {
@@ -85,13 +87,14 @@ type YCfgNode struct {
 	Value     interface{}
 	Children  YCfgTree
 	Parent    *YCfgNode
+	FileInfo  *util.FileInfo
 }
+
+type YCfgTree map[string]*YCfgNode
 
 func (yc *YCfg) Tree() YCfgTree {
 	return yc.tree
 }
-
-type YCfgTree map[string]*YCfgNode
 
 func NewYCfgNode() *YCfgNode {
 	return &YCfgNode{Children: YCfgTree{}}
@@ -115,7 +118,9 @@ func (node *YCfgNode) addChild(name string) (*YCfgNode, error) {
 	return child, nil
 }
 
-func (yc *YCfg) Replace(key string, val interface{}) error {
+func (yc *YCfg) ReplaceFromFile(key string, val interface{},
+	fileInfo *util.FileInfo) error {
+
 	elems := strings.Split(key, ".")
 	if len(elems) == 0 {
 		return fmt.Errorf("Invalid ycfg key: \"\"")
@@ -157,6 +162,7 @@ func (yc *YCfg) Replace(key string, val interface{}) error {
 			child.Overwrite = overwrite
 			child.Value = val
 		}
+		child.FileInfo = fileInfo
 
 		parent = child
 	}
@@ -164,8 +170,8 @@ func (yc *YCfg) Replace(key string, val interface{}) error {
 	return nil
 }
 
-// Merge merges the given value into a tree node.  Only two value types can be
-// merged:
+// MergeFromFile merges the given value into a tree node.  Only two value types
+// can be merged:
 //
 //     map[interface{}]interface{}
 //     []interface{}
@@ -177,13 +183,15 @@ func (yc *YCfg) Replace(key string, val interface{}) error {
 //
 // If no node with the specified key exists, a new node is created containing
 // the given value.
-func (yc *YCfg) Merge(key string, val interface{}) error {
+func (yc *YCfg) MergeFromFile(key string, val interface{},
+	fileInfo *util.FileInfo) error {
+
 	// Find the node being merged into.
 	node := yc.find(key)
 
 	// If the node doesn't exist, create one with the new value.
 	if node == nil || node.Value == nil {
-		return yc.Replace(key, val)
+		return yc.ReplaceFromFile(key, val, fileInfo)
 	}
 
 	// The null value gets interpreted as an empty string during YAML
@@ -225,21 +233,15 @@ func (yc *YCfg) Merge(key string, val interface{}) error {
 	return nil
 }
 
+func (yc *YCfg) Replace(key string, val interface{}) error {
+	return yc.ReplaceFromFile(key, val, nil)
+}
+
 func NewYCfg(name string) YCfg {
 	return YCfg{
 		name: name,
 		tree: YCfgTree{},
 	}
-}
-
-func (yc *YCfg) Populate(kv map[string]interface{}) error {
-	for k, v := range kv {
-		if err := yc.Replace(k, v); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (yc *YCfg) find(key string) *YCfgNode {
@@ -611,4 +613,8 @@ func (yc *YCfg) String() string {
 	})
 
 	return strings.Join(lines, "\n")
+}
+
+func (yc *YCfg) YAML() string {
+	return yaml.MapToYaml(yc.AllSettings())
 }
