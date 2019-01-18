@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
@@ -80,7 +80,7 @@ func (target *Target) TargetYamlPath() string {
 }
 
 func (target *Target) Load(basePkg *pkg.LocalPackage) error {
-	yc, err := newtutil.ReadConfigPath(target.TargetYamlPath())
+	yc, err := config.ReadFile(target.TargetYamlPath())
 	if err != nil {
 		return err
 	}

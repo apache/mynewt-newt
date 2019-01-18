@@ -24,9 +24,9 @@ import (
 	"runtime"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/interfaces"
-	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
@@ -116,7 +116,7 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 	}
 	settings[strings.ToUpper(runtime.GOOS)] = "1"
 
-	bsp.BspV, err = newtutil.ReadConfigPath(bsp.BspYamlPath())
+	bsp.BspV, err = config.ReadFile(bsp.BspYamlPath())
 	if err != nil {
 		return err
 	}

@@ -26,6 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
@@ -311,7 +312,7 @@ func (r *Repo) VersionsEqual(v1 newtutil.RepoVersion,
 // Parses the `version.yml` file at the specified path.  On success, the parsed
 // version is returned.
 func parseVersionYml(path string) (newtutil.RepoVersion, error) {
-	yc, err := newtutil.ReadConfigPath(path)
+	yc, err := config.ReadFile(path)
 	if err != nil {
 		if util.IsNotExist(err) {
 			return newtutil.RepoVersion{}, versionYmlMissing

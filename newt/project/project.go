@@ -29,6 +29,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/compat"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/deprepo"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/install"
@@ -511,8 +512,7 @@ func (proj *Project) verifyNewtCompat() error {
 }
 
 func (proj *Project) loadConfig() error {
-	yc, err := newtutil.ReadConfig(proj.BasePath,
-		strings.TrimSuffix(PROJECT_FILE_NAME, ".yml"))
+	yc, err := config.ReadFile(proj.BasePath + "/" + PROJECT_FILE_NAME)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}

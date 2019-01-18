@@ -35,7 +35,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/ycfg"
@@ -279,7 +279,7 @@ func loadFlags(yc ycfg.YCfg, settings map[string]string, key string) []string {
 }
 
 func (c *Compiler) load(compilerDir string, buildProfile string) error {
-	yc, err := newtutil.ReadConfig(compilerDir, "compiler")
+	yc, err := config.ReadFile(compilerDir + "/" + COMPILER_FILENAME)
 	if err != nil {
 		return err
 	}

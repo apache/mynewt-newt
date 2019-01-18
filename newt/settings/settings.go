@@ -20,12 +20,12 @@
 package settings
 
 import (
+	"fmt"
 	"os/user"
-	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/ycfg"
 )
 
@@ -41,11 +41,10 @@ func readNewtrc() ycfg.YCfg {
 		return ycfg.YCfg{}
 	}
 
-	dir := usr.HomeDir + "/" + NEWTRC_DIR
-	yc, err := newtutil.ReadConfig(dir,
-		strings.TrimSuffix(REPOS_FILENAME, ".yml"))
+	path := fmt.Sprintf("%s/%s/%s", usr.HomeDir, NEWTRC_DIR, REPOS_FILENAME)
+	yc, err := config.ReadFile(path)
 	if err != nil {
-		log.Debugf("Failed to read %s/%s file", dir, REPOS_FILENAME)
+		log.Debugf("Failed to read %s file", path)
 		return ycfg.YCfg{}
 	}
 

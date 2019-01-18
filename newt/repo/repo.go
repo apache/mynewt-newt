@@ -31,6 +31,7 @@ import (
 	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/compat"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -501,8 +502,7 @@ func (r *Repo) readDepRepos(yc ycfg.YCfg) error {
 func (r *Repo) Read() error {
 	r.Init(r.Name(), r.downloader)
 
-	yc, err := newtutil.ReadConfig(r.repoFilePath(),
-		strings.TrimSuffix(REPO_FILE_NAME, ".yml"))
+	yc, err := config.ReadFile(r.repoFilePath() + "/" + REPO_FILE_NAME)
 	if err != nil {
 		return err
 	}
