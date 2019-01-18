@@ -272,7 +272,7 @@ func (t *Target) Save() error {
 	}
 	defer file.Close()
 
-	s := newtutil.YCfgToYaml(t.TargetY)
+	s := t.TargetY.YAML()
 	file.WriteString(s)
 
 	if err := t.basePkg.SaveSyscfg(); err != nil {

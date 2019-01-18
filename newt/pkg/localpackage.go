@@ -235,7 +235,7 @@ func (lpkg *LocalPackage) SaveSyscfg() error {
 	}
 	defer file.Close()
 
-	s := newtutil.YCfgToYaml(lpkg.SyscfgY)
+	s := lpkg.SyscfgY.YAML()
 	file.WriteString(s)
 
 	return nil
