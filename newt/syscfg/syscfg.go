@@ -173,13 +173,17 @@ func NewCfg() Cfg {
 	}
 }
 
-func (cfg *Cfg) SettingValues() map[string]string {
-	values := make(map[string]string, len(cfg.Settings))
-	for k, v := range cfg.Settings {
+func SettingValues(settings map[string]CfgEntry) map[string]string {
+	values := make(map[string]string, len(settings))
+	for k, v := range settings {
 		values[k] = v.Value
 	}
 
 	return values
+}
+
+func (cfg *Cfg) SettingValues() map[string]string {
+	return SettingValues(cfg.Settings)
 }
 
 func ResolveValueRefName(val string) string {
