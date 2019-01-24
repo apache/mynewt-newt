@@ -28,6 +28,7 @@ import (
 
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/logcfg"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -546,7 +547,8 @@ func (r *Resolver) reloadCfg() (bool, error) {
 
 	cfg.ResolveValueRefs()
 
-	// Determine if any settings have changed.
+	// Determine if any new settings have been added or if any existing
+	// settings have changed.
 	for k, v := range cfg.Settings {
 		oldval, ok := r.cfg.Settings[k]
 		if !ok || len(oldval.History) != len(v.History) {
@@ -555,7 +557,232 @@ func (r *Resolver) reloadCfg() (bool, error) {
 		}
 	}
 
+	// Determine if any existing settings have been removed.
+	for k, _ := range r.cfg.Settings {
+		if _, ok := cfg.Settings[k]; !ok {
+			r.cfg = cfg
+			return true, nil
+		}
+	}
+
 	return false, nil
+}
+
+// traceToSeed determines if the specified package can be reached from a seed
+// package via a traversal of the dependency graph.  The supplied settings are
+// used to determine the validity of dependencies in the graph.
+func (rpkg *ResolvePackage) traceToSeed(
+	settings map[string]string) (bool, error) {
+
+	seen := map[*ResolvePackage]struct{}{}
+
+	// A nested function is used here so that the `seen` map can be used across
+	// multiple invocations.
+	var iter func(cur *ResolvePackage) (bool, error)
+	iter = func(cur *ResolvePackage) (bool, error) {
+		// Don't process the same package twice.
+		if _, ok := seen[cur]; ok {
+			return false, nil
+		}
+		seen[cur] = struct{}{}
+
+		// A type greater than "library" is a seed package.
+		if cur.Lpkg.Type() > pkg.PACKAGE_TYPE_LIB {
+			return true, nil
+		}
+
+		// Repeat the trace recursively for each depending package.
+		for depender, _ := range cur.revDeps {
+			rdep := depender.Deps[cur]
+
+			// Only process this reverse dependency if it is valid given the
+			// specified syscfg.
+			depValid := true
+			es := rdep.ExprString()
+			if es != "" {
+				exprTrue, err := parse.ParseAndEval(es, settings)
+				if err != nil {
+					return false, err
+				}
+				depValid = exprTrue
+			}
+
+			if depValid {
+				traced, err := iter(depender)
+				if err != nil {
+					return false, err
+				}
+				if traced {
+					// Depender can be traced to a seed package.
+					return true, nil
+				}
+			}
+		}
+
+		// All dependencies processed without reaching a seed package.
+		return false, nil
+	}
+
+	return iter(rpkg)
+}
+
+// detectImposter returns true if the package is an imposter.  A package is an
+// imposter if it is in the dependency graph by virtue of its own syscfg
+// defines and overrides.  For example, say we have a package `foo`:
+//
+//     pkg.name: foo
+//     syscfg.defs:
+//         FOO_SETTING:
+//		       value: 1
+//
+// Then we have a BSP package:
+//
+//     pkg.name: my_bsp
+//     pkg.deps.FOO_SETTING:
+//         - foo
+//
+// If this is the only dependency on `foo`, then `foo` is an imposter.  It
+// should be removed from the graph, and its syscfg defines and overrides
+// should be deleted.
+//
+// Because the syscfg state changes as newt discovers new dependencies, it is
+// possible for imposters to end up in the graph.
+func (r *Resolver) detectImposter(rpkg *ResolvePackage) (bool, error) {
+	// Calculate a new syscfg instance, pretending the specified package
+	// doesn't exist.
+	settings := make(map[string]syscfg.CfgEntry, len(r.cfg.Settings))
+	for k, src := range r.cfg.Settings {
+		// Copy the source entry in full, then check its history for the
+		// potential imposter.
+		dst := src
+		for i, _ := range dst.History {
+			if dst.History[i].Source == rpkg.Lpkg {
+				if i == 0 {
+					// This setting is defined by the package; remove it
+					// entirely.
+					dst.History = nil
+				} else {
+					// Remove the package's override.
+					dst.History = append(dst.History[:i], dst.History[i+1:]...)
+				}
+				break
+			}
+		}
+
+		// Retain the setting if it wasn't defined by the potential imposter.
+		if len(dst.History) > 0 {
+			settings[k] = dst
+		}
+	}
+
+	// See if the package can still be traced to a seed package when the
+	// modified settings are used.
+	found, err := rpkg.traceToSeed(syscfg.SettingValues(settings))
+	if err != nil {
+		return false, err
+	}
+
+	return !found, nil
+}
+
+// detectImpostersWorker reads packages from a channel and determines if they
+// are imposters.  It is meant to be run in parallel via multiple go routines.
+//
+// See detectImposter() for a definition of "imposter package".
+func (r *Resolver) detectImpostersWorker(
+	jobsCh <-chan *ResolvePackage,
+	stopCh chan struct{},
+	resultsCh chan<- *ResolvePackage,
+	errCh chan<- error,
+) {
+
+	// Repeatedly process jobs until any of:
+	// 1. Stop signal from another go routine.
+	// 2. Error encountered.
+	// 3. No more jobs.
+	for {
+		select {
+		case <-stopCh:
+			// Re-enqueue the stop signal for the other go routines.
+			stopCh <- struct{}{}
+
+			// Completed without error.
+			errCh <- nil
+			return
+
+		case rpkg := <-jobsCh:
+			isImposter, err := r.detectImposter(rpkg)
+			if err != nil {
+				stopCh <- struct{}{}
+				errCh <- err
+				return
+			}
+
+			if isImposter {
+				// Signal that this package can be pruned.
+				resultsCh <- rpkg
+			}
+
+		default:
+			// No more jobs to process.
+			errCh <- nil
+			return
+		}
+	}
+}
+
+// pruneImposters identifies and deletes imposters contained by the resolver.
+// This function should be called repeatedly until no more imposters are
+// identified.  It returns true if any imposters were found and deleted.
+func (r *Resolver) pruneImposters() (bool, error) {
+	jobsCh := make(chan *ResolvePackage, len(r.pkgMap))
+	defer close(jobsCh)
+
+	stopCh := make(chan struct{}, newtutil.NewtNumJobs)
+	defer close(stopCh)
+
+	resultsCh := make(chan *ResolvePackage, len(r.pkgMap))
+	defer close(resultsCh)
+
+	errCh := make(chan error, newtutil.NewtNumJobs)
+	defer close(errCh)
+
+	// Enqueue all packages to the jobs channel.
+	for _, rpkg := range r.pkgMap {
+		jobsCh <- rpkg
+	}
+
+	// Iterate through all packages with a collection of go routines.
+	for i := 0; i < newtutil.NewtNumJobs; i++ {
+		go r.detectImpostersWorker(jobsCh, stopCh, resultsCh, errCh)
+	}
+
+	// Collect errors from each routine.  Abort on first error.
+	for i := 0; i < newtutil.NewtNumJobs; i++ {
+		if err := <-errCh; err != nil {
+			return false, err
+		}
+	}
+
+	// Delete all imposter packages.
+	anyPruned := false
+	for {
+		select {
+		case rpkg := <-resultsCh:
+			// This package may have already been deleted indirectly via a
+			// prior delete.  If it has no more reverse dependencies, it is
+			// already invalid.
+			if len(rpkg.revDeps) > 0 {
+				if err := r.deletePkg(rpkg); err != nil {
+					return false, err
+				}
+				anyPruned = true
+			}
+
+		default:
+			return anyPruned, nil
+		}
+	}
 }
 
 // @return bool                 True if any packages were pruned, false
@@ -624,13 +851,25 @@ func (r *Resolver) resolveHardDepsOnce() (bool, error) {
 		return true, nil
 	}
 
-	// Now prune orphan packages.
+	// Prune orphan packages.
 	anyPruned, err := r.pruneOrphans()
 	if err != nil {
 		return false, err
 	}
+	if anyPruned {
+		return true, nil
+	}
 
-	return anyPruned, nil
+	// Prune imposter packages.
+	anyPruned, err = r.pruneImposters()
+	if err != nil {
+		return false, err
+	}
+	if anyPruned {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // Fully resolves all hard dependencies (i.e., packages listed in `pkg.deps`;
@@ -864,7 +1103,7 @@ func ResolveFull(
 	}
 
 	// Otherwise, we need to resolve dependencies separately for:
-	// 1. The set of loader pacakges, and
+	// 1. The set of loader packages, and
 	// 2. The set of app packages.
 	//
 	// These need to be resolved separately so that it is possible later to
