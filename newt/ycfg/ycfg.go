@@ -164,6 +164,67 @@ func (yc *YCfg) Replace(key string, val interface{}) error {
 	return nil
 }
 
+// Merge merges the given value into a tree node.  Only two value types can be
+// merged:
+//
+//     map[interface{}]interface{}
+//     []interface{}
+//
+// The node's current value must have the same type as the value being merged.
+// In the map case, each key-value pair in the given value is inserted into the
+// current value, overwriting as necessary.  In the slice case, the given value
+// is appended to the current value.
+//
+// If no node with the specified key exists, a new node is created containing
+// the given value.
+func (yc *YCfg) Merge(key string, val interface{}) error {
+	// Find the node being merged into.
+	node := yc.find(key)
+
+	// If the node doesn't exist, create one with the new value.
+	if node == nil || node.Value == nil {
+		return yc.Replace(key, val)
+	}
+
+	// The null value gets interpreted as an empty string during YAML
+	// parsing.  A null merge is a no-op.
+	if s, ok := val.(string); ok && s == "" {
+		val = nil
+	}
+	if val == nil {
+		return nil
+	}
+
+	mergeErr := func() error {
+		return util.FmtNewtError(
+			"can't merge type %T into cfg node \"%s\"; node type: %T",
+			val, key, node.Value)
+	}
+
+	switch nodeVal := node.Value.(type) {
+	case map[interface{}]interface{}:
+		newVal, ok := val.(map[interface{}]interface{})
+		if !ok {
+			return mergeErr()
+		}
+		for k, v := range newVal {
+			nodeVal[k] = v
+		}
+
+	case []interface{}:
+		newVal, ok := val.([]interface{})
+		if !ok {
+			return mergeErr()
+		}
+		node.Value = append(nodeVal, newVal...)
+
+	default:
+		return mergeErr()
+	}
+
+	return nil
+}
+
 func NewYCfg(name string) YCfg {
 	return YCfg{
 		name: name,
