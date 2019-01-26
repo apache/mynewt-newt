@@ -153,7 +153,8 @@ func printBriefCfg(targetName string, cfg syscfg.Cfg) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief syscfg for %s:\n", targetName)
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Brief syscfg for %s:\n", targetName)
 	pkgNameEntryMap := syscfg.EntriesByPkg(cfg)
 
 	pkgNames := make([]string, 0, len(pkgNameEntryMap))
@@ -167,6 +168,24 @@ func printBriefCfg(targetName string, cfg syscfg.Cfg) {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 		}
 		printPkgBriefCfg(pkgName, cfg, pkgNameEntryMap[pkgName])
+	}
+}
+
+func printFlatCfg(targetName string, cfg syscfg.Cfg) {
+	if errText := cfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	settings := cfg.SettingValues()
+	names := make([]string, 0, len(settings))
+	for name, _ := range settings {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"%s: %s\n", name, settings[name])
 	}
 }
 
@@ -264,6 +283,29 @@ func targetConfigBriefCmd(cmd *cobra.Command, args []string) {
 
 		res := targetBuilderConfigResolve(b)
 		printBriefCfg(b.GetTarget().Name(), res.Cfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func targetConfigFlatCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printFlatCfg(b.GetTarget().Name(), res.Cfg)
 
 		if i < len(args)-1 {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
@@ -722,6 +764,18 @@ func targetCfgCmdAll() []*cobra.Command {
 
 	configCmd.AddCommand(configBriefCmd)
 	AddTabCompleteFn(configBriefCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	configFlatCmd := &cobra.Command{
+		Use:   "flat <target> [target...]",
+		Short: "View a flat table of target's system configuration",
+		Long:  "View a flat table of target's system configuration",
+		Run:   targetConfigFlatCmd,
+	}
+
+	configCmd.AddCommand(configFlatCmd)
+	AddTabCompleteFn(configFlatCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 
