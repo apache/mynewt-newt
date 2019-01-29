@@ -118,9 +118,9 @@ func depString(dep *resolve.ResolveDep) string {
 		reasons = append(reasons, fmt.Sprintf("api:%s", dep.Api))
 	}
 
-	exprStr := dep.ExprString()
-	if exprStr != "" {
-		reasons = append(reasons, fmt.Sprintf("syscfg:%s", exprStr))
+	expr := dep.CombinedExpr()
+	if expr != nil {
+		reasons = append(reasons, fmt.Sprintf("syscfg:%s", expr.String()))
 	}
 
 	if len(reasons) > 0 {

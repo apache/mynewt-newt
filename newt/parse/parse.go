@@ -21,6 +21,7 @@ package parse
 
 import (
 	"fmt"
+	"sort"
 
 	"mynewt.apache.org/newt/util"
 )
@@ -59,22 +60,30 @@ type Node struct {
 }
 
 func (n *Node) String() string {
+	if n == nil {
+		return ""
+	}
+
 	s := ""
 
 	if n.Left != nil {
-		s += n.Left.String()
+		s += n.Left.String() + " "
 	}
 
-	s += fmt.Sprintf("%s", n.Data)
+	s += n.Data
 
 	if n.Right != nil {
-		s += n.Right.String()
+		s += " " + n.Right.String()
 	}
 
 	return s
 }
 
 func (n *Node) RpnString() string {
+	if n == nil {
+		return ""
+	}
+
 	s := fmt.Sprintf("<%s>", n.Data)
 	if n.Left != nil {
 		s += " " + n.Left.RpnString()
@@ -84,6 +93,24 @@ func (n *Node) RpnString() string {
 	}
 
 	return s
+}
+
+type nodeSorter struct {
+	nodes []*Node
+}
+
+func (s nodeSorter) Len() int {
+	return len(s.nodes)
+}
+func (s nodeSorter) Swap(i, j int) {
+	s.nodes[i], s.nodes[j] = s.nodes[j], s.nodes[i]
+}
+func (s nodeSorter) Less(i, j int) bool {
+	return s.nodes[i].String() < s.nodes[j].String()
+}
+
+func SortNodes(nodes []*Node) {
+	sort.Sort(nodeSorter{nodes})
 }
 
 // Searches a tokenized expression.  The location of the first token that
@@ -554,7 +581,7 @@ func Eval(expr *Node, settings map[string]string) (bool, error) {
 	}
 }
 
-func lexAndParse(expr string) (*Node, error) {
+func LexAndParse(expr string) (*Node, error) {
 	tokens, err := Lex(expr)
 	if err != nil {
 		return nil, err
@@ -576,7 +603,7 @@ func lexAndParse(expr string) (*Node, error) {
 //
 // @return bool                 Whether the expression evaluates to true.
 func ParseAndEval(expr string, settings map[string]string) (bool, error) {
-	n, err := lexAndParse(expr)
+	n, err := LexAndParse(expr)
 	if err != nil {
 		return false, err
 	}
@@ -587,7 +614,7 @@ func ParseAndEval(expr string, settings map[string]string) (bool, error) {
 
 // Parses an expression and converts it to its normalized text form.
 func NormalizeExpr(expr string) (string, error) {
-	n, err := lexAndParse(expr)
+	n, err := LexAndParse(expr)
 	if err != nil {
 		return "", err
 	}

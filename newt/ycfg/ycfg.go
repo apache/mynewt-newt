@@ -76,9 +76,8 @@ type YCfg struct {
 }
 
 type YCfgEntry struct {
-	Value    interface{}
-	Expr     string
-	FileInfo *util.FileInfo
+	Value interface{}
+	Expr  *parse.Node
 }
 
 type YCfgNode struct {
@@ -281,13 +280,20 @@ func (yc *YCfg) Get(key string, settings map[string]string) []YCfgEntry {
 	}
 
 	for _, child := range node.Children {
-		val, err := parse.ParseAndEval(child.Name, settings)
+		expr, err := parse.LexAndParse(child.Name)
 		if err != nil {
 			util.OneTimeWarning("%s: %s", yc.name, err.Error())
-		} else if val {
+			continue
+		}
+		val, err := parse.Eval(expr, settings)
+		if err != nil {
+			util.OneTimeWarning("%s: %s", yc.name, err.Error())
+			continue
+		}
+		if val {
 			entry := YCfgEntry{
 				Value: child.Value,
-				Expr:  child.Name,
+				Expr:  expr,
 			}
 			if child.Overwrite {
 				return []YCfgEntry{entry}

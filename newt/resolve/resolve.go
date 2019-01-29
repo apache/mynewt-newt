@@ -45,7 +45,7 @@ type resolveApi struct {
 	rpkg *ResolvePackage
 
 	// The expression which enabled this API.
-	expr string
+	expr *parse.Node
 }
 
 // Represents a required API.
@@ -54,7 +54,7 @@ type resolveReqApi struct {
 	satisfied bool
 
 	// The expression which enabled this API requirement.
-	expr string
+	expr *parse.Node
 }
 
 type Resolver struct {
@@ -80,7 +80,7 @@ type ResolveDep struct {
 	Api string
 
 	// Set of syscfg expressions that generated this dependency.
-	ExprMap map[string]struct{}
+	ExprMap map[string]*parse.Node
 }
 
 type ResolvePackage struct {
@@ -187,33 +187,40 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 //
 // The expression string for the `my_pkg` dependency is:
 //     (FOO) || (BAR)
-func (rdep *ResolveDep) ExprString() string {
+func (rdep *ResolveDep) CombinedExpr() *parse.Node {
 	// If there is an unconditional dependency, the conditional dependencies
 	// can be ignored.
 	if _, ok := rdep.ExprMap[""]; ok {
-		return ""
+		return nil
 	}
 
-	exprs := make([]string, 0, len(rdep.ExprMap))
-	for expr, _ := range rdep.ExprMap {
-		exprs = append(exprs, expr)
+	if len(rdep.ExprMap) == 0 {
+		return nil
 	}
 
-	// The union of one object is itself.
-	if len(exprs) == 1 {
-		return exprs[0]
+	all := make([]*parse.Node, 0, len(rdep.ExprMap))
+	for _, node := range rdep.ExprMap {
+		all = append(all, node)
 	}
 
 	// Sort all the subexpressions and OR them together.
-	sort.Strings(exprs)
-	s := ""
-	for i, expr := range exprs {
-		if i != 0 {
-			s += fmt.Sprintf(" || ")
+	parse.SortNodes(all)
+
+	var orIter func(nodes []*parse.Node) *parse.Node
+	orIter = func(nodes []*parse.Node) *parse.Node {
+		if len(nodes) == 1 {
+			return nodes[0]
 		}
-		s += fmt.Sprintf("(%s)", expr)
+
+		return &parse.Node{
+			Code:  parse.PARSE_OR,
+			Data:  "||",
+			Left:  nodes[0],
+			Right: orIter(nodes[1:]),
+		}
 	}
-	return s
+
+	return orIter(all)
 }
 
 func (r *Resolver) resolveDep(dep *pkg.Dependency,
@@ -233,13 +240,9 @@ func (r *Resolver) resolveDep(dep *pkg.Dependency,
 // @return                      true if the package's dependency list was
 //                                  modified.
 func (rpkg *ResolvePackage) AddDep(
-	depPkg *ResolvePackage, api string, expr string) bool {
+	depPkg *ResolvePackage, api string, expr *parse.Node) bool {
 
-	norm, err := parse.NormalizeExpr(expr)
-	if err != nil {
-		panic("invalid expression, should have been caught earlier: " +
-			err.Error())
-	}
+	exprString := expr.String()
 
 	if dep := rpkg.Deps[depPkg]; dep != nil {
 		// This package already depends on dep.  If the conditional expression
@@ -248,18 +251,18 @@ func (rpkg *ResolvePackage) AddDep(
 		// ignore the duplicate.
 
 		// Determine if this is a new conditional expression.
-		oldExpr := dep.ExprString()
+		oldExpr := dep.CombinedExpr()
 
 		changed := false
-		if _, ok := dep.ExprMap[norm]; !ok {
-			dep.ExprMap[norm] = struct{}{}
-			merged := dep.ExprString()
+		if _, ok := dep.ExprMap[exprString]; !ok {
+			dep.ExprMap[exprString] = expr
+			merged := dep.CombinedExpr()
 
 			log.Debugf("Package %s has conflicting dependencies on %s: "+
 				"old=`%s` new=`%s`; merging them into a single conditional: "+
 				"`%s`",
 				rpkg.Lpkg.FullName(), dep.Rpkg.Lpkg.FullName(),
-				oldExpr, expr, merged)
+				oldExpr, exprString, merged.String())
 			changed = true
 		}
 
@@ -273,8 +276,8 @@ func (rpkg *ResolvePackage) AddDep(
 		rpkg.Deps[depPkg] = &ResolveDep{
 			Rpkg: depPkg,
 			Api:  api,
-			ExprMap: map[string]struct{}{
-				norm: struct{}{},
+			ExprMap: map[string]*parse.Node{
+				exprString: expr,
 			},
 		}
 	}
@@ -394,7 +397,7 @@ func (r *Resolver) calcApiReqsFor(rpkg *ResolvePackage) {
 		if ok && apiStr != "" {
 			rpkg.reqApiMap[apiStr] = resolveReqApi{
 				satisfied: false,
-				expr:      "",
+				expr:      nil,
 			}
 		}
 	}
@@ -598,9 +601,9 @@ func (rpkg *ResolvePackage) traceToSeed(
 			// Only process this reverse dependency if it is valid given the
 			// specified syscfg.
 			depValid := true
-			es := rdep.ExprString()
-			if es != "" {
-				exprTrue, err := parse.ParseAndEval(es, settings)
+			expr := rdep.CombinedExpr()
+			if expr != nil {
+				exprTrue, err := parse.Eval(expr, settings)
 				if err != nil {
 					return false, err
 				}
@@ -986,7 +989,7 @@ func joinExprs(expr1 string, expr2 string) string {
 // corresponding dependecy to each package which requires the API.
 func (r *Resolver) resolveApiDeps() error {
 	for _, rpkg := range r.pkgMap {
-		for apiString, reqApi := range rpkg.reqApiMap {
+		for apiString, _ := range rpkg.reqApiMap {
 			// Determine which package satisfies this API requirement.
 			api, ok := r.apis[apiString]
 
@@ -994,8 +997,7 @@ func (r *Resolver) resolveApiDeps() error {
 			// hard dependency to the package.  Otherwise, record an
 			// unsatisfied API requirement with an empty API struct.
 			if ok && api.rpkg != nil {
-				rpkg.AddDep(api.rpkg, apiString,
-					joinExprs(api.expr, reqApi.expr))
+				rpkg.AddDep(api.rpkg, apiString, api.expr) // XXX REQ
 			} else if !ok {
 				r.apis[apiString] = resolveApi{}
 			}
