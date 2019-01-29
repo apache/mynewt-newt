@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/logcfg"
@@ -38,6 +39,8 @@ import (
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
+
+type ExprMap map[string]*parse.Node
 
 // Represents a supplied API.
 type resolveApi struct {
@@ -53,8 +56,9 @@ type resolveReqApi struct {
 	// Whether the API requirement has been satisfied by a hard dependency.
 	satisfied bool
 
-	// The expression which enabled this API requirement.
-	expr *parse.Node
+	// The set of expressions which enabled this API requirement.  If any
+	// expressions are true, the API requirement is enabled.
+	exprMap ExprMap
 }
 
 type Resolver struct {
@@ -76,11 +80,12 @@ type ResolveDep struct {
 	// Package being depended on.
 	Rpkg *ResolvePackage
 
-	// Name of API that generated the dependency; "" if a hard dependency.
-	Api string
-
 	// Set of syscfg expressions that generated this dependency.
-	ExprMap map[string]*parse.Node
+	ExprMap ExprMap
+
+	// Represents the set of API requirements that this dependency satisfies.
+	// The map key is the API name.
+	ApiExprMap map[string]ExprMap
 }
 
 type ResolvePackage struct {
@@ -98,7 +103,7 @@ type ResolvePackage struct {
 }
 
 type ResolveSet struct {
-	// Parent resoluion.  Contains this ResolveSet.
+	// Parent resolution.  Contains this ResolveSet.
 	Res *Resolution
 
 	// All seed packages and their dependencies.
@@ -177,50 +182,13 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 	}
 }
 
-// Creates an expression string from all the conditionals associated with the
-// dependency.  The resulting expression is the union of all sub expressions.
-// For example:
-//     pkg.deps.FOO:
-//         - my_pkg
-//     pkg.deps.BAR:
-//         - my_pkg
-//
-// The expression string for the `my_pkg` dependency is:
-//     (FOO) || (BAR)
-func (rdep *ResolveDep) CombinedExpr() *parse.Node {
-	// If there is an unconditional dependency, the conditional dependencies
-	// can be ignored.
-	if _, ok := rdep.ExprMap[""]; ok {
-		return nil
+func (em ExprMap) Exprs() []*parse.Node {
+	nodes := make([]*parse.Node, 0, len(em))
+	for _, expr := range em {
+		nodes = append(nodes, expr)
 	}
-
-	if len(rdep.ExprMap) == 0 {
-		return nil
-	}
-
-	all := make([]*parse.Node, 0, len(rdep.ExprMap))
-	for _, node := range rdep.ExprMap {
-		all = append(all, node)
-	}
-
-	// Sort all the subexpressions and OR them together.
-	parse.SortNodes(all)
-
-	var orIter func(nodes []*parse.Node) *parse.Node
-	orIter = func(nodes []*parse.Node) *parse.Node {
-		if len(nodes) == 1 {
-			return nodes[0]
-		}
-
-		return &parse.Node{
-			Code:  parse.PARSE_OR,
-			Data:  "||",
-			Left:  nodes[0],
-			Right: orIter(nodes[1:]),
-		}
-	}
-
-	return orIter(all)
+	parse.SortNodes(nodes)
+	return nodes
 }
 
 func (r *Resolver) resolveDep(dep *pkg.Dependency,
@@ -240,60 +208,60 @@ func (r *Resolver) resolveDep(dep *pkg.Dependency,
 // @return                      true if the package's dependency list was
 //                                  modified.
 func (rpkg *ResolvePackage) AddDep(
-	depPkg *ResolvePackage, api string, expr *parse.Node) bool {
+	depPkg *ResolvePackage, expr *parse.Node) bool {
 
 	exprString := expr.String()
 
 	if dep := rpkg.Deps[depPkg]; dep != nil {
 		// This package already depends on dep.  If the conditional expression
-		// is new, or if the API string is different, then the existing
-		// dependency needs to be updated with the new information.  Otherwise,
-		// ignore the duplicate.
-
-		// Determine if this is a new conditional expression.
-		oldExpr := dep.CombinedExpr()
+		// is new, then the existing dependency needs to be updated with the
+		// new information.  Otherwise, ignore the duplicate.
 
 		changed := false
 		if _, ok := dep.ExprMap[exprString]; !ok {
 			dep.ExprMap[exprString] = expr
-			merged := dep.CombinedExpr()
-
-			log.Debugf("Package %s has conflicting dependencies on %s: "+
-				"old=`%s` new=`%s`; merging them into a single conditional: "+
-				"`%s`",
-				rpkg.Lpkg.FullName(), dep.Rpkg.Lpkg.FullName(),
-				oldExpr, exprString, merged.String())
-			changed = true
-		}
-
-		if dep.Api != "" && api == "" {
-			dep.Api = api
 			changed = true
 		}
 
 		return changed
-	} else {
-		rpkg.Deps[depPkg] = &ResolveDep{
-			Rpkg: depPkg,
-			Api:  api,
-			ExprMap: map[string]*parse.Node{
-				exprString: expr,
-			},
-		}
 	}
 
-	// If this dependency came from an API requirement, record that the API
-	// requirement is now satisfied.
-	if api != "" {
-		apiReq := rpkg.reqApiMap[api]
-		apiReq.expr = expr
-		apiReq.satisfied = true
-		rpkg.reqApiMap[api] = apiReq
+	// New dependency.
+	rpkg.Deps[depPkg] = &ResolveDep{
+		Rpkg: depPkg,
+		ExprMap: ExprMap{
+			exprString: expr,
+		},
+		ApiExprMap: map[string]ExprMap{},
 	}
 
 	depPkg.revDeps[rpkg] = struct{}{}
-
 	return true
+}
+
+func (rpkg *ResolvePackage) AddApiDep(depPkg *ResolvePackage, api string, exprs []*parse.Node) {
+
+	dep := rpkg.Deps[depPkg]
+	if dep != nil {
+		if len(dep.ExprMap) != 0 {
+			return
+		}
+	} else {
+		dep = &ResolveDep{
+			Rpkg:       depPkg,
+			ApiExprMap: map[string]ExprMap{},
+		}
+		rpkg.Deps[depPkg] = dep
+	}
+
+	for _, e := range exprs {
+		em := dep.ApiExprMap[api]
+		if em == nil {
+			em = ExprMap{}
+			dep.ApiExprMap[api] = em
+		}
+		em[e.String()] = e
+	}
 }
 
 func (r *Resolver) rpkgSlice() []*ResolvePackage {
@@ -388,26 +356,33 @@ func (r *Resolver) selectApiSuppliers() {
 }
 
 // Populates the specified package's set of API requirements.
-func (r *Resolver) calcApiReqsFor(rpkg *ResolvePackage) {
+func (r *Resolver) calcApiReqsFor(rpkg *ResolvePackage) error {
 	settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 
-	reqApiEntries := rpkg.Lpkg.PkgY.GetSlice("pkg.req_apis", settings)
-	for _, entry := range reqApiEntries {
-		apiStr, ok := entry.Value.(string)
-		if ok && apiStr != "" {
-			rpkg.reqApiMap[apiStr] = resolveReqApi{
-				satisfied: false,
-				expr:      nil,
-			}
+	nmap, err := readStringMapExprMap(rpkg.Lpkg.PkgY, "pkg.req_apis", settings)
+	if err != nil {
+		return err
+	}
+
+	for apiStr, exprMap := range nmap {
+		rpkg.reqApiMap[apiStr] = resolveReqApi{
+			satisfied: false,
+			exprMap:   exprMap,
 		}
 	}
+
+	return nil
 }
 
 // Populates all packages' API requirements sets.
-func (r *Resolver) calcApiReqs() {
+func (r *Resolver) calcApiReqs() error {
 	for _, rpkg := range r.pkgMap {
-		r.calcApiReqsFor(rpkg)
+		if err := r.calcApiReqsFor(rpkg); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 // Completely removes a package from the resolver.  This is used to prune
@@ -444,6 +419,66 @@ func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
 	return nil
 }
 
+func getExprMapStringSlice(
+	yc ycfg.YCfg, key string, settings map[string]string) (
+	map[*parse.Node][]string, error) {
+
+	entries := yc.GetSlice(key, settings)
+	if len(entries) == 0 {
+		return nil, nil
+	}
+
+	m := make(map[*parse.Node][]string, len(entries))
+	for _, e := range entries {
+		slice, err := cast.ToStringSliceE(e.Value)
+		if err != nil {
+			return nil, util.FmtNewtError(
+				"ycfg node \"%s\" contains unexpected type; "+
+					"have=%T want=[]string", e.Value)
+		}
+
+		m[e.Expr] = append(m[e.Expr], slice...)
+	}
+
+	return m, nil
+}
+
+func revExprMapStringSlice(
+	ems map[*parse.Node][]string) map[string][]*parse.Node {
+
+	m := map[string][]*parse.Node{}
+
+	for expr, vals := range ems {
+		for _, val := range vals {
+			m[val] = append(m[val], expr)
+		}
+	}
+
+	return m
+}
+
+func readStringMapExprMap(yc ycfg.YCfg, key string,
+	settings map[string]string) (map[string]map[string]*parse.Node, error) {
+
+	ems, err := getExprMapStringSlice(yc, key, settings)
+	if err != nil {
+		return nil, err
+	}
+
+	nmap := map[string]map[string]*parse.Node{}
+
+	rev := revExprMapStringSlice(ems)
+	for v, exprs := range rev {
+		sub := map[string]*parse.Node{}
+		nmap[v] = sub
+		for _, expr := range exprs {
+			sub[expr.String()] = expr
+		}
+	}
+
+	return nmap, nil
+}
+
 // @return bool                 True if this this function changed the resolver
 //                                  state; another full iteration is required
 //                                  in this case.
@@ -453,21 +488,26 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 
 	changed := false
 
-	var depEntries []ycfg.YCfgEntry
+	var depEm map[*parse.Node][]string
+	var err error
 
 	if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_TRANSIENT {
-		depEntries = rpkg.Lpkg.PkgY.GetSlice("pkg.link", nil)
+		depEm, err = getExprMapStringSlice(rpkg.Lpkg.PkgY, "pkg.link", nil)
 	} else {
-		depEntries = rpkg.Lpkg.PkgY.GetSlice("pkg.deps", settings)
+		depEm, err = getExprMapStringSlice(rpkg.Lpkg.PkgY, "pkg.deps",
+			settings)
 	}
+	if err != nil {
+		return false, err
+	}
+
 	depender := rpkg.Lpkg.Name()
 
-	seen := make(map[*ResolvePackage]struct{}, len(rpkg.Deps))
-
-	for _, entry := range depEntries {
-		depStr, ok := entry.Value.(string)
-		if ok && depStr != "" {
-			newDep, err := pkg.NewDependency(rpkg.Lpkg.Repo(), depStr)
+	oldDeps := rpkg.Deps
+	rpkg.Deps = make(map[*ResolvePackage]*ResolveDep, len(oldDeps))
+	for expr, depNames := range depEm {
+		for _, depName := range depNames {
+			newDep, err := pkg.NewDependency(rpkg.Lpkg.Repo(), depName)
 			if err != nil {
 				return false, err
 			}
@@ -478,10 +518,7 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 			}
 
 			depRpkg, _ := r.addPkg(lpkg)
-			if rpkg.AddDep(depRpkg, "", entry.Expr) {
-				changed = true
-			}
-			seen[depRpkg] = struct{}{}
+			rpkg.AddDep(depRpkg, expr)
 		}
 	}
 
@@ -489,9 +526,8 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 	// a new syscfg setting was discovered which causes this package's
 	// dependency list to be overwritten).  Detect and delete these
 	// relationships.
-	for rdep, _ := range rpkg.Deps {
-		if _, ok := seen[rdep]; !ok {
-			delete(rpkg.Deps, rdep)
+	for rdep, _ := range oldDeps {
+		if _, ok := rpkg.Deps[rdep]; !ok {
 			delete(rdep.revDeps, rpkg)
 			changed = true
 
@@ -502,6 +538,12 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 					return true, err
 				}
 			}
+		}
+	}
+
+	for rdep, _ := range rpkg.Deps {
+		if _, ok := oldDeps[rdep]; !ok {
+			changed = true
 		}
 	}
 
@@ -600,14 +642,10 @@ func (rpkg *ResolvePackage) traceToSeed(
 
 			// Only process this reverse dependency if it is valid given the
 			// specified syscfg.
-			depValid := true
-			expr := rdep.CombinedExpr()
-			if expr != nil {
-				exprTrue, err := parse.Eval(expr, settings)
-				if err != nil {
-					return false, err
-				}
-				depValid = exprTrue
+			expr := parse.Conjunction(rdep.ExprMap.Exprs())
+			depValid, err := parse.Eval(expr, settings)
+			if err != nil {
+				return false, err
 			}
 
 			if depValid {
@@ -906,7 +944,9 @@ func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 	r.selectApiSuppliers()
 
 	// Determine which packages have API requirements.
-	r.calcApiReqs()
+	if err := r.calcApiReqs(); err != nil {
+		return nil, err
+	}
 
 	// Satisfy API requirements.
 	if err := r.resolveApiDeps(); err != nil {
@@ -955,7 +995,9 @@ func (r *Resolver) resolveDepsAndCfg() error {
 	r.selectApiSuppliers()
 
 	// Determine which packages have API requirements.
-	r.calcApiReqs()
+	if err := r.calcApiReqs(); err != nil {
+		return err
+	}
 
 	// Satisfy API requirements.
 	if err := r.resolveApiDeps(); err != nil {
@@ -989,7 +1031,7 @@ func joinExprs(expr1 string, expr2 string) string {
 // corresponding dependecy to each package which requires the API.
 func (r *Resolver) resolveApiDeps() error {
 	for _, rpkg := range r.pkgMap {
-		for apiString, _ := range rpkg.reqApiMap {
+		for apiString, reqApi := range rpkg.reqApiMap {
 			// Determine which package satisfies this API requirement.
 			api, ok := r.apis[apiString]
 
@@ -997,7 +1039,7 @@ func (r *Resolver) resolveApiDeps() error {
 			// hard dependency to the package.  Otherwise, record an
 			// unsatisfied API requirement with an empty API struct.
 			if ok && api.rpkg != nil {
-				rpkg.AddDep(api.rpkg, apiString, api.expr) // XXX REQ
+				rpkg.AddApiDep(api.rpkg, apiString, reqApi.exprMap.Exprs())
 			} else if !ok {
 				r.apis[apiString] = resolveApi{}
 			}

@@ -67,13 +67,18 @@ func (n *Node) String() string {
 	s := ""
 
 	if n.Left != nil {
-		s += n.Left.String() + " "
+		s += n.Left.String()
 	}
 
-	s += n.Data
+	if n.Left != nil && n.Right != nil {
+		// Pad binary operators with spaces on both sides.
+		s += " " + n.Data + " "
+	} else {
+		s += n.Data
+	}
 
 	if n.Right != nil {
-		s += " " + n.Right.String()
+		s += n.Right.String()
 	}
 
 	return s
@@ -111,6 +116,10 @@ func (s nodeSorter) Less(i, j int) bool {
 
 func SortNodes(nodes []*Node) {
 	sort.Sort(nodeSorter{nodes})
+}
+
+func NodesEqual(a *Node, b *Node) bool {
+	return a.String() == b.String()
 }
 
 // Searches a tokenized expression.  The location of the first token that
@@ -498,6 +507,11 @@ func evalEquals(
 //
 // @return bool                 Whether the expression evaluates to true.
 func Eval(expr *Node, settings map[string]string) (bool, error) {
+	// The null expression is true by default.
+	if expr == nil {
+		return true, nil
+	}
+
 	switch expr.Code {
 	case PARSE_NOT:
 		r, err := Eval(expr.Right, settings)

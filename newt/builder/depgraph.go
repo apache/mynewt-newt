@@ -22,8 +22,9 @@ package builder
 import (
 	"bytes"
 	"fmt"
-	"strings"
+	"sort"
 
+	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/resolve"
 )
 
@@ -113,18 +114,32 @@ func revdepGraph(rs *resolve.ResolveSet) (DepGraph, error) {
 func depString(dep *resolve.ResolveDep) string {
 	s := fmt.Sprintf("%s", dep.Rpkg.Lpkg.FullName())
 
-	var reasons []string
-	if dep.Api != "" {
-		reasons = append(reasons, fmt.Sprintf("api:%s", dep.Api))
+	type ApiPair struct {
+		api   string
+		exprs []*parse.Node
 	}
 
-	expr := dep.CombinedExpr()
-	if expr != nil {
-		reasons = append(reasons, fmt.Sprintf("syscfg:%s", expr.String()))
-	}
+	if len(dep.ApiExprMap) > 0 {
+		var apis []string
+		for api, _ := range dep.ApiExprMap {
+			apis = append(apis, api)
+		}
+		sort.Strings(apis)
 
-	if len(reasons) > 0 {
-		s += fmt.Sprintf("(%s)", strings.Join(reasons, " "))
+		for _, api := range apis {
+			em := dep.ApiExprMap[api]
+			s += "(api:" + api
+			dis := parse.Disjunction(em.Exprs()).String()
+			if dis != "" {
+				s += ",syscfg:" + dis
+			}
+			s += ")"
+		}
+	} else {
+		dis := parse.Disjunction(dep.ExprMap.Exprs()).String()
+		if dis != "" {
+			s += "(syscfg:" + dis + ")"
+		}
 	}
 
 	return s
