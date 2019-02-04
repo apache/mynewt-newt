@@ -10,6 +10,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cast"
 
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
@@ -127,6 +128,12 @@ func readLineage(path string) ([]FileEntry, error) {
 	// Recursively process imports, accumulating file info in `entries`.
 	var iter func(path string, parent *util.FileInfo) error
 	iter = func(path string, parent *util.FileInfo) error {
+		// Relative paths are relative to the project base.
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(interfaces.GetProject().Path(), path)
+		}
+
+		// Only operate on absolute paths to ensure each file has a unique ID.
 		absPath, err := filepath.Abs(path)
 		if err != nil {
 			return parent.ErrTree(err)
