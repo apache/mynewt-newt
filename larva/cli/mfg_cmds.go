@@ -332,7 +332,6 @@ func runMfgHashableCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		LarvaUsage(nil, err)
 	}
-
 	// Zero-out hash so that the hash can be recalculated.
 	m.Meta.ClearHash()
 
@@ -578,7 +577,7 @@ func AddMfgCommands(cmd *cobra.Command) {
 
 	hashableCmd := &cobra.Command{
 		Use:   "hashable <mfgimage-dir>",
-		Short: "Replaces an outdated mfgimage hash with an accurate one",
+		Short: "Extracts the hashable / signable content of an mfgimage",
 		Run:   runMfgHashableCmd,
 	}
 	hashableCmd.PersistentFlags().StringVarP(&OptOutFilename, "outfile", "o",
