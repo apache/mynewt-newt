@@ -55,6 +55,7 @@
 package syscfg
 
 import (
+	"encoding/json"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -72,6 +73,7 @@ const (
 
 var cfgRestrictionNameCodeMap = map[string]CfgRestrictionCode{
 	"$notnull": CFG_RESTRICTION_CODE_NOTNULL,
+	"expr":     CFG_RESTRICTION_CODE_EXPR,
 }
 
 type CfgRestriction struct {
@@ -80,6 +82,48 @@ type CfgRestriction struct {
 
 	// Only used if Code is CFG_RESTRICTION_CODE_EXPR
 	Expr string
+}
+
+func (c CfgRestrictionCode) String() string {
+	for s, code := range cfgRestrictionNameCodeMap {
+		if code == c {
+			return s
+		}
+	}
+
+	return "???"
+}
+
+func parseCfgRestrictionCode(s string) (CfgRestrictionCode, error) {
+	if c, ok := cfgRestrictionNameCodeMap[s]; ok {
+		return c, nil
+	}
+
+	return 0, util.FmtNewtError("cannot parse cfg restriction code \"%s\"", s)
+}
+
+func (c CfgRestrictionCode) MarshalJSON() ([]byte, error) {
+	s := c.String()
+	j, err := json.Marshal(s)
+	if err != nil {
+		return nil, util.ChildNewtError(err)
+	}
+	return j, nil
+}
+
+func (c *CfgRestrictionCode) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	x, err := parseCfgRestrictionCode(s)
+	if err != nil {
+		return err
+	}
+
+	*c = x
+	return nil
 }
 
 func readRestriction(baseSetting string, text string) (CfgRestriction, error) {
