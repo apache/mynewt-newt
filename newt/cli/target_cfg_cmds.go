@@ -33,6 +33,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/newt/builder"
+	"mynewt.apache.org/newt/newt/dump"
 	"mynewt.apache.org/newt/newt/logcfg"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -727,6 +728,32 @@ func targetConfigInitCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+func targetDumpCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for _, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		rpt, err := dump.NewReport(b)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+		s, err := rpt.JSON()
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, s+"\n")
+	}
+}
+
 func targetCfgCmdAll() []*cobra.Command {
 	cmds := []*cobra.Command{}
 
@@ -903,6 +930,17 @@ func targetCfgCmdAll() []*cobra.Command {
 
 	sysdownCmd.AddCommand(sysdownBriefCmd)
 	AddTabCompleteFn(sysdownBriefCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	dumpCmd := &cobra.Command{
+		Use:   "dump <target> [target...]",
+		Short: "Dump a target's intermediate form in JSON",
+		Run:   targetDumpCmd,
+	}
+
+	cmds = append(cmds, dumpCmd)
+	AddTabCompleteFn(dumpCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 

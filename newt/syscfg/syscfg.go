@@ -63,18 +63,19 @@ const (
 	CFG_SETTING_STATE_DEFUNCT
 )
 
+type CfgFlashConflictCode int
+
+const (
+	CFG_FLASH_CONFLICT_CODE_BAD_NAME CfgFlashConflictCode = iota
+	CFG_FLASH_CONFLICT_CODE_NOT_UNIQUE
+)
+
 const SYSCFG_PRIO_ANY = "any"
 
 // Reserve last 16 priorities for the system (sanity, idle).
 const SYSCFG_TASK_PRIO_MAX = 0xef
 
 var cfgRefRe = regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
-
-var cfgSettingNameTypeMap = map[string]CfgSettingType{
-	"raw":           CFG_SETTING_TYPE_RAW,
-	"task_priority": CFG_SETTING_TYPE_TASK_PRIO,
-	"flash_owner":   CFG_SETTING_TYPE_FLASH_OWNER,
-}
 
 type CfgPoint struct {
 	Value  string
@@ -104,13 +105,6 @@ type CfgPriority struct {
 	PackageSrc  *pkg.LocalPackage // package overriding setting value.
 }
 
-type CfgFlashConflictCode int
-
-const (
-	CFG_FLASH_CONFLICT_CODE_BAD_NAME CfgFlashConflictCode = iota
-	CFG_FLASH_CONFLICT_CODE_NOT_UNIQUE
-)
-
 type CfgFlashConflict struct {
 	SettingNames []string
 	Code         CfgFlashConflictCode
@@ -123,7 +117,7 @@ type Cfg struct {
 	PackageRestrictions map[string][]CfgRestriction
 
 	//// Errors
-	// Overrides of undefined settings.
+	// Overrides of undefined settings ([setting-name] => ...).
 	Orphans map[string][]CfgPoint
 
 	// Two packages of equal priority override a setting with different
