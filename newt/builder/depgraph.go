@@ -28,60 +28,58 @@ import (
 	"mynewt.apache.org/newt/newt/resolve"
 )
 
-// Records presence of each dependency.
-type rmap map[*resolve.ResolveDep]struct{}
-
-// Type used internally while building a proper dependency graph.
-type graphMap map[*resolve.ResolvePackage]rmap
+type DepEntry struct {
+	PkgName string
+	// Expressions that enable the dependency.
+	DepExprs parse.ExprSet
+	// Required APIs and their enabling expressions.
+	ReqApiExprs parse.ExprMap
+	// Satisfied APIs and their enabling expressions.
+	ApiExprs parse.ExprMap
+}
 
 // Key=parent, Value=slice of children
 // For normal dependency graph:  parent=depender, children=dependees.
 // For reverse dependency graph: parent=dependee, children=dependers.
-type DepGraph map[*resolve.ResolvePackage][]*resolve.ResolveDep
+type DepGraph map[string][]DepEntry
 
-func graphMapEnsure(gm graphMap, p *resolve.ResolvePackage) rmap {
-	if gm[p] == nil {
-		gm[p] = rmap{}
-	}
-
-	return gm[p]
+type depEntrySorter struct {
+	entries []DepEntry
 }
 
-func graphMapAdd(gm graphMap, p *resolve.ResolvePackage, c *resolve.ResolveDep) {
-	dstGraph := graphMapEnsure(gm, p)
-	if dstGraph == nil {
-		dstGraph = map[*resolve.ResolveDep]struct{}{}
-	}
-	dstGraph[c] = struct{}{}
-
-	gm[p] = dstGraph
+func (s depEntrySorter) Len() int {
+	return len(s.entries)
 }
-
-func graphMapToDepGraph(gm graphMap) DepGraph {
-	dg := DepGraph{}
-
-	for parent, childMap := range gm {
-		dg[parent] = []*resolve.ResolveDep{}
-		for child, _ := range childMap {
-			dg[parent] = append(dg[parent], child)
-		}
-		resolve.SortResolveDeps(dg[parent])
-	}
-
-	return dg
+func (s depEntrySorter) Swap(i, j int) {
+	s.entries[i], s.entries[j] = s.entries[j], s.entries[i]
+}
+func (s depEntrySorter) Less(i, j int) bool {
+	return s.entries[i].PkgName < s.entries[j].PkgName
+}
+func SortDepEntries(entries []DepEntry) {
+	sorter := depEntrySorter{entries}
+	sort.Sort(sorter)
 }
 
 func depGraph(rs *resolve.ResolveSet) (DepGraph, error) {
 	graph := DepGraph{}
 
 	for _, parent := range rs.Rpkgs {
-		graph[parent] = []*resolve.ResolveDep{}
+		pname := parent.Lpkg.FullName()
+		graph[pname] = make([]DepEntry, 0, len(parent.Deps))
 
 		for _, dep := range parent.Deps {
-			graph[parent] = append(graph[parent], dep)
+			child := dep.Rpkg
+
+			graph[pname] = append(graph[pname], DepEntry{
+				PkgName:     child.Lpkg.FullName(),
+				DepExprs:    dep.Exprs,
+				ReqApiExprs: dep.ApiExprMap,
+				ApiExprs:    child.Apis,
+			})
 		}
 
-		resolve.SortResolveDeps(graph[parent])
+		SortDepEntries(graph[pname])
 	}
 
 	return graph, nil
@@ -93,50 +91,65 @@ func revdepGraph(rs *resolve.ResolveSet) (DepGraph, error) {
 		return nil, err
 	}
 
-	revGm := graphMap{}
-	for parent, children := range graph {
-		// Make sure each node exists in the reverse graph.  This step is
-		// necessary for packages that have no dependers.
-		graphMapEnsure(revGm, parent)
+	rgraph := DepGraph{}
+	for parent, entries := range graph {
+		// Ensure parent is present in graph even if no one depends on it.
+		if rgraph[parent] == nil {
+			rgraph[parent] = []DepEntry{}
+		}
 
-		// Add nodes for packages with with dependers.
-		for _, child := range children {
-			rParent := child.Rpkg
-			rChild := *child
-			rChild.Rpkg = parent
-			graphMapAdd(revGm, rParent, &rChild)
+		// Reverse the dependency relationship for each child and add to the
+		// graph.
+		for _, entry := range entries {
+			rgraph[entry.PkgName] = append(rgraph[entry.PkgName], DepEntry{
+				PkgName:     parent,
+				DepExprs:    entry.DepExprs,
+				ReqApiExprs: entry.ReqApiExprs,
+				ApiExprs:    entry.ApiExprs,
+			})
 		}
 	}
 
-	return graphMapToDepGraph(revGm), nil
+	for _, entries := range rgraph {
+		SortDepEntries(entries)
+	}
+
+	return rgraph, nil
 }
 
-func depString(dep *resolve.ResolveDep) string {
-	s := fmt.Sprintf("%s", dep.Rpkg.Lpkg.FullName())
+func depString(entry DepEntry) string {
+	s := fmt.Sprintf("%s", entry.PkgName)
 
 	type ApiPair struct {
 		api   string
 		exprs []*parse.Node
 	}
 
-	if len(dep.ApiExprMap) > 0 {
-		var apis []string
-		for api, _ := range dep.ApiExprMap {
+	if len(entry.ReqApiExprs) > 0 {
+		apis := make([]string, 0, len(entry.ReqApiExprs))
+		for api, _ := range entry.ReqApiExprs {
 			apis = append(apis, api)
 		}
 		sort.Strings(apis)
 
 		for _, api := range apis {
-			em := dep.ApiExprMap[api]
+			reqes := entry.ReqApiExprs[api]
+			reqdis := reqes.Disjunction().String()
+
+			apies := entry.ApiExprs[api]
+			apidis := apies.Disjunction().String()
+
 			s += "(api:" + api
-			dis := parse.Disjunction(em.Exprs()).String()
-			if dis != "" {
-				s += ",syscfg:" + dis
+			if reqdis != "" || apidis != "" {
+				s += ",syscfg:" + reqdis
+				if apidis != "" {
+					s += ";" + apidis
+				}
 			}
 			s += ")"
 		}
 	} else {
-		dis := parse.Disjunction(dep.ExprMap.Exprs()).String()
+		dis := entry.DepExprs.Disjunction().String()
 		if dis != "" {
 			s += "(syscfg:" + dis + ")"
 		}
@@ -146,19 +159,18 @@ func depString(dep *resolve.ResolveDep) string {
 }
 
 func DepGraphText(graph DepGraph) string {
-	parents := make([]*resolve.ResolvePackage, 0, len(graph))
-	for lpkg, _ := range graph {
-		parents = append(parents, lpkg)
+	parents := make([]string, 0, len(graph))
+	for pname, _ := range graph {
+		parents = append(parents, pname)
 	}
-	parents = resolve.SortResolvePkgs(parents)
+	sort.Strings(parents)
 
 	buffer := bytes.NewBufferString("")
 
 	fmt.Fprintf(buffer, "Dependency graph (depender --> [dependees]):")
-	for _, parent := range parents {
-		children := resolve.SortResolveDeps(graph[parent])
-		fmt.Fprintf(buffer, "\n    * %s --> [", parent.Lpkg.FullName())
-		for i, child := range children {
+	for _, pname := range parents {
+		fmt.Fprintf(buffer, "\n    * %s --> [", pname)
+		for i, child := range graph[pname] {
 			if i != 0 {
 				fmt.Fprintf(buffer, " ")
 			}
@@ -171,19 +183,18 @@ func DepGraphText(graph DepGraph) string {
 }
 
 func RevdepGraphText(graph DepGraph) string {
-	parents := make([]*resolve.ResolvePackage, 0, len(graph))
-	for lpkg, _ := range graph {
-		parents = append(parents, lpkg)
+	parents := make([]string, 0, len(graph))
+	for pname, _ := range graph {
+		parents = append(parents, pname)
 	}
-	parents = resolve.SortResolvePkgs(parents)
+	sort.Strings(parents)
 
 	buffer := bytes.NewBufferString("")
 
 	fmt.Fprintf(buffer, "Reverse dependency graph (dependee <-- [dependers]):")
-	for _, parent := range parents {
-		children := resolve.SortResolveDeps(graph[parent])
-		fmt.Fprintf(buffer, "\n    * %s <-- [", parent.Lpkg.FullName())
-		for i, child := range children {
+	for _, pname := range parents {
+		fmt.Fprintf(buffer, "\n    * %s <-- [", pname)
+		for i, child := range graph[pname] {
 			if i != 0 {
 				fmt.Fprintf(buffer, " ")
 			}
@@ -210,10 +221,11 @@ func FilterDepGraph(dg DepGraph, parents []*resolve.ResolvePackage) (
 
 	var missing []*resolve.ResolvePackage
 	for _, p := range parents {
-		if dg[p] == nil {
+		pname := p.Lpkg.FullName()
+		if dg[pname] == nil {
 			missing = append(missing, p)
 		} else {
-			newDg[p] = dg[p]
+			newDg[pname] = dg[pname]
 		}
 	}
 

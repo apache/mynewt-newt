@@ -39,44 +39,9 @@ func (s rpkgSorter) Less(i, j int) bool {
 	return s.pkgs[i].Lpkg.FullName() < s.pkgs[j].Lpkg.FullName()
 }
 
-func SortResolvePkgs(pkgs []*ResolvePackage) []*ResolvePackage {
-	sorter := rpkgSorter{
-		pkgs: make([]*ResolvePackage, 0, len(pkgs)),
-	}
-
-	for _, p := range pkgs {
-		sorter.pkgs = append(sorter.pkgs, p)
-	}
-
+func SortResolvePkgs(pkgs []*ResolvePackage) {
+	sorter := rpkgSorter{pkgs}
 	sort.Sort(sorter)
-	return sorter.pkgs
-}
-
-type rdepSorter struct {
-	deps []*ResolveDep
-}
-
-func (s rdepSorter) Len() int {
-	return len(s.deps)
-}
-func (s rdepSorter) Swap(i, j int) {
-	s.deps[i], s.deps[j] = s.deps[j], s.deps[i]
-}
-
-func (s rdepSorter) Less(i, j int) bool {
-	return s.deps[i].Rpkg.Lpkg.FullName() < s.deps[j].Rpkg.Lpkg.FullName()
-}
-func SortResolveDeps(deps []*ResolveDep) []*ResolveDep {
-	sorter := rdepSorter{
-		deps: make([]*ResolveDep, 0, len(deps)),
-	}
-
-	for _, d := range deps {
-		sorter.deps = append(sorter.deps, d)
-	}
-
-	sort.Sort(sorter)
-	return sorter.deps
 }
 
 func RpkgSliceToLpkgSlice(rpkgs []*ResolvePackage) []*pkg.LocalPackage {
