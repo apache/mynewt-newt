@@ -31,7 +31,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/artifact/flash"
 	"mynewt.apache.org/newt/artifact/sec"

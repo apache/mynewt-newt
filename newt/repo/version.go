@@ -24,7 +24,7 @@ package repo
 import (
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/newtutil"

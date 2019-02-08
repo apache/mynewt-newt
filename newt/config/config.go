@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/interfaces"

@@ -217,8 +217,8 @@ For details, see:
 
 This product bundles logrus, which is available under the MIT license.  For
 details, see:
-    * newt/vendor/github.com/Sirupsen/logrus/LICENSE
-    * newtmgr/vendor/github.com/Sirupsen/logrus/LICENSE
+    * newt/vendor/github.com/sirupsen/logrus/LICENSE
+    * newtmgr/vendor/github.com/sirupsen/logrus/LICENSE
 
 This product bundles Cast, which is available under the MIT license.  For
 details, see:
