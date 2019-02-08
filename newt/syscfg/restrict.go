@@ -57,7 +57,7 @@ package syscfg
 import (
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/util"

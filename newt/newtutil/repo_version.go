@@ -28,7 +28,7 @@ import (
 
 	"mynewt.apache.org/newt/util"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (

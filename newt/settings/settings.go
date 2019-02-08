@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os/user"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/ycfg"

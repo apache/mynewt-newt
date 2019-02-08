@@ -24,7 +24,7 @@ import (
 	"os"
 	"runtime"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/newt/cli"
