@@ -22,6 +22,7 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -749,4 +750,14 @@ func OneTimeWarning(text string, args ...interface{}) {
 		body := fmt.Sprintf(text, args...)
 		StatusMessage(VERBOSITY_QUIET, "WARNING: %s\n", body)
 	}
+}
+
+func MarshalJSONStringer(sr fmt.Stringer) ([]byte, error) {
+	s := sr.String()
+	j, err := json.Marshal(s)
+	if err != nil {
+		return nil, ChildNewtError(err)
+	}
+
+	return j, nil
 }

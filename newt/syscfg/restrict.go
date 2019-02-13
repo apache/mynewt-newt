@@ -103,12 +103,7 @@ func parseCfgRestrictionCode(s string) (CfgRestrictionCode, error) {
 }
 
 func (c CfgRestrictionCode) MarshalJSON() ([]byte, error) {
-	s := c.String()
-	j, err := json.Marshal(s)
-	if err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-	return j, nil
+	return util.MarshalJSONStringer(c)
 }
 
 func (c *CfgRestrictionCode) UnmarshalJSON(b []byte) error {
