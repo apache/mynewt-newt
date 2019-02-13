@@ -60,13 +60,7 @@ func CfgSettingTypeFromString(s string) (CfgSettingType, error) {
 }
 
 func (t CfgSettingType) MarshalJSON() ([]byte, error) {
-	s := t.String()
-	j, err := json.Marshal(s)
-	if err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	return j, nil
+	return util.MarshalJSONStringer(t)
 }
 
 func (t *CfgSettingType) UnmarshalJSON(b []byte) error {
@@ -102,13 +96,7 @@ func CfgSettingStateFromString(s string) (CfgSettingState, error) {
 }
 
 func (t CfgSettingState) MarshalJSON() ([]byte, error) {
-	s := t.String()
-	j, err := json.Marshal(s)
-	if err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	return j, nil
+	return util.MarshalJSONStringer(t)
 }
 
 func (t *CfgSettingState) UnmarshalJSON(b []byte) error {
@@ -144,13 +132,7 @@ func CfgFlashConflictCodeFromString(s string) (CfgFlashConflictCode, error) {
 }
 
 func (t CfgFlashConflictCode) MarshalJSON() ([]byte, error) {
-	s := t.String()
-	j, err := json.Marshal(s)
-	if err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	return j, nil
+	return util.MarshalJSONStringer(t)
 }
 
 func (t *CfgFlashConflictCode) UnmarshalJSON(b []byte) error {
