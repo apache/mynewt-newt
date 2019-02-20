@@ -17,7 +17,7 @@
  * under the License.
  */
 
-// Currently, two forms of restrictions are supported:
+// Currently, three forms of restrictions are supported:
 // 1. "$notnull"
 // 2. expression
 //
@@ -57,6 +57,7 @@ package syscfg
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -69,11 +70,13 @@ type CfgRestrictionCode int
 const (
 	CFG_RESTRICTION_CODE_NOTNULL = iota
 	CFG_RESTRICTION_CODE_EXPR
+	CFG_RESTRICTION_CODE_CHOICE
 )
 
 var cfgRestrictionNameCodeMap = map[string]CfgRestrictionCode{
 	"$notnull": CFG_RESTRICTION_CODE_NOTNULL,
 	"expr":     CFG_RESTRICTION_CODE_EXPR,
+	"choice":   CFG_RESTRICTION_CODE_CHOICE,
 }
 
 type CfgRestriction struct {
@@ -193,6 +196,8 @@ func (cfg *Cfg) settingViolationText(entry CfgEntry, r CfgRestriction) string {
 	prefix := fmt.Sprintf("Setting %s(%s) ", entry.Name, entry.Value)
 	if r.Code == CFG_RESTRICTION_CODE_NOTNULL {
 		return prefix + "must not be null"
+	} else if r.Code == CFG_RESTRICTION_CODE_CHOICE {
+		return prefix + "must be one of defined choices (see definition)"
 	} else {
 		return prefix + "requires: " + r.Expr
 	}
@@ -229,6 +234,19 @@ func (cfg *Cfg) restrictionMet(
 	switch r.Code {
 	case CFG_RESTRICTION_CODE_NOTNULL:
 		return baseEntry.Value != ""
+
+	case CFG_RESTRICTION_CODE_CHOICE:
+		if baseEntry.Value == "" {
+			// Assume empty value a valid choice (use $notnull if need otherwise)
+			return true
+		}
+		value := strings.ToLower(baseEntry.Value)
+		for _, choice := range baseEntry.ValidChoices {
+			if strings.ToLower(choice) == value {
+				return true
+			}
+		}
+		return false
 
 	case CFG_RESTRICTION_CODE_EXPR:
 		var expr string

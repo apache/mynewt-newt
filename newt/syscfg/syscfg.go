@@ -76,6 +76,7 @@ const SYSCFG_PRIO_ANY = "any"
 const SYSCFG_TASK_PRIO_MAX = 0xef
 
 var cfgRefRe = regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
+var cfgChoiceValRe = regexp.MustCompile("^[A-Za-z0-9_]+$")
 
 type CfgPoint struct {
 	Value  string
@@ -94,6 +95,7 @@ type CfgEntry struct {
 	Description  string
 	SettingType  CfgSettingType
 	Restrictions []CfgRestriction
+	ValidChoices []string
 	PackageDef   *pkg.LocalPackage
 	History      []CfgPoint
 	State        CfgSettingState
@@ -463,6 +465,36 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 			return entry,
 				util.PreNewtError(err, "error parsing setting %s", name)
 		}
+		entry.Restrictions = append(entry.Restrictions, r)
+	}
+
+	if vals["choices"] != nil {
+		choices := cast.ToStringSlice(vals["choices"])
+		entry.ValidChoices = choices
+
+		sort.Slice(choices, func(a, b int) bool {
+			return strings.ToLower(choices[a]) < strings.ToLower(choices[b])
+		})
+
+		for i, choice := range choices {
+			if !cfgChoiceValRe.MatchString(choice) {
+				return entry, util.FmtNewtError(
+					"setting %s has invalid choice defined (%s) - " +
+						"only letters, numbers and underscore are allowed", name, choice)
+			}
+
+			if i > 0 && strings.ToLower(choices[i - 1]) == strings.ToLower(choice) {
+				return entry, util.FmtNewtError(
+					"setting %s has duplicated choice defined ('%s' and '%s')",
+					name, choice, choices[i - 1])
+			}
+		}
+
+		r := CfgRestriction{
+			BaseSetting: name,
+			Code: CFG_RESTRICTION_CODE_CHOICE,
+		}
+
 		entry.Restrictions = append(entry.Restrictions, r)
 	}
 
@@ -1232,7 +1264,8 @@ func writeCheckMacros(w io.Writer) {
  * attempt to use these macros without including this header will result in a
  * compiler error.
  */
-#define MYNEWT_VAL(x)                           MYNEWT_VAL_ ## x
+#define MYNEWT_VAL(_name)                       MYNEWT_VAL_ ## _name
+#define MYNEWT_VAL_CHOICE(_name, _val)          MYNEWT_VAL_ ## _name ## __ ## _val
 `
 	fmt.Fprintf(w, "%s\n", s)
 }
@@ -1257,6 +1290,24 @@ func writeDefine(key string, value string, w io.Writer) {
 		fmt.Fprintf(w, "#define %s (%s)\n", key, value)
 		fmt.Fprintf(w, "#endif\n")
 	}
+}
+
+func writeChoiceDefine(key string, value string, choices []string, w io.Writer) {
+	parentVal := ""
+	value = strings.ToLower(value)
+
+	for _, choice := range choices {
+		definedVal := 0
+		if value == strings.ToLower(choice) {
+			definedVal = 1
+			parentVal = "1"
+		}
+		fmt.Fprintf(w, "#ifndef %s__%s\n", key, choice)
+		fmt.Fprintf(w, "#define %s__%s (%d)\n", key, choice, definedVal)
+		fmt.Fprintf(w, "#endif\n")
+	}
+
+	writeDefine(key, parentVal, w)
 }
 
 func EntriesByPkg(cfg Cfg) map[string][]CfgEntry {
@@ -1293,7 +1344,11 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 		}
 
 		writeComment(entry, w)
-		writeDefine(settingName(n), entry.Value, w)
+		if entry.ValidChoices != nil {
+			writeChoiceDefine(settingName(n), entry.Value, entry.ValidChoices, w)
+		} else {
+			writeDefine(settingName(n), entry.Value, w)
+		}
 	}
 }
 
