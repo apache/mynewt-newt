@@ -262,9 +262,9 @@ func Init(logLevel log.Level, logFile string, verbosity int) error {
 	return nil
 }
 
-// Escapes special characters for Windows builds.
+// Escapes special characters for Windows builds (not in an MSYS environment).
 func fixupCmdArgs(args []string) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" && os.Getenv("MSYSTEM") == "" {
 		for i, _ := range args {
 			args[i] = strings.Replace(args[i], "{", "\\{", -1)
 			args[i] = strings.Replace(args[i], "}", "\\}", -1)
