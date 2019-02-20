@@ -76,6 +76,7 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	env = append(env, fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()))
 	env = append(env, fmt.Sprintf("BSP_PATH=%s", bspPath))
 	env = append(env, fmt.Sprintf("BIN_BASENAME=%s", binBaseName))
+	env = append(env, fmt.Sprintf("BIN_ROOT=%s", BinRoot()))
 
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
@@ -143,6 +144,7 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 			flashTargetArea))
 	}
 	envSettings["FLASH_OFFSET"] = "0x" + strconv.FormatInt(int64(tgtArea.Offset), 16)
+	envSettings["FLASH_AREA_SIZE"] = "0x" + strconv.FormatInt(int64(tgtArea.Size), 16)
 
 	// Convert the binary path from absolute to relative.  This is required for
 	// compatibility with unix-in-windows environemnts (e.g., cygwin).
