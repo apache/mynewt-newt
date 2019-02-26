@@ -468,6 +468,11 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 		entry.Restrictions = append(entry.Restrictions, r)
 	}
 
+	if vals["choices"] != nil && vals["range"] != nil {
+		return entry, util.FmtNewtError(
+			"setting %s uses both choice and range restrictions", name)
+	}
+
 	if vals["choices"] != nil {
 		choices := cast.ToStringSlice(vals["choices"])
 		entry.ValidChoices = choices
@@ -493,6 +498,16 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 		r := CfgRestriction{
 			BaseSetting: name,
 			Code: CFG_RESTRICTION_CODE_CHOICE,
+		}
+
+		entry.Restrictions = append(entry.Restrictions, r)
+	}
+
+	if vals["range"] != nil {
+		r, err := createRangeRestriction(name, stringValue(vals["range"]))
+		if err != nil {
+			return entry,
+				util.PreNewtError(err, "error parsing setting %s", name)
 		}
 
 		entry.Restrictions = append(entry.Restrictions, r)
