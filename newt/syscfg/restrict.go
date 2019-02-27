@@ -158,7 +158,7 @@ func translateShorthandExpr(expr string, baseSetting string) string {
 	}
 
 	if ifi == -1 {
-		if parse.FindBinaryToken(tokens) == -1 {
+		if parse.FindBinaryToken(tokens) == -1 || len(baseSetting) > 0 {
 			// [!]<req-setting>
 			return fmt.Sprintf("(%s) || !%s", expr, baseSetting)
 		} else {
