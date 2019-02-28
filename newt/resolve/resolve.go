@@ -233,6 +233,13 @@ func (rpkg *ResolvePackage) AddDep(
 func (rpkg *ResolvePackage) AddApiDep(
 	depPkg *ResolvePackage, api string, exprs []*parse.Node) {
 
+	// Satisfy the API dependency.
+	rpkg.reqApiMap[api] = resolveReqApi{
+		satisfied: true,
+		exprs:     parse.NewExprSet(exprs),
+	}
+
+	// Add a reverse dependency to the API-supplier.
 	dep := rpkg.Deps[depPkg]
 	if dep == nil {
 		dep = &ResolveDep{
@@ -240,7 +247,6 @@ func (rpkg *ResolvePackage) AddApiDep(
 		}
 		rpkg.Deps[depPkg] = dep
 	}
-
 	if dep.ApiExprMap == nil {
 		dep.ApiExprMap = parse.ExprMap{}
 	}
