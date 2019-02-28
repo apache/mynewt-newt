@@ -9,6 +9,16 @@ type ExprSet map[string]*Node
 // ExprMap is a collection of named expression sets.
 type ExprMap map[string]ExprSet
 
+func NewExprSet(exprs []*Node) ExprSet {
+	if len(exprs) == 0 {
+		return nil
+	}
+
+	es := make(ExprSet, len(exprs))
+	es.Add(exprs)
+	return es
+}
+
 // Exprs returns a slice of all expressions contained in the expression set.
 // The resulting slice is sorted.
 func (es ExprSet) Exprs() []*Node {
