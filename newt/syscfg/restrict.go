@@ -17,7 +17,7 @@
  * under the License.
  */
 
-// Currently, three forms of restrictions are supported:
+// Currently, two forms of restrictions are supported:
 // 1. "$notnull"
 // 2. expression
 //
