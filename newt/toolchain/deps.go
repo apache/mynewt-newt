@@ -21,6 +21,7 @@ package toolchain
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -32,18 +33,25 @@ import (
 
 type DepTracker struct {
 	// Most recent .o modification time.
-	MostRecent time.Time
+	MostRecentName string
+	MostRecentTime time.Time
 
 	compiler *Compiler
 }
 
 func NewDepTracker(c *Compiler) DepTracker {
 	tracker := DepTracker{
-		MostRecent: time.Unix(0, 0),
-		compiler:   c,
+		MostRecentName: "???",
+		MostRecentTime: time.Unix(0, 0),
+		compiler:       c,
 	}
 
 	return tracker
+}
+
+func (d *DepTracker) SetMostRecent(name string, time time.Time) {
+	d.MostRecentName = name
+	d.MostRecentTime = time
 }
 
 // @return string               The name of the dependent file (i.e., the first
@@ -116,8 +124,8 @@ func (tracker *DepTracker) ProcessFileTime(file string) error {
 		return err
 	}
 
-	if modTime.After(tracker.MostRecent) {
-		tracker.MostRecent = modTime
+	if modTime.After(tracker.MostRecentTime) {
+		tracker.SetMostRecent(file, modTime)
 	}
 
 	return nil
@@ -147,6 +155,30 @@ func commandHasChanged(dstFile string, cmd []string) bool {
 	return changed
 }
 
+func logRebuildReqd(dest string, reason string) {
+	util.StatusMessage(util.VERBOSITY_VERBOSE,
+		"%s - rebuild required; %s\n", dest, reason)
+}
+
+func logRebuildReqdCmdChanged(dest string) {
+	logRebuildReqd(dest, "different command")
+}
+
+func logRebuildReqdModTime(dest string, src string) {
+	logRebuildReqd(dest, fmt.Sprintf(
+		"source (%s) newer than destination", src))
+}
+
+func logRebuildReqdNoDep(dest string, dep string) {
+	logRebuildReqd(dest, fmt.Sprintf(
+		"dependency \"%s\" has been deleted", dep))
+}
+
+func logRebuildReqdNewDep(dest string, dep string) {
+	logRebuildReqd(dest, fmt.Sprintf(
+		"destination older than dependency (%s)", dep))
+}
+
 // Determines if the specified C or assembly file needs to be built.  A compile
 // is required if any of the following is true:
 //     * The destination object file does not exist.
@@ -169,8 +201,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	}
 
 	if commandHasChanged(objPath, cmd) {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; "+
-			"different command\n", srcFile)
+		logRebuildReqdCmdChanged(srcFile)
 		err := tracker.compiler.GenDepsForFile(srcFile)
 		if err != nil {
 			return false, err
@@ -198,8 +229,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	// If the object doesn't exist or is older than the source file, a build is
 	// required; no need to check dependencies.
 	if srcModTime.After(objModTime) {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; "+
-			"source newer than obj\n", srcFile)
+		logRebuildReqdModTime(objPath, srcFile)
 		return true, nil
 	}
 
@@ -231,9 +261,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 			// the dependency file is out of date, so it needs to be deleted.
 			// We cannot regenerate it now because the source file might be
 			// including a nonexistent header.
-			util.StatusMessage(util.VERBOSITY_VERBOSE,
-				"%s - rebuild required; dependency \"%s\" has been deleted\n",
-				srcFile, dep)
+			logRebuildReqdNoDep(srcFile, dep)
 			os.Remove(depPath)
 			return true, nil
 		} else {
@@ -244,7 +272,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		}
 
 		if depModTime.After(objModTime) {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild required; obj older than dependency (%s)\n", srcFile, dep)
+			logRebuildReqdNewDep(srcFile, dep)
 			return true, nil
 		}
 	}
@@ -266,6 +294,7 @@ func (tracker *DepTracker) ArchiveRequired(archiveFile string,
 	// rebuild is required.
 	cmd := tracker.compiler.CompileArchiveCmd(archiveFile, objFiles)
 	if commandHasChanged(archiveFile, cmd) {
+		logRebuildReqdCmdChanged(archiveFile)
 		return true, nil
 	}
 
@@ -275,44 +304,12 @@ func (tracker *DepTracker) ArchiveRequired(archiveFile string,
 	if err != nil {
 		return false, err
 	}
-	if tracker.MostRecent.After(aModTime) {
+	if tracker.MostRecentTime.After(aModTime) {
+		logRebuildReqdModTime(archiveFile, tracker.MostRecentName)
 		return true, nil
 	}
 
 	// The library is up to date.
-	return false, nil
-}
-
-func (tracker *DepTracker) TrimmedArchiveRequired(dstFile string,
-	srcFile string, elfLib string) (bool, error) {
-
-	// If the .A file doesn't exist or is older than the input file, a rebuild
-	// is required.
-	dstModTime, err := util.FileModificationTime(dstFile)
-	if err != nil {
-		return false, err
-	}
-
-	// If the elf file doesn't exist or is older than any input file,
-	// a rebuild is required.
-	if elfLib != "" {
-		elfDstModTime, err := util.FileModificationTime(elfLib)
-		if err != nil {
-			return false, err
-		}
-
-		if elfDstModTime.After(dstModTime) {
-			return true, nil
-		}
-	}
-	objModTime, err := util.FileModificationTime(srcFile)
-	if err != nil {
-		return false, err
-	}
-
-	if objModTime.After(dstModTime) {
-		return true, nil
-	}
 	return false, nil
 }
 
@@ -334,8 +331,7 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 	// rebuild is required.
 	cmd := tracker.compiler.CompileBinaryCmd(dstFile, options, objFiles, keepSymbols, elfLib)
 	if commandHasChanged(dstFile, cmd) {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - link required; "+
-			"different command\n", dstFile)
+		logRebuildReqdCmdChanged(dstFile)
 		return true, nil
 	}
 
@@ -354,16 +350,14 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 			return false, err
 		}
 		if elfDstModTime.After(dstModTime) {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - link required; "+
-				"old elf file\n", elfLib)
+			logRebuildReqdModTime(dstFile, elfLib)
 			return true, nil
 		}
 	}
 
 	// Check timestamp of each .o file in the project.
-	if tracker.MostRecent.After(dstModTime) {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - link required; "+
-			"source newer than elf\n", dstFile)
+	if tracker.MostRecentTime.After(dstModTime) {
+		logRebuildReqdModTime(dstFile, tracker.MostRecentName)
 		return true, nil
 	}
 
@@ -378,8 +372,7 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 		}
 
 		if objModTime.After(dstModTime) {
-			util.StatusMessage(util.VERBOSITY_VERBOSE, "%s - rebuild "+
-				"required; obj older than dependency (%s)\n", dstFile, obj)
+			logRebuildReqdNewDep(dstFile, obj)
 			return true, nil
 		}
 	}
@@ -408,6 +401,7 @@ func (tracker *DepTracker) RomElfBuildRequired(dstFile string, elfFile string,
 	}
 
 	if elfDstModTime.After(dstModTime) {
+		logRebuildReqdModTime(dstFile, elfFile)
 		return true, nil
 	}
 
@@ -418,6 +412,7 @@ func (tracker *DepTracker) RomElfBuildRequired(dstFile string, elfFile string,
 		}
 
 		if objModTime.After(dstModTime) {
+			logRebuildReqdModTime(dstFile, arch)
 			return true, nil
 		}
 	}

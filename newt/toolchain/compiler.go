@@ -578,7 +578,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	}
 
 	// Tell the dependency tracker that an object file was just rebuilt.
-	c.depTracker.MostRecent = time.Now()
+	c.depTracker.SetMostRecent(objPath, time.Now())
 
 	return nil
 }
