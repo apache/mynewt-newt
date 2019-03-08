@@ -49,9 +49,13 @@ func NewDepTracker(c *Compiler) DepTracker {
 	return tracker
 }
 
-func (d *DepTracker) SetMostRecent(name string, time time.Time) {
+func (d *DepTracker) SetMostRecent(name string, t time.Time) {
 	d.MostRecentName = name
-	d.MostRecentTime = time
+
+	// Truncate sub-second part of timestamp.  Timestamps of generated files
+	// seems to differ among tools.  See
+	// https://github.com/apache/mynewt-newt/pull/276 for details.
+	d.MostRecentTime = time.Unix(t.Unix(), 0)
 }
 
 // @return string               The name of the dependent file (i.e., the first
