@@ -130,7 +130,12 @@ func readLineage(path string) ([]FileEntry, error) {
 	iter = func(path string, parent *util.FileInfo) error {
 		// Relative paths are relative to the project base.
 		if !filepath.IsAbs(path) {
-			path = filepath.Join(interfaces.GetProject().Path(), path)
+			proj := interfaces.GetProject()
+			newPath, err := proj.ResolvePath(proj.Path(), path)
+			if err != nil {
+				return err
+			}
+			path = newPath
 		}
 
 		// Only operate on absolute paths to ensure each file has a unique ID.
