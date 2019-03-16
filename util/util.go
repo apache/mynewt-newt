@@ -502,6 +502,21 @@ func MoveDir(srcDir string, destDir string) error {
 	return nil
 }
 
+func CallInDir(path string, execFunc func() error) error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	os.Chdir(path)
+
+	err = execFunc()
+
+	os.Chdir(wd)
+
+	return err
+}
+
 // Reads each line from the specified text file into an array of strings.  If a
 // line ends with a backslash, it is concatenated with the following line.
 func ReadLines(path string) ([]string, error) {
