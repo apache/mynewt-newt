@@ -162,6 +162,7 @@ func main() {
 	cli.AddTargetCommands(cmd)
 	cli.AddValsCommands(cmd)
 	cli.AddMfgCommands(cmd)
+	cli.AddDocsCommands(cmd)
 
 	/* only pass the first two args to check for complete command */
 	if len(os.Args) > 2 {
