@@ -57,6 +57,10 @@ func MfgTargetImgPath(targetNum int) string {
 	return fmt.Sprintf("%s/image.img", MfgTargetDir(targetNum))
 }
 
+func MfgTargetHexPath(targetNum int) string {
+	return fmt.Sprintf("%s/image.hex", MfgTargetDir(targetNum))
+}
+
 func MfgTargetElfPath(targetNum int) string {
 	return fmt.Sprintf("%s/elf.elf", MfgTargetDir(targetNum))
 }

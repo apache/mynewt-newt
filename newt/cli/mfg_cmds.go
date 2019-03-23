@@ -21,6 +21,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -58,6 +59,8 @@ func mfgCreate(me mfg.MfgEmitter) {
 		NewtUsage(nil, err)
 	}
 
+	sort.Strings(srcPaths)
+	sort.Strings(dstPaths)
 	srcStr := ""
 	dstStr := ""
 

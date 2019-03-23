@@ -13,6 +13,7 @@ type MfgManifestTarget struct {
 	Offset       int    `json:"offset"`
 	BinPath      string `json:"bin_path,omitempty"`
 	ImagePath    string `json:"image_path,omitempty"`
+	HexPath      string `json:"hex_path,omitempty"`
 	ManifestPath string `json:"manifest_path"`
 }
 
