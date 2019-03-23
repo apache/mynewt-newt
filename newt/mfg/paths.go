@@ -34,7 +34,11 @@ func MfgBinDir(mfgPkgName string) string {
 }
 
 func MfgBinPath(mfgPkgName string) string {
-	return MfgBinDir(mfgPkgName) + "/" + mfg.MFG_IMG_FILENAME
+	return MfgBinDir(mfgPkgName) + "/" + mfg.MFG_BIN_IMG_FILENAME
+}
+
+func MfgHexPath(mfgPkgName string) string {
+	return MfgBinDir(mfgPkgName) + "/" + mfg.MFG_HEX_IMG_FILENAME
 }
 
 func MfgManifestPath(mfgPkgName string) string {

@@ -34,7 +34,10 @@ import (
 	"mynewt.apache.org/newt/artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/flashmap"
+	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/target"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -80,10 +83,11 @@ type MfgEmitter struct {
 	Meta    *MfgEmitMeta
 	Keys    []sec.SignKey
 
-	Mfg      mfg.Mfg
-	Device   int
-	FlashMap flashmap.FlashMap
-	BspName  string
+	Mfg         mfg.Mfg
+	Device      int
+	FlashMap    flashmap.FlashMap
+	BspName     string
+	CompilerDir string
 }
 
 // Calculates the source path of a target's binary.  Boot loader targets use
@@ -145,6 +149,16 @@ func newMfgEmitMeta(bm MfgBuildMeta, metaOff int) MfgEmitMeta {
 	}
 }
 
+func resolveCompilerDir(bsp *pkg.BspPackage) (string, error) {
+	proj := project.GetProject()
+	compilerPkg, err := proj.ResolvePackage(bsp.Repo(), bsp.CompilerName)
+	if err != nil {
+		return "", err
+	}
+
+	return compilerPkg.BasePath(), nil
+}
+
 // NewMfgEmitter creates an mfg emitter from an mfg builder.
 func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
 	device int, keys []sec.SignKey) (MfgEmitter, error) {
@@ -157,6 +171,12 @@ func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
 		FlashMap: mb.Bsp.FlashMap,
 		BspName:  mb.Bsp.FullName(),
 	}
+
+	cdir, err := resolveCompilerDir(mb.Bsp)
+	if err != nil {
+		return me, err
+	}
+	me.CompilerDir = cdir
 
 	m, err := mb.Build()
 	if err != nil {
@@ -285,7 +305,8 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		MfgHash:    misc.HashString(hashBytes),
 		Version:    me.Ver.String(),
 		Device:     me.Device,
-		BinPath:    mfg.MFG_IMG_FILENAME,
+		BinPath:    mfg.MFG_BIN_IMG_FILENAME,
+		HexPath:    mfg.MFG_HEX_IMG_FILENAME,
 		Signatures: sigs,
 		FlashAreas: me.FlashMap.SortedAreas(),
 		Bsp:        me.BspName,
@@ -355,6 +376,16 @@ func (me *MfgEmitter) Emit() ([]string, []string, error) {
 		return nil, nil, err
 	}
 
+	// Write mfgimg.hex
+	c, err := toolchain.NewCompiler(me.CompilerDir, "", "optimized")
+	if err != nil {
+		return nil, nil, err
+	}
+	hexPath := MfgHexPath(me.Name)
+	if err := c.ConvertBinToHex(binPath, hexPath, 0); err != nil {
+		return nil, nil, err
+	}
+
 	// Write manifest.
 	manifest, err := me.emitManifest()
 	if err != nil {
@@ -370,6 +401,7 @@ func (me *MfgEmitter) Emit() ([]string, []string, error) {
 	srcPaths := []string{}
 	dstPaths := []string{
 		binPath,
+		hexPath,
 		manifestPath,
 	}
 	for _, entry := range cpEntries {
