@@ -6,7 +6,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const MFG_IMG_FILENAME = "mfgimg.bin"
+const MFG_BIN_IMG_FILENAME = "mfgimg.bin"
+const MFG_HEX_IMG_FILENAME = "mfgimg.hex"
 const MANIFEST_FILENAME = "manifest.json"
 
 type Mfg struct {

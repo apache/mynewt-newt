@@ -13,6 +13,7 @@ type MfgManifestTarget struct {
 	Offset       int    `json:"offset"`
 	BinPath      string `json:"bin_path,omitempty"`
 	ImagePath    string `json:"image_path,omitempty"`
+	HexPath      string `json:"hex_path,omitempty"`
 	ManifestPath string `json:"manifest_path"`
 }
 
@@ -44,6 +45,7 @@ type MfgManifest struct {
 	Version    string            `json:"version"`
 	Device     int               `json:"device"`
 	BinPath    string            `json:"bin_path"`
+	HexPath    string            `json:"hex_path"`
 	Bsp        string            `json:"bsp"`
 	Signatures []MfgManifestSig  `json:"signatures,omitempty"`
 	FlashAreas []flash.FlashArea `json:"flash_map"`

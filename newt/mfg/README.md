@@ -47,6 +47,7 @@ Manufacturing manifests are formatted as a JSON object consisting of key-value p
 | `version`     | The version number of this particular mfgimage (informational). |
 | `device`      | The integer index of the flash device this mfgimage is intended for. |
 | `bin_path`    | The relative path of the main binary within the mfgimage. |
+| `hex_path`    | The relative path of the hex version of the main binary within the mfgimage. |
 | `bsp`         | The name of the BSP package that mfgimage was build for. |
 | `signatures`  | If the mfgimage is signed, this is an array of all the signatures. |
 | `flash_map`   | The BSP flash map at the time the mfgimage was created. |
@@ -168,13 +169,16 @@ Below is an example of an mfgimage's file structure:
 bin/mfgs/<mfg-name>/
 ├── manifest.json
 ├── mfgimg.bin
+├── mfgimg.hex
 └── targets
     ├── 0
     │   ├── binary.bin
     │   ├── elf.elf
+    │   ├── image.hex
     │   └── manifest.json
     ├── 1
     │   ├── elf.elf
+    │   ├── image.hex
     │   ├── image.img
     │   └── manifest.json
     └── <N>
@@ -184,13 +188,15 @@ bin/mfgs/<mfg-name>/
 
 Each of these files is described below:
 
-| Filename  | Description |
+| Filename | Description |
 | --------- | ----------- |
 | `manifest.json` | JSON file describing the mfgimage contents. |
 | `mfgimg.bin` | The mfgimage binary.  This gets written to a Mynewt device. |
+| `mfgimg.hex` | The hex version of the mfgimage binary.  This gets written to a Mynewt device. |
 | `targets` | A directory containing information about each target embedded in the mfgimage. |
 | `0/1/N` | Correponds to an individual target.  Targets are numbered in the order they appear in `mfg.yml`. |
 | `x/binary.bin` | Only present for boot loader targets.  Contains the boot loader binary generated from the target. |
 | `x/elf.elf` | The ELF file corresponding to the target binary. |
 | `x/image.img` | Only present for non-boot targets.  Contains the image generated from the target. |
+| `x/image.hex` | Contains the hex version of the image or boot loader binary generated from the target. |
 | `x/manifest.json` | JSON file describing the target. |
