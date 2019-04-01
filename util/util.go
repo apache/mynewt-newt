@@ -43,6 +43,7 @@ import (
 var Verbosity int
 var PrintShellCmds bool
 var ExecuteShell bool
+var EscapeShellCmds bool = runtime.GOOS == "windows"
 var logFile *os.File
 
 func ParseEqualsPair(v string) (string, string, error) {
@@ -264,7 +265,7 @@ func Init(logLevel log.Level, logFile string, verbosity int) error {
 
 // Escapes special characters for Windows builds (not in an MSYS environment).
 func fixupCmdArgs(args []string) {
-	if runtime.GOOS == "windows" && os.Getenv("MSYSTEM") == "" {
+	if EscapeShellCmds {
 		for i, _ := range args {
 			args[i] = strings.Replace(args[i], "{", "\\{", -1)
 			args[i] = strings.Replace(args[i], "}", "\\}", -1)
