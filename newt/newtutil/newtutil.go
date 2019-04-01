@@ -178,6 +178,10 @@ func MakeTempRepoDir() (string, error) {
 }
 
 func ProjRelPath(path string) string {
+	if strings.HasPrefix(path, "/") {
+		return path
+	}
+
 	proj := interfaces.GetProject()
 	return strings.TrimPrefix(path, proj.Path()+"/")
 }
