@@ -35,32 +35,35 @@ matrix:
   include:
     - os: linux
       addons: *addon_conf
+      env:
+        - TEST=TEST_NEWT
 
     - os: osx
       osx_image: xcode9.2
+      env:
+        - TEST=TEST_NEWT
+
+    - os: windows
+      env:
+        - TEST=TEST_NEWT
 
 before_install:
   - printenv
   - export GOPATH=$HOME/gopath
   - go version
-  - ifconfig -a
 
 install:
-  - git clone https://github.com/runtimeco/mynewt-travis-ci $HOME/ci
+  - git clone https://github.com/JuulLabs-OSS/mynewt-travis-ci $HOME/ci
   - chmod +x $HOME/ci/*.sh
-  - export TEST=TEST_ALL
-  - $HOME/ci/${TRAVIS_OS_NAME}_travis_install.sh
   - export TEST=TEST_NEWT
   - $HOME/ci/${TRAVIS_OS_NAME}_travis_install.sh
-  - ./build.sh
-  - export PATH=$(pwd)/newt:$PATH
 
 before_script:
   - newt version
   - gcc --version
 
 script:
-  - $HOME/ci/test_newt.sh
+  - $HOME/ci/run_test.sh
 
 cache:
   directories:
