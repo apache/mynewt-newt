@@ -22,18 +22,34 @@ package settings
 import (
 	"fmt"
 	"os/user"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/ycfg"
+	"mynewt.apache.org/newt/util"
 )
 
 const NEWTRC_DIR string = ".newt"
 const REPOS_FILENAME string = "repos.yml"
+const NEWTRC_FILENAME string = "newtrc.yml"
 
 // Contains general newt settings read from $HOME/.newt
 var newtrc *ycfg.YCfg
+
+func processNewtrc(yc ycfg.YCfg) {
+	s := yc.GetValString("escape_shell", nil)
+	if s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			log.Warnf(".newtrc contains invalid \"escape_shell\" value: %s; "+
+				"expected \"true\" or \"false\"", s)
+		} else {
+			util.EscapeShellCmds = b
+		}
+	}
+}
 
 func readNewtrc() ycfg.YCfg {
 	usr, err := user.Current()
@@ -41,12 +57,28 @@ func readNewtrc() ycfg.YCfg {
 		return ycfg.YCfg{}
 	}
 
-	path := fmt.Sprintf("%s/%s/%s", usr.HomeDir, NEWTRC_DIR, REPOS_FILENAME)
-	yc, err := config.ReadFile(path)
-	if err != nil {
-		log.Debugf("Failed to read %s file", path)
-		return ycfg.YCfg{}
+	yc := ycfg.NewYCfg("newtrc")
+	for _, filename := range []string{NEWTRC_FILENAME, REPOS_FILENAME} {
+		path := fmt.Sprintf("%s/%s/%s", usr.HomeDir, NEWTRC_DIR, filename)
+		sub, err := config.ReadFile(path)
+		if err != nil && !util.IsNotExist(err) {
+			log.Warnf("Failed to read %s file", path)
+			return ycfg.YCfg{}
+		}
+
+		fi := util.FileInfo{
+			Path:   path,
+			Parent: nil,
+		}
+		for k, v := range sub.AllSettings() {
+			if err := yc.MergeFromFile(k, v, &fi); err != nil {
+				log.Warnf("Failed to read %s file: %s", path, err.Error())
+				return ycfg.YCfg{}
+			}
+		}
 	}
+
+	processNewtrc(yc)
 
 	return yc
 }
