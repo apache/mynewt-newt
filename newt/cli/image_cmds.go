@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -68,6 +69,10 @@ func parseKeyArgs(args []string) ([]sec.SignKey, uint8, error) {
 }
 
 func createImageRunCmd(cmd *cobra.Command, args []string) {
+	var verAsTimestamp bool
+	var ver image.ImageVersion
+	var err error
+
 	if len(args) < 2 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target and version"))
 	}
@@ -88,9 +93,14 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Invalid target name: "+targetName))
 	}
 
-	ver, err := image.ParseVersion(args[1])
-	if err != nil {
-		NewtUsage(cmd, err)
+	if args[1] == "timestamp" {
+		verAsTimestamp = true
+	} else {
+		verAsTimestamp = false
+		ver, err = image.ParseVersion(args[1])
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
 	}
 
 	b, err := builder.NewTargetBuilder(t)
@@ -105,6 +115,19 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 
 	if err := b.Build(); err != nil {
 		NewtUsage(nil, err)
+	}
+
+	if verAsTimestamp {
+		stat, err := os.Stat(b.AppBuilder.AppElfPath())
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+
+		ver.Major = uint8(stat.ModTime().Year() % 1000)
+		ver.Minor = uint8(stat.ModTime().Month())
+		ver.Rev = uint16(stat.ModTime().Day())
+		ver.BuildNum = uint32(stat.ModTime().Hour() * 10000 +
+			stat.ModTime().Minute() * 100 + stat.ModTime().Second())
 	}
 
 	if useV1 {
