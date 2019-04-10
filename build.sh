@@ -68,10 +68,12 @@ mkdir -p "$mynewtdir"
 ln -s "$installdir" "$repodir"
 
 ### Collect version information.
-GIT_HASH="$(git rev-parse --short HEAD)"
-GIT_DIRTY="$(git status --porcelain)"
-if [ ! -z "$GIT_DIRTY" ]; then
-    GIT_HASH=$GIT_HASH"-dirty"
+GIT_HASH="$(git rev-parse --short HEAD || echo 'none')"
+if [ $GIT_HASH != "none" ]; then
+    GIT_DIRTY="$(git status --porcelain)"
+    if [ ! -z "$GIT_DIRTY" ]; then
+        GIT_HASH=$GIT_HASH"-dirty"
+    fi
 fi
 
 DATE="$(date +%F_%R)"
@@ -80,11 +82,13 @@ DATE="$(date +%F_%R)"
 (
     cd "$newtdir"
 
+    EXTRA_OPTS="-X mynewt.apache.org/newt/newt/newtutil.NewtDate=$DATE"
+    if [ $GIT_HASH != "none" ]; then
+        EXTRA_OPTS="${EXTRA_OPTS} -X mynewt.apache.org/newt/newt/newtutil.NewtGitHash=$GIT_HASH"
+    fi
+
     printf "Building newt.  This may take a minute...\n"
-    GOPATH="$godir" GO15VENDOREXPERIMENT=1 go install -ldflags "        \
-        -X mynewt.apache.org/newt/newt/newtutil.NewtGitHash=$GIT_HASH   \
-        -X mynewt.apache.org/newt/newt/newtutil.NewtDate=$DATE          \
-    "
+    GOPATH="$godir" GO15VENDOREXPERIMENT=1 go install -ldflags "$EXTRA_OPTS"
 
     mv "$godir"/bin/newt "$dstfile"
 
