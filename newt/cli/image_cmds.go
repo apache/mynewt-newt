@@ -81,8 +81,8 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
 	}
 
-	if !useV2 {
-		useV1 = true
+	if !useV1 {
+		useV2 = true
 	}
 
 	TryGetProject()
@@ -184,7 +184,7 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageCmd.PersistentFlags().BoolVarP(&useV1,
 		"1", "1", false, "Use old image header format")
 	createImageCmd.PersistentFlags().BoolVarP(&useV2,
-		"2", "2", false, "Use new image header format")
+		"2", "2", false, "Use new image header format (default)")
 	createImageCmd.PersistentFlags().StringVarP(&encKeyFilename,
 		"encrypt", "e", "", "Encrypt image using this public key")
 

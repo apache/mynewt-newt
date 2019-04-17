@@ -40,8 +40,8 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 	if useV1 && useV2 {
 		NewtUsage(cmd, util.NewNewtError("Either -1, or -2, but not both"))
 	}
-	if !useV2 {
-		useV1 = true
+	if !useV1 {
+		useV2 = true
 	}
 
 	TryGetProject()
@@ -153,7 +153,7 @@ func AddRunCommands(cmd *cobra.Command) {
 	runCmd.PersistentFlags().BoolVarP(&useV1,
 		"1", "1", false, "Use old image header format")
 	runCmd.PersistentFlags().BoolVarP(&useV2,
-		"2", "2", false, "Use new image header format")
+		"2", "2", false, "Use new image header format (default)")
 
 	cmd.AddCommand(runCmd)
 	AddTabCompleteFn(runCmd, func() []string {
