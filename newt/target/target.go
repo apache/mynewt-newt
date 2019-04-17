@@ -26,6 +26,7 @@ import (
 	"strconv"
 
 	"mynewt.apache.org/newt/newt/config"
+	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
@@ -106,6 +107,14 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	}
 
 	target.KeyFile = yc.GetValString("target.key_file", nil)
+	if target.KeyFile != "" {
+		proj := interfaces.GetProject()
+		path, err := proj.ResolvePath(proj.Path(), target.KeyFile)
+		if err == nil {
+			target.KeyFile = path
+		}
+	}
+
 	target.PkgProfiles = yc.GetValStringMapString(
 		"target.package_profiles", nil)
 
