@@ -410,24 +410,33 @@ func printLogCfgBrief(targetName string, lcfg logcfg.LCfg) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Brief log config for %s:\n",
 		targetName)
 
+	modules := make([]int, 0, len(lcfg.Logs))
+	modMap := make(map[int]logcfg.Log, len(lcfg.Logs))
+
+	// Keep track of the longest log name.  This allows the output to be
+	// properly aligned.
 	longest := 6
-	logNames := make([]string, 0, len(lcfg.Logs))
-	for name, _ := range lcfg.Logs {
-		logNames = append(logNames, name)
+
+	// Map each module to its log, and build a sorted slice of module IDs.
+	for name, log := range lcfg.Logs {
+		modInt, _ := log.Module.IntVal()
+		modules = append(modules, modInt)
+		modMap[modInt] = log
 		if len(name) > longest {
 			longest = len(name)
 		}
 	}
-	sort.Strings(logNames)
+	sort.Ints(modules)
 
+	// Print logs, sorted by module ID.
 	colWidth := longest + 4
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"%*s | MODULE   | LEVEL\n", colWidth, "LOG")
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"%s-+----------+--------------\n",
 		strings.Repeat("-", colWidth))
-	for _, logName := range logNames {
-		printLogCfgBriefOne(lcfg.Logs[logName], colWidth)
+	for _, module := range modules {
+		printLogCfgBriefOne(modMap[module], colWidth)
 	}
 }
 
