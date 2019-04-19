@@ -18,6 +18,11 @@
  */
 
 // deprepo: Package for resolving repo dependencies.
+//
+// Vocabulary:
+//     * Dependee:  A repo that is depended on.
+//     * Dependent: A repo that depends on others.
+
 package deprepo
 
 import (
@@ -36,6 +41,7 @@ type Dependent struct {
 }
 
 const rootDependencyName = ""
+const rootRepoName = "project.yml"
 
 // Represents a top-level repo dependency (i.e., a repo specified in
 // `project.yml`).
@@ -71,7 +77,7 @@ type RevdepGraph map[string][]RevdepGraphNode
 
 func repoNameVerString(repoName string, ver newtutil.RepoVersion) string {
 	if repoName == rootDependencyName {
-		return "project.yml"
+		return rootRepoName
 	} else {
 		return fmt.Sprintf("%s-%s", repoName, ver.String())
 	}
@@ -200,21 +206,57 @@ func (dg DepGraph) Reverse() RevdepGraph {
 // Identifies repos which cannot satisfy all their dependents.  For example, if
 // `project.yml` requires X1 and Y2, but Y2 requires X2, then X is a
 // conflicting repo (no overlap in requirement sets).
+//
+// Returns the names of all repos that cannot be included in the build.  For
+// example, if:
+//     * X depends on Z 1.0.0
+//     * Y depends on Z 2.0.0
+// then Z is included in the returned slice because it can't satisfy all its
+// dependents.  X and Y are *not* included (unless they also have depedents
+// that cannot be satisfied).
 func (dg DepGraph) conflictingRepos(vm VersionMap) []string {
-	repoNames := make([]string, 0, len(vm))
-	for name, _ := range vm {
-		repoNames = append(repoNames, name)
-	}
-	sort.Strings(repoNames)
-
 	badRepoMap := map[string]struct{}{}
-	for _, repoName := range repoNames {
-		dependentVer := vm[repoName]
-		dependent := Dependent{repoName, dependentVer}
-		for _, node := range dg[dependent] {
-			dependeeVer := vm[node.Name]
-			if !dependeeVer.SatisfiesAll(node.VerReqs) {
-				badRepoMap[node.Name] = struct{}{}
+
+	// Create a reverse dependency graph.
+	rg := dg.Reverse()
+
+	for dependeeName, nodes := range rg {
+		dependeeVer, ok := vm[dependeeName]
+		if !ok {
+			// This version was pruned from the matrix.  It is unusable.
+			badRepoMap[dependeeName] = struct{}{}
+			continue
+		}
+
+		// Dependee is the repo being depended on.  We want to determine if it
+		// can be included in the project without violating any dependency
+		// requirements.
+		//
+		// For each repo that depends on dependee (i.e., for each dependent):
+		// 1. Determine which of the dependent's requirements apply to the
+		//    dependee (e.g., if we are evaluating v2 of the dependent, then
+		//    v1's requirements do not apply).
+		// 2. Check if the dependee satisfies all applicable requirements.
+		for _, node := range nodes {
+			var nodeApplies bool
+			if node.Name == rootDependencyName {
+				// project.yml requirements are always applicable.
+				nodeApplies = true
+			} else {
+				// Repo dependency requirements only apply if they are
+				// associated with the version of the dependent that we are
+				// evaluating.
+				dependentVer, ok := vm[node.Name]
+				if ok {
+					nodeApplies = newtutil.CompareRepoVersions(
+						dependentVer, node.Ver) == 0
+				}
+			}
+			if nodeApplies {
+				if !dependeeVer.SatisfiesAll(node.VerReqs) {
+					badRepoMap[dependeeName] = struct{}{}
+					break
+				}
 			}
 		}
 	}
