@@ -188,11 +188,12 @@ install newt from the HEAD of the master branch.
    computer, if it is not installed, and compile newt locally.
 
 If you previously installed newt using brew, unlink the current
-version:
+version. Depending on your previous newt version you may have to also uninstall newt.
 
 .. code-block:: console
 
     $ brew unlink mynewt-newt
+    $ brew uninstall mynewt-newt
 
 Install the latest unstable version of newt from the master branch:
 
