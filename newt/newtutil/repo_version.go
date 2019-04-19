@@ -251,7 +251,7 @@ func ParseRepoVersionReqs(versStr string) ([]RepoVersionReq, error) {
 
 	verReqs := []RepoVersionReq{}
 
-	re, err := regexp.Compile(`(<=|>=|==|>|<)([\d\.]+)`)
+	re, err := regexp.Compile(`(<=|>=|==|>|<)(.+)`)
 	if err != nil {
 		return nil, err
 	}
