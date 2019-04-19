@@ -350,5 +350,5 @@ func FindAcceptableVersions(m Matrix, dg DepGraph) (VersionMap, []Conflict) {
 		conflicts[i] = conflict
 	}
 
-	return nil, conflicts
+	return vm, conflicts
 }

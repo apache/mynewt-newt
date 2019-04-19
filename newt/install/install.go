@@ -671,11 +671,10 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	// Try to find a version set that satisfies the dependency graph.  If no
 	// such set exists, report the conflicts and abort.
 	vm, conflicts := deprepo.FindAcceptableVersions(m, dg)
-	if vm == nil {
+	log.Debugf("Repo version map:\n%s\n", vm.String())
+	if len(conflicts) > 0 {
 		return nil, deprepo.ConflictError(conflicts)
 	}
-
-	log.Debugf("Repo version map:\n%s\n", vm.String())
 
 	// If project.yml specified any specific git commits, ensure we get them.
 	for name, ver := range vm {
