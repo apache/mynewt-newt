@@ -21,6 +21,7 @@ package newtutil
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -68,7 +69,24 @@ func (vm *RepoVersionReq) String() string {
 	return vm.CompareType + vm.Ver.String()
 }
 
+func (v *RepoVersion) toComparable() RepoVersion {
+	clone := *v
+
+	// 0.0.0 means "latest develop"; it is greater than all over version
+	// numbers.
+	if v.Major == 0 && v.Minor == 0 && v.Revision == 0 {
+		clone.Major = math.MaxInt64
+		clone.Minor = math.MaxInt64
+		clone.Revision = math.MaxInt64
+	}
+
+	return clone
+}
+
 func CompareRepoVersions(v1 RepoVersion, v2 RepoVersion) int64 {
+	v1 = v1.toComparable()
+	v2 = v2.toComparable()
+
 	if r := v1.Major - v2.Major; r != 0 {
 		return r
 	}
