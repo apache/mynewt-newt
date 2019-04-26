@@ -180,6 +180,25 @@ func NewResolvePkg(lpkg *pkg.LocalPackage) *ResolvePackage {
 	}
 }
 
+// useMasterPkgs replaces a resolve set's packages with their equivalents from
+// the master set.  This function is necessary to ensure only a single copy of
+// each package exists among all resolve sets in a split build.
+func (rs *ResolveSet) useMasterPkgs() error {
+	for i, rdst := range rs.Rpkgs {
+		rsrc := rs.Res.LpkgRpkgMap[rdst.Lpkg]
+		if rsrc == nil {
+			return util.FmtNewtError(
+				"cannot use master packages in resolve set; "+
+					"package \"%s\" missing",
+				rdst.Lpkg.FullName())
+		}
+
+		rs.Rpkgs[i] = rsrc
+	}
+
+	return nil
+}
+
 func (r *Resolver) resolveDep(dep *pkg.Dependency,
 	depender string) (*pkg.LocalPackage, error) {
 
@@ -1112,6 +1131,9 @@ func ResolveFull(
 	if err != nil {
 		return nil, err
 	}
+	if err := res.LoaderSet.useMasterPkgs(); err != nil {
+		return nil, err
+	}
 
 	// Resolve app dependencies.  The app automtically gets all the packages
 	// from the loader except for the loader-app-package.
@@ -1126,6 +1148,9 @@ func ResolveFull(
 
 	res.AppSet.Rpkgs, err = r.resolveDeps()
 	if err != nil {
+		return nil, err
+	}
+	if err := res.AppSet.useMasterPkgs(); err != nil {
 		return nil, err
 	}
 
