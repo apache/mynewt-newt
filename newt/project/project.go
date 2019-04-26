@@ -417,7 +417,15 @@ func (proj *Project) loadRepoDeps(download bool) error {
 
 					depRepo := proj.repos[dep.Name]
 					if depRepo == nil {
-						depRepo, _ = proj.loadRepo(dep.Name, dep.Fields)
+						var err error
+						depRepo, err = proj.loadRepo(dep.Name, dep.Fields)
+						if err != nil {
+							// if `repository.yml` does not exist, it is not an
+							// error; we will just download a new copy.
+							if !util.IsNotExist(err) {
+								return nil, err
+							}
+						}
 						proj.repos[dep.Name] = depRepo
 					}
 					newRepos = append(newRepos, depRepo)
@@ -541,12 +549,19 @@ func (proj *Project) loadConfig() error {
 		repoName := strings.TrimPrefix(k, "repository.")
 		if repoName != k {
 			fields := yc.GetValStringMapString(k, nil)
-			r, _ := proj.loadRepo(repoName, fields)
-
+			r, err := proj.loadRepo(repoName, fields)
+			if err != nil {
+				// if `repository.yml` does not exist, it is not an error; we
+				// will just download a new copy.
+				if !util.IsNotExist(err) {
+					return err
+				}
+			}
 			verReqs, err := newtutil.ParseRepoVersionReqs(fields["vers"])
 			if err != nil {
 				return util.FmtNewtError(
-					"Repo \"%s\" contains invalid version requirement: %s (%s)",
+					"Repo \"%s\" contains invalid version requirement: "+
+						"%s (%s)",
 					repoName, fields["vers"], err.Error())
 			}
 
