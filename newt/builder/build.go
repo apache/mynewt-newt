@@ -91,9 +91,6 @@ func NewBuilder(
 	for api, rpkg := range apiMap {
 		bpkg := b.PkgMap[rpkg]
 		if bpkg == nil {
-			for _, rpkg := range b.SortedRpkgs() {
-				log.Debugf("    * %s", rpkg.Lpkg.Name())
-			}
 			return nil, util.FmtNewtError(
 				"Unexpected unsatisfied API: %s; required by: %s", api,
 				rpkg.Lpkg.Name())
