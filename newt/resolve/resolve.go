@@ -635,6 +635,9 @@ func (r *Resolver) detectImposter(rpkg *ResolvePackage) (bool, error) {
 		// Copy the source entry in full, then check its history for the
 		// potential imposter.
 		dst := src
+		dst.History = make([]syscfg.CfgPoint, len(src.History))
+		copy(dst.History, src.History)
+
 		for i, _ := range dst.History {
 			if dst.History[i].Source == rpkg.Lpkg {
 				if i == 0 {
