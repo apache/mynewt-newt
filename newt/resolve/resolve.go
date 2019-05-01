@@ -406,6 +406,16 @@ func (r *Resolver) calcApiReqs() error {
 // Completely removes a package from the resolver.  This is used to prune
 // packages when newly-discovered syscfg values nullify dependencies.
 func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
+	i := 0
+	for i < len(r.seedPkgs) {
+		lpkg := r.seedPkgs[i]
+		if lpkg == rpkg.Lpkg {
+			fmt.Printf("DELETING SEED: %s (%p)\n", lpkg.FullName(), lpkg)
+			r.seedPkgs = append(r.seedPkgs[:i], r.seedPkgs[i+1:]...)
+		} else {
+			i++
+		}
+	}
 	delete(r.pkgMap, rpkg.Lpkg)
 
 	// Delete the package from syscfg.
@@ -746,9 +756,16 @@ func (r *Resolver) pruneImposters() (bool, error) {
 	errCh := make(chan error, newtutil.NewtNumJobs)
 	defer close(errCh)
 
+	seedMap := map[*pkg.LocalPackage]struct{}{}
+	for _, lpkg := range r.seedPkgs {
+		seedMap[lpkg] = struct{}{}
+	}
+
 	// Enqueue all packages to the jobs channel.
 	for _, rpkg := range r.pkgMap {
-		jobsCh <- rpkg
+		if _, ok := seedMap[rpkg.Lpkg]; !ok {
+			jobsCh <- rpkg
+		}
 	}
 
 	// Iterate through all packages with a collection of go routines.
@@ -809,7 +826,7 @@ func (r *Resolver) pruneOrphans() (bool, error) {
 	for _, lpkg := range r.seedPkgs {
 		rpkg := r.pkgMap[lpkg]
 		if rpkg == nil {
-			panic("Resolver lacks mapping for seed package " + lpkg.FullName())
+			panic(fmt.Sprintf("Resolver lacks mapping for seed package %s (%p)", lpkg.FullName(), lpkg))
 		}
 
 		visit(rpkg)
