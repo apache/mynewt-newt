@@ -190,7 +190,8 @@ func (key *SignKey) SigLen() uint16 {
 	key.AssertValid()
 
 	if key.Rsa != nil {
-		return 256
+		pubk := key.Rsa.Public().(*rsa.PublicKey)
+		return uint16(pubk.Size())
 	} else {
 		switch key.Ec.Curve.Params().Name {
 		case "P-224":
