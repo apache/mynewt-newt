@@ -71,7 +71,15 @@ func sigTlvType(key sec.SignKey) uint8 {
 	key.AssertValid()
 
 	if key.Rsa != nil {
-		return IMAGE_TLV_RSA2048
+		pubk := key.Rsa.Public().(*rsa.PublicKey)
+		switch pubk.Size() {
+		case 256:
+			return IMAGE_TLV_RSA2048
+		case 384:
+			return IMAGE_TLV_RSA3072
+		default:
+			return 0
+		}
 	} else {
 		switch key.Ec.Curve.Params().Name {
 		case "P-224":
