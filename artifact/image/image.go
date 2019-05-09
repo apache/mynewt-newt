@@ -64,6 +64,7 @@ const (
 	IMAGE_TLV_ECDSA224 = 0x21
 	IMAGE_TLV_ECDSA256 = 0x22
 	IMAGE_TLV_RSA3072  = 0x23
+	IMAGE_TLV_ED25519  = 0x24
 	IMAGE_TLV_ENC_RSA  = 0x30
 	IMAGE_TLV_ENC_KEK  = 0x31
 )
@@ -75,6 +76,7 @@ var imageTlvTypeNameMap = map[uint8]string{
 	IMAGE_TLV_ECDSA224: "ECDSA224",
 	IMAGE_TLV_ECDSA256: "ECDSA256",
 	IMAGE_TLV_RSA3072:  "RSA3072",
+	IMAGE_TLV_ED25519:  "ED25519",
 	IMAGE_TLV_ENC_RSA:  "ENC_RSA",
 	IMAGE_TLV_ENC_KEK:  "ENC_KEK",
 }
@@ -141,7 +143,8 @@ func ImageTlvTypeIsSig(tlvType uint8) bool {
 	return tlvType == IMAGE_TLV_RSA2048 ||
 		tlvType == IMAGE_TLV_RSA3072 ||
 		tlvType == IMAGE_TLV_ECDSA224 ||
-		tlvType == IMAGE_TLV_ECDSA256
+		tlvType == IMAGE_TLV_ECDSA256 ||
+		tlvType == IMAGE_TLV_ED25519
 }
 
 func ParseVersion(versStr string) (ImageVersion, error) {
