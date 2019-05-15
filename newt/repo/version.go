@@ -252,7 +252,8 @@ func (r *Repo) NormalizeVersion(
 
 		nextVer, err := newtutil.ParseRepoVersion(verStr)
 		if err != nil {
-			return ver, err
+			return ver, util.PreNewtError(err,
+				"failure parsing version for repo \"%s\"", r.Name())
 		}
 		ver = nextVer
 	}

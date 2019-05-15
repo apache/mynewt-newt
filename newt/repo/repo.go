@@ -512,7 +512,8 @@ func (r *Repo) Read() error {
 		log.Debugf("Printing version %s for remote repo %s", versStr, r.name)
 		vers, err := newtutil.ParseRepoVersion(versStr)
 		if err != nil {
-			return err
+			return util.PreNewtError(err,
+				"failure parsing version for repo \"%s\"", r.Name())
 		}
 
 		// store commit->version mapping

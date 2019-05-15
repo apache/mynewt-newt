@@ -204,12 +204,14 @@ func ParseRepoVersion(verStr string) (RepoVersion, error) {
 	parts := strings.Split(base, ".")
 	if len(parts) > 3 {
 		return RepoVersion{},
-			util.FmtNewtError("Invalid version string: %s", verStr)
+			util.FmtNewtError("Invalid version string: \"%s\"; "+
+				"must be fixed (X.X.X) or floating (X[.X]-stability)", verStr)
 	}
 
 	if len(parts) != 3 && stability == VERSION_STABILITY_NONE {
 		return RepoVersion{},
-			util.FmtNewtError("Invalid version string: %s", verStr)
+			util.FmtNewtError("Invalid version string: \"%s\"; "+
+				"must be fixed (X.X.X) or floating (X[.X]-stability)", verStr)
 	}
 
 	// Assume no parts of the version are specified.
