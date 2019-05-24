@@ -348,6 +348,10 @@ func (i *Image) Hash() ([]byte, error) {
 	return tlv.Data, nil
 }
 
+func (i *Image) CalcHash() ([]byte, error) {
+	return calcHash(nil, i.Header, i.Pad, i.Body)
+}
+
 func (i *Image) WritePlusOffsets(w io.Writer) (ImageOffsets, error) {
 	offs := ImageOffsets{}
 	offset := 0
