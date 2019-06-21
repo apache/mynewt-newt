@@ -39,6 +39,9 @@ matrix:
     - os: osx
       osx_image: xcode9.2
 
+env:
+  - GO111MODULE=on
+
 before_install:
   - printenv
   - export GOPATH=$HOME/gopath
