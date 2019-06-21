@@ -24,8 +24,8 @@ import (
 	"os"
 	"strings"
 
-	"mynewt.apache.org/newt/artifact/image"
-	"mynewt.apache.org/newt/artifact/sec"
+	"github.com/apache/mynewt-artifact/image"
+	"github.com/apache/mynewt-artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/manifest"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -206,7 +206,7 @@ func ProduceImagesV1(opts ImageProdOpts) (ProducedImageSetV1, error) {
 }
 
 func ProduceAllV1(t *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []sec.SignKey, encKeyFilename string) error {
+	sigKeys []sec.PrivSignKey, encKeyFilename string) error {
 
 	popts := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
 	pset, err := ProduceImagesV1(popts)

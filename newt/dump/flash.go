@@ -20,7 +20,7 @@
 package dump
 
 import (
-	"mynewt.apache.org/newt/artifact/flash"
+	"github.com/apache/mynewt-artifact/flash"
 	"mynewt.apache.org/newt/newt/flashmap"
 )
 

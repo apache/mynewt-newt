@@ -26,12 +26,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"mynewt.apache.org/newt/artifact/flash"
-	"mynewt.apache.org/newt/artifact/image"
-	"mynewt.apache.org/newt/artifact/manifest"
-	"mynewt.apache.org/newt/artifact/mfg"
-	"mynewt.apache.org/newt/artifact/misc"
-	"mynewt.apache.org/newt/artifact/sec"
+	"github.com/apache/mynewt-artifact/flash"
+	"github.com/apache/mynewt-artifact/image"
+	"github.com/apache/mynewt-artifact/manifest"
+	"github.com/apache/mynewt-artifact/mfg"
+	"github.com/apache/mynewt-artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -81,7 +80,7 @@ type MfgEmitter struct {
 	Targets []MfgEmitTarget
 	Raws    []MfgEmitRaw
 	Meta    *MfgEmitMeta
-	Keys    []sec.SignKey
+	Keys    []sec.PrivSignKey
 
 	Mfg      mfg.Mfg
 	Device   int
@@ -167,7 +166,7 @@ func getCompilerFromBsp(bsp *pkg.BspPackage) (*toolchain.Compiler, error) {
 
 // NewMfgEmitter creates an mfg emitter from an mfg builder.
 func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
-	device int, keys []sec.SignKey) (MfgEmitter, error) {
+	device int, keys []sec.PrivSignKey) (MfgEmitter, error) {
 
 	me := MfgEmitter{
 		Name:     name,
@@ -265,7 +264,7 @@ func copyBinFiles(entries []CpEntry) error {
 }
 
 func (me *MfgEmitter) createSigs() ([]manifest.MfgManifestSig, error) {
-	hashBytes, err := me.Mfg.Hash()
+	hashBytes, err := me.Mfg.Hash(0xff)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +313,7 @@ func (me *MfgEmitter) convertHexImages() ([]string, error) {
 
 // emitManifest generates an mfg manifest.
 func (me *MfgEmitter) emitManifest() ([]byte, error) {
-	hashBytes, err := me.Mfg.Hash()
+	hashBytes, err := me.Mfg.Hash(0xff)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +327,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		Name:       me.Name,
 		BuildTime:  time.Now().Format(time.RFC3339),
 		Format:     MANIFEST_FORMAT,
-		MfgHash:    misc.HashString(hashBytes),
+		MfgHash:    hex.EncodeToString(hashBytes),
 		Version:    me.Ver.String(),
 		Device:     me.Device,
 		BinPath:    mfg.MFG_BIN_IMG_FILENAME,
@@ -336,6 +335,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		Signatures: sigs,
 		FlashAreas: me.FlashMap.SortedAreas(),
 		Bsp:        me.BspName,
+		EraseVal:   0xff,
 	}
 
 	for i, t := range me.Targets {
@@ -380,7 +380,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 
 // @return                      [source-paths], [dest-paths], error
 func (me *MfgEmitter) Emit() ([]string, []string, error) {
-	if err := me.Mfg.RecalcHash(0xff); err != nil {
+	if err := me.Mfg.RefillHash(0xff); err != nil {
 		return nil, nil, err
 	}
 
