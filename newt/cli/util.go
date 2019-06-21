@@ -31,6 +31,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/apache/mynewt-artifact/errors"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -46,13 +47,18 @@ const MFG_DEFAULT_DIR string = "mfgs"
 
 func NewtUsage(cmd *cobra.Command, err error) {
 	if err != nil {
-		sErr := err.(*util.NewtError)
-		log.Debugf("%s", sErr.StackTrace)
-		fmt.Fprintf(os.Stderr, "Error: %s\n", sErr.Text)
+		if errors.HasStackTrace(err) {
+			log.Debugf("%+v", err)
+		} else if ne, ok := err.(*util.NewtError); ok {
+			log.Debugf("%s", ne.StackTrace)
+		} else {
+			panic(fmt.Sprintf("unexpected error type: %T", err))
+		}
+
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 	}
 
 	if cmd != nil {
-		fmt.Printf("\n")
 		fmt.Printf("%s - ", cmd.Name())
 		cmd.Help()
 	}
