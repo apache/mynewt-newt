@@ -31,7 +31,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 
-	"mynewt.apache.org/newt/artifact/flash"
+	"github.com/apache/mynewt-artifact/flash"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )

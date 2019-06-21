@@ -22,7 +22,7 @@ package mfg
 import (
 	"fmt"
 
-	"mynewt.apache.org/newt/artifact/mfg"
+	"github.com/apache/mynewt-artifact/mfg"
 	"mynewt.apache.org/newt/newt/builder"
 )
 

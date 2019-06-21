@@ -24,8 +24,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"mynewt.apache.org/newt/artifact/image"
-	"mynewt.apache.org/newt/artifact/sec"
+	"github.com/apache/mynewt-artifact/image"
+	"github.com/apache/mynewt-artifact/sec"
 	"mynewt.apache.org/newt/newt/imgprod"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/parse"
@@ -95,7 +95,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 				NewtUsage(cmd, err)
 			}
 
-			var keys []sec.SignKey
+			var keys []sec.PrivSignKey
 
 			if len(args) > 2 {
 				keys, _, err = parseKeyArgs(args[2:])

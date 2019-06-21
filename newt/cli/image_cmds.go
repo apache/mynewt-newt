@@ -25,8 +25,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"mynewt.apache.org/newt/artifact/image"
-	"mynewt.apache.org/newt/artifact/sec"
+	"github.com/apache/mynewt-artifact/image"
+	"github.com/apache/mynewt-artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/imgprod"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -38,7 +38,7 @@ var useV2 bool
 var encKeyFilename string
 
 // @return                      keys, key ID, error
-func parseKeyArgs(args []string) ([]sec.SignKey, uint8, error) {
+func parseKeyArgs(args []string) ([]sec.PrivSignKey, uint8, error) {
 	if len(args) == 0 {
 		return nil, 0, nil
 	}
@@ -60,7 +60,7 @@ func parseKeyArgs(args []string) ([]sec.SignKey, uint8, error) {
 		keyFilenames = args
 	}
 
-	keys, err := sec.ReadKeys(keyFilenames)
+	keys, err := sec.ReadPrivSignKeys(keyFilenames)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -126,8 +126,8 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 		ver.Major = uint8(stat.ModTime().Year() % 1000)
 		ver.Minor = uint8(stat.ModTime().Month())
 		ver.Rev = uint16(stat.ModTime().Day())
-		ver.BuildNum = uint32(stat.ModTime().Hour() * 10000 +
-			stat.ModTime().Minute() * 100 + stat.ModTime().Second())
+		ver.BuildNum = uint32(stat.ModTime().Hour()*10000 +
+			stat.ModTime().Minute()*100 + stat.ModTime().Second())
 	}
 
 	if useV1 {

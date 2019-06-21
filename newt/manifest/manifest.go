@@ -30,8 +30,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"mynewt.apache.org/newt/artifact/image"
-	"mynewt.apache.org/newt/artifact/manifest"
+	"github.com/apache/mynewt-artifact/image"
+	"github.com/apache/mynewt-artifact/manifest"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/syscfg"
