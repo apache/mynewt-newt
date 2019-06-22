@@ -96,4 +96,7 @@ DATE="$(date +%F_%R)"
 )
 
 ### Delete the temporary directory.
+# We have to relax permissions on the directory's contents; modules in
+# $GOPATH/pkg are write-protected.
+chmod -R 755 "$godir"
 rm -rf "$godir"
