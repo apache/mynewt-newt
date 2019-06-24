@@ -26,7 +26,7 @@ expandpath() {
     )
 }
 
-### Ensure >= go1.10 is installed.
+### Ensure >= go1.12 is installed.
 go_ver_str="$(go version | cut -d ' ' -f 3)"
 go_ver="${go_ver_str#go}"
 
@@ -49,9 +49,9 @@ then
     go_min=0
 fi
 
-if [ ! "$go_maj" -gt 1 ] && [ ! "$go_min" -ge 10 ]
+if [ ! "$go_maj" -gt 1 ] && [ ! "$go_min" -ge 12 ]
 then
-    printf "* Error: go 1.10 or later is required (detected version: %s)\n" \
+    printf "* Error: go 1.12 or later is required (detected version: %s)\n" \
         "$go_maj"."$go_min".X
     exit 1
 fi
@@ -88,9 +88,8 @@ DATE="$(date +%F_%R)"
     fi
 
     printf "Building newt.  This may take a minute...\n"
-    GOPATH="$godir" GO15VENDOREXPERIMENT=1 go install -ldflags "$EXTRA_OPTS"
-
-    mv "$godir"/bin/newt "$dstfile"
+    unset GOPATH
+    go build -ldflags "$EXTRA_OPTS"
 
     printf "Successfully built executable: %s\n" "$dstfile"
 )
