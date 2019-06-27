@@ -78,7 +78,6 @@ type hashFunc func() hash.Hash
 
 func parseEncryptedPrivateKey(der []byte) (key interface{}, err error) {
 	var wrapper pkcs5
-	fmt.Printf("unmarshalling %v\n", der)
 	if _, err = asn1.Unmarshal(der, &wrapper); err != nil {
 		return nil, err
 	}
