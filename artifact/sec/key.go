@@ -55,7 +55,7 @@ type ed25519Pkcs struct {
 var oidPrivateKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 
 // Parse an ed25519 PKCS#8 certificate
-func parseEd25519Pkcs8(der []byte) (key *ed25519.PrivateKey, err error) {
+func ParseEd25519Pkcs8(der []byte) (key *ed25519.PrivateKey, err error) {
 	var privKey ed25519Pkcs
 	if _, err := asn1.Unmarshal(der, &privKey); err != nil {
 		return nil, util.FmtNewtError("Error parsing ASN1 key")
@@ -133,8 +133,10 @@ func ParsePrivateKey(keyBytes []byte) (interface{}, error) {
 		// the key itself.
 		privKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
+			// Try also parsing as ed25519, whose OID is not
+			// yet supported by upstream x509 parser
 			var _privKey interface{}
-			_privKey, err = parseEd25519Pkcs8(block.Bytes)
+			_privKey, err = ParseEd25519Pkcs8(block.Bytes)
 			if err != nil {
 				return nil, util.FmtNewtError(
 					"Private key parsing failed: %s", err)
