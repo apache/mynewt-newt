@@ -146,6 +146,11 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 	envSettings["FLASH_OFFSET"] = "0x" + strconv.FormatInt(int64(tgtArea.Offset), 16)
 	envSettings["FLASH_AREA_SIZE"] = "0x" + strconv.FormatInt(int64(tgtArea.Size), 16)
 
+	// Add all syscfg settings to the environment with the MYNEWT_VAL_ prefix.
+	for k, v := range settings {
+		envSettings["MYNEWT_VAL_"+k] = v
+	}
+
 	// Convert the binary path from absolute to relative.  This is required for
 	// compatibility with unix-in-windows environemnts (e.g., cygwin).
 	binPath := util.TryRelPath(b.AppBinBasePath())
