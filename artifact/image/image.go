@@ -50,8 +50,8 @@ const (
  */
 const (
 	IMAGE_F_PIC          = 0x00000001
-	IMAGE_F_NON_BOOTABLE = 0x00000002 /* non bootable image */
 	IMAGE_F_ENCRYPTED    = 0x00000004 /* encrypted image */
+	IMAGE_F_NON_BOOTABLE = 0x00000010 /* non bootable image */
 )
 
 /*
