@@ -43,7 +43,7 @@ import (
 var Verbosity int
 var PrintShellCmds bool
 var ExecuteShell bool
-var EscapeShellCmds bool = runtime.GOOS == "windows"
+var EscapeShellCmds bool
 var logFile *os.File
 
 func ParseEqualsPair(v string) (string, string, error) {
