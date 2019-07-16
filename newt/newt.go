@@ -91,9 +91,7 @@ func newtCmd() *cobra.Command {
 				verbosity = util.VERBOSITY_VERBOSE
 			}
 
-			if newtEscapeShellCmds {
-				util.EscapeShellCmds = true
-			}
+			util.EscapeShellCmds = newtEscapeShellCmds
 
 			var err error
 			NewtLogLevel, err = log.ParseLevel(logLevelStr)
@@ -128,7 +126,7 @@ func newtCmd() *cobra.Command {
 	newtCmd.PersistentFlags().BoolVarP(&newtHelp, "help", "h",
 		false, "Help for newt commands")
 	newtCmd.PersistentFlags().BoolVarP(&newtEscapeShellCmds, "escape", "",
-		false, "Apply Windows escapes to shell commands")
+		runtime.GOOS == "windows", "Apply Windows escapes to shell commands")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
