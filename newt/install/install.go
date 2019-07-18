@@ -133,7 +133,6 @@ type installOp int
 const (
 	INSTALL_OP_INSTALL installOp = iota
 	INSTALL_OP_UPGRADE
-	INSTALL_OP_SYNC
 )
 
 // Determines the currently installed version of the specified repo.  If the
@@ -408,16 +407,20 @@ func (inst *Installer) shouldUpgradeRepo(
 			"internal error: nonexistent repo has version: %s", repoName)
 	}
 
+	// If the repo is not in a "detached head" state, it needs to be fixed up.
+	detached, err := r.IsDetached()
+	if err != nil {
+		return false, err
+	}
+	if !detached {
+		return true, nil
+	}
+
 	if !r.VersionsEqual(*curVer, destVer) {
 		return true, nil
 	}
 
-	equiv, err := r.CommitsEquivalent(curVer.Commit, destVer.Commit)
-	if err != nil {
-		return false, err
-	}
-
-	return !equiv, nil
+	return false, nil
 }
 
 // Removes repos that shouldn't be upgraded from the specified list.  A repo
@@ -460,7 +463,7 @@ func (inst *Installer) filterUpgradeList(
 // Describes an imminent install or upgrade operation to the user.  The
 // displayed message applies to the specified repo.
 func (inst *Installer) installMessageOneRepo(
-	repoName string, op installOp, force bool, curVer *newtutil.RepoVersion,
+	r *repo.Repo, op installOp, force bool, curVer *newtutil.RepoVersion,
 	destVer newtutil.RepoVersion) (string, error) {
 
 	// If the repo isn't installed yet, this is an install, not an upgrade.
@@ -478,24 +481,22 @@ func (inst *Installer) installMessageOneRepo(
 		}
 
 	case INSTALL_OP_UPGRADE:
-		verb = "upgrade"
-
-	case INSTALL_OP_SYNC:
-		verb = "sync"
+		if r.VersionsEqual(*curVer, destVer) {
+			verb = "fixup"
+		} else {
+			verb = "upgrade"
+		}
 
 	default:
 		return "", util.FmtNewtError(
 			"internal error: invalid install op: %v", op)
 	}
 
-	msg := fmt.Sprintf("    %s %s ", verb, repoName)
-	if op == INSTALL_OP_UPGRADE {
+	msg := fmt.Sprintf("    %s %s ", verb, r.Name())
+	if verb == "upgrade" {
 		msg += fmt.Sprintf("(%s --> %s)", curVer.String(), destVer.String())
-	} else if op != INSTALL_OP_SYNC {
-		msg += fmt.Sprintf("(%s)", destVer.String())
 	} else {
-		// Sync operation.  Don't print the project version.  Instead, print
-		// the actual branch name later during the sync.
+		msg += fmt.Sprintf("(%s)", destVer.String())
 	}
 
 	return msg, nil
@@ -526,7 +527,7 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 		destVer := vm[name]
 
 		msg, err := inst.installMessageOneRepo(
-			name, op, force, curVer, destVer)
+			r, op, force, curVer, destVer)
 		if err != nil {
 			return false, err
 		}
@@ -880,59 +881,6 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 	return nil
 }
 
-// Syncs the specified set of repos.
-func (inst *Installer) Sync(candidates []*repo.Repo,
-	force bool, ask bool) error {
-
-	if err := verifyRepoDirtyState(candidates, force); err != nil {
-		return err
-	}
-
-	vm, err := inst.calcVersionMap(candidates)
-	if err != nil {
-		return err
-	}
-
-	// Notify the user of what install operations are about to happen, and
-	// prompt if the `-a` (ask) option was specified.
-	proceed, err := inst.installPrompt(vm, INSTALL_OP_SYNC, false, ask)
-	if err != nil {
-		return err
-	}
-	if !proceed {
-		return nil
-	}
-
-	repos, err := inst.versionMapRepos(vm)
-	if err != nil {
-		return err
-	}
-
-	// Sync each repo in the list.
-	var anyFails bool
-	for _, r := range repos {
-		ver := inst.installedVer(r.Name())
-		if ver == nil {
-			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"No installed version of %s found, skipping\n",
-				r.Name())
-		} else {
-			if _, err := r.Sync(*ver); err != nil {
-				util.StatusMessage(util.VERBOSITY_QUIET,
-					"Failed to sync repo \"%s\": %s\n",
-					r.Name(), err.Error())
-				anyFails = true
-			}
-		}
-	}
-
-	if anyFails {
-		return util.FmtNewtError("Failed to sync")
-	}
-
-	return nil
-}
-
 type repoInfo struct {
 	installedVer *newtutil.RepoVersion // nil if not installed.
 	commitHash   string
@@ -951,6 +899,15 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 
 	if !r.CheckExists() {
 		return ri
+	}
+
+	if vm != nil {
+		// The caller requested a remote query.  Download this repo's latest
+		// `repository.yml` file.
+		if err := r.DownloadDesc(); err != nil {
+			ri.errorText = strings.TrimSpace(err.Error())
+			return ri
+		}
 	}
 
 	commitHash, err := r.CurrentHash()
@@ -995,6 +952,13 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 	var vmp *deprepo.VersionMap
 
 	if remote {
+		// Fetch the latest for all repos.
+		for _, r := range repos {
+			if err := r.DownloadDesc(); err != nil {
+				return err
+			}
+		}
+
 		vm, err := inst.calcVersionMap(repos)
 		if err != nil {
 			return err

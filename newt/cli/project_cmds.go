@@ -183,8 +183,10 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	pred := makeRepoPredicate(args)
 
-	if err := proj.SyncIf(
-		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+	util.OneTimeWarning("\"sync\" is deprecated.  Use \"upgrade\" instead.")
+
+	if err := proj.InstallIf(
+		true, newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
 
 		NewtUsage(nil, err)
 	}
@@ -239,7 +241,7 @@ func AddProjectCommands(cmd *cobra.Command) {
 	syncHelpEx += "    Syncs the apache-mynewt-core repository."
 	syncCmd := &cobra.Command{
 		Use:     "sync [repo-1] [repo-2] [...]",
-		Short:   "Synchronize project dependencies",
+		Short:   "Synchronize project dependencies (deprecated)",
 		Long:    syncHelpText,
 		Example: syncHelpEx,
 		Run:     syncRunCmd,

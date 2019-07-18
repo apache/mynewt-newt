@@ -228,12 +228,16 @@ func (r *Repo) CheckExists() bool {
 
 func (r *Repo) updateRepo(commit string) error {
 	// Clone the repo if it doesn't exist.
-	if err := r.ensureExists(); err != nil {
+	if err := r.EnsureExists(); err != nil {
 		return err
 	}
 
 	// Fetch and checkout the specified commit.
-	if err := r.downloader.Pull(r.Path(), commit); err != nil {
+	if err := r.downloader.Fetch(r.Path()); err != nil {
+		return util.FmtNewtError(
+			"Error updating \"%s\": %s", r.Name(), err.Error())
+	}
+	if err := r.downloader.Checkout(r.Path(), commit); err != nil {
 		return util.FmtNewtError(
 			"Error updating \"%s\": %s", r.Name(), err.Error())
 	}
@@ -276,71 +280,26 @@ func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 	return nil
 }
 
-// @return bool                 True if the sync succeeded.
-// @return error                Fatal error.
-func (r *Repo) Sync(ver newtutil.RepoVersion) (bool, error) {
-	// Sync is only allowed if a branch is checked out.
-	branch, err := r.downloader.CurrentBranch(r.localPath)
-	if err != nil {
-		return false, err
-	}
-
-	if branch == "" {
-		commits, err := r.CurrentCommits()
-		if err != nil {
-			return false, err
-		}
-
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Skipping \"%s\": not using a branch (current-commits=%v)\n",
-			r.Name(), commits)
-		return false, nil
-	}
-
-	// Determine the upstream associated with the current branch.  This is the
-	// upstream that will be pulled from.
-	upstream, err := r.downloader.UpstreamFor(r.localPath, branch)
-	if err != nil {
-		return false, err
-	}
-	if upstream == "" {
-		util.StatusMessage(util.VERBOSITY_QUIET,
-			"Failed to sync repo \"%s\": no upstream being tracked "+
-				"(branch=%s)\n",
-			r.Name(), branch)
-		return false, nil
-	}
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Syncing repository \"%s\" (%s)... ", r.Name(), upstream)
-
-	// Pull from upstream.
-	err = r.updateRepo(branch)
-	if err == nil {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "success\n")
-		return true, nil
-	} else {
-		util.StatusMessage(util.VERBOSITY_QUIET, "failed: %s\n",
-			strings.TrimSpace(err.Error()))
-		return false, nil
-	}
-}
-
 // Fetches all remotes and downloads an up to date copy of `repository.yml`
 // from master.  The repo object is then populated with the contents of the
 // downladed file.  If this repo has already had its descriptor updated, this
 // function is a no-op.
 func (r *Repo) UpdateDesc() (bool, error) {
-	var err error
-
 	if r.updated {
 		return false, nil
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "[%s]:\n", r.Name())
 
+	// Make sure the repo's "origin" remote points to the correct URL.  This is
+	// necessary in case the user changed his `project.yml` file to point to a
+	// different fork.
+	if err := r.downloader.FixupOrigin(r.localPath); err != nil {
+		return false, err
+	}
+
 	// Download `repository.yml`.
-	if err = r.DownloadDesc(); err != nil {
+	if err := r.DownloadDesc(); err != nil {
 		return false, err
 	}
 
@@ -354,19 +313,12 @@ func (r *Repo) UpdateDesc() (bool, error) {
 	return true, nil
 }
 
-func (r *Repo) ensureExists() error {
+func (r *Repo) EnsureExists() error {
 	// Clone the repo if it doesn't exist.
 	if !r.CheckExists() {
 		if err := r.downloadRepo("master"); err != nil {
 			return err
 		}
-	}
-
-	// Make sure the repo's "origin" remote points to the correct URL.  This is
-	// necessary in case the user changed his `project.yml` file to point to a
-	// different fork.
-	if err := r.downloader.FixupOrigin(r.localPath); err != nil {
-		return err
 	}
 
 	return nil
@@ -376,7 +328,7 @@ func (r *Repo) downloadFile(commit string, srcPath string) (string, error) {
 	dl := r.downloader
 
 	// Clone the repo if it doesn't exist.
-	if err := r.ensureExists(); err != nil {
+	if err := r.EnsureExists(); err != nil {
 		return "", err
 	}
 
@@ -433,6 +385,16 @@ func (r *Repo) DownloadDesc() error {
 	}
 
 	return nil
+}
+
+// IsDetached indicates whether a repo is in a "detached head" state.
+func (r *Repo) IsDetached() (bool, error) {
+	branch, err := r.downloader.CurrentBranch(r.Path())
+	if err != nil {
+		return false, err
+	}
+
+	return branch == "", nil
 }
 
 func parseRepoDepMap(depName string,
