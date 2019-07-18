@@ -282,26 +282,6 @@ func (proj *Project) InstallIf(
 	}
 }
 
-// Syncs (i.e., applies `git pull` to) repos matching the specified predicate.
-func (proj *Project) SyncIf(
-	force bool, ask bool, predicate func(r *repo.Repo) bool) error {
-
-	// Make sure we have an up to date copy of all `repository.yml` files.
-	if err := proj.downloadRepositoryYmlFiles(); err != nil {
-		return err
-	}
-
-	// Determine which repos the user wants to sync.
-	repoList := proj.SelectRepos(predicate)
-
-	inst, err := install.NewInstaller(proj.repos, proj.rootRepoReqs)
-	if err != nil {
-		return err
-	}
-
-	return inst.Sync(repoList, force, ask)
-}
-
 func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 	remote bool) error {
 
@@ -426,7 +406,9 @@ func (proj *Project) loadRepoDeps(download bool) error {
 								return nil, err
 							}
 						}
-						proj.repos[dep.Name] = depRepo
+						if err := proj.addRepo(depRepo); err != nil {
+							return nil, err
+						}
 					}
 					newRepos = append(newRepos, depRepo)
 
@@ -519,6 +501,17 @@ func (proj *Project) verifyNewtCompat() error {
 	return nil
 }
 
+// addRepo Adds an entry to the project's repo map.  It clones the repo if it
+// does not exist locally.
+func (proj *Project) addRepo(r *repo.Repo) error {
+	if err := r.EnsureExists(); err != nil {
+		return err
+	}
+
+	proj.repos[r.Name()] = r
+	return nil
+}
+
 func (proj *Project) loadConfig() error {
 	yc, err := config.ReadFile(proj.BasePath + "/" + PROJECT_FILE_NAME)
 	if err != nil {
@@ -565,7 +558,9 @@ func (proj *Project) loadConfig() error {
 					repoName, fields["vers"], err.Error())
 			}
 
-			proj.repos[repoName] = r
+			if err := proj.addRepo(r); err != nil {
+				return err
+			}
 			proj.rootRepoReqs[repoName] = verReqs
 		}
 	}

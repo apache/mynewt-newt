@@ -78,18 +78,15 @@ func normalizeCommit(commit string) string {
 func (r *Repo) CurrentHash() (string, error) {
 	dl := r.downloader
 	if dl == nil {
-		return "",
-			util.FmtNewtError("No downloader for %s",
-				r.Name())
+		return "", util.FmtNewtError("No downloader for %s", r.Name())
 	}
 
-	commit, err := dl.HashFor(r.Path(), "HEAD")
+	hash, err := dl.HashFor(r.Path(), "HEAD")
 	if err != nil {
-		return "",
-			util.FmtNewtError("Error finding current hash for \"%s\": %s",
-				r.Name(), err.Error())
+		return "", err
 	}
-	return commit, nil
+
+	return hash, nil
 }
 
 // Retrieves all commit strings corresponding to the repo's current state.
@@ -293,10 +290,6 @@ func (r *Repo) NormalizeVerReqs(verReqs []newtutil.RepoVersionReq) (
 func (r *Repo) VersionsEqual(v1 newtutil.RepoVersion,
 	v2 newtutil.RepoVersion) bool {
 
-	if newtutil.CompareRepoVersions(v1, v2) == 0 {
-		return true
-	}
-
 	h1, err := r.HashFromVer(v1)
 	if err != nil {
 		return false
@@ -398,7 +391,7 @@ func (r *Repo) inferVersion(commit string, vyVer *newtutil.RepoVersion) (
 				"Version mismatch in %s:%s; repository.yml:%s, version.yml:%s",
 				r.Name(), commit, versString(ryVers), vyVer.String())
 		} else {
-			// If the set of commits don't match a version from
+			// If the set of commits doesn't contain a version from
 			// `repository.yml`, record the commit hash in the version
 			// specifier.  This will distinguish the returned version from its
 			// corresponding official release.
@@ -435,6 +428,9 @@ func (r *Repo) InstalledVersion() (*newtutil.RepoVersion, error) {
 	hash, err := r.CurrentHash()
 	if err != nil {
 		return nil, err
+	}
+	if hash == "" {
+		return nil, nil
 	}
 
 	ver, err := r.inferVersion(hash, vyVer)
