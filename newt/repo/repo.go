@@ -237,6 +237,27 @@ func (r *Repo) updateRepo(commit string) error {
 		return util.FmtNewtError(
 			"Error updating \"%s\": %s", r.Name(), err.Error())
 	}
+
+	// If the specified commit doesn't exist, try inserting "_rc#" into the
+	// string.  This is useful when a release candidate is being tested.  In
+	// this case, the "rc" tags exist, but the official release tag has not
+	// been created yet.
+	if _, err := r.downloader.CommitType(r.Path(), commit); err != nil {
+		newCommit, err := r.downloader.LatestRc(r.Path(), commit)
+		if err != nil {
+			return util.FmtNewtError(
+				"Error updating \"%s\": %s", r.Name(), err.Error())
+		}
+
+		if newCommit != "" {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"in repo \"%s\": commit \"%s\" does not exist; "+
+					"using \"%s\" instead\n",
+				r.Name(), commit, newCommit)
+			commit = newCommit
+		}
+	}
+
 	if err := r.downloader.Checkout(r.Path(), commit); err != nil {
 		return util.FmtNewtError(
 			"Error updating \"%s\": %s", r.Name(), err.Error())

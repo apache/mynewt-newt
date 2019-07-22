@@ -25,7 +25,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -76,6 +78,15 @@ type Downloader interface {
 	// Retrieves the name of the currently checked out local branch, or "" if
 	// the repo is in a "detached head" state.
 	CurrentBranch(path string) (string, error)
+
+	// LatestRc finds the commit of the latest release candidate.  It looks
+	// for commits with names matching the base commit string, but with with
+	// "_rc#" inserted.  This is useful when a release candidate is being
+	// tested.  In this case, the "rc" tags exist, but the official release
+	// tag has not been created yet.
+	//
+	// If such a commit exists, it is returned.  Otherwise, "" is returned.
+	LatestRc(path string, base string) (string, error)
 }
 
 type Commit struct {
@@ -606,6 +617,44 @@ func (gd *GenericDownloader) DirtyState(path string) (string, error) {
 	}
 
 	return "", nil
+}
+
+func (gd *GenericDownloader) LatestRc(path string,
+	base string) (string, error) {
+
+	if err := gd.ensureInited(path); err != nil {
+		return "", err
+	}
+
+	// Example:
+	// [BASE] mynewt_1_7_0_tag
+	// [RC]   mynewt_1_7_0_rc1_tag
+
+	notag := strings.TrimSuffix(base, "_tag")
+	if notag == base {
+		return "", nil
+	}
+
+	restr := fmt.Sprintf("^%s_rc(\\d+)_tag$", regexp.QuoteMeta(notag))
+	re, err := regexp.Compile(restr)
+	if err != nil {
+		return "", util.FmtNewtError("internal error: %s", err.Error())
+	}
+
+	bestNum := -1
+	bestStr := ""
+	for commit, _ := range gd.commits {
+		match := re.FindStringSubmatch(commit)
+		if len(match) >= 2 {
+			num, _ := strconv.Atoi(match[1])
+			if num > bestNum {
+				bestNum = num
+				bestStr = commit
+			}
+		}
+	}
+
+	return bestStr, nil
 }
 
 func (gd *GithubDownloader) Fetch(repoDir string) error {
