@@ -47,6 +47,16 @@ func EscapeName(name string) string {
 	return strings.Replace(name, "/", "_", -1)
 }
 
+func replaceBackslashes(path string) string {
+	return strings.Replace(path, "\\", "/", -1)
+}
+
+func replaceBackslashesSlice(elements []string) {
+	for e := range elements {
+		elements[e] = replaceBackslashes(elements[e])
+	}
+}
+
 func trimProjectPath(path string) string {
 	proj := interfaces.GetProject()
 	path = strings.TrimPrefix(path, proj.Path()+"/")
@@ -148,8 +158,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 		EscapeName(pkgName),
 		strings.Join(files, " "))
 
-	archivePath := filepath.Dir(b.ArchivePath(bpkg))
-	archivePath = trimProjectPath(archivePath)
+	archivePath := replaceBackslashes(trimProjectPath(filepath.Dir(b.ArchivePath(bpkg))))
 	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
 
 	return bpkg, nil
@@ -185,9 +194,10 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 			EscapeName(bpkg.rpkg.Lpkg.Name())))
 	}
 
-	elfOutputDir := trimProjectPath(filepath.Dir(b.AppElfPath()))
-	fmt.Fprintf(w, "file(WRITE %s \"\")\n", filepath.Join(elfOutputDir, "null.c"))
-	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName, filepath.Join(elfOutputDir, "null.c"))
+	elfOutputDir := replaceBackslashes(trimProjectPath(filepath.Dir(b.AppElfPath())))
+	fmt.Fprintf(w, "file(WRITE %s \"\")\n", replaceBackslashes(filepath.Join(elfOutputDir, "null.c")))
+	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName,
+		replaceBackslashes(filepath.Join(elfOutputDir, "null.c")))
 
 	if c.GetLdResolveCircularDeps() {
 		fmt.Fprintf(w, "target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
@@ -279,6 +289,7 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 	// Sort and remove duplicate flags
 	includes = util.SortFields(includes...)
 	trimProjectPathSlice(includes)
+	replaceBackslashesSlice(includes)
 
 	fmt.Fprintf(w, `set_target_properties(%s
 							PROPERTIES
