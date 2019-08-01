@@ -107,8 +107,8 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	pred := makeRepoPredicate(args)
-	if err := proj.InstallIf(
-		false, newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+	if err := proj.UpgradeIf(
+		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
 
 		NewtUsage(nil, err)
 	}
@@ -119,8 +119,8 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	pred := makeRepoPredicate(args)
-	if err := proj.InstallIf(
-		true, newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+	if err := proj.UpgradeIf(
+		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
 
 		NewtUsage(nil, err)
 	}
@@ -183,10 +183,8 @@ func syncRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetProject()
 	pred := makeRepoPredicate(args)
 
-	util.OneTimeWarning("\"sync\" is deprecated.  Use \"upgrade\" instead.")
-
-	if err := proj.InstallIf(
-		true, newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+	if err := proj.UpgradeIf(
+		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
 
 		NewtUsage(nil, err)
 	}
@@ -199,11 +197,11 @@ func AddProjectCommands(cmd *cobra.Command) {
 	installHelpEx += "  newt install apache-mynewt-core\n"
 	installHelpEx += "    Installs the apache-mynewt-core repository."
 	installCmd := &cobra.Command{
-		Use:     "install [repo-1] [repo-2] [...]",
-		Short:   "Install project dependencies",
-		Long:    installHelpText,
-		Example: installHelpEx,
-		Run:     installRunCmd,
+		Use:        "install [repo-1] [repo-2] [...]",
+		Deprecated: "use \"upgrade\" instead",
+		Long:       installHelpText,
+		Example:    installHelpEx,
+		Run:        installRunCmd,
 	}
 	installCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
@@ -240,11 +238,11 @@ func AddProjectCommands(cmd *cobra.Command) {
 	syncHelpEx += "  newt sync apache-mynewt-core\n"
 	syncHelpEx += "    Syncs the apache-mynewt-core repository."
 	syncCmd := &cobra.Command{
-		Use:     "sync [repo-1] [repo-2] [...]",
-		Short:   "Synchronize project dependencies (deprecated)",
-		Long:    syncHelpText,
-		Example: syncHelpEx,
-		Run:     syncRunCmd,
+		Use:        "sync [repo-1] [repo-2] [...]",
+		Deprecated: "use \"upgrade\" instead",
+		Long:       syncHelpText,
+		Example:    syncHelpEx,
+		Run:        syncRunCmd,
 	}
 	syncCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
