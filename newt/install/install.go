@@ -16,22 +16,12 @@
 // under the License.
 
 // ----------------------------------------------------------------------------
-// install: Handles project installs, upgrades, and syncs.
+// install: Handles project upgrades.
 // ----------------------------------------------------------------------------
 //
-// This file implements three newt operations:
-// * Install - Downloads repos that aren't installed yet.  The downloaded
-//             version matches what `project.yml` specifies.
-//
-// * Upgrade - Ensures the installed version of each repo matches what
-//             `project.yml` specifies.  This is similar to Install, but it
-//             also operates on already-installed repos.
-//
-// * Sync    - Fetches and pulls the latest for each repo, but does not change
-//             the branch (version).
-//
-// All three operations operate on the repos specified in the `project.yml`
-// file and the set of each repo's dependencies.
+// This file implements one newt operation:
+// * Upgrade - Downloads a version of each repo that satisfies `project.yml`
+//             and all repo rependencies.
 //
 // Within the `project.yml` file, repo requirements are expressed with one of
 // the following forms:
@@ -361,31 +351,6 @@ func (inst *Installer) detectIllegalRepoReqs(
 	}
 
 	return nil
-}
-
-// Removes repos that shouldn't be installed from the specified list.  A repo
-// should not be installed if it is already installed (any version).
-//
-// @param repos                 The list of repos to filter.
-//
-// @return []*Repo              The filtered list of repos.
-func (inst *Installer) filterInstallList(
-	vm deprepo.VersionMap) (deprepo.VersionMap, error) {
-
-	filtered := deprepo.VersionMap{}
-
-	for name, ver := range vm {
-		curVer := inst.installedVer(name)
-		if curVer == nil {
-			filtered[name] = ver
-		} else {
-			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"Skipping \"%s\": already installed (%s)\n",
-				name, curVer.String())
-		}
-	}
-
-	return filtered, nil
 }
 
 // Indicates whether a repo should be upgraded to the specified version.  A
@@ -761,73 +726,6 @@ func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 
 	if errors != nil {
 		return util.NewNewtError(strings.Join(errors, "\n"))
-	}
-
-	return nil
-}
-
-// Installs the specified set of repos.
-func (inst *Installer) Install(
-	candidates []*repo.Repo, force bool, ask bool) error {
-
-	vm, err := inst.calcVersionMap(candidates)
-	if err != nil {
-		return err
-	}
-
-	// Perform some additional filtering on the list of repos to process.
-	if !force {
-		// Don't install a repo if it is already installed (any version).  We
-		// skip this filter for forced reinstalls.
-		vm, err = inst.filterInstallList(vm)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Notify the user of what install operations are about to happen, and
-	// prompt if the `-a` (ask) option was specified.
-	proceed, err := inst.installPrompt(vm, INSTALL_OP_INSTALL, force, ask)
-	if err != nil {
-		return err
-	}
-	if !proceed {
-		return nil
-	}
-
-	repos, err := inst.versionMapRepos(vm)
-	if err != nil {
-		return err
-	}
-
-	if err := verifyNewtCompat(repos, vm); err != nil {
-		return err
-	}
-
-	// For a forced install, delete all existing repos.
-	if force {
-		for _, r := range repos {
-			// Don't delete the local project directory!  And don't delete a
-			// repo that was just cloned during this invocation of newt.
-			if !r.IsLocal() && !r.IsNewlyCloned() {
-				util.StatusMessage(util.VERBOSITY_DEFAULT,
-					"Removing old copy of \"%s\" (%s)\n", r.Name(), r.Path())
-				os.RemoveAll(r.Path())
-				delete(inst.vers, r.Name())
-			}
-		}
-	}
-
-	// Install each repo in the version map.
-	for _, r := range repos {
-		destVer := vm[r.Name()]
-		if err := r.Install(destVer); err != nil {
-			return err
-		}
-
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"%s successfully installed version %s\n",
-			r.Name(), destVer.String())
 	}
 
 	return nil

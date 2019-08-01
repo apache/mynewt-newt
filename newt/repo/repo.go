@@ -275,19 +275,6 @@ func (r *Repo) DirtyState() (string, error) {
 	return r.downloader.DirtyState(r.Path())
 }
 
-func (r *Repo) Install(ver newtutil.RepoVersion) error {
-	commit, err := r.CommitFromVer(ver)
-	if err != nil {
-		return err
-	}
-
-	if err := r.updateRepo(commit); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 	commit, err := r.CommitFromVer(ver)
 	if err != nil {
