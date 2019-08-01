@@ -74,11 +74,12 @@ type LCfg struct {
 // Maps numeric log levels to their string representations.  Used when
 // generating the C log macros.
 var logLevelNames = []string{
-	0: "DEBUG",
-	1: "INFO",
-	2: "WARN",
-	3: "ERROR",
-	4: "CRITICAL",
+	0:  "DEBUG",
+	1:  "INFO",
+	2:  "WARN",
+	3:  "ERROR",
+	4:  "CRITICAL",
+	15: "DISABLED",
 }
 
 func LogLevelString(level int) string {
