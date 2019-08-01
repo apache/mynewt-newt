@@ -669,6 +669,10 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	log.Debugf("Repo dependency graph:\n%s\n", dg.String())
 	log.Debugf("Repo reverse dependency graph:\n%s\n", dg.Reverse().String())
 
+	// Don't consider repos that the user excluded (if a repo list was
+	// specified).
+	deprepo.PruneDepGraph(dg, candidates)
+
 	// Try to find a version set that satisfies the dependency graph.  If no
 	// such set exists, report the conflicts and abort.
 	vm, conflicts := deprepo.FindAcceptableVersions(m, dg)

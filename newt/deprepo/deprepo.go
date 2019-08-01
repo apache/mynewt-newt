@@ -231,6 +231,24 @@ func PruneMatrix(m *Matrix, repos RepoMap, rootReqs RequirementMap) error {
 	return nil
 }
 
+// PruneDepGraph removes all entries from a depgraph that aren't in the given
+// repo slice.  This is necessary when the user wants to upgrade only a subset
+// of repos in the project.
+func PruneDepGraph(dg DepGraph, keep []*repo.Repo) {
+	for k, _ := range dg {
+		found := false
+		for _, r := range keep {
+			if r.Name() == k.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			delete(dg, k)
+		}
+	}
+}
+
 // Produces an error describing the specified set of repo conflicts.
 func ConflictError(conflicts []Conflict) error {
 	s := ""
