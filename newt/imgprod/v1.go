@@ -208,7 +208,11 @@ func ProduceImagesV1(opts ImageProdOpts) (ProducedImageSetV1, error) {
 func ProduceAllV1(t *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string) error {
 
-	popts := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
+	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
+	if err != nil {
+		return err
+	}
+
 	pset, err := ProduceImagesV1(popts)
 	if err != nil {
 		return err
