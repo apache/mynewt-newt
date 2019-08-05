@@ -26,22 +26,28 @@ import (
 	"os"
 	"strings"
 
+	"github.com/apache/mynewt-artifact/flash"
 	"github.com/apache/mynewt-artifact/image"
 	"github.com/apache/mynewt-artifact/sec"
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/manifest"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
 type ImageProdOpts struct {
 	LoaderSrcFilename string
 	LoaderDstFilename string
+	LoaderHexFilename string
 	AppSrcFilename    string
 	AppDstFilename    string
+	AppHexFilename    string
 	EncKeyFilename    string
 	Version           image.ImageVersion
 	SigKeys           []sec.PrivSignKey
+	BaseAddr          int
+	DummyC            *toolchain.Compiler
 }
 
 type ProducedImage struct {
@@ -54,6 +60,33 @@ type ProducedImage struct {
 type ProducedImageSet struct {
 	Loader *ProducedImage
 	App    ProducedImage
+}
+
+// writeImageFiles writes two image artifacts:
+// * <name>.img
+// * <name>.hex
+func writeImageFiles(ri image.Image, imgFilename string, hexFilename string,
+	baseAddr int, c *toolchain.Compiler) error {
+
+	imgFile, err := os.OpenFile(imgFilename,
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	if err != nil {
+		return util.FmtNewtError(
+			"can't open image file \"%s\" %s", imgFilename, err.Error())
+	}
+	defer imgFile.Close()
+
+	if _, err := ri.Write(imgFile); err != nil {
+		return err
+	}
+
+	if err := c.ConvertBinToHex(imgFilename, hexFilename,
+		baseAddr); err != nil {
+
+		return err
+	}
+
+	return nil
 }
 
 func produceLoader(opts ImageProdOpts) (ProducedImage, error) {
@@ -81,16 +114,9 @@ func produceLoader(opts ImageProdOpts) (ProducedImage, error) {
 		return pi, err
 	}
 
-	imgFile, err := os.OpenFile(opts.LoaderDstFilename,
-		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
-	if err != nil {
-		return pi, util.FmtNewtError(
-			"Can't open target image %s: %s",
-			opts.LoaderDstFilename, err.Error())
-	}
-	defer imgFile.Close()
+	if err := writeImageFiles(ri, opts.LoaderDstFilename,
+		opts.LoaderHexFilename, opts.BaseAddr, opts.DummyC); err != nil {
 
-	if _, err := ri.Write(imgFile); err != nil {
 		return pi, err
 	}
 
@@ -131,15 +157,9 @@ func produceApp(opts ImageProdOpts, loaderHash []byte) (ProducedImage, error) {
 		return pi, err
 	}
 
-	imgFile, err := os.OpenFile(opts.AppDstFilename,
-		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
-	if err != nil {
-		return pi, util.FmtNewtError(
-			"Can't open target image %s: %s", opts.AppDstFilename, err.Error())
-	}
-	defer imgFile.Close()
+	if err := writeImageFiles(ri, opts.AppDstFilename, opts.AppHexFilename,
+		opts.BaseAddr, opts.DummyC); err != nil {
 
-	if _, err := ri.Write(imgFile); err != nil {
 		return pi, err
 	}
 
@@ -236,28 +256,47 @@ func ProduceManifest(opts manifest.ManifestCreateOpts) error {
 }
 
 func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []sec.PrivSignKey, encKeyFilename string) ImageProdOpts {
+	sigKeys []sec.PrivSignKey, encKeyFilename string) (ImageProdOpts, error) {
+
+	// This compiler is just used for converting .img files to .hex files, so
+	// dummy paths are OK.
+	c, err := b.NewCompiler("", "")
+	if err != nil {
+		return ImageProdOpts{}, err
+	}
+
+	// If there is no flash area for slot 0, default to a base address of 0.
+	img0Area := b.BspPkg().FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0]
+	baseAddr := img0Area.Offset
 
 	opts := ImageProdOpts{
 		AppSrcFilename: b.AppBuilder.AppBinPath(),
 		AppDstFilename: b.AppBuilder.AppImgPath(),
+		AppHexFilename: b.AppBuilder.AppHexPath(),
 		EncKeyFilename: encKeyFilename,
 		Version:        ver,
 		SigKeys:        sigKeys,
+		DummyC:         c,
+		BaseAddr:       baseAddr,
 	}
 
 	if b.LoaderBuilder != nil {
 		opts.LoaderSrcFilename = b.LoaderBuilder.AppBinPath()
 		opts.LoaderDstFilename = b.LoaderBuilder.AppImgPath()
+		opts.LoaderHexFilename = b.LoaderBuilder.AppHexPath()
 	}
 
-	return opts
+	return opts, nil
 }
 
 func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string) error {
 
-	popts := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
+	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
+	if err != nil {
+		return err
+	}
+
 	pset, err := ProduceImages(popts)
 	if err != nil {
 		return err
