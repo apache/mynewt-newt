@@ -77,6 +77,7 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	env = append(env, fmt.Sprintf("BSP_PATH=%s", bspPath))
 	env = append(env, fmt.Sprintf("BIN_BASENAME=%s", binBaseName))
 	env = append(env, fmt.Sprintf("BIN_ROOT=%s", BinRoot()))
+	env = append(env, fmt.Sprintf("MYNEWT_PROJECT_ROOT=%s", ProjectRoot()))
 
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
@@ -192,6 +193,7 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 		fmt.Sprintf("BSP_PATH=%s", bspPath),
 		fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
 		fmt.Sprintf("FEATURES=%s", featureString),
+		fmt.Sprintf("MYNEWT_PROJECT_ROOT=%s", ProjectRoot()),
 	}
 	if extraJtagCmd != "" {
 		envSettings = append(envSettings,
