@@ -92,7 +92,7 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	for _, v := range env {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "* %s\n", v)
 	}
-	if _, err := util.ShellCommand(cmd, env); err != nil {
+	if err := util.ShellInteractiveCommand(cmd, env); err != nil {
 		return err
 	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
