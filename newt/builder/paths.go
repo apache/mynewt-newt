@@ -31,6 +31,10 @@ import (
 const BUILD_NAME_APP = "app"
 const BUILD_NAME_LOADER = "loader"
 
+func ProjectRoot() string {
+	return project.GetProject().Path()
+}
+
 func BinRoot() string {
 	return project.GetProject().Path() + "/bin"
 }
