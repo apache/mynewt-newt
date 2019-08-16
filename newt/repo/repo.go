@@ -565,7 +565,9 @@ func NewLocalRepo(repoName string) (*Repo, error) {
 		local: true,
 	}
 
-	if err := r.Init(repoName, nil); err != nil {
+	// Local repos always get a git downloader.  The downloader is needed to
+	// determine the git state of the project.
+	if err := r.Init(repoName, downloader.NewGitDownloader()); err != nil {
 		return nil, err
 	}
 

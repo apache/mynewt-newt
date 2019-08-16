@@ -856,8 +856,10 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 	if remote {
 		// Fetch the latest for all repos.
 		for _, r := range repos {
-			if err := r.DownloadDesc(); err != nil {
-				return err
+			if !r.IsLocal() {
+				if err := r.DownloadDesc(); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -871,25 +873,53 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
 	for _, r := range repos {
-		ri := inst.gatherInfo(r, vmp)
-		s := fmt.Sprintf("    * %s:", r.Name())
-
-		s += fmt.Sprintf(" %s,", ri.commitHash)
-		if ri.installedVer == nil {
-			s += " (not installed)"
-		} else if ri.errorText != "" {
-			s += fmt.Sprintf(" (unknown: %s)", ri.errorText)
+		if r.IsLocal() {
+			inst.localRepoInfo(r)
 		} else {
-			s += fmt.Sprintf(" %s", ri.installedVer.String())
-			if ri.dirtyState != "" {
-				s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
-			}
-			if ri.needsUpgrade {
-				s += " (needs upgrade)"
-			}
+			inst.remoteRepoInfo(r, vmp)
 		}
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 	}
 
 	return nil
+}
+
+// remoteRepoInfo prints information about the specified repo.  If `vm` is
+// non-nil, the output indicates whether a remote update is available.
+func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
+	ri := inst.gatherInfo(r, vm)
+	s := fmt.Sprintf("    * %s:", r.Name())
+
+	s += fmt.Sprintf(" %s,", ri.commitHash)
+	if ri.installedVer == nil {
+		s += " (not installed)"
+	} else if ri.errorText != "" {
+		s += fmt.Sprintf(" (unknown: %s)", ri.errorText)
+	} else {
+		s += fmt.Sprintf(" %s", ri.installedVer.String())
+		if ri.dirtyState != "" {
+			s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
+		}
+		if ri.needsUpgrade {
+			s += " (needs upgrade)"
+		}
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
+}
+
+// remoteRepoInfo prints information about the specified local repo (i.e., the
+// project itself).  It does nothing if the project is not a git repo.
+func (inst *Installer) localRepoInfo(r *repo.Repo) {
+	ri := inst.gatherInfo(r, nil)
+	if ri.commitHash == "" {
+		// The project is not a git repo.
+		return
+	}
+
+	s := fmt.Sprintf("    * %s (project):", r.Name())
+
+	s += fmt.Sprintf(" %s", ri.commitHash)
+	if ri.dirtyState != "" {
+		s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 }

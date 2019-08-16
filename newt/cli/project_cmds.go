@@ -131,11 +131,11 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 
 	// If no arguments specified, print status of all installed repos.
 	if len(args) == 0 {
-		pred := func(r *repo.Repo) bool { return !r.IsLocal() }
-
+		pred := func(r *repo.Repo) bool { return true }
 		if err := proj.InfoIf(pred, infoRemote); err != nil {
 			NewtUsage(nil, err)
 		}
+
 		return
 	}
 
