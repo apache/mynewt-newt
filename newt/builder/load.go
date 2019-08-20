@@ -22,9 +22,11 @@ package builder
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -50,6 +52,35 @@ func (t *TargetBuilder) Load(extraJtagCmd string) error {
 	}
 
 	return err
+}
+
+func RunOptionalCheck(checkScript string, env []string) error {
+	if checkScript == "" {
+		return nil
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM)
+
+	cmd := []string{
+		checkScript,
+	}
+
+	/* Handle Ctrl-C, terminate newt, as it is the
+	   intended behavior */
+	go func() {
+		sig := <-sigs
+		fmt.Println(sig)
+		os.Exit(0)
+	}()
+
+	util.StatusMessage(util.VERBOSITY_SILENT,
+		"Optional target check: %s\n", strings.Join(cmd, " "))
+	util.ShellInteractiveCommand(cmd, env, true)
+
+	/* Unregister SIGTERM handler */
+	signal.Reset(syscall.SIGTERM)
+	return nil
 }
 
 func Load(binBaseName string, bspPkg *pkg.BspPackage,
@@ -79,6 +110,7 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	env = append(env, fmt.Sprintf("BIN_ROOT=%s", BinRoot()))
 	env = append(env, fmt.Sprintf("MYNEWT_PROJECT_ROOT=%s", ProjectRoot()))
 
+	RunOptionalCheck(bspPkg.OptChkScript, env)
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
 	cmd := []string{
@@ -186,6 +218,7 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	bspPath := b.bspPkg.rpkg.Lpkg.BasePath()
 	binBaseName := binPath
 	featureString := b.FeatureString()
+	bspPkg := b.targetBuilder.bspPkg
 
 	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
 	envSettings := []string{
@@ -208,6 +241,7 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 
 	os.Chdir(project.GetProject().Path())
 
+	RunOptionalCheck(bspPkg.OptChkScript, envSettings)
 	// bspPath, binBaseName are passed in command line for backwards
 	// compatibility
 	cmdLine := []string{
@@ -215,7 +249,7 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	}
 
 	fmt.Printf("%s\n", cmdLine)
-	return util.ShellInteractiveCommand(cmdLine, envSettings)
+	return util.ShellInteractiveCommand(cmdLine, envSettings, false)
 }
 
 func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
