@@ -367,20 +367,23 @@ func ShellCommand(cmdStrs []string, env []string) ([]byte, error) {
 }
 
 // Run interactive shell command
-func ShellInteractiveCommand(cmdStr []string, env []string) error {
+func ShellInteractiveCommand(cmdStr []string, env []string, flagBlock bool) error {
 	// Escape special characters for Windows.
 	fixupCmdArgs(cmdStr)
 
 	log.Print("[VERBOSE] " + cmdStr[0])
 
+	c := make(chan os.Signal, 1)
 	// Block SIGINT, at least.
 	// Otherwise Ctrl-C meant for gdb would kill newt.
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-	go func() {
-		<-c
-	}()
+	if flagBlock == false {
+		signal.Notify(c, os.Interrupt)
+		signal.Notify(c, syscall.SIGTERM)
+
+		go func() {
+			<-c
+		}()
+	}
 
 	if env != nil {
 		env = append(env, os.Environ()...)

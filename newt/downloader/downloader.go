@@ -779,7 +779,7 @@ func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
-		err = util.ShellInteractiveCommand(cmd, nil)
+		err = util.ShellInteractiveCommand(cmd, nil, false)
 	} else {
 		_, err = util.ShellCommand(cmd, nil)
 	}
@@ -859,7 +859,7 @@ func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 	}
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
-		err = util.ShellInteractiveCommand(cmd, nil)
+		err = util.ShellInteractiveCommand(cmd, nil, false)
 	} else {
 		_, err = util.ShellCommand(cmd, nil)
 	}

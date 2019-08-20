@@ -41,6 +41,7 @@ type BspPackage struct {
 	Part2LinkerScripts []string /* scripts to link app to second partition */
 	DownloadScript     string
 	DebugScript        string
+	OptChkScript       string
 	FlashMap           flashmap.FlashMap
 	BspV               ycfg.YCfg
 }
@@ -147,6 +148,9 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 	if err != nil {
 		return err
 	}
+	/* Optional Target Checker Script, not an err if not found */
+	bsp.OptChkScript, err = bsp.resolvePathSetting(
+		settings, "bsp.optionalcheckscript")
 
 	if bsp.CompilerName == "" {
 		return util.NewNewtError("BSP does not specify a compiler " +
