@@ -144,6 +144,18 @@ func (t *TargetBuilder) injectBuildSettings() {
 	t.InjectSetting("TARGET_"+util.CIdentifier(tgtName), "1")
 }
 
+// resolveTransientPkgs replaces packages in a slice with the packages they
+// link to.  It has no effect on non-transient packages.
+func (t *TargetBuilder) resolveTransientPkgs(lps []*pkg.LocalPackage) {
+	for i, lp := range lps {
+		resolved := t.target.ResolvePackageName(lp.FullName())
+		if resolved != lp {
+			resolve.LogTransientWarning(lp)
+			lps[i] = resolved
+		}
+	}
+}
+
 func (t *TargetBuilder) ensureResolved() error {
 	if t.res != nil {
 		return nil
@@ -151,6 +163,11 @@ func (t *TargetBuilder) ensureResolved() error {
 
 	t.injectNewtSettings()
 	t.injectBuildSettings()
+
+	// When populating seed lists, resolve transient packages as a separate
+	// step (i.e., fill the list with the "Yml()" version of each package, then
+	// call `resolveTransientPkgs` on the list).  This is done so that we can
+	// detect and warn the user if transient packages are being used.
 
 	var loaderSeeds []*pkg.LocalPackage
 	if t.loaderPkg != nil {
@@ -160,6 +177,7 @@ func (t *TargetBuilder) ensureResolved() error {
 			t.compilerPkg,
 			t.target.Package(),
 		}
+		t.resolveTransientPkgs(loaderSeeds)
 
 		// For split images, inject the SPLIT_[...] settings into the
 		// corresponding app packages.  This ensures that:
@@ -182,6 +200,7 @@ func (t *TargetBuilder) ensureResolved() error {
 		t.compilerPkg,
 		t.target.Package(),
 	}
+	t.resolveTransientPkgs(appSeeds)
 
 	if t.appPkg != nil {
 		appSeeds = append(appSeeds, t.target.AppYml())
