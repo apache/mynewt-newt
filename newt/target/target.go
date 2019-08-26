@@ -132,7 +132,7 @@ func (target *Target) Validate(appRequired bool) error {
 		return util.NewNewtError("Target does not specify a BSP package " +
 			"(target.bsp)")
 	}
-	bsp := target.resolvePackageName(target.BspName)
+	bsp := target.ResolvePackageName(target.BspName)
 	if bsp == nil {
 		return util.FmtNewtError("Could not resolve BSP package: %s",
 			target.BspName)
@@ -149,7 +149,7 @@ func (target *Target) Validate(appRequired bool) error {
 			return util.NewNewtError("Target does not specify an app " +
 				"package (target.app)")
 		}
-		app := target.resolvePackageName(target.AppName)
+		app := target.ResolvePackageName(target.AppName)
 		if app == nil {
 			return util.FmtNewtError("Could not resolve app package: %s",
 				target.AppName)
@@ -162,7 +162,7 @@ func (target *Target) Validate(appRequired bool) error {
 		}
 
 		if target.LoaderName != "" {
-			loader := target.resolvePackageName(target.LoaderName)
+			loader := target.ResolvePackageName(target.LoaderName)
 			if loader == nil {
 				return util.FmtNewtError(
 					"Could not resolve loader package: %s", target.LoaderName)
@@ -207,7 +207,7 @@ func (target *Target) Clone(newRepo *repo.Repo, newName string) *Target {
 	return &newTarget
 }
 
-func (target *Target) resolvePackageRepoAndName(repo *repo.Repo, name string) *pkg.LocalPackage {
+func (target *Target) ResolvePackageRepoAndName(repo *repo.Repo, name string) *pkg.LocalPackage {
 	dep, err := pkg.NewDependency(repo, name)
 	if err != nil {
 		return nil
@@ -221,8 +221,8 @@ func (target *Target) resolvePackageRepoAndName(repo *repo.Repo, name string) *p
 	return pack
 }
 
-func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
-	pack := target.resolvePackageYmlName(name)
+func (target *Target) ResolvePackageName(name string) *pkg.LocalPackage {
+	pack := target.ResolvePackageYmlName(name)
 
 	if pack == nil || pack.Type() != pkg.PACKAGE_TYPE_TRANSIENT {
 		return pack
@@ -231,42 +231,42 @@ func (target *Target) resolvePackageName(name string) *pkg.LocalPackage {
 	// We follow only one level of linking here to make things easier and assuming
 	// nested linking means someone using really deprecated packages ;)
 
-	pack = target.resolvePackageRepoAndName(pack.Repo().(*repo.Repo), pack.LinkedName())
+	pack = target.ResolvePackageRepoAndName(pack.Repo().(*repo.Repo), pack.LinkedName())
 
 	return pack
 }
 
-func (target *Target) resolvePackageYmlName(name string) *pkg.LocalPackage {
-	return target.resolvePackageRepoAndName(target.basePkg.Repo().(*repo.Repo), name)
+func (target *Target) ResolvePackageYmlName(name string) *pkg.LocalPackage {
+	return target.ResolvePackageRepoAndName(target.basePkg.Repo().(*repo.Repo), name)
 }
 
 // Methods below resolve package by name and follow links to get proper package
 
 func (target *Target) App() *pkg.LocalPackage {
-	return target.resolvePackageName(target.AppName)
+	return target.ResolvePackageName(target.AppName)
 }
 
 func (target *Target) Loader() *pkg.LocalPackage {
-	return target.resolvePackageName(target.LoaderName)
+	return target.ResolvePackageName(target.LoaderName)
 }
 
 func (target *Target) Bsp() *pkg.LocalPackage {
-	return target.resolvePackageName(target.BspName)
+	return target.ResolvePackageName(target.BspName)
 }
 
 // Methods below resolve package by name as stated in YML file (so do not follow links)
 // e.g. to use as seed for dependencies calculation
 
 func (target *Target) AppYml() *pkg.LocalPackage {
-	return target.resolvePackageYmlName(target.AppName)
+	return target.ResolvePackageYmlName(target.AppName)
 }
 
 func (target *Target) LoaderYml() *pkg.LocalPackage {
-	return target.resolvePackageYmlName(target.LoaderName)
+	return target.ResolvePackageYmlName(target.LoaderName)
 }
 
 func (target *Target) BspYml() *pkg.LocalPackage {
-	return target.resolvePackageYmlName(target.BspName)
+	return target.ResolvePackageYmlName(target.BspName)
 }
 
 // Save the target's configuration elements
