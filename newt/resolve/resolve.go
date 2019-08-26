@@ -1108,13 +1108,7 @@ func ResolveFull(
 	// We have now resolved all packages so go through them and emit warning
 	// when using link packages
 	for _, rpkg := range res.MasterSet.Rpkgs {
-		if rpkg.Lpkg.Type() != pkg.PACKAGE_TYPE_TRANSIENT {
-			continue
-		}
-
-		log.Warnf("Transient package %s used, update configuration "+
-			"to use linked package instead (%s)",
-			rpkg.Lpkg.FullName(), rpkg.Lpkg.LinkedName())
+		LogTransientWarning(rpkg.Lpkg)
 	}
 
 	// If there is no loader, then the set of all packages is just the app
@@ -1237,4 +1231,12 @@ func (res *Resolution) WarningText() string {
 
 func (res *Resolution) DeprecatedWarning() []string {
 	return res.Cfg.DeprecatedWarning()
+}
+
+func LogTransientWarning(lpkg *pkg.LocalPackage) {
+	if lpkg.Type() == pkg.PACKAGE_TYPE_TRANSIENT {
+		log.Warnf("Transient package %s used, update configuration "+
+			"to use linked package instead (%s)",
+			lpkg.FullName(), lpkg.LinkedName())
+	}
 }
