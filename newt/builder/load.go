@@ -34,21 +34,55 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+func (t *TargetBuilder) loadLoader(slot int, extraJtagCmd string) error {
+	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.SettingValues()); err != nil {
+		return err
+	}
+
+	return t.LoaderBuilder.Load(slot, extraJtagCmd)
+}
+
+func (t *TargetBuilder) loadApp(slot int, extraJtagCmd string) error {
+	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
+		return err
+	}
+
+	return t.AppBuilder.Load(slot, extraJtagCmd)
+}
+
+func (t *TargetBuilder) debugLoader(extraJtagCmd string, reset bool,
+	noGDB bool) error {
+
+	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.SettingValues()); err != nil {
+		return err
+	}
+
+	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB)
+}
+
+func (t *TargetBuilder) debugApp(extraJtagCmd string, reset bool,
+	noGDB bool) error {
+
+	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
+		return err
+	}
+
+	return t.AppBuilder.Debug(extraJtagCmd, reset, noGDB)
+}
+
 func (t *TargetBuilder) Load(extraJtagCmd string) error {
-
 	err := t.PrepBuild()
-
 	if err != nil {
 		return err
 	}
 
 	if t.LoaderBuilder != nil {
-		err = t.AppBuilder.Load(1, extraJtagCmd)
+		err = t.loadApp(1, extraJtagCmd)
 		if err == nil {
-			err = t.LoaderBuilder.Load(0, extraJtagCmd)
+			err = t.loadLoader(0, extraJtagCmd)
 		}
 	} else {
-		err = t.AppBuilder.Load(0, extraJtagCmd)
+		err = t.loadApp(0, extraJtagCmd)
 	}
 
 	return err
@@ -200,9 +234,9 @@ func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error
 	}
 
 	if t.LoaderBuilder == nil {
-		return t.AppBuilder.Debug(extraJtagCmd, reset, noGDB)
+		return t.debugApp(extraJtagCmd, reset, noGDB)
 	}
-	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB)
+	return t.debugLoader(extraJtagCmd, reset, noGDB)
 }
 
 func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
