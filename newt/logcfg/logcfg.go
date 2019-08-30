@@ -270,11 +270,13 @@ func (lcfg *LCfg) writeLogMacros(w io.Writer) {
 
 		levelInt, _ := util.AtoiNoOct(l.Level.Value)
 		for i, levelStr := range logLevelNames {
-			if i < levelInt {
-				writeLogStub(l.Name, levelStr, w)
-			} else {
-				modInt, _ := l.Module.IntVal()
-				writeLogMacro(l.Name, modInt, levelStr, w)
+			if levelStr != "" {
+				if i < levelInt {
+					writeLogStub(l.Name, levelStr, w)
+				} else {
+					modInt, _ := l.Module.IntVal()
+					writeLogMacro(l.Name, modInt, levelStr, w)
+				}
 			}
 		}
 	}
