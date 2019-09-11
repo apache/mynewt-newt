@@ -62,7 +62,7 @@ Once you've installed newt, you can get started by creating a new project:
 ```
 
 For more information, and a tutorial for getting started, please take a look at
-the [Apache Mynewt documentation](https://mynewt.apache.org/os/get_started/introduction/).
+the [Apache Mynewt documentation](https://mynewt.apache.org/latest/tutorials/tutorials.html).
 
 
 
