@@ -81,29 +81,25 @@ Apache Mynewt welcomes pull request via Github.  Discussions are done on Github,
 but depending on the topic, can also be relayed to the official Apache Mynewt
 developer mailing list dev@mynewt.apache.org.
 
-If you are suggesting a new feature, please email the developer list directly,
-with a description of the feature you are planning to work on.
-
-We do not merge pull requests directly on Github, all PRs will be pulled and
-pushed through https://git.apache.org/.
-
 ## Filing Bugs
 
-Bugs can be filed on the
-[Apache Mynewt Bug Tracker](https://issues.apache.org/jira/browse/MYNEWT).
-
-Where possible, please include a self-contained reproduction case!
+Bugs can be filed as Github issues
+[here](https://github.com/apache/mynewt-newt/issues).  Where possible, please
+include a self-contained reproduction case!
 
 ## Feature Requests
 
-Feature requests should also be filed on the
-[Apache Mynewt Bug Tracker](https://issues.apache.org/jira/browse/MYNEWT).
-Please introduce it as a ticket type "Wish."
+If you are suggesting a new feature, please email the developer list directly
+with a description of the feature or submit a
+[Github issue](https://github.com/apache/mynewt-newt/issues).
 
 ## Writing Tests
 
 We love getting newt tests!  Apache Mynewt is a huge undertaking, and improving
 code coverage is a win for every Apache Mynewt user.
+
+Automated Newt tests are run in Travis.  The test code can be found
+[here](https://github.com/JuulLabs-OSS/mynewt-travis-ci).
 
 ## Writing Documentation
 
@@ -113,9 +109,7 @@ in [/docs](/docs).
 
 ## Getting Help
 
-If you are having trouble contributing to Apache Mynewt, or just want to talk
-to a human about what you're working on, you can contact us via the
-[developers mailing list](mailto:dev@mynewt.apache.org).
+The best place to seek help is the [Apache Mynewt slack channel](https://join.slack.com/t/mynewt/shared_invite/enQtNjA1MTg0NzgyNzg3LTZiYzgxNDQ3NmQ5ZWFkMTY4MjNjYTNmNGJjMDhiMmZiMWFjNDdkMzBlNzZjOWY0YzljYTBhYTg1YmRjYzljZDg)
 
-Although not a formal channel, you can also find a number of core developers
-on the #mynewt channel on Freenode.
+The [Apache Mynewt developers mailing list](mailto:dev@mynewt.apache.org) is
+another good resource.
