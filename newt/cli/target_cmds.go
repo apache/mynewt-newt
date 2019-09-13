@@ -39,6 +39,7 @@ import (
 )
 
 var amendDelete bool = false
+var showAll bool = false
 
 // target variables that can have values amended with the amend command.
 var amendVars = []string{"aflags", "cflags", "cxxflags", "lflags", "syscfg"}
@@ -170,12 +171,24 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	TryGetProject()
 	targetNames := []string{}
 	if len(args) == 0 {
-		for name, _ := range target.GetTargets() {
-			// Don't display the special unittest target; this is used
-			// internally by newt, so the user doesn't need to know about it.
-			// XXX: This is a hack; come up with a better solution for unit
-			// testing.
-			if !strings.HasSuffix(name, "/unittest") {
+		for name, t := range target.GetTargets() {
+			keep := func() bool {
+				// Don't display the special unittest target; this is used
+				// internally by newt, so the user doesn't need to know about
+				// it.
+				if strings.HasSuffix(name, "/unittest") {
+					return false
+				}
+
+				// Don't show foreign targets without the `-a` option.
+				if !showAll && !t.Package().Repo().IsLocal() {
+					return false
+				}
+
+				return true
+			}
+
+			if keep() {
 				targetNames = append(targetNames, name)
 			}
 		}
@@ -666,6 +679,8 @@ func AddTargetCommands(cmd *cobra.Command) {
 		Example: showHelpEx,
 		Run:     targetShowCmd,
 	}
+	showCmd.Flags().BoolVarP(&showAll, "all", "a", false,
+		"Show all targets (including from other repos)")
 	targetCmd.AddCommand(showCmd)
 	AddTabCompleteFn(showCmd, targetList)
 
