@@ -502,7 +502,7 @@ func (b *Builder) PrepBuild() error {
 
 	// All packages have access to the generated code header directory.
 	baseCi.Includes = append(baseCi.Includes,
-		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
+		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.FullName()))
 
 	// Let multiplatform libraries know that a Mynewt binary is being build.
 	baseCi.Cflags = append(baseCi.Cflags, "-DMYNEWT=1")
@@ -520,7 +520,7 @@ func (b *Builder) AddCompilerInfo(info *toolchain.CompilerInfo) {
 
 func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
 	lpkg := pkg.NewLocalPackage(b.targetPkg.rpkg.Lpkg.Repo().(*repo.Repo),
-		GeneratedBaseDir(b.targetPkg.rpkg.Lpkg.Name()))
+		GeneratedBaseDir(b.targetPkg.rpkg.Lpkg.FullName()))
 	lpkg.SetName(pkg.ShortName(b.targetPkg.rpkg.Lpkg) + "-sysinit-" +
 		b.buildName)
 	lpkg.SetType(pkg.PACKAGE_TYPE_GENERATED)

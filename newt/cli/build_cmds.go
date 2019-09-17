@@ -211,7 +211,7 @@ func cleanRunCmd(cmd *cobra.Command, args []string) {
 		cleanDir(builder.BinRoot())
 	} else {
 		for _, t := range targets {
-			cleanDir(builder.TargetBinDir(t.Name()))
+			cleanDir(builder.TargetBinDir(t.FullName()))
 		}
 	}
 }
