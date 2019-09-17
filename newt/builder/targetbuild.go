@@ -254,8 +254,8 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		log.Warn(line)
 	}
 
-	incDir := GeneratedIncludeDir(t.target.Name())
-	srcDir := GeneratedSrcDir(t.target.Name())
+	incDir := GeneratedIncludeDir(t.target.FullName())
+	srcDir := GeneratedSrcDir(t.target.FullName())
 
 	if err := syscfg.EnsureWritten(t.res.Cfg, incDir); err != nil {
 		return err
@@ -448,7 +448,7 @@ func (t *TargetBuilder) autogenKeys() error {
 		return err
 	}
 
-	srcDir := GeneratedSrcDir(t.target.Name())
+	srcDir := GeneratedSrcDir(t.target.FullName())
 
 	f, _ := os.Create(srcDir + "/pubkey-autogen.c")
 	w := bufio.NewWriter(f)
