@@ -561,10 +561,11 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return util.NewNewtError("Unknown compiler type")
 	}
 
-	_, err = util.ShellCommand(cmd, nil)
+	o, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
 	c.compileCommands = append(c.compileCommands,
 		CompileCommand{
@@ -918,10 +919,11 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	}
 
 	cmd := c.CompileBinaryCmd(dstFile, options, objFiles, keepSymbols, elfLib)
-	_, err := util.ShellCommand(cmd, nil)
+	o, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
 	err = writeCommandFile(dstFile, cmd)
 	if err != nil {
@@ -958,10 +960,11 @@ func (c *Compiler) generateExtras(elfFilename string,
 			elfFilename,
 			binFile,
 		}
-		_, err := util.ShellCommand(cmd, nil)
+		o, err := util.ShellCommand(cmd, nil)
 		if err != nil {
 			return err
 		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 	}
 
 	if options["listFile"] {
@@ -1223,10 +1226,11 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	}
 
 	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
-	_, err = util.ShellCommand(cmd, nil)
+	o, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
 	err = writeCommandFile(archiveFile, cmd)
 	if err != nil {
@@ -1310,9 +1314,13 @@ func (c *Compiler) RenameSymbols(sm *symbol.SymbolMap, libraryFile string, ext s
 
 	cmd := c.RenameSymbolsCmd(sm, libraryFile, ext)
 
-	_, err := util.ShellCommand(cmd, nil)
+	o, err := util.ShellCommand(cmd, nil)
+	if err != nil {
+		return err
+	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
-	return err
+	return nil
 }
 
 func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
@@ -1347,9 +1355,11 @@ func (c *Compiler) ConvertBinToHex(inFile string, outFile string, baseAddr int) 
 		inFile,
 		outFile,
 	}
-	_, err := util.ShellCommand(cmd, nil)
+	o, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
 	}
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
+
 	return nil
 }
