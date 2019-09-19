@@ -24,11 +24,9 @@ import (
 	"os"
 	"os/signal"
 	"sort"
-	"strconv"
 	"strings"
 	"syscall"
 
-	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
@@ -117,40 +115,36 @@ func RunOptionalCheck(checkScript string, env []string) error {
 	return nil
 }
 
-func Load(binBaseName string, bspPkg *pkg.BspPackage,
+func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	extraEnvSettings map[string]string) error {
 
 	if bspPkg.DownloadScript == "" {
 		return nil
 	}
 
-	bspPath := bspPkg.BasePath()
+	env := BasicEnvVars(binBasePath, bspPkg)
+	for k, v := range extraEnvSettings {
+		env[k] = v
+	}
 
-	sortedKeys := make([]string, 0, len(extraEnvSettings))
-	for k, _ := range extraEnvSettings {
+	sortedKeys := make([]string, 0, len(env))
+	for k, _ := range env {
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Strings(sortedKeys)
 
-	env := []string{}
+	envSlice := []string{}
 	for _, key := range sortedKeys {
-		env = append(env, fmt.Sprintf("%s=%s", key, extraEnvSettings[key]))
+		envSlice = append(envSlice, fmt.Sprintf("%s=%s", key, env[key]))
 	}
 
-	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
-	env = append(env, fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()))
-	env = append(env, fmt.Sprintf("BSP_PATH=%s", bspPath))
-	env = append(env, fmt.Sprintf("BIN_BASENAME=%s", binBaseName))
-	env = append(env, fmt.Sprintf("BIN_ROOT=%s", BinRoot()))
-	env = append(env, fmt.Sprintf("MYNEWT_PROJECT_ROOT=%s", ProjectRoot()))
-
-	RunOptionalCheck(bspPkg.OptChkScript, env)
-	// bspPath, binBaseName are passed in command line for backwards
+	RunOptionalCheck(bspPkg.OptChkScript, envSlice)
+	// bspPath, binBasePath are passed in command line for backwards
 	// compatibility
 	cmd := []string{
 		bspPkg.DownloadScript,
-		bspPath,
-		binBaseName,
+		bspPkg.BasePath(),
+		binBasePath,
 	}
 
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
@@ -159,7 +153,7 @@ func Load(binBaseName string, bspPkg *pkg.BspPackage,
 	for _, v := range env {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "* %s\n", v)
 	}
-	if _, err := util.ShellCommand(cmd, env); err != nil {
+	if _, err := util.ShellCommand(cmd, envSlice); err != nil {
 		return err
 	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
@@ -178,50 +172,27 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 		return err
 	}
 
-	envSettings := map[string]string{
-		"IMAGE_SLOT": strconv.Itoa(imageSlot),
-		"FEATURES":   b.FeatureString(),
+	env, err := b.EnvVars(imageSlot)
+	if err != nil {
+		return err
 	}
+
 	if extraJtagCmd != "" {
-		envSettings["EXTRA_JTAG_CMD"] = extraJtagCmd
+		env["EXTRA_JTAG_CMD"] = extraJtagCmd
 	}
-	settings := b.cfg.SettingValues()
 
-	var flashTargetArea string
-	if parse.ValueIsTrue(settings["BOOT_LOADER"]) {
-		envSettings["BOOT_LOADER"] = "1"
-
-		flashTargetArea = "FLASH_AREA_BOOTLOADER"
+	if _, ok := env["BOOT_LOADER"]; ok {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Loading bootloader\n")
 	} else {
-		if imageSlot == 0 {
-			flashTargetArea = "FLASH_AREA_IMAGE_0"
-		} else if imageSlot == 1 {
-			flashTargetArea = "FLASH_AREA_IMAGE_1"
-		}
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"Loading %s image into slot %d\n", b.buildName, imageSlot+1)
-	}
-
-	bspPkg := b.targetBuilder.bspPkg
-	tgtArea := bspPkg.FlashMap.Areas[flashTargetArea]
-	if tgtArea.Name == "" {
-		return util.NewNewtError(fmt.Sprintf("No flash target area %s\n",
-			flashTargetArea))
-	}
-	envSettings["FLASH_OFFSET"] = "0x" + strconv.FormatInt(int64(tgtArea.Offset), 16)
-	envSettings["FLASH_AREA_SIZE"] = "0x" + strconv.FormatInt(int64(tgtArea.Size), 16)
-
-	// Add all syscfg settings to the environment with the MYNEWT_VAL_ prefix.
-	for k, v := range settings {
-		envSettings["MYNEWT_VAL_"+k] = v
 	}
 
 	// Convert the binary path from absolute to relative.  This is required for
 	// compatibility with unix-in-windows environemnts (e.g., cygwin).
 	binPath := util.TryRelPath(b.AppBinBasePath())
-	if err := Load(binPath, b.targetBuilder.bspPkg, envSettings); err != nil {
+	if err := Load(binPath, b.targetBuilder.bspPkg, env); err != nil {
 		return err
 	}
 
@@ -250,15 +221,15 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	}
 
 	bspPath := b.bspPkg.rpkg.Lpkg.BasePath()
-	binBaseName := binPath
-	featureString := b.FeatureString()
+	binBasePath := binPath
+	featureString := FeatureString(b.cfg.SettingValues())
 	bspPkg := b.targetBuilder.bspPkg
 
 	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
 	envSettings := []string{
 		fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()),
 		fmt.Sprintf("BSP_PATH=%s", bspPath),
-		fmt.Sprintf("BIN_BASENAME=%s", binBaseName),
+		fmt.Sprintf("BIN_BASENAME=%s", binBasePath),
 		fmt.Sprintf("FEATURES=%s", featureString),
 		fmt.Sprintf("MYNEWT_PROJECT_ROOT=%s", ProjectRoot()),
 	}
@@ -276,10 +247,10 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	os.Chdir(project.GetProject().Path())
 
 	RunOptionalCheck(bspPkg.OptChkScript, envSettings)
-	// bspPath, binBaseName are passed in command line for backwards
+	// bspPath, binBasePath are passed in command line for backwards
 	// compatibility
 	cmdLine := []string{
-		b.targetBuilder.bspPkg.DebugScript, bspPath, binBaseName,
+		b.targetBuilder.bspPkg.DebugScript, bspPath, binBasePath,
 	}
 
 	fmt.Printf("%s\n", cmdLine)
@@ -287,12 +258,10 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 }
 
 func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
-	if b.appPkg == nil {
-		return util.NewNewtError("app package not specified")
+	binPath, err := b.binBasePath()
+	if err != nil {
+		return err
 	}
 
-	// Convert the binary path from absolute to relative.  This is required for
-	// Windows compatibility.
-	binPath := util.TryRelPath(b.AppBinBasePath())
 	return b.debugBin(binPath, extraJtagCmd, reset, noGDB)
 }
