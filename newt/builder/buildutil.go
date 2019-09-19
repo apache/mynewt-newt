@@ -22,24 +22,29 @@ package builder
 import (
 	"bytes"
 	"sort"
+	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/parse"
+	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/resolve"
+	"mynewt.apache.org/newt/util"
 )
 
 func TestTargetName(testPkgName string) string {
 	return strings.Replace(testPkgName, "/", "_", -1)
 }
 
-func (b *Builder) FeatureString() string {
+// FeatureString converts a syscfg map to a string.  The string is a
+// space-separate list of "enabled" settings.
+func FeatureString(settings map[string]string) string {
 	var buffer bytes.Buffer
 
-	settingMap := b.cfg.SettingValues()
-	featureSlice := make([]string, 0, len(settingMap))
-	for k, v := range settingMap {
+	featureSlice := make([]string, 0, len(settings))
+	for k, v := range settings {
 		if parse.ValueIsTrue(v) {
 			featureSlice = append(featureSlice, k)
 		}
@@ -53,6 +58,7 @@ func (b *Builder) FeatureString() string {
 
 		buffer.WriteString(feature)
 	}
+
 	return buffer.String()
 }
 
@@ -125,4 +131,124 @@ func logDepInfo(res *resolve.Resolution) {
 	} else {
 		log.Debugf("%s", RevdepGraphText(rdg))
 	}
+}
+
+// binBasePath calculates the relative path of the "application binary"
+// directory.  Examples:
+//     * bin/targets/my_blinky_sim/app
+//     * bin/targets/splitty-nrf52dk/loader
+func (b *Builder) binBasePath() (string, error) {
+	if b.appPkg == nil {
+		return "", util.NewNewtError("app package not specified")
+	}
+
+	// Convert the binary path from absolute to relative.  This is required for
+	// Windows compatibility.
+	return util.TryRelPath(b.AppBinBasePath()), nil
+}
+
+// BasicEnvVars calculates the basic set of environment variables passed to all
+// external scripts.  `binBase` is the result of calling `binBasePath()`.
+func BasicEnvVars(binBase string, bspPkg *pkg.BspPackage) map[string]string {
+	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
+	bspPath := bspPkg.BasePath()
+
+	return map[string]string{
+		"CORE_PATH":           coreRepo.Path(),
+		"BSP_PATH":            bspPath,
+		"BIN_BASENAME":        binBase,
+		"BIN_ROOT":            BinRoot(),
+		"MYNEWT_PROJECT_ROOT": ProjectRoot(),
+	}
+}
+
+// SettingsEnvVars calculates the syscfg set of environment variables required
+// by image loading scripts.
+func SettingsEnvVars(settings map[string]string) map[string]string {
+	env := map[string]string{}
+
+	// Add all syscfg settings to the environment with the MYNEWT_VAL_ prefix.
+	for k, v := range settings {
+		env["MYNEWT_VAL_"+k] = v
+	}
+
+	if parse.ValueIsTrue(settings["BOOT_LOADER"]) {
+		env["BOOT_LOADER"] = "1"
+	}
+
+	env["FEATURES"] = FeatureString(settings)
+
+	return env
+}
+
+// SlotEnvVars calculates the image-slot set of environment variables required
+// by image loading scripts.  Pass a negative `imageSlot` value if the target
+// is a boot loader.
+func SlotEnvVars(bspPkg *pkg.BspPackage,
+	imageSlot int) (map[string]string, error) {
+
+	env := map[string]string{}
+
+	var flashTargetArea string
+	if imageSlot < 0 {
+		flashTargetArea = "FLASH_AREA_BOOTLOADER"
+	} else {
+		env["IMAGE_SLOT"] = strconv.Itoa(imageSlot)
+		switch imageSlot {
+		case 0:
+			flashTargetArea = "FLASH_AREA_IMAGE_0"
+		case 1:
+			flashTargetArea = "FLASH_AREA_IMAGE_1"
+		default:
+			return nil, util.FmtNewtError(
+				"invalid image slot: have=%d want=0or1", imageSlot)
+		}
+	}
+
+	tgtArea := bspPkg.FlashMap.Areas[flashTargetArea]
+	if tgtArea.Name == "" {
+		return nil, util.FmtNewtError(
+			"No flash target area %s", flashTargetArea)
+	}
+
+	env["FLASH_OFFSET"] = "0x" + strconv.FormatInt(int64(tgtArea.Offset), 16)
+	env["FLASH_AREA_SIZE"] = "0x" + strconv.FormatInt(int64(tgtArea.Size), 16)
+
+	return env, nil
+}
+
+// EnvVars calculates the full set of environment variables passed to external
+// scripts.
+func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
+	bspPkg := b.targetBuilder.bspPkg
+	settings := b.cfg.SettingValues()
+
+	binBasePath, err := b.binBasePath()
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate all three sets of environment variables: basic, settings, and
+	// slot.  Then merge the three sets into one.
+
+	env := BasicEnvVars(binBasePath, bspPkg)
+	setEnv := SettingsEnvVars(settings)
+
+	if parse.ValueIsTrue(settings["BOOT_LOADER"]) {
+		imageSlot = -1
+	}
+
+	slotEnv, err := SlotEnvVars(bspPkg, imageSlot, settings)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range setEnv {
+		env[k] = v
+	}
+	for k, v := range slotEnv {
+		env[k] = v
+	}
+
+	return env, nil
 }
