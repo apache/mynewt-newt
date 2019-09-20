@@ -330,7 +330,22 @@ func (t *TargetBuilder) PrepBuild() error {
 		return err
 	}
 
-	var err error
+	// Create directories where user scripts can write artifacts to incorporate
+	// into the build.
+
+	err := os.MkdirAll(UserPreBuildSrcDir(t.target.FullName()), 0755)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+	err = os.MkdirAll(UserPreBuildIncludeDir(t.target.FullName()), 0755)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+	err = os.MkdirAll(UserPreLinkSrcDir(t.target.FullName()), 0755)
+	if err != nil {
+		return util.NewNewtError(err.Error())
+	}
+
 	if t.res.LoaderSet != nil {
 		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER,
 			t.res.LoaderSet.Rpkgs, t.res.ApiMap, t.res.Cfg)
@@ -483,7 +498,6 @@ func (t *TargetBuilder) Build() error {
 		return err
 	}
 
-	/* Build the Apps */
 	project.ResetDeps(t.AppList)
 
 	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
@@ -495,6 +509,20 @@ func (t *TargetBuilder) Build() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	workDir, err := makeUserWorkDir()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		log.Debugf("removing user work dir: %s", workDir)
+		os.RemoveAll(workDir)
+	}()
+
+	// Execute the set of pre-build user scripts.
+	if err := t.execPreBuildCmds(workDir); err != nil {
+		return err
 	}
 
 	if err := t.AppBuilder.Build(); err != nil {
@@ -511,8 +539,18 @@ func (t *TargetBuilder) Build() error {
 		linkerScripts = t.bspPkg.Part2LinkerScripts
 	}
 
+	// Execute the set of pre-link user scripts.
+	if err := t.execPreLinkCmds(workDir); err != nil {
+		return err
+	}
+
 	/* Link the app. */
 	if err := t.AppBuilder.Link(linkerScripts); err != nil {
+		return err
+	}
+
+	// Execute the set of post-build user scripts.
+	if err := t.execPostBuildCmds(workDir); err != nil {
 		return err
 	}
 

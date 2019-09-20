@@ -83,8 +83,14 @@ func NewBuilder(
 		}
 	}
 
-	// Create a pseudo build package for the generated sysinit code.
+	// Create the pseudo build packages.
 	if _, err := b.addSysinitBpkg(); err != nil {
+		return nil, err
+	}
+	if _, err := b.addUserPreBuildBpkg(); err != nil {
+		return nil, err
+	}
+	if _, err := b.addUserPreLinkBpkg(); err != nil {
 		return nil, err
 	}
 
@@ -504,6 +510,10 @@ func (b *Builder) PrepBuild() error {
 	baseCi.Includes = append(baseCi.Includes,
 		GeneratedIncludeDir(b.targetPkg.rpkg.Lpkg.FullName()))
 
+	// All packages have access to the user generated header directory.
+	baseCi.Includes = append(baseCi.Includes,
+		UserPreBuildIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
+
 	// Let multiplatform libraries know that a Mynewt binary is being build.
 	baseCi.Cflags = append(baseCi.Cflags, "-DMYNEWT=1")
 
@@ -518,15 +528,38 @@ func (b *Builder) AddCompilerInfo(info *toolchain.CompilerInfo) {
 	b.compilerInfo.AddCompilerInfo(info)
 }
 
-func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
-	lpkg := pkg.NewLocalPackage(b.targetPkg.rpkg.Lpkg.Repo().(*repo.Repo),
-		GeneratedBaseDir(b.targetPkg.rpkg.Lpkg.FullName()))
-	lpkg.SetName(pkg.ShortName(b.targetPkg.rpkg.Lpkg) + "-sysinit-" +
-		b.buildName)
+// addPseudoBpkg creates a dynamic build package and adds it to the builder.
+func (b *Builder) addPseudoBpkg(name string,
+	dir string) (*BuildPackage, error) {
+
+	lpkg := pkg.NewLocalPackage(b.targetPkg.rpkg.Lpkg.Repo().(*repo.Repo), dir)
+	lpkg.SetName(fmt.Sprintf(
+		"%s-%s", pkg.ShortName(b.targetPkg.rpkg.Lpkg), name))
 	lpkg.SetType(pkg.PACKAGE_TYPE_GENERATED)
 
 	rpkg := resolve.NewResolvePkg(lpkg)
 	return b.addPackage(rpkg)
+}
+
+// addSysinitBpkg adds the pseudo sysinit build package to the builder.
+func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
+	name := fmt.Sprintf("%s-%s", "sysinit", b.buildName)
+	dir := GeneratedBaseDir(b.targetPkg.rpkg.Lpkg.FullName())
+	return b.addPseudoBpkg(name, dir)
+}
+
+// addUserPreBuildBpkg adds the pseudo user build package to the builder.  The
+// user build package contains inputs emitted by external scripts.
+func (b *Builder) addUserPreBuildBpkg() (*BuildPackage, error) {
+	return b.addPseudoBpkg("user-pre-build",
+		UserPreBuildDir(b.targetPkg.rpkg.Lpkg.FullName()))
+}
+
+// addUserPreLinkBpkg adds the pseudo user build package to the builder.  The
+// user build package contains inputs emitted by external scripts.
+func (b *Builder) addUserPreLinkBpkg() (*BuildPackage, error) {
+	return b.addPseudoBpkg("user-pre-link",
+		UserPreLinkDir(b.targetPkg.rpkg.Lpkg.FullName()))
 }
 
 // Runs build jobs while any remain.  On failure, signals the other workers to

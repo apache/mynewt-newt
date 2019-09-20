@@ -377,6 +377,24 @@ func (pkg *LocalPackage) DownFuncs(
 	return pkg.PkgY.GetValStringMapString("pkg.down", settings)
 }
 
+func (pkg *LocalPackage) PreBuildCmds(
+	settings map[string]string) map[string]string {
+
+	return pkg.PkgY.GetValStringMapString("pkg.pre_build_cmds", settings)
+}
+
+func (pkg *LocalPackage) PreLinkCmds(
+	settings map[string]string) map[string]string {
+
+	return pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
+}
+
+func (pkg *LocalPackage) PostBuildCmds(
+	settings map[string]string) map[string]string {
+
+	return pkg.PkgY.GetValStringMapString("pkg.post_build_cmds", settings)
+}
+
 func (pkg *LocalPackage) InjectedSettings() map[string]string {
 	return pkg.injectedSettings
 }

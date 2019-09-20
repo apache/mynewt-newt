@@ -63,6 +63,38 @@ func SysinitArchivePath(targetName string) string {
 	return GeneratedBinDir(targetName) + "/sysinit.a"
 }
 
+func UserBaseDir(targetName string) string {
+	return BinRoot() + "/" + targetName + "/user"
+}
+
+func UserPreBuildDir(targetName string) string {
+	return UserBaseDir(targetName) + "/pre_build"
+}
+
+func UserPreLinkDir(targetName string) string {
+	return UserBaseDir(targetName) + "/pre_link"
+}
+
+func UserPreBuildSrcDir(targetName string) string {
+	return UserPreBuildDir(targetName) + "/src"
+}
+
+func UserPreBuildIncludeDir(targetName string) string {
+	return UserPreBuildDir(targetName) + "/include"
+}
+
+func UserPreLinkSrcDir(targetName string) string {
+	return UserPreLinkDir(targetName) + "/src"
+}
+
+func UserTempSrcDir(tempDir string) string {
+	return tempDir + "/src"
+}
+
+func UserTempIncludeDir(tempDir string) string {
+	return tempDir + "/include"
+}
+
 func PkgSyscfgPath(pkgPath string) string {
 	return pkgPath + "/" + pkg.SYSCFG_YAML_FILENAME
 }

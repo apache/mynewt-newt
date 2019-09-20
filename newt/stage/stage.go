@@ -59,9 +59,9 @@ func NewStageFunc(name string, textVal string,
 
 	// Ensure setting resolves to an integer.
 	if _, err := vs.IntVal(); err != nil {
-		return StageFunc{}, util.FmtNewtError("Invalid stage setting: %s=%s; "+
-			"value does not resolve to an integer",
-			name, textVal)
+		return StageFunc{}, util.FmtNewtError("Invalid setting: \"%s: %s\"; "+
+			"value \"%s\" does not resolve to an integer",
+			name, textVal, textVal)
 	}
 
 	sf := StageFunc{

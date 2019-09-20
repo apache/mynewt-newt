@@ -26,6 +26,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"mynewt.apache.org/newt/newt/extcmd"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/logcfg"
 	"mynewt.apache.org/newt/newt/newtutil"
@@ -67,6 +68,9 @@ type Resolver struct {
 	lcfg             logcfg.LCfg
 	sysinitCfg       sysinit.SysinitCfg
 	sysdownCfg       sysdown.SysdownCfg
+	preBuildCmdCfg   extcmd.ExtCmdCfg
+	preLinkCmdCfg    extcmd.ExtCmdCfg
+	postBuildCmdCfg  extcmd.ExtCmdCfg
 
 	// [api-name][api-supplier]
 	apiConflicts map[string]map[*ResolvePackage]struct{}
@@ -119,6 +123,9 @@ type Resolution struct {
 	LCfg            logcfg.LCfg
 	SysinitCfg      sysinit.SysinitCfg
 	SysdownCfg      sysdown.SysdownCfg
+	PreBuildCmdCfg  extcmd.ExtCmdCfg
+	PreLinkCmdCfg   extcmd.ExtCmdCfg
+	PostBuildCmdCfg extcmd.ExtCmdCfg
 	ApiMap          map[string]*ResolvePackage
 	UnsatisfiedApis map[string][]*ResolvePackage
 	ApiConflicts    []ApiConflict
@@ -987,6 +994,22 @@ func (r *Resolver) resolveDepsAndCfg() error {
 	r.sysinitCfg = sysinit.Read(lpkgs, &r.cfg)
 	r.sysdownCfg = sysdown.Read(lpkgs, &r.cfg)
 
+	r.preBuildCmdCfg = extcmd.Read("pre_build_cmds", lpkgs, &r.cfg,
+		func(lpkg *pkg.LocalPackage,
+			settings map[string]string) map[string]string {
+			return lpkg.PreBuildCmds(settings)
+		})
+	r.preLinkCmdCfg = extcmd.Read("pre_link_cmds", lpkgs, &r.cfg,
+		func(lpkg *pkg.LocalPackage,
+			settings map[string]string) map[string]string {
+			return lpkg.PreLinkCmds(settings)
+		})
+	r.postBuildCmdCfg = extcmd.Read("post_build_cmds", lpkgs, &r.cfg,
+		func(lpkg *pkg.LocalPackage,
+			settings map[string]string) map[string]string {
+			return lpkg.PostBuildCmds(settings)
+		})
+
 	// Log the final syscfg.
 	r.cfg.Log()
 
@@ -1085,6 +1108,9 @@ func ResolveFull(
 	res.LCfg = r.lcfg
 	res.SysinitCfg = r.sysinitCfg
 	res.SysdownCfg = r.sysdownCfg
+	res.PreBuildCmdCfg = r.preBuildCmdCfg
+	res.PreLinkCmdCfg = r.preLinkCmdCfg
+	res.PostBuildCmdCfg = r.postBuildCmdCfg
 
 	// Determine which package satisfies each API and which APIs are
 	// unsatisfied.
@@ -1203,6 +1229,9 @@ func (res *Resolution) ErrorText() string {
 	str += res.LCfg.ErrorText()
 	str += res.SysinitCfg.ErrorText()
 	str += res.SysdownCfg.ErrorText()
+	str += res.PreBuildCmdCfg.ErrorText()
+	str += res.PreLinkCmdCfg.ErrorText()
+	str += res.PostBuildCmdCfg.ErrorText()
 
 	str = strings.TrimSpace(str)
 	if str != "" {
