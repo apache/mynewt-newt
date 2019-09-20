@@ -405,12 +405,18 @@ func ShellInteractiveCommand(cmdStr []string, env []string, flagBlock bool) erro
 	}
 
 	// Release and exit
-	_, err = proc.Wait()
+	state, err := proc.Wait()
+	signal.Stop(c)
+
 	if err != nil {
-		signal.Stop(c)
 		return NewNewtError(err.Error())
 	}
-	signal.Stop(c)
+	if state.ExitCode() != 0 {
+		return FmtNewtError(
+			"command %v exited with nonzero status %d",
+			cmdStr, state.ExitCode())
+	}
+
 	return nil
 }
 
