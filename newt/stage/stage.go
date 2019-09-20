@@ -73,58 +73,36 @@ func NewStageFunc(name string, textVal string,
 	return sf, nil
 }
 
-type stageFuncSorter struct {
-	// Used in logging; either "sysinit" or "sysdown".
-	funcType string
-	// Array of functions to be sorted.
-	fns []StageFunc
-}
-
-func (s stageFuncSorter) Len() int {
-	return len(s.fns)
-}
-
-func (s stageFuncSorter) Swap(i, j int) {
-	s.fns[i], s.fns[j] = s.fns[j], s.fns[i]
-}
-
-func (s stageFuncSorter) Less(i, j int) bool {
-	a := s.fns[i]
-	b := s.fns[j]
-
-	inta, _ := a.Stage.IntVal()
-	intb, _ := b.Stage.IntVal()
-
-	// 1: Sort by stage number.
-	if inta < intb {
-		return true
-	} else if intb < inta {
-		return false
-	}
-
-	// 2: Sort by function name.
-	switch strings.Compare(a.Name, b.Name) {
-	case -1:
-		return true
-	case 1:
-		return false
-	}
-
-	// Same stage and function name?
-	log.Warnf("Warning: Identical %s functions detected: %s",
-		s.funcType, a.Name)
-
-	return true
-}
-
 // SortStageFuncs performs an in-place sort of the provided StageFunc slice.
-func SortStageFuncs(unsorted []StageFunc, funcType string) {
-	s := stageFuncSorter{
-		funcType: funcType,
-		fns:      unsorted,
-	}
+func SortStageFuncs(sfs []StageFunc, entryType string) {
+	sort.Slice(sfs, func(i int, j int) bool {
+		a := sfs[i]
+		b := sfs[j]
 
-	sort.Sort(s)
+		inta, _ := a.Stage.IntVal()
+		intb, _ := b.Stage.IntVal()
+
+		// 1: Sort by stage number.
+		if inta < intb {
+			return true
+		} else if intb < inta {
+			return false
+		}
+
+		// 2: Sort by entry name.
+		switch strings.Compare(a.Name, b.Name) {
+		case -1:
+			return true
+		case 1:
+			return false
+		}
+
+		// Same stage and function name?
+		log.Warnf("Warning: Identical %s entries detected: %s",
+			entryType, a.Name)
+
+		return true
+	})
 }
 
 func (f *StageFunc) ReturnTypeString() string {
