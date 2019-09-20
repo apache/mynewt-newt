@@ -21,6 +21,7 @@ package builder
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -217,6 +218,42 @@ func SlotEnvVars(bspPkg *pkg.BspPackage,
 	return env, nil
 }
 
+type UserEnvParams struct {
+	Lpkg       *pkg.LocalPackage
+	TargetName string // Short name
+	AppName    string
+	BuildName  string // "app" or "loader"
+	UserSrcDir string // "" if none
+	UserIncDir string // "" if none
+	WorkDir    string
+}
+
+// UserEnvVars calculates the set of environment variables required by external
+// user scripts.
+func UserEnvVars(params UserEnvParams) map[string]string {
+	m := map[string]string{}
+
+	m["MYNEWT_APP_BIN_DIR"] = FileBinDir(
+		params.TargetName, params.BuildName, params.AppName)
+	m["MYNEWT_PKG_BIN_ARCHIVE"] = ArchivePath(
+		params.TargetName, params.BuildName, params.Lpkg.FullName(),
+		params.Lpkg.Type())
+	m["MYNEWT_PKG_BIN_DIR"] = PkgBinDir(
+		params.TargetName, params.BuildName, params.Lpkg.FullName(),
+		params.Lpkg.Type())
+	m["MYNEWT_PKG_NAME"] = params.Lpkg.FullName()
+	m["MYNEWT_USER_WORK_DIR"] = params.WorkDir
+
+	if params.UserSrcDir != "" {
+		m["MYNEWT_USER_SRC_DIR"] = params.UserSrcDir
+	}
+	if params.UserIncDir != "" {
+		m["MYNEWT_USER_INCLUDE_DIR"] = params.UserIncDir
+	}
+
+	return m
+}
+
 // EnvVars calculates the full set of environment variables passed to external
 // scripts.
 func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
@@ -238,7 +275,7 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 		imageSlot = -1
 	}
 
-	slotEnv, err := SlotEnvVars(bspPkg, imageSlot, settings)
+	slotEnv, err := SlotEnvVars(bspPkg, imageSlot)
 	if err != nil {
 		return nil, err
 	}
@@ -251,4 +288,22 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 	}
 
 	return env, nil
+}
+
+// EnvVarsToSlice converts an environment variable map into a slice of strings
+// suitable for "shell command" functions defined in `util` (e.g.,
+// util.ShellCommand).
+func EnvVarsToSlice(env map[string]string) []string {
+	keys := make([]string, 0, len(env))
+	for k, _ := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	slice := make([]string, 0, len(env))
+	for _, key := range keys {
+		slice = append(slice, fmt.Sprintf("%s=%s", key, env[key]))
+	}
+
+	return slice
 }

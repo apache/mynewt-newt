@@ -786,3 +786,121 @@ func MarshalJSONStringer(sr fmt.Stringer) ([]byte, error) {
 
 	return j, nil
 }
+
+// readDirRecursive recursively reads the contents of a directory.  It returns
+// [dir-paths],[file-paths].  All returned strings are relative to the provided
+// base directory.
+func readDirRecursive(path string) ([]string, []string, error) {
+	var dirs []string
+	var files []string
+
+	var iter func(crumbs string) error
+	iter = func(crumbs string) error {
+		var crumbsPath string
+		if crumbs != "" {
+			crumbsPath = "/" + crumbs
+		}
+
+		f, err := os.Open(path + crumbsPath)
+		if err != nil {
+			return ChildNewtError(err)
+		}
+		defer f.Close()
+
+		infos, err := f.Readdir(-1)
+		if err != nil {
+			return ChildNewtError(err)
+		}
+
+		for _, info := range infos {
+			name := fmt.Sprintf("%s/%s", crumbs, info.Name())
+
+			if info.IsDir() {
+				dirs = append(dirs, name)
+				if err := iter(name); err != nil {
+					return err
+				}
+			} else {
+				files = append(files, name)
+			}
+		}
+
+		return nil
+	}
+
+	if err := iter(""); err != nil {
+		return nil, nil, err
+	}
+
+	return dirs, files, nil
+}
+
+// DirsAreEqual compares the contents of two directories.  Directories are
+// equal if 1) their subdirectory structures are identical, and 2) they contain
+// the exact same set of files (same names and contents).
+func DirsAreEqual(dira string, dirb string) (bool, error) {
+	dirsa, filesa, err := readDirRecursive(dira)
+	if err != nil {
+		return false, err
+	}
+
+	dirsb, filesb, err := readDirRecursive(dirb)
+	if err != nil {
+		return false, err
+	}
+
+	if len(dirsa) != len(dirsb) || len(filesa) != len(filesb) {
+		return false, nil
+	}
+
+	// Returns the intersection of two sets of strings.
+	intersection := func(a []string, b []string) map[string]struct{} {
+		ma := make(map[string]struct{}, len(a))
+		for _, p := range a {
+			ma[p] = struct{}{}
+		}
+
+		isect := map[string]struct{}{}
+		for _, p := range b {
+			if _, ok := ma[p]; ok {
+				isect[p] = struct{}{}
+			}
+		}
+
+		return isect
+	}
+
+	// If the intersection lengths are equal, both directories have the same
+	// structure.
+
+	isectDirs := intersection(dirsa, dirsb)
+	if len(isectDirs) != len(dirsa) {
+		return false, nil
+	}
+
+	isectFiles := intersection(filesa, filesb)
+	if len(isectFiles) != len(filesa) {
+		return false, nil
+	}
+
+	// Finally, compare the contents of files in each directory.
+	for _, p := range filesa {
+		patha := fmt.Sprintf("%s/%s", dira, p)
+		bytesa, err := ioutil.ReadFile(patha)
+		if err != nil {
+			return false, ChildNewtError(err)
+		}
+
+		pathb := fmt.Sprintf("%s/%s", dirb, p)
+		unchanged, err := FileContains(bytesa, pathb)
+		if err != nil {
+			return false, err
+		}
+
+		if !unchanged {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}

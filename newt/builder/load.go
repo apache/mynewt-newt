@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"syscall"
 
@@ -126,17 +125,7 @@ func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	for k, v := range extraEnvSettings {
 		env[k] = v
 	}
-
-	sortedKeys := make([]string, 0, len(env))
-	for k, _ := range env {
-		sortedKeys = append(sortedKeys, k)
-	}
-	sort.Strings(sortedKeys)
-
-	envSlice := []string{}
-	for _, key := range sortedKeys {
-		envSlice = append(envSlice, fmt.Sprintf("%s=%s", key, env[key]))
-	}
+	envSlice := EnvVarsToSlice(env)
 
 	RunOptionalCheck(bspPkg.OptChkScript, envSlice)
 	// bspPath, binBasePath are passed in command line for backwards
