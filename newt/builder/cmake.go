@@ -312,6 +312,14 @@ func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *too
 		return err
 	}
 
+	if len(t.res.PreBuildCmdCfg.StageFuncs) > 0 ||
+		len(t.res.PreLinkCmdCfg.StageFuncs) > 0 ||
+		len(t.res.PostBuildCmdCfg.StageFuncs) > 0 {
+
+		util.OneTimeWarning(
+			"custom commands not included in cmake output (unsupported)")
+	}
+
 	/* Build the Apps */
 	project.ResetDeps(t.AppList)
 
