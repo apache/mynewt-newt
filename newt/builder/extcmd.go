@@ -119,11 +119,15 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 		return err
 	}
 
-	envs := EnvVarsToSlice(env)
 	toks, err := shellquote.Split(sf.Name)
 	if err != nil {
 		return util.FmtNewtError(
 			"invalid command string: \"%s\": %s", sf.Name, err.Error())
+	}
+
+	// Replace environment variables in command string.
+	for i, tok := range toks {
+		toks[i] = os.ExpandEnv(tok)
 	}
 
 	// If the command is in the user's PATH, expand it to its real location.
@@ -143,6 +147,7 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	defer os.Chdir(pwd)
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing %s\n", sf.Name)
+	envs := EnvVarsToSlice(env)
 	if err := util.ShellInteractiveCommand(toks, envs, true); err != nil {
 		return err
 	}
