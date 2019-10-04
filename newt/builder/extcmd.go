@@ -132,6 +132,16 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 		toks[0] = cmd
 	}
 
+	// Execute the commands from the package's directory.
+	pwd, err := os.Getwd()
+	if err != nil {
+		return util.ChildNewtError(err)
+	}
+	if err := os.Chdir(sf.Pkg.BasePath()); err != nil {
+		return util.ChildNewtError(err)
+	}
+	defer os.Chdir(pwd)
+
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing %s\n", sf.Name)
 	if err := util.ShellInteractiveCommand(toks, envs, true); err != nil {
 		return err
