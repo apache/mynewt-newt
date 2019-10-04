@@ -314,7 +314,7 @@ func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *too
 
 	if len(t.res.PreBuildCmdCfg.StageFuncs) > 0 ||
 		len(t.res.PreLinkCmdCfg.StageFuncs) > 0 ||
-		len(t.res.PostBuildCmdCfg.StageFuncs) > 0 {
+		len(t.res.PostLinkCmdCfg.StageFuncs) > 0 {
 
 		util.OneTimeWarning(
 			"custom commands not included in cmake output (unsupported)")

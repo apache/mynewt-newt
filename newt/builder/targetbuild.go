@@ -550,7 +550,7 @@ func (t *TargetBuilder) Build() error {
 	}
 
 	// Execute the set of post-build user scripts.
-	if err := t.execPostBuildCmds(workDir); err != nil {
+	if err := t.execPostLinkCmds(workDir); err != nil {
 		return err
 	}
 

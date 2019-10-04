@@ -70,7 +70,7 @@ type Resolver struct {
 	sysdownCfg       sysdown.SysdownCfg
 	preBuildCmdCfg   extcmd.ExtCmdCfg
 	preLinkCmdCfg    extcmd.ExtCmdCfg
-	postBuildCmdCfg  extcmd.ExtCmdCfg
+	postLinkCmdCfg   extcmd.ExtCmdCfg
 
 	// [api-name][api-supplier]
 	apiConflicts map[string]map[*ResolvePackage]struct{}
@@ -125,7 +125,7 @@ type Resolution struct {
 	SysdownCfg      sysdown.SysdownCfg
 	PreBuildCmdCfg  extcmd.ExtCmdCfg
 	PreLinkCmdCfg   extcmd.ExtCmdCfg
-	PostBuildCmdCfg extcmd.ExtCmdCfg
+	PostLinkCmdCfg  extcmd.ExtCmdCfg
 	ApiMap          map[string]*ResolvePackage
 	UnsatisfiedApis map[string][]*ResolvePackage
 	ApiConflicts    []ApiConflict
@@ -1004,10 +1004,10 @@ func (r *Resolver) resolveDepsAndCfg() error {
 			settings map[string]string) map[string]string {
 			return lpkg.PreLinkCmds(settings)
 		})
-	r.postBuildCmdCfg = extcmd.Read("post_build_cmds", lpkgs, &r.cfg,
+	r.postLinkCmdCfg = extcmd.Read("post_link_cmds", lpkgs, &r.cfg,
 		func(lpkg *pkg.LocalPackage,
 			settings map[string]string) map[string]string {
-			return lpkg.PostBuildCmds(settings)
+			return lpkg.PostLinkCmds(settings)
 		})
 
 	// Log the final syscfg.
@@ -1110,7 +1110,7 @@ func ResolveFull(
 	res.SysdownCfg = r.sysdownCfg
 	res.PreBuildCmdCfg = r.preBuildCmdCfg
 	res.PreLinkCmdCfg = r.preLinkCmdCfg
-	res.PostBuildCmdCfg = r.postBuildCmdCfg
+	res.PostLinkCmdCfg = r.postLinkCmdCfg
 
 	// Determine which package satisfies each API and which APIs are
 	// unsatisfied.
@@ -1231,7 +1231,7 @@ func (res *Resolution) ErrorText() string {
 	str += res.SysdownCfg.ErrorText()
 	str += res.PreBuildCmdCfg.ErrorText()
 	str += res.PreLinkCmdCfg.ErrorText()
-	str += res.PostBuildCmdCfg.ErrorText()
+	str += res.PostLinkCmdCfg.ErrorText()
 
 	str = strings.TrimSpace(str)
 	if str != "" {
