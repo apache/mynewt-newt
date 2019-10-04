@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/parse"
@@ -149,18 +150,27 @@ func (b *Builder) binBasePath() (string, error) {
 }
 
 // BasicEnvVars calculates the basic set of environment variables passed to all
-// external scripts.  `binBase` is the result of calling `binBasePath()`.
+// external scripts.  `binBase` is the result of calling `binBasePath()`, or ""
+// if you don't need the "BIN_BASENAME" setting.
 func BasicEnvVars(binBase string, bspPkg *pkg.BspPackage) map[string]string {
 	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
 	bspPath := bspPkg.BasePath()
 
-	return map[string]string{
+	newtPath, _ := osext.Executable()
+
+	m := map[string]string{
 		"CORE_PATH":           coreRepo.Path(),
 		"BSP_PATH":            bspPath,
-		"BIN_BASENAME":        binBase,
 		"BIN_ROOT":            BinRoot(),
 		"MYNEWT_PROJECT_ROOT": ProjectRoot(),
+		"MYNEWT_NEWT_PATH":    newtPath,
 	}
+
+	if binBase != "" {
+		m["BIN_BASENAME"] = binBase
+	}
+
+	return m
 }
 
 // SettingsEnvVars calculates the syscfg set of environment variables required
