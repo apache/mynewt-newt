@@ -225,6 +225,15 @@ func (t *TargetBuilder) ensureResolved() error {
 		return err
 	}
 
+	// Configure the basic set of environment variables in the current process.
+	env := BasicEnvVars("", t.bspPkg)
+	for k, v := range env {
+		if err := os.Setenv(k, v); err != nil {
+			return util.FmtNewtError(
+				"failed to set env var %s=%s: %s", k, v, err.Error())
+		}
+	}
+
 	return nil
 }
 
