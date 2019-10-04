@@ -200,10 +200,10 @@ func (t *TargetBuilder) execPreLinkCmds(workDir string) error {
 	return nil
 }
 
-// execPostBuildCmds runs the target's set of post-build user commands.  It is
+// execPostLinkCmds runs the target's set of post-build user commands.  It is
 // an error if any command fails (exits with a nonzero status).
-func (t *TargetBuilder) execPostBuildCmds(workDir string) error {
-	for _, sf := range t.res.PostBuildCmdCfg.StageFuncs {
+func (t *TargetBuilder) execPostLinkCmds(workDir string) error {
+	for _, sf := range t.res.PostLinkCmdCfg.StageFuncs {
 		if err := t.execExtCmds(sf, "", "", workDir); err != nil {
 			return err
 		}

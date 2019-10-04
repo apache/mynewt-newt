@@ -389,10 +389,10 @@ func (pkg *LocalPackage) PreLinkCmds(
 	return pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
 }
 
-func (pkg *LocalPackage) PostBuildCmds(
+func (pkg *LocalPackage) PostLinkCmds(
 	settings map[string]string) map[string]string {
 
-	return pkg.PkgY.GetValStringMapString("pkg.post_build_cmds", settings)
+	return pkg.PkgY.GetValStringMapString("pkg.post_link_cmds", settings)
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {
