@@ -85,7 +85,7 @@ func (t *TargetBuilder) Load(extraJtagCmd string) error {
 	return err
 }
 
-func RunOptionalCheck(checkScript string, env []string) error {
+func RunOptionalCheck(checkScript string, env map[string]string) error {
 	if checkScript == "" {
 		return nil
 	}
@@ -125,9 +125,8 @@ func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	for k, v := range extraEnvSettings {
 		env[k] = v
 	}
-	envSlice := EnvVarsToSlice(env)
 
-	RunOptionalCheck(bspPkg.OptChkScript, envSlice)
+	RunOptionalCheck(bspPkg.OptChkScript, env)
 	// bspPath, binBasePath are passed in command line for backwards
 	// compatibility
 	cmd := []string{
@@ -142,7 +141,7 @@ func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	for _, v := range env {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "* %s\n", v)
 	}
-	if _, err := util.ShellCommand(cmd, envSlice); err != nil {
+	if _, err := util.ShellCommand(cmd, env); err != nil {
 		return err
 	}
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
@@ -211,31 +210,26 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 
 	bspPath := b.bspPkg.rpkg.Lpkg.BasePath()
 	binBasePath := binPath
-	featureString := FeatureString(b.cfg.SettingValues())
 	bspPkg := b.targetBuilder.bspPkg
 
-	coreRepo := project.GetProject().FindRepo("apache-mynewt-core")
-	envSettings := []string{
-		fmt.Sprintf("CORE_PATH=%s", coreRepo.Path()),
-		fmt.Sprintf("BSP_PATH=%s", bspPath),
-		fmt.Sprintf("BIN_BASENAME=%s", binBasePath),
-		fmt.Sprintf("FEATURES=%s", featureString),
-		fmt.Sprintf("MYNEWT_PROJECT_ROOT=%s", ProjectRoot()),
+	env, err := b.EnvVars(0)
+	if err != nil {
+		return err
 	}
+
 	if extraJtagCmd != "" {
-		envSettings = append(envSettings,
-			fmt.Sprintf("EXTRA_JTAG_CMD=%s", extraJtagCmd))
+		env["EXTRA_JTAG_CMD"] = extraJtagCmd
 	}
 	if reset == true {
-		envSettings = append(envSettings, fmt.Sprintf("RESET=true"))
+		env["RESET"] = "true"
 	}
 	if noGDB == true {
-		envSettings = append(envSettings, fmt.Sprintf("NO_GDB=1"))
+		env["NO_GDB"] = "1"
 	}
 
 	os.Chdir(project.GetProject().Path())
 
-	RunOptionalCheck(bspPkg.OptChkScript, envSettings)
+	RunOptionalCheck(bspPkg.OptChkScript, env)
 	// bspPath, binBasePath are passed in command line for backwards
 	// compatibility
 	cmdLine := []string{
@@ -243,7 +237,7 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	}
 
 	fmt.Printf("%s\n", cmdLine)
-	return util.ShellInteractiveCommand(cmdLine, envSettings, false)
+	return util.ShellInteractiveCommand(cmdLine, env, false)
 }
 
 func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {

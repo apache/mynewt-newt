@@ -21,7 +21,6 @@ package builder
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,6 +32,7 @@ import (
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/resolve"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -173,6 +173,15 @@ func BasicEnvVars(binBase string, bspPkg *pkg.BspPackage) map[string]string {
 	return m
 }
 
+func ToolchainEnvVars(c *toolchain.Compiler) map[string]string {
+	return map[string]string{
+		"MYNEWT_CC_PATH":  c.GetCcPath(),
+		"MYNEWT_CPP_PATH": c.GetCppPath(),
+		"MYNEWT_AS_PATH":  c.GetAsPath(),
+		"MYNEWT_AR_PATH":  c.GetArPath(),
+	}
+}
+
 // SettingsEnvVars calculates the syscfg set of environment variables required
 // by image loading scripts.
 func SettingsEnvVars(settings map[string]string) map[string]string {
@@ -298,22 +307,4 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 	}
 
 	return env, nil
-}
-
-// EnvVarsToSlice converts an environment variable map into a slice of strings
-// suitable for "shell command" functions defined in `util` (e.g.,
-// util.ShellCommand).
-func EnvVarsToSlice(env map[string]string) []string {
-	keys := make([]string, 0, len(env))
-	for k, _ := range env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	slice := make([]string, 0, len(env))
-	for _, key := range keys {
-		slice = append(slice, fmt.Sprintf("%s=%s", key, env[key]))
-	}
-
-	return slice
 }

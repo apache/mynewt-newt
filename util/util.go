@@ -273,10 +273,11 @@ func fixupCmdArgs(args []string) {
 	}
 }
 
-func LogShellCmd(cmdStrs []string, env []string) {
+func LogShellCmd(cmdStrs []string, env map[string]string) {
 	envLogStr := ""
 	if len(env) > 0 {
-		envLogStr = strings.Join(env, " ") + " "
+		s := EnvVarsToSlice(env)
+		envLogStr = strings.Join(s, " ") + " "
 	}
 	log.Debugf("%s%s", envLogStr, strings.Join(cmdStrs, " "))
 
@@ -285,12 +286,58 @@ func LogShellCmd(cmdStrs []string, env []string) {
 	}
 }
 
+// EnvVarsToSlice converts an environment variable map into a slice of `k=v`
+// strings.
+func EnvVarsToSlice(env map[string]string) []string {
+	keys := make([]string, 0, len(env))
+	for k, _ := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	slice := make([]string, 0, len(env))
+	for _, key := range keys {
+		slice = append(slice, fmt.Sprintf("%s=%s", key, env[key]))
+	}
+
+	return slice
+}
+
+// SliceToEnvVars converts a slice of `k=v` strings into an environment
+// variable map.
+func SliceToEnvVars(slc []string) (map[string]string, error) {
+	m := make(map[string]string, len(slc))
+	for _, s := range slc {
+		parts := strings.SplitN(s, "=", 2)
+		if len(parts) != 2 {
+			return nil, FmtNewtError("invalid env var string: \"%s\"", s)
+		}
+
+		m[parts[0]] = parts[1]
+	}
+
+	return m, nil
+}
+
+// EnvironAsMap gathers the current process's set of environment variables and
+// returns them as a map.
+func EnvironAsMap() (map[string]string, error) {
+	slc := os.Environ()
+
+	m, err := SliceToEnvVars(slc)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
 // Execute the specified process and block until it completes.  Additionally,
 // the amount of combined stdout+stderr output to be logged to the debug log
 // can be restricted to a maximum number of characters.
 //
 // @param cmdStrs               The "argv" strings of the command to execute.
-// @param env                   Additional key=value pairs to inject into the
+// @param env                   Additional key,value pairs to inject into the
 //                                  child process's environment.  Specify null
 //                                  to just inherit the parent environment.
 // @param logCmd                Whether to log the command being executed.
@@ -304,8 +351,8 @@ func LogShellCmd(cmdStrs []string, env []string) {
 //                                  or if it just returned a non-zero exit
 //                                  status.
 func ShellCommandLimitDbgOutput(
-	cmdStrs []string, env []string, logCmd bool, maxDbgOutputChrs int) (
-	[]byte, error) {
+	cmdStrs []string, env map[string]string, logCmd bool,
+	maxDbgOutputChrs int) ([]byte, error) {
 
 	var name string
 	var args []string
@@ -328,7 +375,15 @@ func ShellCommandLimitDbgOutput(
 	cmd := exec.Command(name, args...)
 
 	if env != nil {
-		cmd.Env = append(env, os.Environ()...)
+		m, err := EnvironAsMap()
+		if err != nil {
+			return nil, err
+		}
+
+		for k, v := range env {
+			m[k] = v
+		}
+		cmd.Env = EnvVarsToSlice(m)
 	}
 
 	o, err := cmd.CombinedOutput()
@@ -356,18 +411,20 @@ func ShellCommandLimitDbgOutput(
 // Execute the specified process and block until it completes.
 //
 // @param cmdStrs               The "argv" strings of the command to execute.
-// @param env                   Additional key=value pairs to inject into the
+// @param env                   Additional key,value pairs to inject into the
 //                                  child process's environment.  Specify null
 //                                  to just inherit the parent environment.
 //
 // @return []byte               Combined stdout and stderr output of process.
 // @return error                NewtError on failure.
-func ShellCommand(cmdStrs []string, env []string) ([]byte, error) {
+func ShellCommand(cmdStrs []string, env map[string]string) ([]byte, error) {
 	return ShellCommandLimitDbgOutput(cmdStrs, env, true, -1)
 }
 
 // Run interactive shell command
-func ShellInteractiveCommand(cmdStr []string, env []string, flagBlock bool) error {
+func ShellInteractiveCommand(cmdStr []string, env map[string]string,
+	flagBlock bool) error {
+
 	// Escape special characters for Windows.
 	fixupCmdArgs(cmdStr)
 
@@ -385,15 +442,21 @@ func ShellInteractiveCommand(cmdStr []string, env []string, flagBlock bool) erro
 		}()
 	}
 
-	if env != nil {
-		env = append(env, os.Environ()...)
+	m, err := EnvironAsMap()
+	if err != nil {
+		return err
 	}
+
+	for k, v := range env {
+		m[k] = v
+	}
+	envSlice := EnvVarsToSlice(m)
 
 	// Transfer stdin, stdout, and stderr to the new process
 	// and also set target directory for the shell to start in.
 	// and set the additional environment variables
 	pa := os.ProcAttr{
-		Env:   env,
+		Env:   envSlice,
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	}
 
