@@ -102,8 +102,16 @@ func (t *TargetBuilder) envVarsForCmd(sf stage.StageFunc, userSrcDir string,
 		WorkDir:    workDir,
 	}
 	uenv := UserEnvVars(p)
-
 	for k, v := range uenv {
+		env[k] = v
+	}
+
+	c, err := t.NewCompiler("", "")
+	if err != nil {
+		return nil, err
+	}
+	tenv := ToolchainEnvVars(c)
+	for k, v := range tenv {
 		env[k] = v
 	}
 
@@ -147,8 +155,7 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	defer os.Chdir(pwd)
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing %s\n", sf.Name)
-	envs := EnvVarsToSlice(env)
-	if err := util.ShellInteractiveCommand(toks, envs, true); err != nil {
+	if err := util.ShellInteractiveCommand(toks, env, true); err != nil {
 		return err
 	}
 
