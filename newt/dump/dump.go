@@ -34,6 +34,9 @@ type Report struct {
 	Syscfg          Syscfg              `json:"syscfg"`
 	Sysinit         Sysinit             `json:"sysinit"`
 	Sysdown         Sysdown             `json:"sysdown"`
+	PreBuildCmds    ExtCmd              `json:"pre_build_cmds"`
+	PreLinkCmds     ExtCmd              `json:"pre_link_cmds"`
+	PostLinkCmds    ExtCmd              `json:"post_link_cmds"`
 	Logcfg          Logcfg              `json:"logcfg"`
 	ApiMap          map[string]string   `json:"api_map"`
 	UnsatisfiedApis map[string][]string `json:"unsatisfied_apis"`
@@ -76,6 +79,21 @@ func NewReport(tb *builder.TargetBuilder) (Report, error) {
 		return report, err
 	}
 	report.Sysdown = sd
+
+	report.PreBuildCmds, err = newExtCmd(res.PreBuildCmdCfg)
+	if err != nil {
+		return report, err
+	}
+
+	report.PreLinkCmds, err = newExtCmd(res.PreLinkCmdCfg)
+	if err != nil {
+		return report, err
+	}
+
+	report.PostLinkCmds, err = newExtCmd(res.PostLinkCmdCfg)
+	if err != nil {
+		return report, err
+	}
 
 	lc, err := newLogcfg(res.LCfg)
 	if err != nil {
