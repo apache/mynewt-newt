@@ -127,6 +127,18 @@ func (c *Compiler) GetArPath() string {
 	return c.arPath
 }
 
+func (c *Compiler) GetObjcopyPath() string {
+	return c.ocPath
+}
+
+func (c *Compiler) GetObjdumpPath() string {
+	return c.odPath
+}
+
+func (c *Compiler) GetSizePath() string {
+	return c.osPath
+}
+
 func (c *Compiler) GetLdResolveCircularDeps() bool {
 	return c.ldResolveCircularDeps
 }

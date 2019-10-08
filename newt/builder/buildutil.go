@@ -175,10 +175,13 @@ func BasicEnvVars(binBase string, bspPkg *pkg.BspPackage) map[string]string {
 
 func ToolchainEnvVars(c *toolchain.Compiler) map[string]string {
 	return map[string]string{
-		"MYNEWT_CC_PATH":  c.GetCcPath(),
-		"MYNEWT_CPP_PATH": c.GetCppPath(),
-		"MYNEWT_AS_PATH":  c.GetAsPath(),
-		"MYNEWT_AR_PATH":  c.GetArPath(),
+		"MYNEWT_AR_PATH":      c.GetArPath(),
+		"MYNEWT_AS_PATH":      c.GetAsPath(),
+		"MYNEWT_CC_PATH":      c.GetCcPath(),
+		"MYNEWT_CPP_PATH":     c.GetCppPath(),
+		"MYNEWT_OBJCOPY_PATH": c.GetObjcopyPath(),
+		"MYNEWT_OBJDUMP_PATH": c.GetObjdumpPath(),
+		"MYNEWT_SIZE_PATH":    c.GetSizePath(),
 	}
 }
 
