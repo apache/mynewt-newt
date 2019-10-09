@@ -33,7 +33,7 @@ import (
 
 func (b *Builder) SelfTestLink(rpkg *resolve.ResolvePackage) error {
 	testPath := b.TestExePath()
-	if err := b.link(testPath, nil, nil); err != nil {
+	if err := b.link(testPath, nil, nil, nil); err != nil {
 		return err
 	}
 

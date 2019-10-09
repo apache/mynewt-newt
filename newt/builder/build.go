@@ -90,9 +90,6 @@ func NewBuilder(
 	if _, err := b.addUserPreBuildBpkg(); err != nil {
 		return nil, err
 	}
-	if _, err := b.addUserPreLinkBpkg(); err != nil {
-		return nil, err
-	}
 
 	for api, rpkg := range apiMap {
 		bpkg := b.PkgMap[rpkg]
@@ -400,22 +397,17 @@ func (b *Builder) ExtractSymbolInfo() (error, *symbol.SymbolMap) {
 }
 
 func (b *Builder) link(elfName string, linkerScripts []string,
-	keepSymbols []string) error {
+	keepSymbols []string, extraADirs []string) error {
 
 	c, err := b.newCompiler(b.appPkg, b.FileBinDir(elfName))
 	if err != nil {
 		return err
 	}
 
-	/* Always used the trimmed archive files. */
-	pkgNames := []string{}
-
+	// Calculate the list of directories containing source .a files.
+	var dirs []string
 	for _, bpkg := range b.sortedBuildPackages() {
-		archiveNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
-		for i, archiveName := range archiveNames {
-			archiveNames[i] = filepath.ToSlash(archiveName)
-		}
-		pkgNames = append(pkgNames, archiveNames...)
+		dirs = append(dirs, b.PkgBinDir(bpkg))
 
 		// Collect lflags from all constituent packages.  Discard everything
 		// from the compiler info except lflags; that is all that is relevant
@@ -426,9 +418,20 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		}
 		c.AddInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
 	}
+	dirs = append(dirs, extraADirs...)
+
+	// Find all .a files in the input directories.
+	trimmedANames := []string{}
+	for _, dir := range dirs {
+		fullANames, _ := filepath.Glob(dir + "/*.a")
+		for i, archiveName := range fullANames {
+			fullANames[i] = filepath.ToSlash(archiveName)
+		}
+		trimmedANames = append(trimmedANames, fullANames...)
+	}
 
 	c.LinkerScripts = linkerScripts
-	err = c.CompileElf(elfName, pkgNames, keepSymbols, b.linkElf)
+	err = c.CompileElf(elfName, trimmedANames, keepSymbols, b.linkElf)
 	if err != nil {
 		return err
 	}
@@ -553,13 +556,6 @@ func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
 func (b *Builder) addUserPreBuildBpkg() (*BuildPackage, error) {
 	return b.addPseudoBpkg("user-pre-build",
 		UserPreBuildDir(b.targetPkg.rpkg.Lpkg.FullName()))
-}
-
-// addUserPreLinkBpkg adds the pseudo user build package to the builder.  The
-// user build package contains inputs emitted by external scripts.
-func (b *Builder) addUserPreLinkBpkg() (*BuildPackage, error) {
-	return b.addPseudoBpkg("user-pre-link",
-		UserPreLinkDir(b.targetPkg.rpkg.Lpkg.FullName()))
 }
 
 // Runs build jobs while any remain.  On failure, signals the other workers to
@@ -693,15 +689,17 @@ func (b *Builder) Build() error {
 	return nil
 }
 
-func (b *Builder) Link(linkerScripts []string) error {
-	if err := b.link(b.AppElfPath(), linkerScripts, nil); err != nil {
+func (b *Builder) Link(linkerScripts []string, extraADirs []string) error {
+	if err := b.link(b.AppElfPath(), linkerScripts, nil,
+		extraADirs); err != nil {
+
 		return err
 	}
 	return nil
 }
 
-func (b *Builder) KeepLink(
-	linkerScripts []string, keepMap *symbol.SymbolMap) error {
+func (b *Builder) KeepLink(linkerScripts []string, keepMap *symbol.SymbolMap,
+	extraADirs []string) error {
 
 	keepSymbols := make([]string, 0)
 
@@ -710,16 +708,25 @@ func (b *Builder) KeepLink(
 			keepSymbols = append(keepSymbols, info.Name)
 		}
 	}
-	if err := b.link(b.AppElfPath(), linkerScripts, keepSymbols); err != nil {
+
+	if err := b.link(b.AppElfPath(), linkerScripts, keepSymbols,
+		extraADirs); err != nil {
+
 		return err
 	}
+
 	return nil
 }
 
-func (b *Builder) TentativeLink(linkerScripts []string) error {
-	if err := b.link(b.AppTentativeElfPath(), linkerScripts, nil); err != nil {
+func (b *Builder) TentativeLink(linkerScripts []string,
+	extraADirs []string) error {
+
+	if err := b.link(b.AppTentativeElfPath(), linkerScripts, nil,
+		extraADirs); err != nil {
+
 		return err
 	}
+
 	return nil
 }
 
