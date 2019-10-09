@@ -435,8 +435,8 @@ func parseRepoDepMap(depName string,
 	for commit, verReqsStr := range versMap {
 		verReqs, err := newtutil.ParseRepoVersionReqs(verReqsStr)
 		if err != nil {
-			return nil, util.FmtNewtError("invalid version string: %s",
-				verReqsStr)
+			return nil, util.FmtNewtError("invalid version string: %s: %s",
+				verReqsStr, err.Error())
 		}
 
 		result[commit] = &RepoDependency{
