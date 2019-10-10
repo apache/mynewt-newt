@@ -50,6 +50,7 @@ func produceLoaderV1(opts ImageProdOpts) (ProducedImageV1, error) {
 	igo := image.ImageCreateOpts{
 		SrcBinFilename:    opts.LoaderSrcFilename,
 		SrcEncKeyFilename: opts.EncKeyFilename,
+		SrcEncKeyIndex:    opts.EncKeyIndex,
 		Version:           opts.Version,
 		SigKeys:           opts.SigKeys,
 	}
@@ -101,6 +102,7 @@ func produceAppV1(opts ImageProdOpts,
 	igo := image.ImageCreateOpts{
 		SrcBinFilename:    opts.AppSrcFilename,
 		SrcEncKeyFilename: opts.EncKeyFilename,
+		SrcEncKeyIndex:    opts.EncKeyIndex,
 		Version:           opts.Version,
 		SigKeys:           opts.SigKeys,
 		LoaderHash:        loaderHash,
@@ -206,9 +208,11 @@ func ProduceImagesV1(opts ImageProdOpts) (ProducedImageSetV1, error) {
 }
 
 func ProduceAllV1(t *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []sec.PrivSignKey, encKeyFilename string) error {
+	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
+	hdrPad int, imagePad int) error {
 
-	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
+	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename, encKeyIndex,
+		hdrPad, imagePad)
 	if err != nil {
 		return err
 	}
