@@ -44,9 +44,12 @@ type ImageProdOpts struct {
 	AppDstFilename    string
 	AppHexFilename    string
 	EncKeyFilename    string
+	EncKeyIndex       int
 	Version           image.ImageVersion
 	SigKeys           []sec.PrivSignKey
 	BaseAddr          int
+	HdrPad            int
+	ImagePad          int
 	DummyC            *toolchain.Compiler
 }
 
@@ -95,6 +98,7 @@ func produceLoader(opts ImageProdOpts) (ProducedImage, error) {
 	igo := image.ImageCreateOpts{
 		SrcBinFilename:    opts.LoaderSrcFilename,
 		SrcEncKeyFilename: opts.EncKeyFilename,
+		SrcEncKeyIndex:    opts.EncKeyIndex,
 		Version:           opts.Version,
 		SigKeys:           opts.SigKeys,
 	}
@@ -137,9 +141,12 @@ func produceApp(opts ImageProdOpts, loaderHash []byte) (ProducedImage, error) {
 	igo := image.ImageCreateOpts{
 		SrcBinFilename:    opts.AppSrcFilename,
 		SrcEncKeyFilename: opts.EncKeyFilename,
+		SrcEncKeyIndex:    opts.EncKeyIndex,
 		Version:           opts.Version,
 		SigKeys:           opts.SigKeys,
 		LoaderHash:        loaderHash,
+		HdrPad:            opts.HdrPad,
+		ImagePad:          opts.ImagePad,
 	}
 
 	ri, err := image.GenerateImage(igo)
@@ -256,7 +263,8 @@ func ProduceManifest(opts manifest.ManifestCreateOpts) error {
 }
 
 func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []sec.PrivSignKey, encKeyFilename string) (ImageProdOpts, error) {
+	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
+	hdrPad int, imagePad int) (ImageProdOpts, error) {
 
 	// This compiler is just used for converting .img files to .hex files, so
 	// dummy paths are OK.
@@ -274,10 +282,13 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 		AppDstFilename: b.AppBuilder.AppImgPath(),
 		AppHexFilename: b.AppBuilder.AppHexPath(),
 		EncKeyFilename: encKeyFilename,
+		EncKeyIndex:    encKeyIndex,
 		Version:        ver,
 		SigKeys:        sigKeys,
 		DummyC:         c,
 		BaseAddr:       baseAddr,
+		HdrPad:         hdrPad,
+		ImagePad:       imagePad,
 	}
 
 	if b.LoaderBuilder != nil {
@@ -290,9 +301,11 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 }
 
 func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []sec.PrivSignKey, encKeyFilename string) error {
+	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
+	hdrPad int, imagePad int) error {
 
-	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename)
+	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename, encKeyIndex,
+		hdrPad, imagePad)
 	if err != nil {
 		return err
 	}

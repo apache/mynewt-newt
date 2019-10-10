@@ -105,9 +105,9 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			}
 
 			if useV1 {
-				err = imgprod.ProduceAllV1(b, ver, keys, "")
+				err = imgprod.ProduceAllV1(b, ver, keys, "", -1, -1, -1)
 			} else {
-				err = imgprod.ProduceAll(b, ver, keys, "")
+				err = imgprod.ProduceAll(b, ver, keys, "", -1, -1, -1)
 			}
 			if err != nil {
 				NewtUsage(nil, err)

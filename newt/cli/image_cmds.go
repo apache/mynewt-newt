@@ -36,6 +36,9 @@ import (
 var useV1 bool
 var useV2 bool
 var encKeyFilename string
+var encKeyIndex int
+var hdrPad int
+var imagePad int
 
 // @return                      keys, key ID, error
 func parseKeyArgs(args []string) ([]sec.PrivSignKey, uint8, error) {
@@ -131,9 +134,11 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if useV1 {
-		err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename)
+		err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename, encKeyIndex,
+			hdrPad, imagePad)
 	} else {
-		err = imgprod.ProduceAll(b, ver, keys, encKeyFilename)
+		err = imgprod.ProduceAll(b, ver, keys, encKeyFilename, encKeyIndex,
+			hdrPad, imagePad)
 	}
 	if err != nil {
 		NewtUsage(nil, err)
@@ -164,6 +169,8 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 private.pem\n"
 	createImageHelpEx +=
 		"  newt create-image -2 my_target1 1.3.0.3 private-1.pem private-2.pem\n"
+	createImageHelpEx += "  newt create-image my_target1 1.3.0.3 -H 3 -e " +
+		"aes_key\n\n"
 
 	createImageCmd := &cobra.Command{
 		Use: "create-image <target-name> <version> [signing-key-1] " +
@@ -186,7 +193,13 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageCmd.PersistentFlags().BoolVarP(&useV2,
 		"2", "2", false, "Use new image header format (default)")
 	createImageCmd.PersistentFlags().StringVarP(&encKeyFilename,
-		"encrypt", "e", "", "Encrypt image using this public key")
+		"encrypt", "e", "", "Encrypt image using this key")
+	createImageCmd.PersistentFlags().IntVarP(&encKeyIndex,
+		"hw-stored-key", "H", -1, "Hardware stored key index")
+	createImageCmd.PersistentFlags().IntVarP(&hdrPad,
+		"pad-header", "p", 0, "Pad header to this length")
+	createImageCmd.PersistentFlags().IntVarP(&imagePad,
+		"pad-image", "i", 0, "Pad image to this length")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
