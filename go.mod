@@ -1,10 +1,10 @@
 module mynewt.apache.org/newt
 
-go 1.12
+go 1.13
 
 require (
 	github.com/NickBall/go-aes-key-wrap v0.0.0-20170929221519-1c3aa3e4dfc5
-	github.com/apache/mynewt-artifact v0.0.3
+	github.com/apache/mynewt-artifact v0.0.5
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/sirupsen/logrus v1.4.2
