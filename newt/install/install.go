@@ -646,18 +646,29 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 		return nil, deprepo.ConflictError(conflicts)
 	}
 
-	// If project.yml specified any specific git commits, ensure we get them.
+	// Check all repo dependencies for specified git commits, ensure we get them.
+	rg := dg.Reverse()
 	for name, ver := range vm {
-		reqs := inst.reqs[name]
-		if len(reqs) > 0 {
-			keep, err := inst.shouldKeepCommit(name, reqs[0].Ver.Commit)
-			if err != nil {
-				return nil, err
+		for _, node := range rg[name] {
+			if len(node.VerReqs) > 0 {
+				for _, vreq := range node.VerReqs {
+					if vreq.Ver.Commit != "" {
+						keep, err := inst.shouldKeepCommit(name, vreq.Ver.Commit)
+						if err != nil {
+							return nil, err
+						}
+						if keep {
+							if ver.Commit == "" {
+								ver.Commit = vreq.Ver.Commit
+							} else {
+								return nil, util.FmtNewtError("repo %s: multiple commits %s and %s",
+									name, ver.Commit, vreq.Ver.Commit)
+							}
+						}
+						vm[name] = ver
+					}
+				}
 			}
-			if keep {
-				ver.Commit = reqs[0].Ver.Commit
-			}
-			vm[name] = ver
 		}
 	}
 
