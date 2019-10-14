@@ -82,9 +82,18 @@ DATE="$(date +%F_%R)"
 (
     cd "$newtdir"
 
+    # Include the build date in `newt version`.
     EXTRA_OPTS="-X mynewt.apache.org/newt/newt/newtutil.NewtDate=$DATE"
+
+    # Include the git hash and dirty state in `newt version`.
     if [ $GIT_HASH != "none" ]; then
         EXTRA_OPTS="${EXTRA_OPTS} -X mynewt.apache.org/newt/newt/newtutil.NewtGitHash=$GIT_HASH"
+    fi
+
+    # Allow the user to override the version reported by `newt version`.
+    if [ "$NEWT_VERSION_STR" != "" ]
+    then
+        EXTRA_OPTS="${EXTRA_OPTS} -X mynewt.apache.org/newt/newt/newtutil.NewtVersionStr=$NEWT_VERSION_STR"
     fi
 
     printf "Building newt.  This may take a minute...\n"
