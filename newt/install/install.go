@@ -594,6 +594,37 @@ func (inst *Installer) versionMapRepos(
 	return repos, nil
 }
 
+// assignCommits applies commit hashes to the selected version of each repo in
+// a version map.  In other words, it propagates `<...>-commit` requirements
+// from `project.yml` and `repository.yml` files.
+func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
+	reqs []newtutil.RepoVersionReq) error {
+
+	for _, req := range reqs {
+		curVer := vm[repoName]
+		if curVer.Satisfies(req) {
+			keep, err := inst.shouldKeepCommit(repoName, req.Ver.Commit)
+			if err != nil {
+				return err
+			}
+
+			if keep {
+				if vm[repoName].Commit != "" {
+					return util.FmtNewtError(
+						"repo %s: multiple commits: %s, %s",
+						repoName, vm[repoName].Commit, req.Ver.Commit)
+
+				}
+				ver := vm[repoName]
+				ver.Commit = req.Ver.Commit
+				vm[repoName] = ver
+			}
+		}
+	}
+
+	return nil
+}
+
 // Calculates a map of repos and version numbers that should be included in an
 // install or upgrade operation.
 func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
@@ -646,28 +677,20 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 		return nil, deprepo.ConflictError(conflicts)
 	}
 
-	// Check all repo dependencies for specified git commits, ensure we get them.
+	// If project.yml specified any specific git commits, ensure we get them.
+	for name, reqs := range inst.reqs {
+		if err := inst.assignCommits(vm, name, reqs); err != nil {
+			return nil, err
+		}
+	}
+
+	// If repos specify git commits in their repo-dependencies, ensure we get
+	// them.
 	rg := dg.Reverse()
-	for name, ver := range vm {
-		for _, node := range rg[name] {
-			if len(node.VerReqs) > 0 {
-				for _, vreq := range node.VerReqs {
-					if vreq.Ver.Commit != "" {
-						keep, err := inst.shouldKeepCommit(name, vreq.Ver.Commit)
-						if err != nil {
-							return nil, err
-						}
-						if keep {
-							if ver.Commit == "" {
-								ver.Commit = vreq.Ver.Commit
-							} else {
-								return nil, util.FmtNewtError("repo %s: multiple commits %s and %s",
-									name, ver.Commit, vreq.Ver.Commit)
-							}
-						}
-						vm[name] = ver
-					}
-				}
+	for name, nodes := range rg {
+		for _, node := range nodes {
+			if err := inst.assignCommits(vm, name, node.VerReqs); err != nil {
+				return nil, err
 			}
 		}
 	}
