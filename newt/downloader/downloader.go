@@ -365,6 +365,87 @@ func (gd *GenericDownloader) ensureInited(path string) error {
 	return gd.init(path)
 }
 
+// untrackedFilesFromCheckoutErr collects the list of untracked files that
+// prevented a checkout from succeeding.  It returns nil if the provided error
+// does not indicate that untracked files are in the way.
+func untrackedFilesFromCheckoutErr(err error) []string {
+	var files []string
+
+	text := err.Error()
+	lines := strings.Split(text, "\n")
+
+	collecting := false
+	for _, line := range lines {
+		if !collecting {
+			if strings.Contains(line,
+				"The following untracked working tree files would "+
+					"be overwritten by checkout:") {
+				collecting = true
+			}
+		} else {
+			if strings.Contains(line, "Please move or remove them before") {
+				collecting = false
+			} else {
+				files = append(files, strings.TrimSpace(line))
+			}
+		}
+	}
+
+	return files
+}
+
+// applyMcubootPreHack attempts to clean up the mcuboot repo so that the
+// subsequent checkout operation will succeed.  This hack is required because a
+// directory in the mcuboot repo was replaced with a submodule.  Git is unable
+// to transition from a post-replace commit to a pre-replace commit because
+// some files in the submodule used to exist in the mcuboot repo itself.  If
+// this issue is detected, this function deletes the submodule directory so
+// that the checkout operation can be attempted again.
+func applyMcubootPreHack(repoDir string, err error) error {
+	if !strings.HasSuffix(repoDir, "repos/mcuboot") {
+		// Not the mcuboot repo.
+		return err
+	}
+
+	// Check for an "untracked files" error.
+	files := untrackedFilesFromCheckoutErr(err)
+	if len(files) == 0 {
+		// Not a hackable error.
+		return err
+	}
+
+	for _, file := range files {
+		if !strings.HasPrefix(file, "ext/mbedtls") {
+			return err
+		}
+	}
+
+	path := repoDir + "/ext/mbedtls"
+	log.Debugf("applying mcuboot hack: removing %s", path)
+	os.RemoveAll(path)
+	return nil
+}
+
+// applyMcubootPostHack attempts to clean up the mcuboot repo so that the
+// subsequent checkout operation will succeed.  This hack is required because a
+// directory in the mcuboot repo was replaced with a submodule.  This hack
+// should be applied after a successful checkout from a pre-replace commit to a
+// post-replace commit.  This function deletes an orphan directory left behind
+// by the checkout operation.
+func applyMcubootPostHack(repoDir string, output string) {
+	if !strings.HasSuffix(repoDir, "repos/mcuboot") {
+		// Not the mcuboot repo.
+		return
+	}
+
+	// Check for a "unable to rmdir" warning (pre- to post- submodule move).
+	if strings.Contains(output, "unable to rmdir 'sim/mcuboot-sys/mbedtls'") {
+		path := repoDir + "/sim/mcuboot-sys/mbedtls"
+		log.Debugf("applying mcuboot hack: removing %s", path)
+		os.RemoveAll(path)
+	}
+}
+
 func (gd *GenericDownloader) Checkout(repoDir string, commit string) error {
 	// Get the hash corresponding to the commit in case the caller specified a
 	// branch or tag.  We always want to check out a hash and end up in a
@@ -380,8 +461,17 @@ func (gd *GenericDownloader) Checkout(repoDir string, commit string) error {
 		hash,
 	}
 
-	if _, err := executeGitCommand(repoDir, cmd, true); err != nil {
-		return err
+	o, err := executeGitCommand(repoDir, cmd, true)
+	if err != nil {
+		if err := applyMcubootPreHack(repoDir, err); err != nil {
+			return err
+		}
+
+		if _, err := executeGitCommand(repoDir, cmd, true); err != nil {
+			return err
+		}
+	} else {
+		applyMcubootPostHack(repoDir, string(o))
 	}
 
 	// Always initialize and update submodules on checkout.  This prevents the
