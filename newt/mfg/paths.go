@@ -49,6 +49,10 @@ func MfgTargetDir(targetNum int) string {
 	return fmt.Sprintf("targets/%d", targetNum)
 }
 
+func MfgRawDir(rawNum int) string {
+	return fmt.Sprintf("raws/%d", rawNum)
+}
+
 func MfgTargetBinPath(targetNum int) string {
 	return fmt.Sprintf("%s/binary.bin", MfgTargetDir(targetNum))
 }
@@ -67,4 +71,8 @@ func MfgTargetElfPath(targetNum int) string {
 
 func MfgTargetManifestPath(targetNum int) string {
 	return fmt.Sprintf("%s/manifest.json", MfgTargetDir(targetNum))
+}
+
+func MfgRawBinPath(rawNum int) string {
+	return fmt.Sprintf("%s/raw.bin", MfgRawDir(rawNum))
 }

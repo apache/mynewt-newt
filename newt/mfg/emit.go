@@ -211,36 +211,60 @@ func NewMfgEmitter(mb MfgBuilder, name string, ver image.ImageVersion,
 	return me, nil
 }
 
+func (me *MfgEmitter) calcCpEntriesTarget(mt MfgEmitTarget, idx int) []CpEntry {
+	var entries []CpEntry
+
+	var binTo string
+	if mt.IsBoot {
+		binTo = MfgTargetBinPath(idx)
+	} else {
+		binTo = MfgTargetImgPath(idx)
+	}
+
+	entry := CpEntry{
+		From: mt.BinPath,
+		To:   MfgBinDir(me.Name) + "/" + binTo,
+	}
+	entries = append(entries, entry)
+
+	entry = CpEntry{
+		From: mt.ElfPath,
+		To: MfgBinDir(me.Name) + "/" +
+			MfgTargetElfPath(idx),
+	}
+	entries = append(entries, entry)
+
+	entry = CpEntry{
+		From: mt.ManifestPath,
+		To: MfgBinDir(me.Name) + "/" +
+			MfgTargetManifestPath(idx),
+	}
+	entries = append(entries, entry)
+
+	return entries
+}
+
+func (me *MfgEmitter) calcCpEntriesRaw(mr MfgEmitRaw, idx int) []CpEntry {
+	entry := CpEntry{
+		From: mr.Filename,
+		To: MfgBinDir(me.Name) + "/" +
+			MfgRawBinPath(idx),
+	}
+
+	return []CpEntry{entry}
+}
+
 // Calculates the necessary file copy operations for emitting an mfg image.
 func (me *MfgEmitter) calcCpEntries() []CpEntry {
 	entries := []CpEntry{}
 	for i, mt := range me.Targets {
-		var binTo string
-		if mt.IsBoot {
-			binTo = MfgTargetBinPath(i)
-		} else {
-			binTo = MfgTargetImgPath(i)
-		}
+		targetEntries := me.calcCpEntriesTarget(mt, i)
+		entries = append(entries, targetEntries...)
+	}
 
-		entry := CpEntry{
-			From: mt.BinPath,
-			To:   MfgBinDir(me.Name) + "/" + binTo,
-		}
-		entries = append(entries, entry)
-
-		entry = CpEntry{
-			From: mt.ElfPath,
-			To: MfgBinDir(me.Name) + "/" +
-				MfgTargetElfPath(i),
-		}
-		entries = append(entries, entry)
-
-		entry = CpEntry{
-			From: mt.ManifestPath,
-			To: MfgBinDir(me.Name) + "/" +
-				MfgTargetManifestPath(i),
-		}
-		entries = append(entries, entry)
+	for i, mr := range me.Raws {
+		rawEntries := me.calcCpEntriesRaw(mr, i)
+		entries = append(entries, rawEntries...)
 	}
 
 	return entries
