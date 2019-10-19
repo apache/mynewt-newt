@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/apache/mynewt-artifact/flash"
@@ -60,8 +61,9 @@ type MfgEmitTarget struct {
 }
 
 type MfgEmitRaw struct {
-	Filename string
-	Offset   int
+	Filename      string
+	Offset        int
+	ExtraManifest map[string]interface{}
 }
 
 type MfgEmitMetaMmr struct {
@@ -128,8 +130,9 @@ func newMfgEmitTarget(bt MfgBuildTarget) (MfgEmitTarget, error) {
 
 func newMfgEmitRaw(br MfgBuildRaw) MfgEmitRaw {
 	return MfgEmitRaw{
-		Filename: br.Filename,
-		Offset:   br.Area.Offset + br.Offset,
+		Filename:      br.Filename,
+		Offset:        br.Area.Offset + br.Offset,
+		ExtraManifest: br.ExtraManifest,
 	}
 }
 
@@ -380,6 +383,19 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		mmt.HexPath = MfgTargetHexPath(i)
 
 		mm.Targets = append(mm.Targets, mmt)
+	}
+
+	basePath := project.GetProject().BasePath
+
+	for i, r := range me.Raws {
+		mmr := manifest.MfgManifestRaw{
+			Filename: strings.TrimPrefix(r.Filename, basePath+"/"),
+			Offset:   r.Offset,
+			BinPath:  MfgRawBinPath(i),
+			Extra:    r.ExtraManifest,
+		}
+
+		mm.Raws = append(mm.Raws, mmr)
 	}
 
 	if me.Meta != nil {
