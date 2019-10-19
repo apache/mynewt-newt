@@ -33,9 +33,10 @@ import (
 const OFFSET_END = -1
 
 type DecodedTarget struct {
-	Name   string
-	Area   string
-	Offset int
+	Name          string
+	Area          string
+	Offset        int
+	ExtraManifest map[string]interface{}
 }
 
 type DecodedRaw struct {
@@ -110,6 +111,40 @@ func decodeBoolDflt(kv map[string]interface{}, key string,
 	}
 }
 
+func decodeExtra(kv map[string]interface{},
+	key string) (map[string]interface{}, error) {
+
+	extra := kv[key]
+	if extra == nil {
+		return nil, nil
+	}
+
+	if _, ok := extra.(map[interface{}]interface{}); !ok {
+		return nil, util.FmtNewtError(
+			"invalid \"%s\" field: must be a map", key)
+	}
+
+	// If `extra` contains any maps, they were unmarshalled as
+	// `map[interface{}]interface{}`.  These need to be converted to
+	// `map[string]interface{}` to be JSON compatible.
+	var fixMap func(m map[string]interface{})
+	fixMap = func(m map[string]interface{}) {
+		for k, v := range m {
+			if _, ok := v.(map[interface{}]interface{}); ok {
+				sm := cast.ToStringMap(v)
+				fixMap(sm)
+
+				m[k] = sm
+			}
+		}
+	}
+
+	extraMap := cast.ToStringMap(extra)
+	fixMap(extraMap)
+
+	return extraMap, nil
+}
+
 func decodeTarget(yamlTarget interface{}) (DecodedTarget, error) {
 	dt := DecodedTarget{}
 
@@ -145,6 +180,13 @@ func decodeTarget(yamlTarget interface{}) (DecodedTarget, error) {
 			"in target entry \"%s\": %s", dt.Name, err.Error())
 	}
 	dt.Offset = offsetInt
+
+	extra, err := decodeExtra(kv, "extra_manifest")
+	if err != nil {
+		return dt, util.FmtNewtError(
+			"in target entry %s: %s", dt.Name, err.Error())
+	}
+	dt.ExtraManifest = extra
 
 	return dt, nil
 }
