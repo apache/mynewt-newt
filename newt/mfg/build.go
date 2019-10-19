@@ -42,11 +42,12 @@ import (
 )
 
 type MfgBuildTarget struct {
-	Target  *target.Target
-	Area    flash.FlashArea
-	Offset  int
-	IsBoot  bool
-	BinPath string
+	Target        *target.Target
+	Area          flash.FlashArea
+	Offset        int
+	IsBoot        bool
+	BinPath       string
+	ExtraManifest map[string]interface{}
 }
 
 type MfgBuildRaw struct {
@@ -222,11 +223,12 @@ func newMfgBuildTarget(dt DecodedTarget,
 	isBoot := parse.ValueIsTrue(man.Syscfg["BOOT_LOADER"])
 
 	return MfgBuildTarget{
-		Target:  t,
-		Area:    area,
-		Offset:  dt.Offset,
-		IsBoot:  isBoot,
-		BinPath: targetSrcBinPath(t, isBoot),
+		Target:        t,
+		Area:          area,
+		Offset:        dt.Offset,
+		IsBoot:        isBoot,
+		BinPath:       targetSrcBinPath(t, isBoot),
+		ExtraManifest: dt.ExtraManifest,
 	}, nil
 }
 
