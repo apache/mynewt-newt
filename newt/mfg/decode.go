@@ -40,9 +40,10 @@ type DecodedTarget struct {
 }
 
 type DecodedRaw struct {
-	Filename string
-	Area     string
-	Offset   int
+	Filename      string
+	Area          string
+	Offset        int
+	ExtraManifest map[string]interface{}
 }
 
 type DecodedMmrRef struct {
@@ -226,6 +227,13 @@ func decodeRaw(yamlRaw interface{}, entryIdx int) (DecodedRaw, error) {
 			"mfg raw entry missing required field \"filename\"")
 	}
 	dr.Filename = cast.ToString(filenameVal)
+
+	extra, err := decodeExtra(kv, "extra_manifest")
+	if err != nil {
+		return dr, util.FmtNewtError(
+			"in raw entry %d: %s", entryIdx, err.Error())
+	}
+	dr.ExtraManifest = extra
 
 	return dr, nil
 }

@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -51,9 +52,10 @@ type MfgBuildTarget struct {
 }
 
 type MfgBuildRaw struct {
-	Filename string
-	Offset   int
-	Area     flash.FlashArea
+	Filename      string
+	Offset        int
+	Area          flash.FlashArea
+	ExtraManifest map[string]interface{}
 }
 
 type MfgBuildMetaMmr struct {
@@ -246,9 +248,10 @@ func newMfgBuildRaw(dr DecodedRaw,
 	}
 
 	return MfgBuildRaw{
-		Filename: filename,
-		Offset:   dr.Offset,
-		Area:     area,
+		Filename:      path.Clean(filename),
+		Offset:        dr.Offset,
+		Area:          area,
+		ExtraManifest: dr.ExtraManifest,
 	}, nil
 }
 
