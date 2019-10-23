@@ -552,6 +552,13 @@ func CopyDir(srcDirStr, dstDirStr string) error {
 }
 
 func MoveFile(srcFile string, destFile string) error {
+	// First, attempt a rename.  This will succeed if the source and
+	// destination are on the same disk.
+	if err := os.Rename(srcFile, destFile); err == nil {
+		return nil
+	}
+
+	// Otherwise, copy the file and delete the old path.
 	if err := CopyFile(srcFile, destFile); err != nil {
 		return err
 	}
@@ -564,6 +571,13 @@ func MoveFile(srcFile string, destFile string) error {
 }
 
 func MoveDir(srcDir string, destDir string) error {
+	// First, attempt a rename.  This will succeed if the source and
+	// destination are on the same disk.
+	if err := os.Rename(srcDir, destDir); err == nil {
+		return nil
+	}
+
+	// Otherwise, copy the directory and delete the old path.
 	if err := CopyDir(srcDir, destDir); err != nil {
 		return err
 	}
