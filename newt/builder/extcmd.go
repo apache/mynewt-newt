@@ -28,8 +28,8 @@ func replaceArtifactsIfChanged(oldDir string, newDir string) error {
 
 	log.Debugf("changes detected; replacing %s with %s", oldDir, newDir)
 	os.RemoveAll(oldDir)
-	if err := os.Rename(newDir, oldDir); err != nil {
-		return util.ChildNewtError(err)
+	if err := util.MoveDir(newDir, oldDir); err != nil {
+		return err
 	}
 
 	return nil

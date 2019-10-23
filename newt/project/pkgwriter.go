@@ -201,8 +201,8 @@ func (pw *PackageWriter) fixupPkg() error {
 			if err := os.MkdirAll(filepath.Dir(d2), os.ModePerm); err != nil {
 				return util.ChildNewtError(err)
 			}
-			if err := os.Rename(d1, d2); err != nil {
-				return util.ChildNewtError(err)
+			if err := util.MoveDir(d1, d2); err != nil {
+				return err
 			}
 		}
 	}
@@ -224,8 +224,8 @@ func (pw *PackageWriter) fixupPkg() error {
 	for _, f1 := range files {
 		f2 := replaceText(f1, table)
 		if f2 != f1 {
-			if err := os.Rename(f1, f2); err != nil {
-				return util.ChildNewtError(err)
+			if err := util.MoveDir(f1, f2); err != nil {
+				return err
 			}
 		}
 	}
