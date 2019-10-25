@@ -42,6 +42,8 @@ type BspPackage struct {
 	DownloadScript     string
 	DebugScript        string
 	OptChkScript       string
+	ImageOffset        int
+	ImagePad           int
 	FlashMap           flashmap.FlashMap
 	BspV               ycfg.YCfg
 }
@@ -125,6 +127,10 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 
 	bsp.CompilerName = bsp.BspV.GetValString("bsp.compiler", settings)
 	bsp.Arch = bsp.BspV.GetValString("bsp.arch", settings)
+
+	bsp.ImageOffset = bsp.BspV.GetValInt("bsp.image_offset", settings)
+
+	bsp.ImagePad = bsp.BspV.GetValInt("bsp.image_pad", settings)
 
 	bsp.LinkerScripts, err = bsp.resolveLinkerScriptSetting(
 		settings, "bsp.linkerscript")

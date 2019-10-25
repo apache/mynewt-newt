@@ -277,6 +277,15 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 	img0Area := b.BspPkg().FlashMap.Areas[flash.FLASH_AREA_NAME_IMAGE_0]
 	baseAddr := img0Area.Offset
 
+	// If there is not a cmd line override, use the BSP values
+	// for header pad and image pad
+	if hdrPad <= 0 {
+		hdrPad = b.BspPkg().ImageOffset
+	}
+	if imagePad <= 0 {
+		imagePad = b.BspPkg().ImagePad
+	}
+
 	opts := ImageProdOpts{
 		AppSrcFilename: b.AppBuilder.AppBinPath(),
 		AppDstFilename: b.AppBuilder.AppImgPath(),
