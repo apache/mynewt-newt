@@ -227,6 +227,9 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 		env["NO_GDB"] = "1"
 	}
 
+	// The debug script appends ".elf" to the basename.
+	env["BIN_BASENAME"] = strings.TrimSuffix(env["BIN_BASENAME"], ".elf")
+
 	os.Chdir(project.GetProject().Path())
 
 	RunOptionalCheck(bspPkg.OptChkScript, env)

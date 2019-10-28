@@ -140,13 +140,19 @@ func logDepInfo(res *resolve.Resolution) {
 //     * bin/targets/my_blinky_sim/app
 //     * bin/targets/splitty-nrf52dk/loader
 func (b *Builder) binBasePath() (string, error) {
-	if b.appPkg == nil {
-		return "", util.NewNewtError("app package not specified")
+	var rawPath string
+
+	if b.appPkg != nil {
+		rawPath = b.AppBinBasePath()
+	} else if b.testPkg != nil {
+		rawPath = b.TestExePath()
+	} else {
+		return "", util.NewNewtError("no app or test package specified")
 	}
 
 	// Convert the binary path from absolute to relative.  This is required for
 	// Windows compatibility.
-	return util.TryRelPath(b.AppBinBasePath()), nil
+	return util.TryRelPath(rawPath), nil
 }
 
 // BasicEnvVars calculates the basic set of environment variables passed to all
