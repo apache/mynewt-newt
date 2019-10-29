@@ -24,11 +24,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/apache/mynewt-artifact/errors"
 	"github.com/apache/mynewt-artifact/flash"
 	"github.com/apache/mynewt-artifact/image"
 	"github.com/apache/mynewt-artifact/manifest"
@@ -54,6 +56,7 @@ type MfgBuildTarget struct {
 type MfgBuildRaw struct {
 	Filename      string
 	Offset        int
+	Size          int
 	Area          flash.FlashArea
 	ExtraManifest map[string]interface{}
 }
@@ -247,9 +250,16 @@ func newMfgBuildRaw(dr DecodedRaw,
 		return MfgBuildRaw{}, err
 	}
 
+	st, err := os.Stat(filename)
+	if err != nil {
+		return MfgBuildRaw{}, errors.Wrapf(err,
+			"failed to determine size of file \"%s\"", filename)
+	}
+
 	return MfgBuildRaw{
 		Filename:      path.Clean(filename),
 		Offset:        dr.Offset,
+		Size:          int(st.Size()),
 		Area:          area,
 		ExtraManifest: dr.ExtraManifest,
 	}, nil
