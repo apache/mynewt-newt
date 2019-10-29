@@ -63,6 +63,7 @@ type MfgEmitTarget struct {
 type MfgEmitRaw struct {
 	Filename      string
 	Offset        int
+	Size          int
 	ExtraManifest map[string]interface{}
 }
 
@@ -132,6 +133,7 @@ func newMfgEmitRaw(br MfgBuildRaw) MfgEmitRaw {
 	return MfgEmitRaw{
 		Filename:      br.Filename,
 		Offset:        br.Area.Offset + br.Offset,
+		Size:          br.Size,
 		ExtraManifest: br.ExtraManifest,
 	}
 }
@@ -391,6 +393,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 		mmr := manifest.MfgManifestRaw{
 			Filename: strings.TrimPrefix(r.Filename, basePath+"/"),
 			Offset:   r.Offset,
+			Size:     r.Size,
 			BinPath:  MfgRawBinPath(i),
 			Extra:    r.ExtraManifest,
 		}
