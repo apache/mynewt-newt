@@ -313,7 +313,7 @@ func (me *MfgEmitter) createSigs() ([]manifest.MfgManifestSig, error) {
 
 		sigs = append(sigs, manifest.MfgManifestSig{
 			Key: hex.EncodeToString(keyHash),
-			Sig: hex.EncodeToString(sig),
+			Sig: hex.EncodeToString(sig.Data),
 		})
 	}
 
