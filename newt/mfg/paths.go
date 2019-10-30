@@ -45,34 +45,34 @@ func MfgManifestPath(mfgPkgName string) string {
 	return MfgBinDir(mfgPkgName) + "/" + mfg.MANIFEST_FILENAME
 }
 
-func MfgTargetDir(targetNum int) string {
-	return fmt.Sprintf("targets/%d", targetNum)
+func MfgTargetDir(mfgPkgName string, targetNum int) string {
+	return fmt.Sprintf("%s/targets/%d", MfgBinDir(mfgPkgName), targetNum)
 }
 
-func MfgRawDir(rawNum int) string {
-	return fmt.Sprintf("raws/%d", rawNum)
+func MfgRawDir(mfgPkgName string, rawNum int) string {
+	return fmt.Sprintf("%s/raws/%d", MfgBinDir(mfgPkgName), rawNum)
 }
 
-func MfgTargetBinPath(targetNum int) string {
-	return fmt.Sprintf("%s/binary.bin", MfgTargetDir(targetNum))
+func MfgTargetBinPath(mfgPkgName string, targetNum int) string {
+	return fmt.Sprintf("%s/binary.bin", MfgTargetDir(mfgPkgName, targetNum))
 }
 
-func MfgTargetImgPath(targetNum int) string {
-	return fmt.Sprintf("%s/image.img", MfgTargetDir(targetNum))
+func MfgTargetImgPath(mfgPkgName string, targetNum int) string {
+	return fmt.Sprintf("%s/image.img", MfgTargetDir(mfgPkgName, targetNum))
 }
 
-func MfgTargetHexPath(targetNum int) string {
-	return fmt.Sprintf("%s/image.hex", MfgTargetDir(targetNum))
+func MfgTargetHexPath(mfgPkgName string, targetNum int) string {
+	return fmt.Sprintf("%s/image.hex", MfgTargetDir(mfgPkgName, targetNum))
 }
 
-func MfgTargetElfPath(targetNum int) string {
-	return fmt.Sprintf("%s/elf.elf", MfgTargetDir(targetNum))
+func MfgTargetElfPath(mfgPkgName string, targetNum int) string {
+	return fmt.Sprintf("%s/elf.elf", MfgTargetDir(mfgPkgName, targetNum))
 }
 
-func MfgTargetManifestPath(targetNum int) string {
-	return fmt.Sprintf("%s/manifest.json", MfgTargetDir(targetNum))
+func MfgTargetManifestPath(mfgPkgName string, targetNum int) string {
+	return fmt.Sprintf("%s/manifest.json", MfgTargetDir(mfgPkgName, targetNum))
 }
 
-func MfgRawBinPath(rawNum int) string {
-	return fmt.Sprintf("%s/raw.bin", MfgRawDir(rawNum))
+func MfgRawBinPath(mfgPkgName string, rawNum int) string {
+	return fmt.Sprintf("%s/raw.bin", MfgRawDir(mfgPkgName, rawNum))
 }

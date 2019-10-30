@@ -223,28 +223,26 @@ func (me *MfgEmitter) calcCpEntriesTarget(mt MfgEmitTarget, idx int) []CpEntry {
 
 	var binTo string
 	if mt.IsBoot {
-		binTo = MfgTargetBinPath(idx)
+		binTo = MfgTargetBinPath(me.Name, idx)
 	} else {
-		binTo = MfgTargetImgPath(idx)
+		binTo = MfgTargetImgPath(me.Name, idx)
 	}
 
 	entry := CpEntry{
 		From: mt.BinPath,
-		To:   MfgBinDir(me.Name) + "/" + binTo,
+		To:   binTo,
 	}
 	entries = append(entries, entry)
 
 	entry = CpEntry{
 		From: mt.ElfPath,
-		To: MfgBinDir(me.Name) + "/" +
-			MfgTargetElfPath(idx),
+		To:   MfgTargetElfPath(me.Name, idx),
 	}
 	entries = append(entries, entry)
 
 	entry = CpEntry{
 		From: mt.ManifestPath,
-		To: MfgBinDir(me.Name) + "/" +
-			MfgTargetManifestPath(idx),
+		To:   MfgTargetManifestPath(me.Name, idx),
 	}
 	entries = append(entries, entry)
 
@@ -254,8 +252,7 @@ func (me *MfgEmitter) calcCpEntriesTarget(mt MfgEmitTarget, idx int) []CpEntry {
 func (me *MfgEmitter) calcCpEntriesRaw(mr MfgEmitRaw, idx int) []CpEntry {
 	entry := CpEntry{
 		From: mr.Filename,
-		To: MfgBinDir(me.Name) + "/" +
-			MfgRawBinPath(idx),
+		To:   MfgRawBinPath(me.Name, idx),
 	}
 
 	return []CpEntry{entry}
@@ -327,11 +324,11 @@ func (me *MfgEmitter) convertHexImages() ([]string, error) {
 	for i, mt := range me.Targets {
 		var binPath, hexPath string
 		if mt.IsBoot {
-			binPath = MfgBinDir(me.Name) + "/" + MfgTargetBinPath(i)
+			binPath = MfgTargetBinPath(me.Name, i)
 		} else {
-			binPath = MfgBinDir(me.Name) + "/" + MfgTargetImgPath(i)
+			binPath = MfgTargetImgPath(me.Name, i)
 		}
-		hexPath = MfgBinDir(me.Name) + "/" + MfgTargetHexPath(i)
+		hexPath = MfgTargetHexPath(me.Name, i)
 
 		err := me.Compiler.ConvertBinToHex(binPath, hexPath, mt.Offset)
 		if err != nil {
@@ -372,17 +369,17 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 	for i, t := range me.Targets {
 		mmt := manifest.MfgManifestTarget{
 			Name:         t.Name,
-			ManifestPath: MfgTargetManifestPath(i),
+			ManifestPath: MfgTargetManifestPath(me.Name, i),
 			Offset:       t.Offset,
 			Extra:        t.ExtraManifest,
 		}
 
 		if t.IsBoot {
-			mmt.BinPath = MfgTargetBinPath(i)
+			mmt.BinPath = MfgTargetBinPath(me.Name, i)
 		} else {
-			mmt.ImagePath = MfgTargetImgPath(i)
+			mmt.ImagePath = MfgTargetImgPath(me.Name, i)
 		}
-		mmt.HexPath = MfgTargetHexPath(i)
+		mmt.HexPath = MfgTargetHexPath(me.Name, i)
 
 		mm.Targets = append(mm.Targets, mmt)
 	}
@@ -394,7 +391,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 			Filename: strings.TrimPrefix(r.Filename, basePath+"/"),
 			Offset:   r.Offset,
 			Size:     r.Size,
-			BinPath:  MfgRawBinPath(i),
+			BinPath:  MfgRawBinPath(me.Name, i),
 			Extra:    r.ExtraManifest,
 		}
 
