@@ -64,6 +64,7 @@ type MfgEmitRaw struct {
 	Filename      string
 	Offset        int
 	Size          int
+	ExtraFiles    []string
 	ExtraManifest map[string]interface{}
 }
 
@@ -134,6 +135,7 @@ func newMfgEmitRaw(br MfgBuildRaw) MfgEmitRaw {
 		Filename:      br.Filename,
 		Offset:        br.Area.Offset + br.Offset,
 		Size:          br.Size,
+		ExtraFiles:    br.ExtraFiles,
 		ExtraManifest: br.ExtraManifest,
 	}
 }
@@ -250,12 +252,25 @@ func (me *MfgEmitter) calcCpEntriesTarget(mt MfgEmitTarget, idx int) []CpEntry {
 }
 
 func (me *MfgEmitter) calcCpEntriesRaw(mr MfgEmitRaw, idx int) []CpEntry {
-	entry := CpEntry{
-		From: mr.Filename,
-		To:   MfgRawBinPath(me.Name, idx),
+	var entries []CpEntry
+
+	// Include `.bin` file.
+	entries = append(entries,
+		CpEntry{
+			From: mr.Filename,
+			To:   MfgRawBinPath(me.Name, idx),
+		})
+
+	// Include each extra file.
+	for _, ef := range mr.ExtraFiles {
+		entries = append(entries, CpEntry{
+			From: ef,
+			To: MfgRawDir(me.Name, idx) + "/" +
+				filepath.Base(ef),
+		})
 	}
 
-	return []CpEntry{entry}
+	return entries
 }
 
 // Calculates the necessary file copy operations for emitting an mfg image.

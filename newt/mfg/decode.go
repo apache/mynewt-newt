@@ -43,6 +43,7 @@ type DecodedRaw struct {
 	Filename      string
 	Area          string
 	Offset        int
+	ExtraFiles    []string
 	ExtraManifest map[string]interface{}
 }
 
@@ -227,6 +228,16 @@ func decodeRaw(yamlRaw interface{}, entryIdx int) (DecodedRaw, error) {
 			"mfg raw entry missing required field \"filename\"")
 	}
 	dr.Filename = cast.ToString(filenameVal)
+
+	if itf, ok := kv["extra_files"]; ok {
+		extraFiles, err := cast.ToStringSliceE(itf)
+		if err != nil {
+			return dr, util.FmtNewtError(
+				"mfg raw entry contains invalid \"extra_files\" field: "+
+					"have=%T want=[]string", itf)
+		}
+		dr.ExtraFiles = extraFiles
+	}
 
 	extra, err := decodeExtra(kv, "extra_manifest")
 	if err != nil {
