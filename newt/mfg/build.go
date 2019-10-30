@@ -58,6 +58,7 @@ type MfgBuildRaw struct {
 	Offset        int
 	Size          int
 	Area          flash.FlashArea
+	ExtraFiles    []string
 	ExtraManifest map[string]interface{}
 }
 
@@ -240,9 +241,19 @@ func newMfgBuildTarget(dt DecodedTarget,
 func newMfgBuildRaw(dr DecodedRaw,
 	fm flashmap.FlashMap, basePath string) (MfgBuildRaw, error) {
 
-	filename := dr.Filename
-	if !strings.HasPrefix(filename, "/") {
-		filename = basePath + "/" + filename
+	pathToBase := func(s string) string {
+		if !strings.HasPrefix(s, "/") {
+			s = basePath + "/" + s
+		}
+
+		return filepath.Clean(s)
+	}
+
+	filename := pathToBase(dr.Filename)
+
+	var extraFiles []string
+	for _, ef := range dr.ExtraFiles {
+		extraFiles = append(extraFiles, pathToBase(ef))
 	}
 
 	area, err := lookUpArea(fm, dr.Area)
@@ -261,6 +272,7 @@ func newMfgBuildRaw(dr DecodedRaw,
 		Offset:        dr.Offset,
 		Size:          int(st.Size()),
 		Area:          area,
+		ExtraFiles:    extraFiles,
 		ExtraManifest: dr.ExtraManifest,
 	}, nil
 }
