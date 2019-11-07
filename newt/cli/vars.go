@@ -58,8 +58,9 @@ func settingValues(settingName string) ([]string, error) {
 
 	packs := project.GetProject().PackagesOfType(-1)
 	for _, pack := range packs {
-		settings, _ :=
+		settings, err :=
 			pack.(*pkg.LocalPackage).PkgY.GetValStringSlice(settingName, nil)
+		util.OneTimeWarningError(err)
 
 		for _, setting := range settings {
 			settingMap[setting] = struct{}{}

@@ -303,8 +303,9 @@ func CreateManifest(opts ManifestCreateOpts) (manifest.Manifest, error) {
 	for _, k := range keys {
 		m.TgtVars = append(m.TgtVars, k+"="+vars[k])
 	}
-	syscfgKV, _ := t.GetTarget().Package().SyscfgY.GetValStringMapString(
+	syscfgKV, err := t.GetTarget().Package().SyscfgY.GetValStringMapString(
 		"syscfg.vals", nil)
+	util.OneTimeWarningError(err)
 
 	if len(syscfgKV) > 0 {
 		tgtSyscfg := fmt.Sprintf("target.syscfg=%s",

@@ -124,7 +124,8 @@ func expandFlags(flags []string) {
 func (bpkg *BuildPackage) BuildProfile(b *Builder) string {
 	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
 
-	profile, _ := bpkg.rpkg.Lpkg.PkgY.GetValString("pkg.build_profile", settings)
+	profile, err := bpkg.rpkg.Lpkg.PkgY.GetValString("pkg.build_profile", settings)
+	util.OneTimeWarningError(err)
 
 	return profile
 }
@@ -141,18 +142,24 @@ func (bpkg *BuildPackage) CompilerInfo(
 	ci := toolchain.NewCompilerInfo()
 	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
 
+	var err error
+
 	// Read each set of flags and expand repo designators ("@<repo-name>") into
 	// paths.
-	ci.Cflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
+	ci.Cflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
+	util.OneTimeWarningError(err)
 	expandFlags(ci.Cflags)
 
-	ci.CXXflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
+	ci.CXXflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
+	util.OneTimeWarningError(err)
 	expandFlags(ci.CXXflags)
 
-	ci.Lflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
+	ci.Lflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
+	util.OneTimeWarningError(err)
 	expandFlags(ci.Lflags)
 
-	ci.Aflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
+	ci.Aflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
+	util.OneTimeWarningError(err)
 	expandFlags(ci.Aflags)
 
 	// Package-specific injected settings get specified as C flags on the
@@ -163,8 +170,9 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
 
-	ignPats, _ := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+	ignPats, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
 		"pkg.ign_files", settings)
+	util.OneTimeWarningError(err)
 
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
@@ -177,8 +185,9 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
 
-	ignPats, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+	ignPats, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
 		"pkg.ign_dirs", settings)
+	util.OneTimeWarningError(err)
 
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
@@ -189,8 +198,9 @@ func (bpkg *BuildPackage) CompilerInfo(
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
-	bpkg.SourceDirectories, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+	bpkg.SourceDirectories, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
 		"pkg.src_dirs", settings)
+	util.OneTimeWarningError(err)
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {

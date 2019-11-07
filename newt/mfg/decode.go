@@ -326,7 +326,8 @@ func decodeMeta(
 func decodeMfg(yc ycfg.YCfg) (DecodedMfg, error) {
 	dm := DecodedMfg{}
 
-	yamlTargets, _ := yc.GetValSlice("mfg.targets", nil)
+	yamlTargets, err := yc.GetValSlice("mfg.targets", nil)
+	util.OneTimeWarningError(err)
 
 	if yamlTargets != nil {
 		for _, yamlTarget := range yamlTargets {
@@ -339,14 +340,16 @@ func decodeMfg(yc ycfg.YCfg) (DecodedMfg, error) {
 		}
 	}
 
-	dm.Bsp, _ = yc.GetValString("mfg.bsp", nil)
+	dm.Bsp, err = yc.GetValString("mfg.bsp", nil)
+	util.OneTimeWarningError(err)
 
 	if len(dm.Targets) == 0 && dm.Bsp == "" {
 		return dm, util.FmtNewtError(
 			"\"mfg.bsp\" field required for mfg images without any targets")
 	}
 
-	itf, _ := yc.GetValSlice("mfg.raw", nil)
+	itf, err := yc.GetValSlice("mfg.raw", nil)
+	util.OneTimeWarningError(err)
 
 	slice := cast.ToSlice(itf)
 	if slice != nil {
@@ -360,7 +363,8 @@ func decodeMfg(yc ycfg.YCfg) (DecodedMfg, error) {
 		}
 	}
 
-	yamlMeta, _ := yc.GetValStringMap("mfg.meta", nil)
+	yamlMeta, err := yc.GetValStringMap("mfg.meta", nil)
+	util.OneTimeWarningError(err)
 
 	if yamlMeta != nil {
 		meta, err := decodeMeta(yamlMeta)

@@ -88,18 +88,26 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 
 	target.TargetY = yc
 
-	target.BspName, _ = yc.GetValString("target.bsp", nil)
-	target.AppName, _ = yc.GetValString("target.app", nil)
-	target.LoaderName, _ = yc.GetValString("target.loader", nil)
+	target.BspName, err = yc.GetValString("target.bsp", nil)
+	util.OneTimeWarningError(err)
 
-	target.BuildProfile, _ = yc.GetValString("target.build_profile", nil)
+	target.AppName, err = yc.GetValString("target.app", nil)
+	util.OneTimeWarningError(err)
+
+	target.LoaderName, err = yc.GetValString("target.loader", nil)
+	util.OneTimeWarningError(err)
+
+	target.BuildProfile, err = yc.GetValString("target.build_profile", nil)
+	util.OneTimeWarningError(err)
+
 	if target.BuildProfile == "" {
 		target.BuildProfile = DEFAULT_BUILD_PROFILE
 	}
 
 	target.HeaderSize = DEFAULT_HEADER_SIZE
 
-	hsStr, _ := yc.GetValString("target.header_size", nil)
+	hsStr, err := yc.GetValString("target.header_size", nil)
+	util.OneTimeWarningError(err)
 	if hsStr != "" {
 		hs, err := strconv.ParseUint(hsStr, 0, 32)
 		if err == nil {
@@ -107,7 +115,8 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 		}
 	}
 
-	target.KeyFile, _ = yc.GetValString("target.key_file", nil)
+	target.KeyFile, err = yc.GetValString("target.key_file", nil)
+	util.OneTimeWarningError(err)
 
 	if target.KeyFile != "" {
 		proj := interfaces.GetProject()
@@ -117,8 +126,9 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 		}
 	}
 
-	target.PkgProfiles, _ = yc.GetValStringMapString(
+	target.PkgProfiles, err = yc.GetValStringMapString(
 		"target.package_profiles", nil)
+	util.OneTimeWarningError(err)
 
 	// Note: App not required in the case of unit tests.
 

@@ -79,7 +79,8 @@ func targetContainsUserFiles(t *target.Target) (bool, error) {
 }
 
 func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
-	vals, _ := pack.PkgY.GetValStringSlice(key, nil)
+	vals, err := pack.PkgY.GetValStringSlice(key, nil)
+	util.OneTimeWarningError(err)
 
 	sort.Strings(vals)
 	var buffer bytes.Buffer
@@ -93,7 +94,8 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 //Process amend command for syscfg target variable
 func amendSysCfg(value string, t *target.Target) error {
 	// Get the current syscfg.vals name-value pairs
-	sysVals, _ := t.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil)
+	sysVals, err := t.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil)
+	util.OneTimeWarningError(err)
 
 	// Convert the input syscfg into name-value pairs
 	amendSysVals, err := syscfg.KeyValueFromStr(value)
@@ -127,7 +129,8 @@ func amendSysCfg(value string, t *target.Target) error {
 func amendBuildFlags(kv []string, t *target.Target) error {
 	pkgVar := "pkg." + kv[0]
 
-	curFlags, _ := t.Package().PkgY.GetValStringSlice(pkgVar, nil)
+	curFlags, err := t.Package().PkgY.GetValStringSlice(pkgVar, nil)
+	util.OneTimeWarningError(err)
 
 	amendFlags := strings.Fields(kv[1])
 
@@ -220,8 +223,9 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 		}
 
 		// A few variables come from the base package rather than the target.
-		scfg, _ := target.Package().SyscfgY.GetValStringMapString(
+		scfg, err := target.Package().SyscfgY.GetValStringMapString(
 			"syscfg.vals", nil)
+		util.OneTimeWarningError(err)
 		kvPairs["syscfg"] = syscfg.KeyValueToStr(scfg)
 
 		kvPairs["cflags"] = pkgVarSliceString(target.Package(), "pkg.cflags")
