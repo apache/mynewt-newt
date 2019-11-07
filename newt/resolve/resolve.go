@@ -74,6 +74,8 @@ type Resolver struct {
 
 	// [api-name][api-supplier]
 	apiConflicts map[string]map[*ResolvePackage]struct{}
+
+	parseWarnings map[*ResolvePackage][]string
 }
 
 type ResolveDep struct {
@@ -129,6 +131,7 @@ type Resolution struct {
 	ApiMap          map[string]*ResolvePackage
 	UnsatisfiedApis map[string][]*ResolvePackage
 	ApiConflicts    []ApiConflict
+	ParseWarnings   []string
 
 	LpkgRpkgMap map[*pkg.LocalPackage]*ResolvePackage
 
@@ -152,6 +155,7 @@ func newResolver(
 		flashMap:         flashMap,
 		cfg:              syscfg.NewCfg(),
 		apiConflicts:     map[string]map[*ResolvePackage]struct{}{},
+		parseWarnings:    map[*ResolvePackage][]string{},
 	}
 
 	if injectedSettings == nil {
@@ -330,9 +334,12 @@ func (r *Resolver) sortedRpkgs() []*ResolvePackage {
 func (r *Resolver) fillApisFor(rpkg *ResolvePackage) error {
 	settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 
-	em, err := readExprMap(rpkg.Lpkg.PkgY, "pkg.apis", settings)
+	em, warn, err := readExprMap(rpkg.Lpkg.PkgY, "pkg.apis", settings)
 	if err != nil {
 		return err
+	}
+	if warn != "" {
+		r.parseWarnings[rpkg] = append(r.parseWarnings[rpkg], warn)
 	}
 
 	rpkg.Apis = em
@@ -384,9 +391,12 @@ func (r *Resolver) selectApiSuppliers() {
 func (r *Resolver) calcApiReqsFor(rpkg *ResolvePackage) error {
 	settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 
-	em, err := readExprMap(rpkg.Lpkg.PkgY, "pkg.req_apis", settings)
+	em, warn, err := readExprMap(rpkg.Lpkg.PkgY, "pkg.req_apis", settings)
 	if err != nil {
 		return err
+	}
+	if warn != "" {
+		r.parseWarnings[rpkg] = append(r.parseWarnings[rpkg], warn)
 	}
 
 	for api, es := range em {
@@ -459,21 +469,30 @@ func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
 //                                  in this case.
 //         error                non-nil on failure.
 func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
+	// Clear warnings from previous run.
+	if _, ok := r.parseWarnings[rpkg]; ok {
+		delete(r.parseWarnings, rpkg)
+	}
+
 	settings := r.cfg.AllSettingsForLpkg(rpkg.Lpkg)
 
 	changed := false
 
 	var depEm map[*parse.Node][]string
+	var warn string
 	var err error
 
 	if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_TRANSIENT {
-		depEm, err = getExprMapStringSlice(rpkg.Lpkg.PkgY, "pkg.link", nil)
+		depEm, warn, err = getExprMapStringSlice(rpkg.Lpkg.PkgY, "pkg.link", nil)
 	} else {
-		depEm, err = getExprMapStringSlice(rpkg.Lpkg.PkgY, "pkg.deps",
+		depEm, warn, err = getExprMapStringSlice(rpkg.Lpkg.PkgY, "pkg.deps",
 			settings)
 	}
 	if err != nil {
 		return false, err
+	}
+	if warn != "" {
+		r.parseWarnings[rpkg] = append(r.parseWarnings[rpkg], warn)
 	}
 
 	depender := rpkg.Lpkg.Name()
@@ -1112,6 +1131,17 @@ func ResolveFull(
 	res.PreLinkCmdCfg = r.preLinkCmdCfg
 	res.PostLinkCmdCfg = r.postLinkCmdCfg
 
+	warnMap := map[string]struct{}{}
+	for _, lines := range r.parseWarnings {
+		for _, line := range lines {
+			warnMap[line] = struct{}{}
+		}
+	}
+	for w, _ := range warnMap {
+		res.ParseWarnings = append(res.ParseWarnings, w)
+	}
+	sort.Strings(res.ParseWarnings)
+
 	// Determine which package satisfies each API and which APIs are
 	// unsatisfied.
 	res.ApiMap, res.UnsatisfiedApis = r.apiResolution()
@@ -1131,8 +1161,13 @@ func ResolveFull(
 
 	res.MasterSet.Rpkgs = r.rpkgSlice()
 
-	// We have now resolved all packages so go through them and emit warning
-	// when using link packages
+	// We have now resolved all packages.  Emit all warnings.
+	for _, warn := range res.ParseWarnings {
+		lines := strings.Split(warn, "\n")
+		for _, line := range lines {
+			util.OneTimeWarning("%s", line)
+		}
+	}
 	for _, rpkg := range res.MasterSet.Rpkgs {
 		LogTransientWarning(rpkg.Lpkg)
 	}
