@@ -538,7 +538,8 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
-	defs, _ := yc.GetValStringMap("syscfg.defs", lsettings)
+	defs, err := yc.GetValStringMap("syscfg.defs", lsettings)
+	util.OneTimeWarningError(err)
 
 	if defs != nil {
 		for k, v := range defs {
@@ -603,7 +604,8 @@ func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 	yc := lpkg.SyscfgY
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
-	restrictionStrings, _ := yc.GetValStringSlice("syscfg.restrictions", lsettings)
+	restrictionStrings, err := yc.GetValStringSlice("syscfg.restrictions", lsettings)
+	util.OneTimeWarningError(err)
 
 	for _, rstring := range restrictionStrings {
 		r, err := readRestriction("", rstring)
@@ -623,7 +625,8 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
-	values, _ := yc.GetValStringMap("syscfg.vals", lsettings)
+	values, err := yc.GetValStringMap("syscfg.vals", lsettings)
+	util.OneTimeWarningError(err)
 
 	for k, v := range values {
 		switch v.(type) {

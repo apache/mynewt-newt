@@ -346,8 +346,9 @@ func (proj *Project) loadRepo(name string, fields map[string]string) (
 }
 
 func (proj *Project) checkNewtVer() error {
-	compatSms, _ := proj.yc.GetValStringMapString(
+	compatSms, err := proj.yc.GetValStringMapString(
 		"project.newt_compatibility", nil)
+	util.OneTimeWarningError(err)
 
 	// If this project doesn't have a newt compatibility map, just assume there
 	// is no incompatibility.
@@ -517,7 +518,8 @@ func (proj *Project) loadConfig() error {
 	// we need to process it later.
 	proj.yc = yc
 
-	proj.name, _ = yc.GetValString("project.name", nil)
+	proj.name, err = yc.GetValString("project.name", nil)
+	util.OneTimeWarningError(err)
 
 	// Local repository always included in initialization
 	r, err := repo.NewLocalRepo(proj.name)
@@ -536,7 +538,8 @@ func (proj *Project) loadConfig() error {
 	for k, _ := range yc.AllSettings() {
 		repoName := strings.TrimPrefix(k, "repository.")
 		if repoName != k {
-			fields, _ := yc.GetValStringMapString(k, nil)
+			fields, err := yc.GetValStringMapString(k, nil)
+			util.OneTimeWarningError(err)
 
 			r, err := proj.loadRepo(repoName, fields)
 			if err != nil {
@@ -573,7 +576,8 @@ func (proj *Project) loadConfig() error {
 		return err
 	}
 
-	ignoreDirs, _ := yc.GetValStringSlice("project.ignore_dirs", nil)
+	ignoreDirs, err := yc.GetValStringSlice("project.ignore_dirs", nil)
+	util.OneTimeWarningError(err)
 	for _, ignDir := range ignoreDirs {
 		repoName, dirName, err := newtutil.ParsePackageString(ignDir)
 		if err != nil {

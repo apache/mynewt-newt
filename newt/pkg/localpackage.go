@@ -200,10 +200,19 @@ func (pkg *LocalPackage) AddCfgFilename(cfgFilename string) {
 func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 	pdesc := &PackageDesc{}
 
-	pdesc.Author, _ = yc.GetValString("pkg.author", nil)
-	pdesc.Homepage, _ = yc.GetValString("pkg.homepage", nil)
-	pdesc.Description, _ = yc.GetValString("pkg.description", nil)
-	pdesc.Keywords, _ = yc.GetValStringSlice("pkg.keywords", nil)
+	var err error
+
+	pdesc.Author, err = yc.GetValString("pkg.author", nil)
+	util.OneTimeWarningError(err)
+
+	pdesc.Homepage, err = yc.GetValString("pkg.homepage", nil)
+	util.OneTimeWarningError(err)
+
+	pdesc.Description, err = yc.GetValString("pkg.description", nil)
+	util.OneTimeWarningError(err)
+
+	pdesc.Keywords, err = yc.GetValStringSlice("pkg.keywords", nil)
+	util.OneTimeWarningError(err)
 
 	return pdesc, nil
 }
@@ -211,7 +220,8 @@ func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 func (pkg *LocalPackage) sequenceString(key string) string {
 	var buffer bytes.Buffer
 
-	vals, _ := pkg.PkgY.GetValStringSlice(key, nil)
+	vals, err := pkg.PkgY.GetValStringSlice(key, nil)
+	util.OneTimeWarningError(err)
 	for _, f := range vals {
 		buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
 	}
@@ -300,7 +310,8 @@ func (pkg *LocalPackage) Load() error {
 	pkg.AddCfgFilename(pkg.PkgYamlPath())
 
 	// Set package name from the package
-	pkg.name, _ = pkg.PkgY.GetValString("pkg.name", nil)
+	pkg.name, err = pkg.PkgY.GetValString("pkg.name", nil)
+	util.OneTimeWarningError(err)
 	if pkg.name == "" {
 		return util.FmtNewtError(
 			"Package \"%s\" missing \"pkg.name\" field in its `pkg.yml` file",
@@ -313,7 +324,8 @@ func (pkg *LocalPackage) Load() error {
 				"`pkg.yml` file (pkg.name=%s)", pkg.basePath, pkg.name)
 	}
 
-	typeString, _ := pkg.PkgY.GetValString("pkg.type", nil)
+	typeString, err := pkg.PkgY.GetValString("pkg.type", nil)
+	util.OneTimeWarningError(err)
 	pkg.packageType = PACKAGE_TYPE_LIB
 	if len(typeString) > 0 {
 		found := false
@@ -333,7 +345,8 @@ func (pkg *LocalPackage) Load() error {
 	}
 
 	if pkg.packageType == PACKAGE_TYPE_TRANSIENT {
-		n, _ := pkg.PkgY.GetValString("pkg.link", nil)
+		n, err := pkg.PkgY.GetValString("pkg.link", nil)
+		util.OneTimeWarningError(err)
 		if len(n) == 0 {
 			return util.FmtNewtError(
 				"Transient package \"%s\" does not specify target "+
@@ -367,7 +380,8 @@ func (pkg *LocalPackage) Load() error {
 func (pkg *LocalPackage) InitFuncs(
 	settings map[string]string) map[string]string {
 
-	vals, _ := pkg.PkgY.GetValStringMapString("pkg.init", settings)
+	vals, err := pkg.PkgY.GetValStringMapString("pkg.init", settings)
+	util.OneTimeWarningError(err)
 	return vals
 }
 
@@ -376,28 +390,32 @@ func (pkg *LocalPackage) InitFuncs(
 func (pkg *LocalPackage) DownFuncs(
 	settings map[string]string) map[string]string {
 
-	vals, _ := pkg.PkgY.GetValStringMapString("pkg.down", settings)
+	vals, err := pkg.PkgY.GetValStringMapString("pkg.down", settings)
+	util.OneTimeWarningError(err)
 	return vals
 }
 
 func (pkg *LocalPackage) PreBuildCmds(
 	settings map[string]string) map[string]string {
 
-	vals, _ := pkg.PkgY.GetValStringMapString("pkg.pre_build_cmds", settings)
+	vals, err := pkg.PkgY.GetValStringMapString("pkg.pre_build_cmds", settings)
+	util.OneTimeWarningError(err)
 	return vals
 }
 
 func (pkg *LocalPackage) PreLinkCmds(
 	settings map[string]string) map[string]string {
 
-	vals, _ := pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
+	vals, err := pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
+	util.OneTimeWarningError(err)
 	return vals
 }
 
 func (pkg *LocalPackage) PostLinkCmds(
 	settings map[string]string) map[string]string {
 
-	vals, _ := pkg.PkgY.GetValStringMapString("pkg.post_link_cmds", settings)
+	vals, err := pkg.PkgY.GetValStringMapString("pkg.post_link_cmds", settings)
+	util.OneTimeWarningError(err)
 	return vals
 }
 

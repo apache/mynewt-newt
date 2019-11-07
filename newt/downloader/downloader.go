@@ -1055,7 +1055,8 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 		// Alternatively, the user can put security material in
 		// $HOME/.newt/repos.yml.
 		newtrc := settings.Newtrc()
-		privRepo, _ := newtrc.GetValStringMapString("repository."+repoName, nil)
+		privRepo, err := newtrc.GetValStringMapString("repository."+repoName, nil)
+		util.OneTimeWarningError(err)
 		if privRepo != nil {
 			if gd.Login == "" {
 				gd.Login = privRepo["login"]
