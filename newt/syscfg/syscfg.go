@@ -484,20 +484,20 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 		for i, choice := range choices {
 			if !cfgChoiceValRe.MatchString(choice) {
 				return entry, util.FmtNewtError(
-					"setting %s has invalid choice defined (%s) - " +
+					"setting %s has invalid choice defined (%s) - "+
 						"only letters, numbers and underscore are allowed", name, choice)
 			}
 
-			if i > 0 && strings.ToLower(choices[i - 1]) == strings.ToLower(choice) {
+			if i > 0 && strings.ToLower(choices[i-1]) == strings.ToLower(choice) {
 				return entry, util.FmtNewtError(
 					"setting %s has duplicated choice defined ('%s' and '%s')",
-					name, choice, choices[i - 1])
+					name, choice, choices[i-1])
 			}
 		}
 
 		r := CfgRestriction{
 			BaseSetting: name,
-			Code: CFG_RESTRICTION_CODE_CHOICE,
+			Code:        CFG_RESTRICTION_CODE_CHOICE,
 		}
 
 		entry.Restrictions = append(entry.Restrictions, r)
