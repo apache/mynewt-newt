@@ -538,7 +538,8 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
-	defs := yc.GetValStringMap("syscfg.defs", lsettings)
+	defs, _ := yc.GetValStringMap("syscfg.defs", lsettings)
+
 	if defs != nil {
 		for k, v := range defs {
 			vals, ok := v.(map[interface{}]interface{})
@@ -602,7 +603,8 @@ func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 	yc := lpkg.SyscfgY
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
-	restrictionStrings := yc.GetValStringSlice("syscfg.restrictions", lsettings)
+	restrictionStrings, _ := yc.GetValStringSlice("syscfg.restrictions", lsettings)
+
 	for _, rstring := range restrictionStrings {
 		r, err := readRestriction("", rstring)
 		if err != nil {
@@ -621,7 +623,8 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
-	values := yc.GetValStringMap("syscfg.vals", lsettings)
+	values, _ := yc.GetValStringMap("syscfg.vals", lsettings)
+
 	for k, v := range values {
 		switch v.(type) {
 		case map[interface{}]interface{}, []interface{}:

@@ -315,7 +315,8 @@ func parseVersionYml(path string) (newtutil.RepoVersion, error) {
 		}
 	}
 
-	verString := yc.GetValString("repo.version", nil)
+	verString, _ := yc.GetValString("repo.version", nil)
+
 	if verString == "" {
 		return newtutil.RepoVersion{}, versionYmlBad
 	}

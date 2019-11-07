@@ -57,7 +57,7 @@ func (bsp *BspPackage) resolvePathSetting(
 
 	proj := interfaces.GetProject()
 
-	val := bsp.BspV.GetValString(key, settings)
+	val, _ := bsp.BspV.GetValString(key, settings)
 	if val == "" {
 		return "", nil
 	}
@@ -78,7 +78,7 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 	paths := []string{}
 
 	// Assume config file specifies a list of scripts.
-	vals := bsp.BspV.GetValStringSlice(key, settings)
+	vals, _ := bsp.BspV.GetValStringSlice(key, settings)
 	if vals == nil {
 		// Couldn't read a list of scripts; try to interpret setting as a
 		// single script.
@@ -125,12 +125,12 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 	}
 	bsp.AddCfgFilename(bsp.BspYamlPath())
 
-	bsp.CompilerName = bsp.BspV.GetValString("bsp.compiler", settings)
-	bsp.Arch = bsp.BspV.GetValString("bsp.arch", settings)
+	bsp.CompilerName, _ = bsp.BspV.GetValString("bsp.compiler", settings)
+	bsp.Arch, _ = bsp.BspV.GetValString("bsp.arch", settings)
 
-	bsp.ImageOffset = bsp.BspV.GetValInt("bsp.image_offset", settings)
+	bsp.ImageOffset, _ = bsp.BspV.GetValInt("bsp.image_offset", settings)
 
-	bsp.ImagePad = bsp.BspV.GetValInt("bsp.image_pad", settings)
+	bsp.ImagePad, _ = bsp.BspV.GetValInt("bsp.image_pad", settings)
 
 	bsp.LinkerScripts, err = bsp.resolveLinkerScriptSetting(
 		settings, "bsp.linkerscript")
@@ -167,7 +167,7 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 			"(bsp.arch)")
 	}
 
-	ymlFlashMap := bsp.BspV.GetValStringMap("bsp.flash_map", settings)
+	ymlFlashMap, _ := bsp.BspV.GetValStringMap("bsp.flash_map", settings)
 	if ymlFlashMap == nil {
 		return util.NewNewtError("BSP does not specify a flash map " +
 			"(bsp.flash_map)")

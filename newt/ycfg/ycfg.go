@@ -266,10 +266,17 @@ func (yc *YCfg) find(key string) *YCfgNode {
 	return cur
 }
 
-func (yc *YCfg) Get(key string, settings map[string]string) []YCfgEntry {
+// Get retrieves all nodes with the specified key.  If it encounters a parse
+// error in the tree, it ignores the bad node and continues the search.  All
+// bad nodes are indicated in the returned error.  In this sense, the returned
+// object is valid even if there is an error, and the error can be thought of
+// as a set of warnings.
+func (yc *YCfg) Get(key string,
+	settings map[string]string) ([]YCfgEntry, error) {
+
 	node := yc.find(key)
 	if node == nil {
-		return nil
+		return nil, nil
 	}
 
 	entries := []YCfgEntry{}
@@ -279,15 +286,18 @@ func (yc *YCfg) Get(key string, settings map[string]string) []YCfgEntry {
 		entries = append(entries, entry)
 	}
 
+	var errLines []string
 	for _, child := range node.Children {
 		expr, err := parse.LexAndParse(child.Name)
 		if err != nil {
-			util.OneTimeWarning("%s: %s", yc.name, err.Error())
+			errLines = append(errLines,
+				fmt.Sprintf("%s: %s", yc.name, err.Error()))
 			continue
 		}
 		val, err := parse.Eval(expr, settings)
 		if err != nil {
-			util.OneTimeWarning("%s: %s", yc.name, err.Error())
+			errLines = append(errLines,
+				fmt.Sprintf("%s: %s", yc.name, err.Error()))
 			continue
 		}
 		if val {
@@ -296,20 +306,29 @@ func (yc *YCfg) Get(key string, settings map[string]string) []YCfgEntry {
 				Expr:  expr,
 			}
 			if child.Overwrite {
-				return []YCfgEntry{entry}
+				entries = []YCfgEntry{entry}
+				break
 			}
 
 			entries = append(entries, entry)
 		}
 	}
 
-	return entries
+	if len(errLines) > 0 {
+		return entries, util.NewNewtError(strings.Join(errLines, "\n"))
+	} else {
+		return entries, nil
+	}
 }
 
-func (yc *YCfg) GetSlice(key string, settings map[string]string) []YCfgEntry {
-	sliceEntries := yc.Get(key, settings)
+// GetSlice retrieves all entries with the specified key and coerces their
+// values to type []interface{}.  The returned []YCfgEntry is formed from the
+// union of all these slices.  The returned error is a set of warnings just as
+// in `Get`.
+func (yc *YCfg) GetSlice(key string, settings map[string]string) ([]YCfgEntry, error) {
+	sliceEntries, getErr := yc.Get(key, settings)
 	if len(sliceEntries) == 0 {
-		return nil
+		return nil, getErr
 	}
 
 	result := []YCfgEntry{}
@@ -330,15 +349,18 @@ func (yc *YCfg) GetSlice(key string, settings map[string]string) []YCfgEntry {
 		}
 	}
 
-	return result
+	return result, getErr
 }
 
+// GetValSlice retrieves all entries with the specified key and coerces their
+// values to type []interface{}.  The returned slice is the union of all these
+// slices. The returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValSlice(
-	key string, settings map[string]string) []interface{} {
+	key string, settings map[string]string) ([]interface{}, error) {
 
-	entries := yc.GetSlice(key, settings)
+	entries, getErr := yc.GetSlice(key, settings)
 	if len(entries) == 0 {
-		return nil
+		return nil, getErr
 	}
 
 	vals := make([]interface{}, len(entries))
@@ -346,15 +368,19 @@ func (yc *YCfg) GetValSlice(
 		vals[i] = e.Value
 	}
 
-	return vals
+	return vals, getErr
 }
 
+// GetStringSlice retrieves all entries with the specified key and coerces
+// their values to type []string.  The returned []YCfgEntry is formed from the
+// union of all these slices.  The returned error is a set of warnings just as
+// in `Get`.
 func (yc *YCfg) GetStringSlice(key string,
-	settings map[string]string) []YCfgEntry {
+	settings map[string]string) ([]YCfgEntry, error) {
 
-	sliceEntries := yc.Get(key, settings)
+	sliceEntries, getErr := yc.Get(key, settings)
 	if len(sliceEntries) == 0 {
-		return nil
+		return nil, getErr
 	}
 
 	result := []YCfgEntry{}
@@ -375,15 +401,18 @@ func (yc *YCfg) GetStringSlice(key string,
 		}
 	}
 
-	return result
+	return result, getErr
 }
 
+// GetValStringSlice retrieves all entries with the specified key and coerces
+// their values to type []string.  The returned []string is the union of all
+// these slices.  The returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValStringSlice(
-	key string, settings map[string]string) []string {
+	key string, settings map[string]string) ([]string, error) {
 
-	entries := yc.GetStringSlice(key, settings)
+	entries, getErr := yc.GetStringSlice(key, settings)
 	if len(entries) == 0 {
-		return nil
+		return nil, getErr
 	}
 
 	vals := make([]string, len(entries))
@@ -393,13 +422,17 @@ func (yc *YCfg) GetValStringSlice(
 		}
 	}
 
-	return vals
+	return vals, getErr
 }
 
+// GetValStringSliceNonempty retrieves all entries with the specified key and
+// coerces their values to type []string.  The returned []string is the union
+// of all these slices.  Empty strings are excluded from this union.  The
+// returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValStringSliceNonempty(
-	key string, settings map[string]string) []string {
+	key string, settings map[string]string) ([]string, error) {
 
-	strs := yc.GetValStringSlice(key, settings)
+	strs, getErr := yc.GetValStringSlice(key, settings)
 	filtered := make([]string, 0, len(strs))
 	for _, s := range strs {
 		if s != "" {
@@ -407,15 +440,19 @@ func (yc *YCfg) GetValStringSliceNonempty(
 		}
 	}
 
-	return filtered
+	return filtered, getErr
 }
 
+// GetStringMap retrieves all entries with the specified key and coerces their
+// values to type map[string]interface{}.  The returned map[string]YCfgEntry is
+// formed from the union of all these maps.  The returned error is a set of
+// warnings just as in `Get`.
 func (yc *YCfg) GetStringMap(
-	key string, settings map[string]string) map[string]YCfgEntry {
+	key string, settings map[string]string) (map[string]YCfgEntry, error) {
 
-	mapEntries := yc.Get(key, settings)
+	mapEntries, getErr := yc.Get(key, settings)
 	if len(mapEntries) == 0 {
-		return nil
+		return nil, getErr
 	}
 
 	result := map[string]YCfgEntry{}
@@ -432,13 +469,17 @@ func (yc *YCfg) GetStringMap(
 		}
 	}
 
-	return result
+	return result, getErr
 }
 
+// GetValStringMap retrieves all entries with the specified key and coerces
+// their values to type map[string]interface{}.  The returned
+// map[string]YCfgEntry is the union of all these maps.  The returned error is
+// a set of warnings just as in `Get`.
 func (yc *YCfg) GetValStringMap(
-	key string, settings map[string]string) map[string]interface{} {
+	key string, settings map[string]string) (map[string]interface{}, error) {
 
-	entryMap := yc.GetStringMap(key, settings)
+	entryMap, getErr := yc.GetStringMap(key, settings)
 
 	smap := make(map[string]interface{}, len(entryMap))
 	for k, v := range entryMap {
@@ -447,66 +488,97 @@ func (yc *YCfg) GetValStringMap(
 		}
 	}
 
-	return smap
+	return smap, getErr
 }
 
-func (yc *YCfg) GetFirst(key string, settings map[string]string) (YCfgEntry, bool) {
-	entries := yc.Get(key, settings)
+// GetFirst retrieves the first entry with the specified key.  The bool return
+// value is true if a matching entry was found.  The returned error is a set of
+// warnings just as in `Get`.
+func (yc *YCfg) GetFirst(key string,
+	settings map[string]string) (YCfgEntry, bool, error) {
+
+	entries, getErr := yc.Get(key, settings)
 	if len(entries) == 0 {
-		return YCfgEntry{}, false
+		return YCfgEntry{}, false, getErr
 	}
 
-	return entries[0], true
+	return entries[0], true, getErr
 }
 
-func (yc *YCfg) GetFirstVal(key string, settings map[string]string) interface{} {
-	entry, ok := yc.GetFirst(key, settings)
+// GetFirstVal retrieves the first entry with the specified key and returns its
+// value.  It returns nil if no matching entry is found.  The returned error is
+// a set of warnings just as in `Get`.
+func (yc *YCfg) GetFirstVal(key string,
+	settings map[string]string) (interface{}, error) {
+
+	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
-		return nil
+		return nil, getErr
 	}
 
-	return entry.Value
+	return entry.Value, getErr
 }
 
-func (yc *YCfg) GetValString(key string, settings map[string]string) string {
-	entry, ok := yc.GetFirst(key, settings)
+// GetValString retrieves the first entry with the specified key and returns
+// its value coerced to a string.  It returns "" if no matching entry is found.
+// The returned error is a set of warnings just as in `Get`.
+func (yc *YCfg) GetValString(key string,
+	settings map[string]string) (string, error) {
+
+	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
-		return ""
+		return "", getErr
 	} else {
-		return cast.ToString(entry.Value)
+		return cast.ToString(entry.Value), getErr
 	}
 }
 
-func (yc *YCfg) GetValInt(key string, settings map[string]string) int {
-	entry, ok := yc.GetFirst(key, settings)
+// GetValInt retrieves the first entry with the specified key and returns its
+// value coerced to an int.  It returns 0 if no matching entry is found.  The
+// returned error is a set of warnings just as in `Get`.
+func (yc *YCfg) GetValInt(key string, settings map[string]string) (int, error) {
+	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
-		return 0
+		return 0, getErr
 	} else {
-		return cast.ToInt(entry.Value)
+		return cast.ToInt(entry.Value), getErr
 	}
 }
 
+// GetValBoolDflt retrieves the first entry with the specified key and returns
+// its value coerced to a bool.  It returns the specified default if no
+// matching entry is found.  The returned error is a set of warnings just as in
+// `Get`.
 func (yc *YCfg) GetValBoolDflt(key string, settings map[string]string,
-	dflt bool) bool {
+	dflt bool) (bool, error) {
 
-	entry, ok := yc.GetFirst(key, settings)
+	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
-		return dflt
+		return dflt, getErr
 	} else {
-		return cast.ToBool(entry.Value)
+		return cast.ToBool(entry.Value), getErr
 	}
 }
 
-func (yc *YCfg) GetValBool(key string, settings map[string]string) bool {
+// GetValBoolDflt retrieves the first entry with the specified key and returns
+// its value coerced to a bool.  It returns false if no matching entry is
+// found.  The returned error is a set of warnings just as in `Get`.
+func (yc *YCfg) GetValBool(key string,
+	settings map[string]string) (bool, error) {
+
 	return yc.GetValBoolDflt(key, settings, false)
 }
 
+// GetStringMapString retrieves all entries with the specified key and coerces
+// their values to type map[string]string.  The returned map[string]YCfgEntry
+// is formed from the union of all these maps.  The returned error is a set of
+// warnings just as in `Get`.
 func (yc *YCfg) GetStringMapString(key string,
-	settings map[string]string) map[string]YCfgEntry {
+	settings map[string]string) (map[string]YCfgEntry, error) {
 
-	mapEntries := yc.Get(key, settings)
+	mapEntries, getErr := yc.Get(key, settings)
 	if len(mapEntries) == 0 {
-		return nil
+		return nil, getErr
 	}
 
 	result := map[string]YCfgEntry{}
@@ -523,13 +595,17 @@ func (yc *YCfg) GetStringMapString(key string,
 		}
 	}
 
-	return result
+	return result, getErr
 }
 
+// GetStringMapString retrieves all entries with the specified key and coerces
+// their values to type map[string]string.  The returned map[string]YCfgEntry
+// is the union of all these maps.  The returned error is a set of warnings
+// just as in `Get`.
 func (yc *YCfg) GetValStringMapString(key string,
-	settings map[string]string) map[string]string {
+	settings map[string]string) (map[string]string, error) {
 
-	entryMap := yc.GetStringMapString(key, settings)
+	entryMap, getErr := yc.GetStringMapString(key, settings)
 
 	valMap := make(map[string]string, len(entryMap))
 	for k, v := range entryMap {
@@ -538,9 +614,11 @@ func (yc *YCfg) GetValStringMapString(key string,
 		}
 	}
 
-	return valMap
+	return valMap, getErr
 }
 
+// FullName calculates a node's name with the following form:
+//     [...].<grandparent>.<parent>.<node>
 func (node *YCfgNode) FullName() string {
 	tokens := []string{}
 
@@ -556,14 +634,18 @@ func (node *YCfgNode) FullName() string {
 	return strings.Join(tokens, ".")
 }
 
+// Delete deletes all entries with the specified key.
 func (yc *YCfg) Delete(key string) {
 	delete(yc.tree, key)
 }
 
+// Clear removes all entries from the YCfg.
 func (yc *YCfg) Clear() {
 	yc.tree = YCfgTree{}
 }
 
+// Traverse performs an in-order traversal of the YCfg tree.  The specified
+// function is applied to each node.
 func (yc *YCfg) Traverse(cb func(node *YCfgNode, depth int)) {
 	var traverseLevel func(
 		node *YCfgNode,
@@ -586,6 +668,8 @@ func (yc *YCfg) Traverse(cb func(node *YCfgNode, depth int)) {
 	}
 }
 
+// AllSettings converts the YCfg into a map with the following form:
+//     <node-full-name>: <node-value>
 func (yc *YCfg) AllSettings() map[string]interface{} {
 	settings := map[string]interface{}{}
 
@@ -598,6 +682,10 @@ func (yc *YCfg) AllSettings() map[string]interface{} {
 	return settings
 }
 
+// AllSettingsAsStrings converts the YCfg into a map with the following form:
+//     <node-full-name>: <node-value>
+//
+// All values in the map have been coerced to strings.
 func (yc *YCfg) AllSettingsAsStrings() map[string]string {
 	settings := yc.AllSettings()
 	smap := make(map[string]string, len(settings))
@@ -608,6 +696,7 @@ func (yc *YCfg) AllSettingsAsStrings() map[string]string {
 	return smap
 }
 
+// String produces a user-friendly string representation of the YCfg.
 func (yc *YCfg) String() string {
 	lines := make([]string, 0, len(yc.tree))
 	yc.Traverse(func(node *YCfgNode, depth int) {
@@ -621,6 +710,7 @@ func (yc *YCfg) String() string {
 	return strings.Join(lines, "\n")
 }
 
+// YAML converts the YCfg to a map and encodes the map as YAML.
 func (yc *YCfg) YAML() string {
 	return yaml.MapToYaml(yc.AllSettings())
 }

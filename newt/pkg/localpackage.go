@@ -200,10 +200,10 @@ func (pkg *LocalPackage) AddCfgFilename(cfgFilename string) {
 func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 	pdesc := &PackageDesc{}
 
-	pdesc.Author = yc.GetValString("pkg.author", nil)
-	pdesc.Homepage = yc.GetValString("pkg.homepage", nil)
-	pdesc.Description = yc.GetValString("pkg.description", nil)
-	pdesc.Keywords = yc.GetValStringSlice("pkg.keywords", nil)
+	pdesc.Author, _ = yc.GetValString("pkg.author", nil)
+	pdesc.Homepage, _ = yc.GetValString("pkg.homepage", nil)
+	pdesc.Description, _ = yc.GetValString("pkg.description", nil)
+	pdesc.Keywords, _ = yc.GetValStringSlice("pkg.keywords", nil)
 
 	return pdesc, nil
 }
@@ -211,7 +211,8 @@ func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 func (pkg *LocalPackage) sequenceString(key string) string {
 	var buffer bytes.Buffer
 
-	for _, f := range pkg.PkgY.GetValStringSlice(key, nil) {
+	vals, _ := pkg.PkgY.GetValStringSlice(key, nil)
+	for _, f := range vals {
 		buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
 	}
 
@@ -299,7 +300,7 @@ func (pkg *LocalPackage) Load() error {
 	pkg.AddCfgFilename(pkg.PkgYamlPath())
 
 	// Set package name from the package
-	pkg.name = pkg.PkgY.GetValString("pkg.name", nil)
+	pkg.name, _ = pkg.PkgY.GetValString("pkg.name", nil)
 	if pkg.name == "" {
 		return util.FmtNewtError(
 			"Package \"%s\" missing \"pkg.name\" field in its `pkg.yml` file",
@@ -312,7 +313,7 @@ func (pkg *LocalPackage) Load() error {
 				"`pkg.yml` file (pkg.name=%s)", pkg.basePath, pkg.name)
 	}
 
-	typeString := pkg.PkgY.GetValString("pkg.type", nil)
+	typeString, _ := pkg.PkgY.GetValString("pkg.type", nil)
 	pkg.packageType = PACKAGE_TYPE_LIB
 	if len(typeString) > 0 {
 		found := false
@@ -332,7 +333,7 @@ func (pkg *LocalPackage) Load() error {
 	}
 
 	if pkg.packageType == PACKAGE_TYPE_TRANSIENT {
-		n := pkg.PkgY.GetValString("pkg.link", nil)
+		n, _ := pkg.PkgY.GetValString("pkg.link", nil)
 		if len(n) == 0 {
 			return util.FmtNewtError(
 				"Transient package \"%s\" does not specify target "+
@@ -366,7 +367,8 @@ func (pkg *LocalPackage) Load() error {
 func (pkg *LocalPackage) InitFuncs(
 	settings map[string]string) map[string]string {
 
-	return pkg.PkgY.GetValStringMapString("pkg.init", settings)
+	vals, _ := pkg.PkgY.GetValStringMapString("pkg.init", settings)
+	return vals
 }
 
 // DownFuncs retrieves the package's shutdown functions.  The returned map has:
@@ -374,25 +376,29 @@ func (pkg *LocalPackage) InitFuncs(
 func (pkg *LocalPackage) DownFuncs(
 	settings map[string]string) map[string]string {
 
-	return pkg.PkgY.GetValStringMapString("pkg.down", settings)
+	vals, _ := pkg.PkgY.GetValStringMapString("pkg.down", settings)
+	return vals
 }
 
 func (pkg *LocalPackage) PreBuildCmds(
 	settings map[string]string) map[string]string {
 
-	return pkg.PkgY.GetValStringMapString("pkg.pre_build_cmds", settings)
+	vals, _ := pkg.PkgY.GetValStringMapString("pkg.pre_build_cmds", settings)
+	return vals
 }
 
 func (pkg *LocalPackage) PreLinkCmds(
 	settings map[string]string) map[string]string {
 
-	return pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
+	vals, _ := pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
+	return vals
 }
 
 func (pkg *LocalPackage) PostLinkCmds(
 	settings map[string]string) map[string]string {
 
-	return pkg.PkgY.GetValStringMapString("pkg.post_link_cmds", settings)
+	vals, _ := pkg.PkgY.GetValStringMapString("pkg.post_link_cmds", settings)
+	return vals
 }
 
 func (pkg *LocalPackage) InjectedSettings() map[string]string {

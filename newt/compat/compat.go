@@ -106,7 +106,7 @@ func ParseNcTable(strMap map[string]string) (NewtCompatTable, error) {
 
 func ReadNcMap(yc ycfg.YCfg) (NewtCompatMap, error) {
 	mp := NewtCompatMap{}
-	ncMap := yc.GetValStringMap("repo.newt_compatibility", nil)
+	ncMap, _ := yc.GetValStringMap("repo.newt_compatibility", nil)
 
 	for k, v := range ncMap {
 		repoVer, err := newtutil.ParseVersion(k)
