@@ -28,18 +28,24 @@ import (
 
 func getExprMapStringSlice(
 	yc ycfg.YCfg, key string, settings map[string]string) (
-	map[*parse.Node][]string, error) {
+	map[*parse.Node][]string, string, error) {
 
-	entries, _ := yc.GetSlice(key, settings)
+	var warning string
+
+	entries, getErr := yc.GetSlice(key, settings)
+	if getErr != nil {
+		warning = getErr.Error()
+	}
+
 	if len(entries) == 0 {
-		return nil, nil
+		return nil, warning, nil
 	}
 
 	m := make(map[*parse.Node][]string, len(entries))
 	for _, e := range entries {
 		slice, err := cast.ToStringSliceE(e.Value)
 		if err != nil {
-			return nil, util.FmtNewtError(
+			return nil, warning, util.FmtNewtError(
 				"ycfg node \"%s\" contains unexpected type; "+
 					"have=%T want=[]string", e.Value)
 		}
@@ -47,7 +53,7 @@ func getExprMapStringSlice(
 		m[e.Expr] = append(m[e.Expr], slice...)
 	}
 
-	return m, nil
+	return m, warning, nil
 }
 
 func revExprMapStringSlice(
@@ -65,11 +71,11 @@ func revExprMapStringSlice(
 }
 
 func readExprMap(yc ycfg.YCfg, key string, settings map[string]string) (
-	parse.ExprMap, error) {
+	parse.ExprMap, string, error) {
 
-	ems, err := getExprMapStringSlice(yc, key, settings)
+	ems, warning, err := getExprMapStringSlice(yc, key, settings)
 	if err != nil {
-		return nil, err
+		return nil, warning, err
 	}
 
 	em := parse.ExprMap{}
@@ -83,5 +89,5 @@ func readExprMap(yc ycfg.YCfg, key string, settings map[string]string) (
 		em[v] = sub
 	}
 
-	return em, nil
+	return em, warning, nil
 }
