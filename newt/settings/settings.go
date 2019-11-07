@@ -39,7 +39,7 @@ const NEWTRC_FILENAME string = "newtrc.yml"
 var newtrc *ycfg.YCfg
 
 func processNewtrc(yc ycfg.YCfg) {
-	s := yc.GetValString("escape_shell", nil)
+	s, _ := yc.GetValString("escape_shell", nil)
 	if s != "" {
 		b, err := strconv.ParseBool(s)
 		if err != nil {

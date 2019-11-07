@@ -30,7 +30,7 @@ func getExprMapStringSlice(
 	yc ycfg.YCfg, key string, settings map[string]string) (
 	map[*parse.Node][]string, error) {
 
-	entries := yc.GetSlice(key, settings)
+	entries, _ := yc.GetSlice(key, settings)
 	if len(entries) == 0 {
 		return nil, nil
 	}

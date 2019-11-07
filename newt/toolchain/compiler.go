@@ -277,10 +277,12 @@ func NewCompiler(compilerDir string, dstDir string,
 func loadFlags(yc ycfg.YCfg, settings map[string]string, key string) []string {
 	flags := []string{}
 
-	rawFlags := yc.GetValStringSlice(key, settings)
+	rawFlags, _ := yc.GetValStringSlice(key, settings)
+
 	for _, rawFlag := range rawFlags {
 		if strings.HasPrefix(rawFlag, key) {
-			expandedFlags := yc.GetValStringSlice(rawFlag, settings)
+			expandedFlags, _ := yc.GetValStringSlice(rawFlag, settings)
+
 			flags = append(flags, expandedFlags...)
 		} else {
 			flags = append(flags, strings.Trim(rawFlag, "\n"))
@@ -301,23 +303,24 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 		strings.ToUpper(runtime.GOOS): "1",
 	}
 
-	c.ccPath = yc.GetValString("compiler.path.cc", settings)
-	c.cppPath = yc.GetValString("compiler.path.cpp", settings)
-	c.asPath = yc.GetValString("compiler.path.as", settings)
-	c.arPath = yc.GetValString("compiler.path.archive", settings)
-	c.odPath = yc.GetValString("compiler.path.objdump", settings)
-	c.osPath = yc.GetValString("compiler.path.objsize", settings)
-	c.ocPath = yc.GetValString("compiler.path.objcopy", settings)
+	c.ccPath, _ = yc.GetValString("compiler.path.cc", settings)
+	c.cppPath, _ = yc.GetValString("compiler.path.cpp", settings)
+	c.asPath, _ = yc.GetValString("compiler.path.as", settings)
+	c.arPath, _ = yc.GetValString("compiler.path.archive", settings)
+	c.odPath, _ = yc.GetValString("compiler.path.objdump", settings)
+	c.osPath, _ = yc.GetValString("compiler.path.objsize", settings)
+	c.ocPath, _ = yc.GetValString("compiler.path.objcopy", settings)
 
 	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags")
 	c.lclInfo.CXXflags = loadFlags(yc, settings, "compiler.cxx.flags")
 	c.lclInfo.Lflags = loadFlags(yc, settings, "compiler.ld.flags")
 	c.lclInfo.Aflags = loadFlags(yc, settings, "compiler.as.flags")
 
-	c.ldResolveCircularDeps = yc.GetValBool(
+	c.ldResolveCircularDeps, _ = yc.GetValBool(
 		"compiler.ld.resolve_circular_deps", settings)
-	c.ldMapFile = yc.GetValBool("compiler.ld.mapfile", settings)
-	c.ldBinFile = yc.GetValBoolDflt("compiler.ld.binfile", settings, true)
+
+	c.ldMapFile, _ = yc.GetValBool("compiler.ld.mapfile", settings)
+	c.ldBinFile, _ = yc.GetValBoolDflt("compiler.ld.binfile", settings, true)
 
 	if len(c.lclInfo.Cflags) == 0 {
 		// Assume no Cflags implies an unsupported build profile.

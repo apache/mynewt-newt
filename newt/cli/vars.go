@@ -58,7 +58,7 @@ func settingValues(settingName string) ([]string, error) {
 
 	packs := project.GetProject().PackagesOfType(-1)
 	for _, pack := range packs {
-		settings :=
+		settings, _ :=
 			pack.(*pkg.LocalPackage).PkgY.GetValStringSlice(settingName, nil)
 
 		for _, setting := range settings {

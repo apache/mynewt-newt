@@ -157,7 +157,8 @@ func parseOneLog(name string, lpkg *pkg.LocalPackage, logMapItf interface{},
 // are read from the `syscfg.logs` map in the package's `syscfg.yml` file.
 func (lcfg *LCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg) {
 	lsettings := cfg.AllSettingsForLpkg(lpkg)
-	logMaps := lpkg.SyscfgY.GetValStringMap("syscfg.logs", lsettings)
+	logMaps, _ := lpkg.SyscfgY.GetValStringMap("syscfg.logs", lsettings)
+
 	for name, logMapItf := range logMaps {
 		cl, err := parseOneLog(name, lpkg, logMapItf, cfg)
 		if err != nil {

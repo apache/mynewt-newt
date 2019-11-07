@@ -123,7 +123,10 @@ func expandFlags(flags []string) {
 // returned.
 func (bpkg *BuildPackage) BuildProfile(b *Builder) string {
 	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
-	return bpkg.rpkg.Lpkg.PkgY.GetValString("pkg.build_profile", settings)
+
+	profile, _ := bpkg.rpkg.Lpkg.PkgY.GetValString("pkg.build_profile", settings)
+
+	return profile
 }
 
 func (bpkg *BuildPackage) CompilerInfo(
@@ -140,16 +143,16 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	// Read each set of flags and expand repo designators ("@<repo-name>") into
 	// paths.
-	ci.Cflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
+	ci.Cflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
 	expandFlags(ci.Cflags)
 
-	ci.CXXflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
+	ci.CXXflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
 	expandFlags(ci.CXXflags)
 
-	ci.Lflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
+	ci.Lflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
 	expandFlags(ci.Lflags)
 
-	ci.Aflags = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
+	ci.Aflags, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
 	expandFlags(ci.Aflags)
 
 	// Package-specific injected settings get specified as C flags on the
@@ -159,7 +162,10 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci.IgnoreFiles = []*regexp.Regexp{}
-	ignPats := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.ign_files", settings)
+
+	ignPats, _ := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+		"pkg.ign_files", settings)
+
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -170,7 +176,10 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	ci.IgnoreDirs = []*regexp.Regexp{}
-	ignPats = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.ign_dirs", settings)
+
+	ignPats, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+		"pkg.ign_dirs", settings)
+
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
 		if err != nil {
@@ -180,7 +189,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
-	bpkg.SourceDirectories = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+	bpkg.SourceDirectories, _ = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
 		"pkg.src_dirs", settings)
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)

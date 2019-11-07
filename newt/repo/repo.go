@@ -450,7 +450,8 @@ func parseRepoDepMap(depName string,
 }
 
 func (r *Repo) readDepRepos(yc ycfg.YCfg) error {
-	depMap := yc.GetValStringMap("repo.deps", nil)
+	depMap, _ := yc.GetValStringMap("repo.deps", nil)
+
 	for depName, repoMapYml := range depMap {
 		rdm, err := parseRepoDepMap(depName, repoMapYml)
 		if err != nil {
@@ -477,7 +478,8 @@ func (r *Repo) Read() error {
 		return err
 	}
 
-	versMap := yc.GetValStringMapString("repo.versions", nil)
+	versMap, _ := yc.GetValStringMapString("repo.versions", nil)
+
 	for versStr, commit := range versMap {
 		log.Debugf("Printing version %s for remote repo %s", versStr, r.name)
 		vers, err := newtutil.ParseRepoVersion(versStr)
