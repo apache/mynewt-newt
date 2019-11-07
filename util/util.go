@@ -854,6 +854,14 @@ func OneTimeWarning(text string, args ...interface{}) {
 	}
 }
 
+// OneTimeWarningError displays the text of the specified error as a warning if
+// it has not been displayed yet.  No-op if nil is passed in.
+func OneTimeWarningError(err error) {
+	if err != nil {
+		OneTimeWarning("%s", err.Error())
+	}
+}
+
 func MarshalJSONStringer(sr fmt.Stringer) ([]byte, error) {
 	s := sr.String()
 	j, err := json.Marshal(s)
