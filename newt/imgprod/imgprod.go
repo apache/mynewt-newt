@@ -77,9 +77,10 @@ func writeImageFiles(ri image.Image, imgFilename string, hexFilename string,
 		return util.FmtNewtError(
 			"can't open image file \"%s\" %s", imgFilename, err.Error())
 	}
-	defer imgFile.Close()
 
-	if _, err := ri.Write(imgFile); err != nil {
+	_, err = ri.Write(imgFile)
+	imgFile.Close()
+	if err != nil {
 		return err
 	}
 
