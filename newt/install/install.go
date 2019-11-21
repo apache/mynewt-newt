@@ -596,9 +596,10 @@ func (inst *Installer) versionMapRepos(
 
 // assignCommits applies commit hashes to the selected version of each repo in
 // a version map.  In other words, it propagates `<...>-commit` requirements
-// from `project.yml` and `repository.yml` files.
+// from `project.yml` and `repository.yml` files.  If override is false,
+// attempting to set a commit for the same repo twice results in an error.
 func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
-	reqs []newtutil.RepoVersionReq) error {
+	reqs []newtutil.RepoVersionReq, override bool) error {
 
 	for _, req := range reqs {
 		curVer := vm[repoName]
@@ -609,7 +610,7 @@ func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
 			}
 
 			if keep {
-				if vm[repoName].Commit != "" {
+				if !override && vm[repoName].Commit != "" {
 					return util.FmtNewtError(
 						"repo %s: multiple commits: %s, %s",
 						repoName, vm[repoName].Commit, req.Ver.Commit)
@@ -677,21 +678,22 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 		return nil, deprepo.ConflictError(conflicts)
 	}
 
-	// If project.yml specified any specific git commits, ensure we get them.
-	for name, reqs := range inst.reqs {
-		if err := inst.assignCommits(vm, name, reqs); err != nil {
-			return nil, err
-		}
-	}
-
 	// If repos specify git commits in their repo-dependencies, ensure we get
 	// them.
 	rg := dg.Reverse()
 	for name, nodes := range rg {
 		for _, node := range nodes {
-			if err := inst.assignCommits(vm, name, node.VerReqs); err != nil {
+			if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	// If project.yml specified any specific git commits, ensure we get them.
+	// Commits specified in project.yml override those from repo-dependencies.
+	for name, reqs := range inst.reqs {
+		if err := inst.assignCommits(vm, name, reqs, true); err != nil {
+			return nil, err
 		}
 	}
 
