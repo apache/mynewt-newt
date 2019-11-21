@@ -57,6 +57,21 @@ func replaceBackslashesSlice(elements []string) {
 	}
 }
 
+func escapeFlags(flag string) string {
+	flag = strings.Replace(flag, "\"", "\\\\\\\"", -1)
+	flag = strings.Replace(flag, "(", "\\\\(", -1)
+	flag = strings.Replace(flag, ")", "\\\\)", -1)
+	return flag
+}
+
+func escapeFlagsSlice(flags []string) []string {
+	for f := range flags {
+		flags[f] = escapeFlags(flags[f])
+	}
+
+	return flags
+}
+
 func trimProjectPath(path string) string {
 	proj := interfaces.GetProject()
 	path = strings.TrimPrefix(path, proj.Path()+"/")
@@ -116,7 +131,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 														COMPILE_FLAGS
 														"%s")`,
 		cj.Filename,
-		strings.Replace(strings.Join(otherFlags, " "), "\"", "\\\\\\\"", -1))
+		strings.Join(escapeFlagsSlice(otherFlags), " "))
 	fmt.Fprintln(w)
 }
 
@@ -218,7 +233,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 														COMPILE_FLAGS
 														"%s")`,
 		elfName,
-		strings.Replace(strings.Join(compileFlags, " "), "\"", "\\\\\\\"", -1))
+		strings.Join(escapeFlagsSlice(compileFlags), " "))
 	fmt.Fprintln(w)
 
 	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
@@ -252,7 +267,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 		elfOutputDir,
 		elfOutputDir,
 		elfOutputDir,
-		strings.Replace(strings.Join(lFlags, " "), "\"", "\\\\\\\"", -1))
+		strings.Join(escapeFlagsSlice(lFlags), " "))
 
 	fmt.Fprintln(w)
 
