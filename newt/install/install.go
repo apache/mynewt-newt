@@ -610,7 +610,10 @@ func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
 			}
 
 			if keep {
-				if !override && vm[repoName].Commit != "" {
+				prevCommit := vm[repoName].Commit
+				newCommit := req.Ver.Commit
+
+				if !override && prevCommit != "" && prevCommit != newCommit {
 					return util.FmtNewtError(
 						"repo %s: multiple commits: %s, %s",
 						repoName, vm[repoName].Commit, req.Ver.Commit)
@@ -683,8 +686,10 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	rg := dg.Reverse()
 	for name, nodes := range rg {
 		for _, node := range nodes {
-			if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
-				return nil, err
+			if newtutil.CompareRepoVersions(node.Ver, vm[node.Name]) == 0 {
+				if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
