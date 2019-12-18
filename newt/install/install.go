@@ -146,7 +146,7 @@ func detectVersion(r *repo.Repo) (newtutil.RepoVersion, error) {
 			Commit: commit,
 		}
 
-		util.OneTimeWarning(
+		log.Infof(
 			"Could not detect version of installed repo \"%s\"; assuming %s",
 			r.Name(), ver.String())
 	}
