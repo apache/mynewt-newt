@@ -539,7 +539,7 @@ func (r *Repo) CheckNewtCompatibility(
 	if !ok {
 		// Unknown repo version.
 		return compat.NEWT_COMPAT_WARN,
-			"Repo version missing from compatibility map"
+			r.Name() + ": Repo version missing from compatibility map"
 	}
 
 	code, text := tbl.CheckNewtVer(nvers)
