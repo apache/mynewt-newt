@@ -638,6 +638,24 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	// the install / upgrade operation.
 	repoList := inst.ensureDepsInList(candidates, nil)
 
+	for _, r := range repoList {
+		for commit, _ := range r.CommitDepMap() {
+			equiv, err := r.Downloader().CommitsFor(r.Path(), commit)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(equiv) == 0 {
+				util.OneTimeWarning(
+					"repo bases a dependency on a nonexistent commit; "+
+						"repository.yml contains an error; "+
+						"does a branch name contain a typo? "+
+						"repo=\"%s\" commit=\"%s\"",
+					r.Name(), commit)
+			}
+		}
+	}
+
 	m, err := deprepo.BuildMatrix(repoList, inst.vers)
 	if err != nil {
 		return nil, err
