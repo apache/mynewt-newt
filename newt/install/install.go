@@ -527,35 +527,6 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	}
 }
 
-// Determines whether a repo version's `Commit` field should be maintained.  If
-// the commit corresponds exactly to a repo version in `repository.yml` (as
-// opposed to simply indicating its version in a `version.yml` file), then the
-// commit string should be discarded.  If the commit string is kept, newt
-// interprets the version as being different from the official release version,
-// triggering an upgrade.
-func (inst *Installer) shouldKeepCommit(
-	repoName string, commit string) (bool, error) {
-
-	if commit == "" {
-		return false, nil
-	}
-
-	r := inst.repos[repoName]
-	if r == nil {
-		return false, nil
-	}
-
-	vers, err := r.VersFromEquivCommit(commit)
-	if err != nil {
-		return false, err
-	}
-	if len(vers) > 0 {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 // Filters out repos from a version map, keeping only those which are present
 // in the supplied slice.
 func filterVersionMap(
@@ -604,12 +575,7 @@ func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
 	for _, req := range reqs {
 		curVer := vm[repoName]
 		if curVer.Satisfies(req) {
-			keep, err := inst.shouldKeepCommit(repoName, req.Ver.Commit)
-			if err != nil {
-				return err
-			}
-
-			if keep {
+			if req.Ver.Commit != "" {
 				prevCommit := vm[repoName].Commit
 				newCommit := req.Ver.Commit
 
@@ -676,7 +642,6 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	// Try to find a version set that satisfies the dependency graph.  If no
 	// such set exists, report the conflicts and abort.
 	vm, conflicts := deprepo.FindAcceptableVersions(m, dg)
-	log.Debugf("Repo version map:\n%s\n", vm.String())
 	if len(conflicts) > 0 {
 		return nil, deprepo.ConflictError(conflicts)
 	}
@@ -701,6 +666,9 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 			return nil, err
 		}
 	}
+
+	log.Debugf("repo version map after project.yml overrides:\n%s",
+		vm.String())
 
 	// Now that we know which repo versions we want, we can eliminate some
 	// false-positives from the repo list.
