@@ -596,10 +596,10 @@ func (inst *Installer) versionMapRepos(
 
 // assignCommits applies commit hashes to the selected version of each repo in
 // a version map.  In other words, it propagates `<...>-commit` requirements
-// from `project.yml` and `repository.yml` files.  If override is false,
-// attempting to set a commit for the same repo twice results in an error.
+// from `project.yml` and `repository.yml` files.  Attempting to set a commit
+// for the same repo twice results in an error.
 func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
-	reqs []newtutil.RepoVersionReq, override bool) error {
+	reqs []newtutil.RepoVersionReq) error {
 
 	for _, req := range reqs {
 		curVer := vm[repoName]
@@ -613,7 +613,7 @@ func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
 				prevCommit := vm[repoName].Commit
 				newCommit := req.Ver.Commit
 
-				if !override && prevCommit != "" && prevCommit != newCommit {
+				if prevCommit != "" && prevCommit != newCommit {
 					return util.FmtNewtError(
 						"repo %s: multiple commits: %s, %s",
 						repoName, vm[repoName].Commit, req.Ver.Commit)
@@ -676,7 +676,6 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	// Try to find a version set that satisfies the dependency graph.  If no
 	// such set exists, report the conflicts and abort.
 	vm, conflicts := deprepo.FindAcceptableVersions(m, dg)
-	log.Debugf("Repo version map:\n%s\n", vm.String())
 	if len(conflicts) > 0 {
 		return nil, deprepo.ConflictError(conflicts)
 	}
@@ -687,7 +686,8 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	for name, nodes := range rg {
 		for _, node := range nodes {
 			if newtutil.CompareRepoVersions(node.Ver, vm[node.Name]) == 0 {
-				if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
+				err := inst.assignCommits(vm, name, node.VerReqs)
+				if err != nil {
 					return nil, err
 				}
 			}
@@ -697,10 +697,20 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	// If project.yml specified any specific git commits, ensure we get them.
 	// Commits specified in project.yml override those from repo-dependencies.
 	for name, reqs := range inst.reqs {
-		if err := inst.assignCommits(vm, name, reqs, true); err != nil {
-			return nil, err
+		for _, req := range reqs {
+			curVer := vm[name]
+			if curVer.Satisfies(req) {
+				if req.Ver.Commit != "" && inst.repos[name] != nil {
+					ver := vm[name]
+					ver.Commit = req.Ver.Commit
+					vm[name] = ver
+				}
+			}
 		}
 	}
+
+	log.Debugf("repo version map after project.yml overrides:\n%s",
+		vm.String())
 
 	// Now that we know which repo versions we want, we can eliminate some
 	// false-positives from the repo list.
