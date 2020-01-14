@@ -75,11 +75,13 @@ func (rm RepoMap) Sorted() []*repo.Repo {
 func (vm VersionMap) String() string {
 	s := ""
 
-	for repoName, ver := range vm {
+	names := vm.SortedNames()
+	for _, name := range names {
+		ver := vm[name]
 		if len(s) > 0 {
 			s += "\n"
 		}
-		s += fmt.Sprintf("%s:%s", repoName, ver.String())
+		s += fmt.Sprintf("%s:%s", name, ver.String())
 	}
 	return s
 }
