@@ -580,9 +580,6 @@ func (gd *GenericDownloader) CommitsFor(
 
 	var commits []string
 
-	// Always insert the specified string into the set.
-	commits = append(commits, commit)
-
 	// Add all commits that are equivalent to the specified string.
 	for _, c := range gd.commits {
 		if commit == c.hash {
