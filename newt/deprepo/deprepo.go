@@ -238,15 +238,20 @@ func PruneMatrix(m *Matrix, repos RepoMap, rootReqs RequirementMap) error {
 // of repos in the project.
 func PruneDepGraph(dg DepGraph, keep []*repo.Repo) {
 	for k, _ := range dg {
-		found := false
-		for _, r := range keep {
-			if r.Name() == k.Name {
-				found = true
-				break
+		// The empty string indicates a `project.yml` requirement.  Always
+		// keep these.
+		if k.Name != "" {
+			found := false
+
+			for _, r := range keep {
+				if k.Name == r.Name() {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			delete(dg, k)
+			if !found {
+				delete(dg, k)
+			}
 		}
 	}
 }
