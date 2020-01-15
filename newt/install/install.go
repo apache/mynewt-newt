@@ -670,8 +670,13 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	for name, nodes := range rg {
 		for _, node := range nodes {
 			if newtutil.CompareRepoVersions(node.Ver, vm[node.Name]) == 0 {
-				if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
-					return nil, err
+				// Don't consider project.yml dependencies here.  Those get
+				// assigned last so that they can override inter-repo
+				// dependencies.
+				if node.Name != "" {
+					if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
