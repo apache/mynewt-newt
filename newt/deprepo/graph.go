@@ -192,11 +192,14 @@ func (dg DepGraph) Reverse() RevdepGraph {
 
 	for dependent, nodes := range dg {
 		for _, node := range nodes {
-			rg[node.Name] = append(rg[node.Name], RevdepGraphNode{
-				Name:    dependent.Name,
-				Ver:     dependent.Ver,
-				VerReqs: node.VerReqs,
-			})
+			// Nothing depends on project.yml (""), so exclude it from the result.
+			if node.Name != "" {
+				rg[node.Name] = append(rg[node.Name], RevdepGraphNode{
+					Name:    dependent.Name,
+					Ver:     dependent.Ver,
+					VerReqs: node.VerReqs,
+				})
+			}
 		}
 	}
 
