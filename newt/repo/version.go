@@ -26,13 +26,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 )
-
-var versionYmlMissing = util.FmtNewtError("version.yml missing")
-var versionYmlBad = util.FmtNewtError("version.yml bad")
 
 func versString(vers []newtutil.RepoVersion) string {
 	s := "["
@@ -121,6 +117,16 @@ func (r *Repo) CommitFromVer(ver newtutil.RepoVersion) (string, error) {
 	}
 
 	return commit, nil
+}
+
+func (r *Repo) VersionIsValid(ver newtutil.RepoVersion) bool {
+	if ver.Commit == "" {
+		_, err := r.CommitFromVer(ver)
+		return err == nil
+	}
+
+	cs, _ := r.downloader.CommitsFor(r.Path(), ver.Commit)
+	return len(cs) > 0
 }
 
 // Determines whether the two specified commits refer to the same point in the
@@ -302,111 +308,13 @@ func (r *Repo) VersionsEqual(v1 newtutil.RepoVersion,
 	return h1 == h2
 }
 
-// Parses the `version.yml` file at the specified path.  On success, the parsed
-// version is returned.
-func parseVersionYml(path string) (newtutil.RepoVersion, error) {
-	yc, err := config.ReadFile(path)
-	if err != nil {
-		if util.IsNotExist(err) {
-			return newtutil.RepoVersion{}, versionYmlMissing
-		} else {
-			return newtutil.RepoVersion{}, versionYmlBad
-		}
-	}
-
-	verString, err := yc.GetValString("repo.version", nil)
-	util.OneTimeWarningError(err)
-
-	if verString == "" {
-		return newtutil.RepoVersion{}, versionYmlBad
-	}
-
-	ver, err := newtutil.ParseRepoVersion(verString)
-	if err != nil || !ver.IsNormalized() {
-		return newtutil.RepoVersion{}, versionYmlBad
-	}
-
-	return ver, nil
-}
-
-// Reads and parses the `version.yml` file belonging to an installed repo.
-func (r *Repo) installedVersionYml() (*newtutil.RepoVersion, error) {
-	ver, err := parseVersionYml(r.Path() + "/" + REPO_VER_FILE_NAME)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ver, nil
-}
-
-// Downloads and parses the `version.yml` file from the repo at the specified
-// commit.
-func (r *Repo) nonInstalledVersionYml(
-	commit string) (*newtutil.RepoVersion, error) {
-
-	filePath, err := r.downloadFile(commit, REPO_VER_FILE_NAME)
-	if err != nil {
-		// The download failed.  Determine if the commit string is bad or if
-		// the file just doesn't exist in that commit.
-		if _, e2 := r.downloader.CommitType(r.localPath, commit); e2 != nil {
-			// Bad commit string.
-			return nil, err
-		}
-
-		// The commit exists, but it doesn't contain a `version.yml` file.
-		// Assume the commit corresponds to version 0.0.0.
-		return nil, versionYmlMissing
-	}
-
-	ver, err := parseVersionYml(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ver, nil
-}
-
-// Tries to determine which repo version meets the specified criteria:
-//  * Maps to the specified commit string (or an equivalent commit).
-//  * Is equal to the specified version read from `version.yml` (if not-null).
-func (r *Repo) inferVersion(commit string, vyVer *newtutil.RepoVersion) (
-	*newtutil.RepoVersion, error) {
-
+// Tries to determine which repo version maps to the specified commit string
+// (or an equivalent commit).
+func (r *Repo) inferVersion(commit string) (*newtutil.RepoVersion, error) {
 	// Search `repository.yml` for versions that the specified commit maps to.
 	ryVers, err := r.VersFromEquivCommit(commit)
 	if err != nil {
 		return nil, err
-	}
-
-	// If valid versions were derived from both `version.yml` and the specified
-	// commit+`repository.yml`, look for a common version.
-	if vyVer != nil {
-		if len(ryVers) > 0 {
-			for _, cv := range ryVers {
-				if newtutil.CompareRepoVersions(*vyVer, cv) == 0 {
-					return vyVer, nil
-				}
-			}
-
-			util.OneTimeWarning(
-				"Version mismatch in %s:%s; repository.yml:%s, version.yml:%s",
-				r.Name(), commit, versString(ryVers), vyVer.String())
-		} else {
-			// If the set of commits doesn't contain a version from
-			// `repository.yml`, record the commit hash in the version
-			// specifier.  This will distinguish the returned version from its
-			// corresponding official release.
-			hash, err := r.downloader.HashFor(r.Path(), commit)
-			if err != nil {
-				return nil, err
-			}
-			vyVer.Commit = hash
-		}
-
-		// Always prefer the version in `version.yml`.
-		log.Debugf("Inferred version %s from %s:%s from version.yml",
-			vyVer.String(), r.Name(), commit)
-		return vyVer, nil
 	}
 
 	if len(ryVers) > 0 {
@@ -421,11 +329,6 @@ func (r *Repo) inferVersion(commit string, vyVer *newtutil.RepoVersion) (
 // Retrieves the installed version of the repo.  Returns nil if the version
 // cannot be detected.
 func (r *Repo) InstalledVersion() (*newtutil.RepoVersion, error) {
-	vyVer, err := r.installedVersionYml()
-	if err != nil && err != versionYmlMissing && err != versionYmlBad {
-		return nil, err
-	}
-
 	hash, err := r.CurrentHash()
 	if err != nil {
 		return nil, err
@@ -434,7 +337,7 @@ func (r *Repo) InstalledVersion() (*newtutil.RepoVersion, error) {
 		return nil, nil
 	}
 
-	ver, err := r.inferVersion(hash, vyVer)
+	ver, err := r.inferVersion(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -447,29 +350,9 @@ func (r *Repo) InstalledVersion() (*newtutil.RepoVersion, error) {
 func (r *Repo) NonInstalledVersion(
 	commit string) (*newtutil.RepoVersion, error) {
 
-	ver, versionYmlErr := r.nonInstalledVersionYml(commit)
-	if versionYmlErr != nil &&
-		versionYmlErr != versionYmlMissing &&
-		versionYmlErr != versionYmlBad {
-
-		return nil, versionYmlErr
-	}
-
-	ver, err := r.inferVersion(commit, ver)
+	ver, err := r.inferVersion(commit)
 	if err != nil {
 		return nil, err
-	}
-
-	if ver == nil {
-		if versionYmlErr == versionYmlMissing {
-			util.OneTimeWarning(
-				"%s:%s does not contain a `version.yml` file.",
-				r.Name(), commit)
-		} else if versionYmlErr == versionYmlBad {
-			util.OneTimeWarning(
-				"%s:%s contains a malformed `version.yml` file.",
-				r.Name(), commit)
-		}
 	}
 
 	return ver, nil

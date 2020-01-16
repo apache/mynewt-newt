@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/util"
@@ -39,10 +41,29 @@ type VersionMap map[string]newtutil.RepoVersion
 // [repo-name] => requirements-for-key-repo
 type RequirementMap map[string]newtutil.RepoVersion
 
-// Indicates an inability to find an acceptable version of a particular repo.
+type ConflictEntry struct {
+	Dependent   RVPair
+	DependeeVer newtutil.RepoVersion
+}
+
+// Indicates dependencies on different versions of the same repo.
 type Conflict struct {
-	RepoName string
-	Filters  []Filter
+	DependeeName string
+	Entries      []ConflictEntry
+}
+
+func (c *Conflict) SortEntries() {
+	sort.Slice(c.Entries, func(i int, j int) bool {
+		ci := c.Entries[i]
+		cj := c.Entries[j]
+
+		x := CompareRVPairs(ci.Dependent, cj.Dependent)
+		if x != 0 {
+			return x < 0
+		}
+
+		return newtutil.CompareRepoVersions(ci.DependeeVer, cj.DependeeVer) < 0
+	})
 }
 
 // Returns a sorted slice of all constituent repo names.
@@ -86,27 +107,6 @@ func (vm VersionMap) String() string {
 	return s
 }
 
-// Constructs a version matrix from the specified repos.  Each row in the
-// resulting matrix corresponds to a repo in the supplied slice.  Each row node
-// represents a single version of the repo.
-func BuildMatrix(repos []*repo.Repo, vm VersionMap) (Matrix, error) {
-	m := Matrix{}
-
-	for _, r := range repos {
-		if !r.IsLocal() {
-			vers, err := r.NormalizedVersions()
-			if err != nil {
-				return m, err
-			}
-			if err := m.AddRow(r.Name(), vers); err != nil {
-				return m, err
-			}
-		}
-	}
-
-	return m, nil
-}
-
 // Builds a repo dependency graph from the repo requirements expressed in the
 // `project.yml` file.
 func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
@@ -120,7 +120,7 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 			return nil, err
 		}
 
-		if err := dg.AddRootDep(repoName, []newtutil.RepoVersion{normalizedReq}); err != nil {
+		if err := dg.AddRootDep(repoName, normalizedReq); err != nil {
 			return nil, err
 		}
 	}
@@ -149,86 +149,6 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 	}
 
 	return dg, nil
-}
-
-// Prunes unusable repo versions from the specified matrix.
-func PruneMatrix(m *Matrix, repos RepoMap, rootReqs RequirementMap) error {
-	pruned := map[*repo.RepoDependency]struct{}{}
-
-	// Removes versions of the depended-on package that fail to satisfy the
-	// dependent's requirements.  Each of the depended-on package's
-	// dependencies are then recursively visited.
-	var recurse func(dependentName string, dep *repo.RepoDependency) error
-	recurse = func(dependentName string, dep *repo.RepoDependency) error {
-		// Don't prune the same dependency twice; prevents infinite
-		// recursion.
-		if _, ok := pruned[dep]; ok {
-			return nil
-		}
-		pruned[dep] = struct{}{}
-
-		// Remove versions of this depended-on package that don't satisfy the
-		// dependency's version requirements.
-		r := repos[dep.Name]
-		normalizedReq, err := r.NormalizeVerReq(dep.VerReqs)
-		if err != nil {
-			return err
-		}
-		filter := Filter{
-			Name: dependentName,
-			Req:  normalizedReq,
-		}
-		m.ApplyFilter(dep.Name, filter)
-
-		// If there is only one version of the depended-on package left in the
-		// matrix, we can recursively call this function on all its
-		// dependencies.
-		//
-		// We don't do it, but it is possible to prune when there is more than
-		// one version remaining.  To accomplish this, we would collect the
-		// requirements from all versions, find their union, and remove
-		// depended-on packages that satisfy none of the requirements in the
-		// union.  The actual implementation (only prune when one version
-		// remains) is a simplified implementation of this general procedure.
-		// In exchange for simplicity, some unusable versions remain in the
-		// matrix that could have been pruned.  These unsuable versions must be
-		// evaluated unnecessarily when the matrix is being searched for an
-		// acceptable version set.
-		row := m.FindRow(r.Name())
-		if row != nil && len(row.Vers) == 1 {
-			ver := row.Vers[0]
-			commit, err := r.CommitFromVer(ver)
-			if err != nil {
-				return err
-			}
-			depRepo := repos[dep.Name]
-			for _, ddep := range depRepo.CommitDepMap()[commit] {
-				name := fmt.Sprintf("%s,%s", depRepo.Name(), ver.String())
-				if err := recurse(name, ddep); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
-	}
-
-	// Prune versions that are guaranteed to be unusable.  Any repo version
-	// which doesn't satisfy a requirement in `project.yml` is a
-	// known-bad-version and can be removed.  These repos' dependencies can
-	// then be pruned in turn.
-	for repoName, req := range rootReqs {
-		dep := &repo.RepoDependency{
-			Name:    repoName,
-			VerReqs: req,
-		}
-
-		if err := recurse("project.yml", dep); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // PruneDepGraph removes all entries from a depgraph that aren't in the given
@@ -264,12 +184,16 @@ func ConflictError(conflicts []Conflict) error {
 		}
 
 		s += fmt.Sprintf("    Installation of repo \"%s\" is blocked:",
-			c.RepoName)
+			c.DependeeName)
 
 		lines := []string{}
-		for _, f := range c.Filters {
-			lines = append(lines, fmt.Sprintf("\n    %30s requires %s %s",
-				f.Name, c.RepoName, f.Req.String()))
+		for _, e := range c.Entries {
+			dependee := RVPair{
+				Name: c.DependeeName,
+				Ver:  e.DependeeVer,
+			}
+			lines = append(lines, fmt.Sprintf("\n    %30s requires %s",
+				e.Dependent.String(), dependee.String()))
 		}
 		sort.Strings(lines)
 		s += strings.Join(lines, "")
@@ -278,100 +202,149 @@ func ConflictError(conflicts []Conflict) error {
 	return util.NewNewtError("Repository conflicts:\n" + s)
 }
 
-// Searches a version matrix for a set of acceptable repo versions.  If there
-// isn't an acceptable set of versions, the set with the fewest conflicts is
-// returned.
+// ResolveRepoDeps calculates the set of repo versions a project should be
+// upgraded to.
 //
-// @param m                     Matrix containing all unpruned repo versions.
-// @param dg                    The repo dependency graph.
+// dg: The project's repo dependency graph.  This includes root dependencies
+// 	   (i.e., dependencies expressed in `project.yml`).
 //
-// @return VersionMap           The first perfect set of repo versions, or the
-//                                  closest match if there is no perfect set.
-// @return []string             nil if a perfect set was found, else the names
-//                                  of the repos that lack a suitable version
-//                                  in the returned version map.
-func findClosestMatch(m Matrix, dg DepGraph) (VersionMap, []string) {
-	// Tracks the best match seen so far.
-	type Best struct {
-		vm       VersionMap
-		failures []string
-	}
-	var best Best
-
-	for {
-		vm := m.CurVersions()
-		badRepos := dg.conflictingRepos(vm)
-		if len(badRepos) == 0 {
-			// Found a perfect match.  Return it.
-			return vm, nil
-		}
-
-		if best.failures == nil || len(badRepos) < len(best.failures) {
-			best.vm = vm
-			best.failures = badRepos
-		}
-
-		// Evaluate the next set of versions on the following iteration.
-		if !m.Increment() {
-			// All version sets evaluated.  Return the best match.
-			return best.vm, best.failures
-		}
-	}
-}
-
-// Finds the first set of repo versions which satisfies the dependency graph.
-// If there is no acceptable set, a slice of conflicts is returned instead.
-//
-// @param m                     Matrix containing all unpruned repo versions.
-// @param dg                    The repo dependency graph.
-// @return VersionMap           The first perfect set of repo versions, or nil
-//                                  if there is no perfect set.
-// @return []Conflict           nil if a perfect set was found, else the set of
-//                                  conflicts preventing a perfect match from
-//                                  being returned.
-func FindAcceptableVersions(m Matrix, dg DepGraph) (VersionMap, []Conflict) {
-	vm, failures := findClosestMatch(m, dg)
-	if len(failures) == 0 {
-		// No failures implies a perfect match was found.  Return it.
-		return vm, nil
+// Returns a version map on success; a set of conflicts on failure.
+func ResolveRepoDeps(dg DepGraph) (VersionMap, []Conflict) {
+	// Represents an entry in the working set.
+	type WSNode struct {
+		highPrio  bool   // If true, always "wins" without conflict.
+		dependent RVPair // Repo that expresses this dependency.
+		dependee  RVPair // Repo that is depended on.
 	}
 
-	// A perfect version set doesn't exist.  Generate the set of relevant
-	// conflicts and return it.
-	conflicts := make([]Conflict, len(failures))
+	ws := map[string]WSNode{}        // Working set (key=dependent).
+	cm := map[string]*Conflict{}     // Conflict map (key=dependee).
+	visited := map[string]struct{}{} // Tracks which nodes have been visited.
 
-	// Build a reverse dependency graph.  This will make it easy to determine
-	// which version requirements are relevant to the failure.
-	rg := dg.Reverse()
-	for i, f := range failures {
-		conflict := Conflict{
-			RepoName: f,
-		}
-		for _, node := range rg[f] {
-			// Determine if this filter is responsible for any conflicts.
-			// Record the name of the filter if it applies.
-			var filterName string
-			if node.Name == rootDependencyName {
-				filterName = "project.yml"
-			} else {
-				// If the version of the repo in the closest-match version map
-				// is the same one that imposes this version requirement,
-				// include it in the conflict object.
-				if newtutil.CompareRepoVersions(vm[node.Name], node.Ver) == 0 {
-					filterName = fmt.Sprintf(
-						"%s,%s", node.Name, node.Ver.String())
-				}
+	// Updates (or inserts a new) conflict object into the conflict map (cm).
+	addConflict := func(dependent RVPair, dependee RVPair) {
+		c := cm[dependee.Name]
+		if c == nil {
+			wsn := ws[dependee.Name]
+
+			c = &Conflict{
+				DependeeName: repoNameString(dependee.Name),
+				Entries: []ConflictEntry{
+					ConflictEntry{
+						Dependent: RVPair{
+							Name: repoNameString(wsn.dependent.Name),
+							Ver:  wsn.dependent.Ver,
+						},
+						DependeeVer: wsn.dependee.Ver,
+					},
+				},
 			}
-
-			if filterName != "" {
-				conflict.Filters = append(conflict.Filters, Filter{
-					Name: filterName,
-					Req:  node.VerReq,
-				})
-			}
+			cm[dependee.Name] = c
 		}
-		conflicts[i] = conflict
+
+		c.Entries = append(c.Entries, ConflictEntry{
+			Dependent:   dependent,
+			DependeeVer: dependee.Ver,
+		})
 	}
 
-	return vm, conflicts
+	// Attempts to add a single node to the working set.  In case of a
+	// conflict, the conflict map is updated instead.
+	addWsNode := func(dependent RVPair, dependee RVPair) {
+		old, ok := ws[dependee.Name]
+		if !ok {
+			// This is the first time we've seen this repo.
+			ws[dependee.Name] = WSNode{
+				highPrio:  false,
+				dependent: dependent,
+				dependee:  dependee,
+			}
+			return
+		}
+
+		if newtutil.CompareRepoVersions(old.dependee.Ver, dependee.Ver) == 0 {
+			// We have already seen this exact dependency.  Ignore the
+			// duplicate.
+			return
+		}
+
+		// There is already a dependency for a different version of this repo.
+		// Handle the conflict.
+		if old.highPrio {
+			// Root commit dependencies take priority over all others.
+			log.Debugf("discarding repo dependency in favor "+
+				"of root override: dep=%s->%s root=%s->%s",
+				dependent.String(), dependee.String(),
+				old.dependent.String(), old.dependee.String())
+		} else {
+			addConflict(dependent, dependee)
+		}
+	}
+
+	// Adds one entry to the working set (ws) for each of the given repo's
+	// dependencies.
+	visit := func(rvp RVPair) {
+		nodes := dg[rvp]
+		for _, node := range nodes {
+			addWsNode(rvp, node)
+		}
+
+		visited[rvp.Name] = struct{}{}
+	}
+
+	// Insert all the root dependencies (dependencies in `project.yml`) into
+	// the working set.  A root dependency is "high priority" if it points to a
+	// git commit rather than a version number.
+	rootDeps := dg[RVPair{}]
+	for _, dep := range rootDeps {
+		ws[dep.Name] = WSNode{
+			highPrio:  dep.Ver.Commit != "",
+			dependent: RVPair{Name: rootDependencyName},
+			dependee:  dep,
+		}
+	}
+
+	// Repeatedly iterate through the working set, visiting each unvisited
+	// node.  Stop looping when an iteration produces no new nodes.
+	for len(visited) < len(ws) {
+		// Iterate the working set in a consistent order.  The order doesn't
+		// matter for well-defined projects.  For invalid projects, different
+		// iteration orders can result in different conflicts being reported.
+		names := make([]string, 0, len(ws))
+		for name, _ := range ws {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		for _, name := range names {
+			wsn := ws[name]
+			if _, ok := visited[name]; !ok {
+				visit(wsn.dependee)
+			}
+		}
+	}
+
+	// It is an error if any conflicts were detected.
+	if len(cm) > 0 {
+		var cs []Conflict
+		for _, c := range cm {
+			c.SortEntries()
+			cs = append(cs, *c)
+		}
+
+		sort.Slice(cs, func(i int, j int) bool {
+			return strings.Compare(cs[i].DependeeName, cs[j].DependeeName) < 0
+		})
+
+		return nil, cs
+	}
+
+	// The working set now contains the target version of each repo in the
+	// project.
+	vm := VersionMap{}
+	for name, wsn := range ws {
+		vm[name] = wsn.dependee.Ver
+	}
+
+	return vm, nil
 }

@@ -34,40 +34,32 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-// Describes a repo that depends on other repos.
-type Dependent struct {
-	Name string
-	Ver  newtutil.RepoVersion
-}
-
 const rootDependencyName = ""
 const rootRepoName = "project.yml"
 
 // Represents a top-level repo dependency (i.e., a repo specified in
 // `project.yml`).
-var rootDependent = Dependent{Name: rootDependencyName}
+var rootDependent = RVPair{Name: rootDependencyName}
 
-// A single node in a repo dependency graph.
-type DepGraphNode struct {
-	// Name of depended-on repo.
+// Represents a repo-name,version pair.
+type RVPair struct {
 	Name string
-	// Expresses the versions of the repo that satisfy this dependency.
-	VerReq newtutil.RepoVersion
+	Ver  newtutil.RepoVersion
 }
 
 // A repo dependency graph.
 // Key: A repo with dependencies.
 // Value: The corresponding list of dependencies.
-type DepGraph map[Dependent][]DepGraphNode
+type DepGraph map[RVPair][]RVPair
 
 // A single node in a repo reverse dependency graph.
 type RevdepGraphNode struct {
 	// The name of the dependent repo.
 	Name string
 	// The version of the dependent repo.
-	Ver newtutil.RepoVersion
-	// The dependent's version requirements that apply to the graph key.
-	VerReq newtutil.RepoVersion
+	DependentVer newtutil.RepoVersion
+	// The version of the dependee repo that is required.
+	DependeeVer newtutil.RepoVersion
 }
 
 // A repo reverse dependency graph.
@@ -75,20 +67,38 @@ type RevdepGraphNode struct {
 // Value: The corresponding list of dependencies.
 type RevdepGraph map[string][]RevdepGraphNode
 
-func repoNameVerString(repoName string, ver newtutil.RepoVersion) string {
+func repoNameString(repoName string) string {
 	if repoName == rootDependencyName {
 		return rootRepoName
 	} else {
-		return fmt.Sprintf("%s-%s", repoName, ver.String())
+		return repoName
 	}
 }
 
-func (dep *Dependent) String() string {
-	return repoNameVerString(dep.Name, dep.Ver)
+func repoNameVerString(repoName string, ver newtutil.RepoVersion) string {
+	if repoName == rootDependencyName || repoName == rootRepoName {
+		return rootRepoName
+	} else {
+		return fmt.Sprintf("%s/%s", repoName, ver.String())
+	}
 }
 
-func (dgn *DepGraphNode) String() string {
-	return fmt.Sprintf("%s,%s", dgn.Name, dgn.VerReq.String())
+func (rvp *RVPair) String() string {
+	return repoNameVerString(rvp.Name, rvp.Ver)
+}
+
+func CompareRVPairs(a RVPair, b RVPair) int {
+	x := strings.Compare(a.Name, b.Name)
+	if x != 0 {
+		return x
+	}
+
+	x = newtutil.CompareRepoVersions(a.Ver, b.Ver)
+	if x != 0 {
+		return x
+	}
+
+	return 0
 }
 
 func (dg DepGraph) String() string {
@@ -108,8 +118,8 @@ func (dg DepGraph) String() string {
 }
 
 func (rgn *RevdepGraphNode) String() string {
-	return fmt.Sprintf("%s,%s", repoNameVerString(rgn.Name, rgn.Ver),
-		rgn.VerReq.String())
+	return fmt.Sprintf("%s,%s", repoNameVerString(rgn.Name, rgn.DependentVer),
+		rgn.DependeeVer.String())
 }
 
 func (rg RevdepGraph) String() string {
@@ -137,7 +147,7 @@ func (rg RevdepGraph) String() string {
 func (dg DepGraph) AddRepoVer(repoName string, repoVer newtutil.RepoVersion,
 	reqMap RequirementMap) error {
 
-	dep := Dependent{
+	dep := RVPair{
 		Name: repoName,
 		Ver:  repoVer,
 	}
@@ -149,9 +159,9 @@ func (dg DepGraph) AddRepoVer(repoName string, repoVer newtutil.RepoVersion,
 	}
 
 	for depName, depReq := range reqMap {
-		dg[dep] = append(dg[dep], DepGraphNode{
-			Name:   depName,
-			VerReq: depReq,
+		dg[dep] = append(dg[dep], RVPair{
+			Name: depName,
+			Ver:  depReq,
 		})
 	}
 
@@ -159,9 +169,7 @@ func (dg DepGraph) AddRepoVer(repoName string, repoVer newtutil.RepoVersion,
 }
 
 // Adds a root dependency (i.e., required repo specified in `project.yml`).
-func (dg DepGraph) AddRootDep(repoName string,
-	verReqs []newtutil.RepoVersion) error {
-
+func (dg DepGraph) AddRootDep(repoName string, ver newtutil.RepoVersion) error {
 	rootDeps := dg[rootDependent]
 	for _, d := range rootDeps {
 		if d.Name == repoName {
@@ -171,9 +179,9 @@ func (dg DepGraph) AddRootDep(repoName string,
 		}
 	}
 
-	dg[rootDependent] = append(dg[rootDependent], DepGraphNode{
-		Name:   repoName,
-		VerReq: verReqs[0],
+	dg[rootDependent] = append(dg[rootDependent], RVPair{
+		Name: repoName,
+		Ver:  ver,
 	})
 
 	return nil
@@ -191,83 +199,17 @@ func (dg DepGraph) Reverse() RevdepGraph {
 
 	for dependent, nodes := range dg {
 		for _, node := range nodes {
-			// Nothing depends on project.yml (""), so exclude it from the result.
+			// Nothing depends on project.yml (""), so exclude it from the
+			// result.
 			if node.Name != "" {
 				rg[node.Name] = append(rg[node.Name], RevdepGraphNode{
-					Name:   dependent.Name,
-					Ver:    dependent.Ver,
-					VerReq: node.VerReq,
+					Name:         dependent.Name,
+					DependentVer: dependent.Ver,
+					DependeeVer:  node.Ver,
 				})
 			}
 		}
 	}
 
 	return rg
-}
-
-// Identifies repos which cannot satisfy all their dependents.  For example, if
-// `project.yml` requires X1 and Y2, but Y2 requires X2, then X is a
-// conflicting repo (no overlap in requirement sets).
-//
-// Returns the names of all repos that cannot be included in the build.  For
-// example, if:
-//     * X depends on Z 1.0.0
-//     * Y depends on Z 2.0.0
-// then Z is included in the returned slice because it can't satisfy all its
-// dependents.  X and Y are *not* included (unless they also have depedents
-// that cannot be satisfied).
-func (dg DepGraph) conflictingRepos(vm VersionMap) []string {
-	badRepoMap := map[string]struct{}{}
-
-	// Create a reverse dependency graph.
-	rg := dg.Reverse()
-
-	for dependeeName, nodes := range rg {
-		dependeeVer, ok := vm[dependeeName]
-		if !ok {
-			// This version was pruned from the matrix.  It is unusable.
-			badRepoMap[dependeeName] = struct{}{}
-			continue
-		}
-
-		// Dependee is the repo being depended on.  We want to determine if it
-		// can be included in the project without violating any dependency
-		// requirements.
-		//
-		// For each repo that depends on dependee (i.e., for each dependent):
-		// 1. Determine which of the dependent's requirements apply to the
-		//    dependee (e.g., if we are evaluating v2 of the dependent, then
-		//    v1's requirements do not apply).
-		// 2. Check if the dependee satisfies all applicable requirements.
-		for _, node := range nodes {
-			var nodeApplies bool
-			if node.Name == rootDependencyName {
-				// project.yml requirements are always applicable.
-				nodeApplies = true
-			} else {
-				// Repo dependency requirements only apply if they are
-				// associated with the version of the dependent that we are
-				// evaluating.
-				dependentVer, ok := vm[node.Name]
-				if ok {
-					nodeApplies = newtutil.CompareRepoVersions(
-						dependentVer, node.Ver) == 0
-				}
-			}
-			if nodeApplies {
-				if !dependeeVer.Satisfies(node.VerReq) {
-					badRepoMap[dependeeName] = struct{}{}
-					break
-				}
-			}
-		}
-	}
-
-	badRepoSlice := make([]string, 0, len(badRepoMap))
-	for repoName, _ := range badRepoMap {
-		badRepoSlice = append(badRepoSlice, repoName)
-	}
-	sort.Strings(badRepoSlice)
-
-	return badRepoSlice
 }

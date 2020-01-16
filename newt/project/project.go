@@ -189,7 +189,6 @@ func (proj *Project) FindRepoPath(rname string) string {
 func (proj *Project) GetRepoVersion(
 	rname string) (*newtutil.RepoVersion, error) {
 
-	// First, try to read the repo's `version.yml` file.
 	r := proj.repos[rname]
 	if r == nil {
 		return nil, nil

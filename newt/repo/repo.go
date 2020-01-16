@@ -43,7 +43,6 @@ const REPO_NAME_LOCAL = "local"
 const REPO_DEFAULT_PERMS = 0755
 
 const REPO_FILE_NAME = "repository.yml"
-const REPO_VER_FILE_NAME = "version.yml"
 const REPOS_DIR = "repos"
 
 type Repo struct {
