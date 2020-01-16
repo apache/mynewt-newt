@@ -67,7 +67,7 @@ type Repo struct {
 
 type RepoDependency struct {
 	Name    string
-	VerReqs []newtutil.RepoVersionReq
+	VerReqs newtutil.RepoVersion
 	Fields  map[string]string
 }
 
@@ -433,7 +433,7 @@ func parseRepoDepMap(depName string,
 	}
 
 	for commit, verReqsStr := range versMap {
-		verReqs, err := newtutil.ParseRepoVersionReqs(verReqsStr)
+		verReq, err := newtutil.ParseRepoVersion(verReqsStr)
 		if err != nil {
 			return nil, util.FmtNewtError("invalid version string: %s: %s",
 				verReqsStr, err.Error())
@@ -441,7 +441,7 @@ func parseRepoDepMap(depName string,
 
 		result[commit] = &RepoDependency{
 			Name:    depName,
-			VerReqs: verReqs,
+			VerReqs: verReq,
 			Fields:  fields,
 		}
 	}

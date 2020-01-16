@@ -52,7 +52,7 @@ type DepGraphNode struct {
 	// Name of depended-on repo.
 	Name string
 	// Expresses the versions of the repo that satisfy this dependency.
-	VerReqs []newtutil.RepoVersionReq
+	VerReq newtutil.RepoVersion
 }
 
 // A repo dependency graph.
@@ -67,7 +67,7 @@ type RevdepGraphNode struct {
 	// The version of the dependent repo.
 	Ver newtutil.RepoVersion
 	// The dependent's version requirements that apply to the graph key.
-	VerReqs []newtutil.RepoVersionReq
+	VerReq newtutil.RepoVersion
 }
 
 // A repo reverse dependency graph.
@@ -88,8 +88,7 @@ func (dep *Dependent) String() string {
 }
 
 func (dgn *DepGraphNode) String() string {
-	return fmt.Sprintf("%s,%s", dgn.Name,
-		newtutil.RepoVerReqsString(dgn.VerReqs))
+	return fmt.Sprintf("%s,%s", dgn.Name, dgn.VerReq.String())
 }
 
 func (dg DepGraph) String() string {
@@ -110,7 +109,7 @@ func (dg DepGraph) String() string {
 
 func (rgn *RevdepGraphNode) String() string {
 	return fmt.Sprintf("%s,%s", repoNameVerString(rgn.Name, rgn.Ver),
-		newtutil.RepoVerReqsString(rgn.VerReqs))
+		rgn.VerReq.String())
 }
 
 func (rg RevdepGraph) String() string {
@@ -149,10 +148,10 @@ func (dg DepGraph) AddRepoVer(repoName string, repoVer newtutil.RepoVersion,
 			repoName, repoVer.String())
 	}
 
-	for depName, depReqs := range reqMap {
+	for depName, depReq := range reqMap {
 		dg[dep] = append(dg[dep], DepGraphNode{
-			Name:    depName,
-			VerReqs: depReqs,
+			Name:   depName,
+			VerReq: depReq,
 		})
 	}
 
@@ -161,7 +160,7 @@ func (dg DepGraph) AddRepoVer(repoName string, repoVer newtutil.RepoVersion,
 
 // Adds a root dependency (i.e., required repo specified in `project.yml`).
 func (dg DepGraph) AddRootDep(repoName string,
-	verReqs []newtutil.RepoVersionReq) error {
+	verReqs []newtutil.RepoVersion) error {
 
 	rootDeps := dg[rootDependent]
 	for _, d := range rootDeps {
@@ -173,8 +172,8 @@ func (dg DepGraph) AddRootDep(repoName string,
 	}
 
 	dg[rootDependent] = append(dg[rootDependent], DepGraphNode{
-		Name:    repoName,
-		VerReqs: verReqs,
+		Name:   repoName,
+		VerReq: verReqs[0],
 	})
 
 	return nil
@@ -195,9 +194,9 @@ func (dg DepGraph) Reverse() RevdepGraph {
 			// Nothing depends on project.yml (""), so exclude it from the result.
 			if node.Name != "" {
 				rg[node.Name] = append(rg[node.Name], RevdepGraphNode{
-					Name:    dependent.Name,
-					Ver:     dependent.Ver,
-					VerReqs: node.VerReqs,
+					Name:   dependent.Name,
+					Ver:    dependent.Ver,
+					VerReq: node.VerReq,
 				})
 			}
 		}
@@ -256,7 +255,7 @@ func (dg DepGraph) conflictingRepos(vm VersionMap) []string {
 				}
 			}
 			if nodeApplies {
-				if !dependeeVer.SatisfiesAll(node.VerReqs) {
+				if !dependeeVer.Satisfies(node.VerReq) {
 					badRepoMap[dependeeName] = struct{}{}
 					break
 				}
