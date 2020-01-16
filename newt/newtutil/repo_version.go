@@ -71,31 +71,40 @@ func (v *RepoVersion) toComparable() RepoVersion {
 	return clone
 }
 
-func CompareRepoVersions(v1 RepoVersion, v2 RepoVersion) int64 {
+func CompareRepoVersions(v1 RepoVersion, v2 RepoVersion) int {
 	v1 = v1.toComparable()
 	v2 = v2.toComparable()
 
+	toInt := func(i64 int64) int {
+		if i64 < 0 {
+			return -1
+		} else if i64 > 0 {
+			return 1
+		} else {
+			return 0
+		}
+	}
+
 	if r := v1.Major - v2.Major; r != 0 {
-		return r
+		return toInt(r)
 	}
 
 	if r := v1.Minor - v2.Minor; r != 0 {
-		return r
+		return toInt(r)
 	}
 
 	if r := v1.Revision - v2.Revision; r != 0 {
-		return r
+		return toInt(r)
 	}
 
 	return 0
 }
 
-// XXX: Remove this
-func (v *RepoVersion) Satisfies(verReq RepoVersion) bool {
-	return CompareRepoVersions(verReq, *v) == 0
-}
-
 func (ver *RepoVersion) String() string {
+	if ver.Commit != "" {
+		return ver.Commit
+	}
+
 	s := fmt.Sprintf("%d", ver.Major)
 	if ver.Minor != VERSION_FLOATING {
 		s += fmt.Sprintf(".%d", ver.Minor)
@@ -106,10 +115,6 @@ func (ver *RepoVersion) String() string {
 
 	if ver.Stability != VERSION_STABILITY_NONE {
 		s += fmt.Sprintf("-%s", ver.Stability)
-	}
-
-	if ver.Commit != "" {
-		s += fmt.Sprintf("/%s", ver.Commit)
 	}
 
 	return s

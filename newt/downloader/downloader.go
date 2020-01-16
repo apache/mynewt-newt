@@ -578,20 +578,40 @@ func (gd *GenericDownloader) CommitsFor(
 
 	commit = fixupCommitString(commit)
 
-	var commits []string
+	cm := map[string]struct{}{}
 
-	// Add all commits that are equivalent to the specified string.
+	// Add all cm that are equivalent to the specified string.
 	for _, c := range gd.commits {
 		if commit == c.hash {
 			// User specified a hash; add the corresponding branch or tag name.
-			commits = append(commits, c.name)
+			cm[c.name] = struct{}{}
 		} else if commit == c.name {
 			// User specified a branch or tag; add the corresponding hash.
-			commits = append(commits, c.hash)
+			cm[c.hash] = struct{}{}
 		}
 	}
 
+	// If the user specified a hash, add the hash itself.
+	ct, err := gd.CommitType(path, commit)
+	if err != nil {
+		return nil, err
+	}
+
+	if ct == COMMIT_TYPE_HASH {
+		hash, err := gd.HashFor(path, commit)
+		if err != nil {
+			return nil, err
+		}
+		cm[hash] = struct{}{}
+	}
+
+	// Sort the list of commit strings.
+	var commits []string
+	for cstring, _ := range cm {
+		commits = append(commits, cstring)
+	}
 	sort.Strings(commits)
+
 	return commits, nil
 }
 

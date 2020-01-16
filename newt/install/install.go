@@ -36,16 +36,6 @@
 // "version specifiers".  Version specifiers map to "official releases", while
 // git commits typically map to "custom versions".
 //
-// Before newt can do anything with a repo requirement, it needs to extrapolate
-// two pieces of information:
-// 1. The normalized version number.
-// 2. The git commit.
-//
-// Newt needs the normalized version to determine the repo's dependencies, and
-// to ensure the version of the repo is compatible with the version of newt
-// being used.  Newt needs the git commit so that it knows how to checkout the
-// desired repo version.
-//
 // ### VERSION SPECIFIERS
 //
 // A repo's `repository.yml` file maps version specifiers to git commits in its
@@ -59,32 +49,6 @@
 // By performing a series of recursive lookups, newt converts a version
 // specifier to a normalized-version,git-commit pair.
 //
-// ### GIT COMMITS
-//
-// When newt encounters a git commit in the `project.yml` file, it already has
-// one piece of information that it needs: the git commit.  Newt uses the
-// following procedure to extrapolate its corresponding repo version:
-//
-// 1. If the repo at the commit contains a `version.yml` file, read the version
-//    from this file.
-// 2. Else, if the repo's `repository.yml` file maps the commit to a version
-//    number, use that version number.
-// 3. Else, warn the user and assume 0.0.0.
-//
-// The `version.yml` file is expected to be present in every commit in a repo.
-// It has the following form:
-//    repo.version: <normalized-version-number>
-//
-// For example, if commit 10 of repo X contains the following `version.yml`
-// file:
-//    repo.version: 1.10.0
-//
-// and commit 20 of repo X changes `version.yml` to:
-//    repo.version: 2.0.0
-//
-// then newt extrapolates 1.10.0 from commits 10 through 19 (inclusive).
-// Commit 20 and beyond correspond to 2.0.0.
-//
 // ### VERSION STRINGS
 //
 // Newt uses the following procedure when displaying a repo version to the
@@ -93,11 +57,8 @@
 // Official releases are expressed as a normalized version.
 //     e.g., 1.10.0
 //
-// Custom versions are expressed with the following form:
-//     <extrapolated-version>/<git-commit>
-//
-// E.g.,:
-//     0.0.0/0aae710654b48d9a84d54de771cc18427709df7d
+// Custom versions are expressed as a git hash.
+// 	   e.g., 0aae710654b48d9a84d54de771cc18427709df7d
 // ----------------------------------------------------------------------------
 
 package install
@@ -106,7 +67,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -126,8 +86,7 @@ const (
 )
 
 // Determines the currently installed version of the specified repo.  If the
-// repo doesn't have a valid `version.yml` file, and it isn't using a commit
-// that maps to a version, 0.0.0 is returned.
+// repo isn't using a commit that maps to a version, 0.0.0 is returned.
 func detectVersion(r *repo.Repo) (newtutil.RepoVersion, error) {
 	ver, err := r.InstalledVersion()
 	if err != nil {
@@ -254,104 +213,6 @@ func (inst *Installer) ensureDepsInList(repos []*repo.Repo,
 	return deps
 }
 
-// Normalizes the installer's set of repo requirements.  Only the repos in the
-// specified slice are considered.
-//
-// A repo requirement takes one of two forms:
-//  * Version specifier (e.g., 1.3.0. or 0-dev).
-//  * Git commit (e.g., 1f48a3c or master).
-//
-// This function converts requirements from the second form to the first.  A
-// git commit is converted to a version number with this procedure:
-//
-// 1. If the specified commit contains a `version.yml` file, read the version
-//    from this file.
-// 2. Else, if the repo's `repository.yml` file maps the commit to a version
-//    number, use that version number.
-// 3. Else, assume 0.0.0.
-func (inst *Installer) inferReqVers(repos []*repo.Repo) error {
-	for _, r := range repos {
-		req, ok := inst.reqs[r.Name()]
-		if ok {
-			if req.Commit != "" {
-				ver, err := r.NonInstalledVersion(req.Commit)
-				if err != nil {
-					return err
-				}
-
-				if ver == nil {
-					util.OneTimeWarning(
-						"Could not detect version of requested repo "+
-							"%s:%s; assuming 0.0.0",
-						r.Name(), req.Commit)
-
-					ver = &req
-				}
-				req = *ver
-				req.Commit, err = r.HashFromVer(req)
-				if err != nil {
-					return err
-				}
-
-				inst.reqs[r.Name()] = req
-			}
-		}
-	}
-
-	return nil
-}
-
-// Determines if the `project.yml` file specifies a nonexistent repo version.
-// Only the repos in the specified slice are considered.
-//
-// @param repos                 The list of repos to consider during the check.
-// @param m                     A matrix containing all versions of the
-//                                  specified repos.
-//
-// @return error                Error if any repo requirement is invalid.
-func (inst *Installer) detectIllegalRepoReqs(
-	repos []*repo.Repo, m deprepo.Matrix) error {
-
-	var lines []string
-	for _, r := range repos {
-		req, ok := inst.reqs[r.Name()]
-		if ok {
-			row := m.FindRow(r.Name())
-			if row == nil {
-				return util.FmtNewtError(
-					"internal error; repo \"%s\" missing from matrix", r.Name())
-			}
-
-			r := inst.repos[r.Name()]
-			nreq, err := r.NormalizeVerReq(req)
-			if err != nil {
-				return err
-			}
-
-			anySatisfied := false
-			for _, ver := range row.Vers {
-				if ver.Satisfies(nreq) {
-					anySatisfied = true
-					break
-				}
-			}
-			if !anySatisfied {
-				line := fmt.Sprintf("    %s,%s", r.Name(), nreq.String())
-				lines = append(lines, line)
-			}
-		}
-	}
-
-	if len(lines) > 0 {
-		sort.Strings(lines)
-		return util.NewNewtError(
-			"project.yml file specifies nonexistent repo versions:\n" +
-				strings.Join(lines, "\n"))
-	}
-
-	return nil
-}
-
 // Indicates whether a repo should be upgraded to the specified version.  A
 // repo should be upgraded if it is not currently installed, or if a version
 // other than the desired one is installed.
@@ -399,7 +260,8 @@ func (inst *Installer) filterUpgradeList(
 
 	filtered := deprepo.VersionMap{}
 
-	for name, ver := range vm {
+	for _, name := range vm.SortedNames() {
+		ver := vm[name]
 		doUpgrade, err := inst.shouldUpgradeRepo(name, ver)
 		if err != nil {
 			return nil, err
@@ -526,22 +388,6 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	}
 }
 
-// Filters out repos from a version map, keeping only those which are present
-// in the supplied slice.
-func filterVersionMap(
-	vm deprepo.VersionMap, keep []*repo.Repo) deprepo.VersionMap {
-
-	filtered := deprepo.VersionMap{}
-	for _, r := range keep {
-		name := r.Name()
-		if ver, ok := vm[name]; ok {
-			filtered[name] = ver
-		}
-	}
-
-	return filtered
-}
-
 // Creates a slice of repos, each corresponding to an element in the provided
 // version map.  The returned slice is sorted by repo name.
 func (inst *Installer) versionMapRepos(
@@ -562,34 +408,6 @@ func (inst *Installer) versionMapRepos(
 	}
 
 	return repos, nil
-}
-
-// assignCommits applies commit hashes to the selected version of each repo in
-// a version map.  In other words, it propagates `<...>-commit` requirements
-// from `project.yml` and `repository.yml` files.  If override is false,
-// attempting to set a commit for the same repo twice results in an error.
-func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
-	req newtutil.RepoVersion, override bool) error {
-
-	curVer := vm[repoName]
-	if curVer.Satisfies(req) {
-		if req.Commit != "" {
-			prevCommit := vm[repoName].Commit
-			newCommit := req.Commit
-
-			if !override && prevCommit != "" && prevCommit != newCommit {
-				return util.FmtNewtError(
-					"repo %s: multiple commits: %s, %s",
-					repoName, vm[repoName].Commit, req.Commit)
-
-			}
-			ver := vm[repoName]
-			ver.Commit = req.Commit
-			vm[repoName] = ver
-		}
-	}
-
-	return nil
 }
 
 // Calculates a map of repos and version numbers that should be included in an
@@ -619,25 +437,23 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 		}
 	}
 
-	m, err := deprepo.BuildMatrix(repoList, inst.vers)
-	if err != nil {
-		return nil, err
-	}
+	// Ensure project.yml doesn't specify any invalid versions
+	for repoName, repoVer := range inst.reqs {
+		rvp := deprepo.RVPair{
+			Name: repoName,
+			Ver:  repoVer,
+		}
+		r := inst.repos[repoName]
+		if r == nil {
+			return nil, util.FmtNewtError(
+				"project.yml depends on an unknown repo: %s", rvp.String())
+		}
 
-	if err := inst.inferReqVers(repoList); err != nil {
-		return nil, err
-	}
-
-	// If the `project.yml` file specifies an invalid repo version, abort now.
-	if err := inst.detectIllegalRepoReqs(repoList, m); err != nil {
-		return nil, err
-	}
-
-	// Remove blocked repo versions from the table.
-	if err := deprepo.PruneMatrix(
-		&m, inst.repos, inst.reqs); err != nil {
-
-		return nil, err
+		if !r.VersionIsValid(repoVer) {
+			return nil, util.FmtNewtError(
+				"project.yml depends on an unknown repo version: %s",
+				rvp.String())
+		}
 	}
 
 	// Construct a repo dependency graph from the `project.yml` version
@@ -647,53 +463,20 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 		return nil, err
 	}
 
-	log.Debugf("Repo dependency graph:\n%s\n", dg.String())
-	log.Debugf("Repo reverse dependency graph:\n%s\n", dg.Reverse().String())
+	log.Debugf("repo dependency graph:\n%s\n", dg.String())
+	log.Debugf("repo reverse dependency graph:\n%s\n", dg.Reverse().String())
 
-	// Don't consider repos that the user excluded (if a repo list was
-	// specified).
-	deprepo.PruneDepGraph(dg, candidates)
+	// Don't consider repos that the user excluded (i.e., if a partial repo
+	// list was specified).
+	deprepo.PruneDepGraph(dg, repoList)
 
-	// Try to find a version set that satisfies the dependency graph.  If no
-	// such set exists, report the conflicts and abort.
-	vm, conflicts := deprepo.FindAcceptableVersions(m, dg)
+	vm, conflicts := deprepo.ResolveRepoDeps(dg)
 	if len(conflicts) > 0 {
 		return nil, deprepo.ConflictError(conflicts)
 	}
 
-	// If repos specify git commits in their repo-dependencies, ensure we get
-	// them.
-	rg := dg.Reverse()
-	for name, nodes := range rg {
-		for _, node := range nodes {
-			if newtutil.CompareRepoVersions(node.Ver, vm[node.Name]) == 0 {
-				// Don't consider project.yml dependencies here.  Those get
-				// assigned last so that they can override inter-repo
-				// dependencies.
-				if node.Name != "" {
-					if err := inst.assignCommits(vm, name, node.VerReq, false); err != nil {
-						return nil, err
-					}
-				}
-			}
-		}
-	}
-
-	// If project.yml specified any specific git commits, ensure we get them.
-	// Commits specified in project.yml override those from repo-dependencies.
-	for name, reqs := range inst.reqs {
-		if err := inst.assignCommits(vm, name, reqs, true); err != nil {
-			return nil, err
-		}
-	}
-
-	log.Debugf("repo version map after project.yml overrides:\n%s",
+	log.Debugf("repo version map:\n%s",
 		vm.String())
-
-	// Now that we know which repo versions we want, we can eliminate some
-	// false-positives from the repo list.
-	repoList = inst.ensureDepsInList(candidates, vm)
-	vm = filterVersionMap(vm, repoList)
 
 	return vm, nil
 }
@@ -918,18 +701,20 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 	ri := inst.gatherInfo(r, vm)
 	s := fmt.Sprintf("    * %s:", r.Name())
 
-	s += fmt.Sprintf(" %s,", ri.commitHash)
+	s += fmt.Sprintf(" %s", ri.commitHash)
 	if ri.installedVer == nil {
-		s += " (not installed)"
+		s += ", (not installed)"
 	} else if ri.errorText != "" {
-		s += fmt.Sprintf(" (unknown: %s)", ri.errorText)
+		s += fmt.Sprintf(", (unknown: %s)", ri.errorText)
 	} else {
-		s += fmt.Sprintf(" %s", ri.installedVer.String())
+		if ri.installedVer.Commit == "" {
+			s += fmt.Sprintf(", %s", ri.installedVer.String())
+		}
 		if ri.dirtyState != "" {
-			s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
+			s += fmt.Sprintf(", (dirty: %s)", ri.dirtyState)
 		}
 		if ri.needsUpgrade {
-			s += " (needs upgrade)"
+			s += ", (needs upgrade)"
 		}
 	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
