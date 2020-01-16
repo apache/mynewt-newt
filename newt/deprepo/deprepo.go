@@ -37,7 +37,7 @@ type RepoMap map[string]*repo.Repo
 type VersionMap map[string]newtutil.RepoVersion
 
 // [repo-name] => requirements-for-key-repo
-type RequirementMap map[string][]newtutil.RepoVersionReq
+type RequirementMap map[string]newtutil.RepoVersion
 
 // Indicates an inability to find an acceptable version of a particular repo.
 type Conflict struct {
@@ -113,14 +113,14 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 	dg := DepGraph{}
 
 	// First, add the hard dependencies expressed in `project.yml`.
-	for repoName, verReqs := range rootReqs {
+	for repoName, verReq := range rootReqs {
 		repo := repos[repoName]
-		normalizedReqs, err := repo.NormalizeVerReqs(verReqs)
+		normalizedReq, err := repo.NormalizeVerReq(verReq)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := dg.AddRootDep(repoName, normalizedReqs); err != nil {
+		if err := dg.AddRootDep(repoName, []newtutil.RepoVersion{normalizedReq}); err != nil {
 			return nil, err
 		}
 	}
@@ -136,7 +136,7 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 			reqMap := RequirementMap{}
 			for _, d := range deps {
 				depRepo := repos[d.Name]
-				verReqs, err := depRepo.NormalizeVerReqs(d.VerReqs)
+				verReqs, err := depRepo.NormalizeVerReq(d.VerReqs)
 				if err != nil {
 					return nil, err
 				}
@@ -170,13 +170,13 @@ func PruneMatrix(m *Matrix, repos RepoMap, rootReqs RequirementMap) error {
 		// Remove versions of this depended-on package that don't satisfy the
 		// dependency's version requirements.
 		r := repos[dep.Name]
-		normalizedReqs, err := r.NormalizeVerReqs(dep.VerReqs)
+		normalizedReq, err := r.NormalizeVerReq(dep.VerReqs)
 		if err != nil {
 			return err
 		}
 		filter := Filter{
 			Name: dependentName,
-			Reqs: normalizedReqs,
+			Req:  normalizedReq,
 		}
 		m.ApplyFilter(dep.Name, filter)
 
@@ -217,16 +217,14 @@ func PruneMatrix(m *Matrix, repos RepoMap, rootReqs RequirementMap) error {
 	// which doesn't satisfy a requirement in `project.yml` is a
 	// known-bad-version and can be removed.  These repos' dependencies can
 	// then be pruned in turn.
-	for repoName, reqs := range rootReqs {
-		if len(reqs) > 0 {
-			dep := &repo.RepoDependency{
-				Name:    repoName,
-				VerReqs: reqs,
-			}
+	for repoName, req := range rootReqs {
+		dep := &repo.RepoDependency{
+			Name:    repoName,
+			VerReqs: req,
+		}
 
-			if err := recurse("project.yml", dep); err != nil {
-				return err
-			}
+		if err := recurse("project.yml", dep); err != nil {
+			return err
 		}
 	}
 
@@ -271,7 +269,7 @@ func ConflictError(conflicts []Conflict) error {
 		lines := []string{}
 		for _, f := range c.Filters {
 			lines = append(lines, fmt.Sprintf("\n    %30s requires %s %s",
-				f.Name, c.RepoName, newtutil.RepoVerReqsString(f.Reqs)))
+				f.Name, c.RepoName, f.Req.String()))
 		}
 		sort.Strings(lines)
 		s += strings.Join(lines, "")
@@ -368,7 +366,7 @@ func FindAcceptableVersions(m Matrix, dg DepGraph) (VersionMap, []Conflict) {
 			if filterName != "" {
 				conflict.Filters = append(conflict.Filters, Filter{
 					Name: filterName,
-					Reqs: node.VerReqs,
+					Req:  node.VerReq,
 				})
 			}
 		}

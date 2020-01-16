@@ -228,7 +228,8 @@ func (proj *Project) RepoIsInstalled(rname string) bool {
 }
 
 func (proj *Project) RepoIsRoot(rname string) bool {
-	return proj.rootRepoReqs[rname] != nil
+	_, ok := proj.rootRepoReqs[rname]
+	return ok == true
 }
 
 func (proj *Project) LocalRepo() *repo.Repo {
@@ -549,7 +550,7 @@ func (proj *Project) loadConfig() error {
 					return err
 				}
 			}
-			verReqs, err := newtutil.ParseRepoVersionReqs(fields["vers"])
+			verReq, err := newtutil.ParseRepoVersion(fields["vers"])
 			if err != nil {
 				return util.FmtNewtError(
 					"Repo \"%s\" contains invalid version requirement: "+
@@ -560,7 +561,7 @@ func (proj *Project) loadConfig() error {
 			if err := proj.addRepo(r); err != nil {
 				return err
 			}
-			proj.rootRepoReqs[repoName] = verReqs
+			proj.rootRepoReqs[repoName] = verReq
 		}
 	}
 
@@ -609,7 +610,7 @@ func (proj *Project) Init(dir string) error {
 	interfaces.SetProject(proj)
 
 	proj.repos = map[string]*repo.Repo{}
-	proj.rootRepoReqs = map[string][]newtutil.RepoVersionReq{}
+	proj.rootRepoReqs = map[string]newtutil.RepoVersion{}
 
 	// Load Project configuration
 	if err := proj.loadConfig(); err != nil {

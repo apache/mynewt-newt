@@ -271,29 +271,29 @@ func (inst *Installer) ensureDepsInList(repos []*repo.Repo,
 // 3. Else, assume 0.0.0.
 func (inst *Installer) inferReqVers(repos []*repo.Repo) error {
 	for _, r := range repos {
-		reqs, ok := inst.reqs[r.Name()]
+		req, ok := inst.reqs[r.Name()]
 		if ok {
-			for i, req := range reqs {
-				if req.Ver.Commit != "" {
-					ver, err := r.NonInstalledVersion(req.Ver.Commit)
-					if err != nil {
-						return err
-					}
-
-					if ver == nil {
-						util.OneTimeWarning(
-							"Could not detect version of requested repo "+
-								"%s:%s; assuming 0.0.0",
-							r.Name(), req.Ver.Commit)
-
-						ver = &req.Ver
-					}
-					reqs[i].Ver = *ver
-					reqs[i].Ver.Commit, err = r.HashFromVer(reqs[i].Ver)
-					if err != nil {
-						return err
-					}
+			if req.Commit != "" {
+				ver, err := r.NonInstalledVersion(req.Commit)
+				if err != nil {
+					return err
 				}
+
+				if ver == nil {
+					util.OneTimeWarning(
+						"Could not detect version of requested repo "+
+							"%s:%s; assuming 0.0.0",
+						r.Name(), req.Commit)
+
+					ver = &req
+				}
+				req = *ver
+				req.Commit, err = r.HashFromVer(req)
+				if err != nil {
+					return err
+				}
+
+				inst.reqs[r.Name()] = req
 			}
 		}
 	}
@@ -314,7 +314,7 @@ func (inst *Installer) detectIllegalRepoReqs(
 
 	var lines []string
 	for _, r := range repos {
-		reqs, ok := inst.reqs[r.Name()]
+		req, ok := inst.reqs[r.Name()]
 		if ok {
 			row := m.FindRow(r.Name())
 			if row == nil {
@@ -323,21 +323,20 @@ func (inst *Installer) detectIllegalRepoReqs(
 			}
 
 			r := inst.repos[r.Name()]
-			nreqs, err := r.NormalizeVerReqs(reqs)
+			nreq, err := r.NormalizeVerReq(req)
 			if err != nil {
 				return err
 			}
 
 			anySatisfied := false
 			for _, ver := range row.Vers {
-				if ver.SatisfiesAll(nreqs) {
+				if ver.Satisfies(nreq) {
 					anySatisfied = true
 					break
 				}
 			}
 			if !anySatisfied {
-				line := fmt.Sprintf("    %s,%s", r.Name(),
-					newtutil.RepoVerReqsString(nreqs))
+				line := fmt.Sprintf("    %s,%s", r.Name(), nreq.String())
 				lines = append(lines, line)
 			}
 		}
@@ -570,25 +569,23 @@ func (inst *Installer) versionMapRepos(
 // from `project.yml` and `repository.yml` files.  If override is false,
 // attempting to set a commit for the same repo twice results in an error.
 func (inst *Installer) assignCommits(vm deprepo.VersionMap, repoName string,
-	reqs []newtutil.RepoVersionReq, override bool) error {
+	req newtutil.RepoVersion, override bool) error {
 
-	for _, req := range reqs {
-		curVer := vm[repoName]
-		if curVer.Satisfies(req) {
-			if req.Ver.Commit != "" {
-				prevCommit := vm[repoName].Commit
-				newCommit := req.Ver.Commit
+	curVer := vm[repoName]
+	if curVer.Satisfies(req) {
+		if req.Commit != "" {
+			prevCommit := vm[repoName].Commit
+			newCommit := req.Commit
 
-				if !override && prevCommit != "" && prevCommit != newCommit {
-					return util.FmtNewtError(
-						"repo %s: multiple commits: %s, %s",
-						repoName, vm[repoName].Commit, req.Ver.Commit)
+			if !override && prevCommit != "" && prevCommit != newCommit {
+				return util.FmtNewtError(
+					"repo %s: multiple commits: %s, %s",
+					repoName, vm[repoName].Commit, req.Commit)
 
-				}
-				ver := vm[repoName]
-				ver.Commit = req.Ver.Commit
-				vm[repoName] = ver
 			}
+			ver := vm[repoName]
+			ver.Commit = req.Commit
+			vm[repoName] = ver
 		}
 	}
 
@@ -674,7 +671,7 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 				// assigned last so that they can override inter-repo
 				// dependencies.
 				if node.Name != "" {
-					if err := inst.assignCommits(vm, name, node.VerReqs, false); err != nil {
+					if err := inst.assignCommits(vm, name, node.VerReq, false); err != nil {
 						return nil, err
 					}
 				}

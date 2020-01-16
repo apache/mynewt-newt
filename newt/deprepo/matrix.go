@@ -31,7 +31,7 @@ import (
 // Eliminates non-matching version numbers when applied to a matrix row.
 type Filter struct {
 	Name string
-	Reqs []newtutil.RepoVersionReq
+	Req  newtutil.RepoVersion
 }
 
 // Contains all versions of a single repo.  These version numbers are read from
@@ -150,7 +150,7 @@ func (m *Matrix) ApplyFilter(repoName string, filter Filter) {
 
 	goodVers := []newtutil.RepoVersion{}
 	for _, v := range row.Vers {
-		if v.SatisfiesAll(filter.Reqs) {
+		if v.Satisfies(filter.Req) {
 			goodVers = append(goodVers, v)
 		}
 	}

@@ -257,23 +257,22 @@ func (r *Repo) NormalizeVersion(
 }
 
 // Normalizes the version component of a version requirement.
-func (r *Repo) NormalizeVerReq(verReq newtutil.RepoVersionReq) (
-	newtutil.RepoVersionReq, error) {
+func (r *Repo) NormalizeVerReq(verReq newtutil.RepoVersion) (
+	newtutil.RepoVersion, error) {
 
-	ver, err := r.NormalizeVersion(verReq.Ver)
+	ver, err := r.NormalizeVersion(verReq)
 	if err != nil {
 		return verReq, err
 	}
 
-	verReq.Ver = ver
-	return verReq, nil
+	return ver, nil
 }
 
 // Normalizes the version component of each specified version requirement.
-func (r *Repo) NormalizeVerReqs(verReqs []newtutil.RepoVersionReq) (
-	[]newtutil.RepoVersionReq, error) {
+func (r *Repo) NormalizeVerReqs(verReqs []newtutil.RepoVersion) (
+	[]newtutil.RepoVersion, error) {
 
-	result := make([]newtutil.RepoVersionReq, len(verReqs))
+	result := make([]newtutil.RepoVersion, len(verReqs))
 	for i, verReq := range verReqs {
 		n, err := r.NormalizeVerReq(verReq)
 		if err != nil {

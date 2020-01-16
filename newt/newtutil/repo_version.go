@@ -22,14 +22,11 @@ package newtutil
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	"mynewt.apache.org/newt/util"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -48,11 +45,6 @@ const (
 // the minor and revision parts are floating.
 const VERSION_FLOATING = -1
 
-type RepoVersionReq struct {
-	CompareType string
-	Ver         RepoVersion
-}
-
 type RepoVersion struct {
 	Major     int64
 	Minor     int64
@@ -63,10 +55,6 @@ type RepoVersion struct {
 
 func (v *RepoVersion) IsNormalized() bool {
 	return v.Stability == VERSION_STABILITY_NONE
-}
-
-func (vm *RepoVersionReq) String() string {
-	return vm.CompareType + vm.Ver.String()
 }
 
 func (v *RepoVersion) toComparable() RepoVersion {
@@ -102,50 +90,9 @@ func CompareRepoVersions(v1 RepoVersion, v2 RepoVersion) int64 {
 	return 0
 }
 
-func (v *RepoVersion) Satisfies(verReq RepoVersionReq) bool {
-	if verReq.Ver.Commit != "" && verReq.CompareType != "==" {
-		log.Warningf("RepoVersion comparison with a tag %s %s %s",
-			verReq.Ver, verReq.CompareType, v)
-	}
-	r := CompareRepoVersions(verReq.Ver, *v)
-	switch verReq.CompareType {
-	case "<":
-		if r <= 0 {
-			return false
-		}
-	case "<=":
-		if r < 0 {
-			return false
-		}
-	case ">":
-		if r >= 0 {
-			return false
-		}
-	case ">=":
-		if r > 0 {
-			return false
-		}
-	case "==":
-		if r != 0 {
-			return false
-		}
-	}
-
-	if verReq.Ver.Stability != v.Stability {
-		return false
-	}
-
-	return true
-}
-
-func (v *RepoVersion) SatisfiesAll(verReqs []RepoVersionReq) bool {
-	for _, r := range verReqs {
-		if !v.Satisfies(r) {
-			return false
-		}
-	}
-
-	return true
+// XXX: Remove this
+func (v *RepoVersion) Satisfies(verReq RepoVersion) bool {
+	return CompareRepoVersions(verReq, *v) == 0
 }
 
 func (ver *RepoVersion) String() string {
@@ -238,64 +185,6 @@ func ParseRepoVersion(verStr string) (RepoVersion, error) {
 	}
 
 	return ver, nil
-}
-
-// Parse a set of version string constraints on a dependency.
-// This function
-// The version string contains a list of version constraints in the following format:
-//    - <comparison><version>
-// Where <comparison> can be any one of the following comparison
-//   operators: <=, <, >, >=, ==
-// And <version> is specified in the form: X.Y.Z where X, Y and Z are all
-// int64 types in decimal form
-func ParseRepoVersionReqs(versStr string) ([]RepoVersionReq, error) {
-	var err error
-
-	verReqs := []RepoVersionReq{}
-
-	re, err := regexp.Compile(`(<=|>=|==|>|<)(.+)`)
-	if err != nil {
-		return nil, err
-	}
-
-	matches := re.FindAllStringSubmatch(versStr, -1)
-	if matches != nil {
-		for _, match := range matches {
-			vm := RepoVersionReq{}
-			vm.CompareType = match[1]
-			if vm.Ver, err = ParseRepoVersion(match[2]); err != nil {
-				return nil, err
-			}
-
-			verReqs = append(verReqs, vm)
-		}
-	} else {
-		vm := RepoVersionReq{}
-		vm.CompareType = "=="
-		if vm.Ver, err = ParseRepoVersion(versStr); err != nil {
-			return nil, err
-		}
-
-		verReqs = append(verReqs, vm)
-	}
-
-	if len(verReqs) == 0 {
-		verReqs = nil
-	}
-
-	return verReqs, nil
-}
-
-func RepoVerReqsString(verReqs []RepoVersionReq) string {
-	s := ""
-	for i, r := range verReqs {
-		if i != 0 {
-			s += " "
-		}
-		s += r.String()
-	}
-
-	return s
 }
 
 type verSorter struct {
