@@ -85,10 +85,10 @@ type Project struct {
 	yc ycfg.YCfg
 }
 
-func initProject(dir string) error {
+func initProject(dir string, download bool) error {
 	var err error
 
-	globalProject, err = LoadProject(dir)
+	globalProject, err = LoadProject(dir, download)
 	if err != nil {
 		return err
 	}
@@ -99,14 +99,14 @@ func initProject(dir string) error {
 	return nil
 }
 
-func initialize() error {
+func initialize(download bool) error {
 	if globalProject == nil {
 		wd, err := os.Getwd()
 		wd = filepath.ToSlash(wd)
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		if err := initProject(wd); err != nil {
+		if err := initProject(wd, download); err != nil {
 			return err
 		}
 	}
@@ -114,7 +114,14 @@ func initialize() error {
 }
 
 func TryGetProject() (*Project, error) {
-	if err := initialize(); err != nil {
+	if err := initialize(false); err != nil {
+		return nil, err
+	}
+	return globalProject, nil
+}
+
+func TryGetOrDownloadProject() (*Project, error) {
+	if err := initialize(true); err != nil {
 		return nil, err
 	}
 	return globalProject, nil
@@ -146,10 +153,10 @@ func ResetDeps(newList interfaces.PackageList) interfaces.PackageList {
 	return oldList
 }
 
-func NewProject(dir string) (*Project, error) {
+func NewProject(dir string, download bool) (*Project, error) {
 	proj := &Project{}
 
-	if err := proj.Init(dir); err != nil {
+	if err := proj.Init(dir, download); err != nil {
 		return nil, err
 	}
 
@@ -402,7 +409,7 @@ func (proj *Project) loadRepoDeps(download bool) error {
 								return nil, err
 							}
 						}
-						if err := proj.addRepo(depRepo); err != nil {
+						if err := proj.addRepo(depRepo, download); err != nil {
 							return nil, err
 						}
 					}
@@ -499,16 +506,25 @@ func (proj *Project) verifyNewtCompat() error {
 
 // addRepo Adds an entry to the project's repo map.  It clones the repo if it
 // does not exist locally.
-func (proj *Project) addRepo(r *repo.Repo) error {
-	if err := r.EnsureExists(); err != nil {
-		return err
+func (proj *Project) addRepo(r *repo.Repo, download bool) error {
+	if download {
+		if err := r.EnsureExists(); err != nil {
+			return err
+		}
+	} else {
+		if !r.CheckExists() {
+			return util.NewNewtError(
+				fmt.Sprintf(
+					"Repo \"%s\" is not installed, please run `newt upgrade`!",
+					r.Name()))
+		}
 	}
 
 	proj.repos[r.Name()] = r
 	return nil
 }
 
-func (proj *Project) loadConfig() error {
+func (proj *Project) loadConfig(download bool) error {
 	yc, err := config.ReadFile(proj.BasePath + "/" + PROJECT_FILE_NAME)
 	if err != nil {
 		return util.NewNewtError(err.Error())
@@ -557,7 +573,7 @@ func (proj *Project) loadConfig() error {
 					repoName, fields["vers"], err.Error())
 			}
 
-			if err := proj.addRepo(r); err != nil {
+			if err := proj.addRepo(r, download); err != nil {
 				return err
 			}
 			proj.rootRepoReqs[repoName] = verReq
@@ -602,7 +618,7 @@ func (proj *Project) loadConfig() error {
 	return nil
 }
 
-func (proj *Project) Init(dir string) error {
+func (proj *Project) Init(dir string, download bool) error {
 	proj.BasePath = filepath.ToSlash(filepath.Clean(dir))
 
 	// Only one project per system, when created, set it as the global project
@@ -612,7 +628,7 @@ func (proj *Project) Init(dir string) error {
 	proj.rootRepoReqs = map[string]newtutil.RepoVersion{}
 
 	// Load Project configuration
-	if err := proj.loadConfig(); err != nil {
+	if err := proj.loadConfig(download); err != nil {
 		return err
 	}
 
@@ -753,13 +769,13 @@ func (proj *Project) PackagesOfType(pkgType interfaces.PackageType) []interfaces
 	return matches
 }
 
-func LoadProject(dir string) (*Project, error) {
+func LoadProject(dir string, download bool) (*Project, error) {
 	projDir, err := findProjectDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	proj, err := NewProject(projDir)
+	proj, err := NewProject(projDir, download)
 
 	return proj, err
 }

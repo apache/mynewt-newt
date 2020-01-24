@@ -103,7 +103,7 @@ func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
 }
 
 func installRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetProject()
+	proj := TryGetOrDownloadProject()
 	interfaces.SetProject(proj)
 
 	pred := makeRepoPredicate(args)
@@ -115,7 +115,7 @@ func installRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetProject()
+	proj := TryGetOrDownloadProject()
 	interfaces.SetProject(proj)
 
 	pred := makeRepoPredicate(args)
@@ -180,7 +180,7 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func syncRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetProject()
+	proj := TryGetOrDownloadProject()
 	pred := makeRepoPredicate(args)
 
 	if err := proj.UpgradeIf(
