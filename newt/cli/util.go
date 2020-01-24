@@ -222,6 +222,21 @@ func TryGetProject() *project.Project {
 	return p
 }
 
+func TryGetOrDownloadProject() *project.Project {
+	var p *project.Project
+	var err error
+
+	if p, err = project.TryGetOrDownloadProject(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	for _, w := range p.Warnings() {
+		util.ErrorMessage(util.VERBOSITY_QUIET, "* Warning: %s\n", w)
+	}
+
+	return p
+}
+
 func ResolveUnittest(pkgName string) (*target.Target, error) {
 	// Each unit test package gets its own target.  This target is a copy
 	// of the base unit test package, just with an appropriate name.  The
