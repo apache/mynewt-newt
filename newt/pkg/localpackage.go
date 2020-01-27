@@ -21,9 +21,7 @@ package pkg
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,38 +153,6 @@ func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
 
 func (pkg *LocalPackage) SetRepo(r *repo.Repo) {
 	pkg.repo = r
-}
-
-func (pkg *LocalPackage) Hash() (string, error) {
-	hash := sha1.New()
-
-	err := filepath.Walk(pkg.basePath,
-		func(path string, info os.FileInfo, err error) error {
-			name := info.Name()
-			if PackageHashIgnoreDirs[name] {
-				return filepath.SkipDir
-			}
-
-			if info.IsDir() {
-				// SHA the directory name into the hash
-				hash.Write([]byte(name))
-			} else {
-				// SHA the file name & contents into the hash
-				contents, err := ioutil.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				hash.Write(contents)
-			}
-			return nil
-		})
-	if err != nil && err != filepath.SkipDir {
-		return "", util.NewNewtError(err.Error())
-	}
-
-	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
-
-	return hashStr, nil
 }
 
 func (pkg *LocalPackage) CfgFilenames() []string {
