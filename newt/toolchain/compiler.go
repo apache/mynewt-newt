@@ -1246,15 +1246,14 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return nil
 	}
 
-	// Delete the old archive, if it exists.
-	os.Remove(archiveFile)
-
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
 		path.Base(archiveFile))
 	util.StatusMessage(util.VERBOSITY_VERBOSE, " with object files %s",
 		strings.Join(objList, " "))
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
+	// Delete the old archive, if it exists.
+	err = os.Remove(archiveFile)
 	if err != nil && !os.IsNotExist(err) {
 		return util.NewNewtError(err.Error())
 	}
