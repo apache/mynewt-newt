@@ -133,14 +133,8 @@ func (r *RepoManager) GetManifestPkg(
 		Name: lpkg.FullName(),
 	}
 
-	var path string
-	if lpkg.Repo().IsLocal() {
-		ip.Repo = lpkg.Repo().Name()
-		path = lpkg.BasePath()
-	} else {
-		ip.Repo = lpkg.Repo().Name()
-		path = lpkg.BasePath()
-	}
+	ip.Repo = lpkg.Repo().Name()
+	path := lpkg.BasePath()
 
 	if _, present := r.repos[ip.Repo]; present {
 		return ip
