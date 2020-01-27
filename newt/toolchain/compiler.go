@@ -1363,7 +1363,7 @@ func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
 	if err != nil {
 		return err, nil
 	}
-	return err, out
+	return nil, out
 }
 
 func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolMap) error {
@@ -1373,7 +1373,7 @@ func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolM
 	if err != nil {
 		return err
 	}
-	return err
+	return nil
 }
 
 func (c *Compiler) ConvertBinToHex(inFile string, outFile string, baseAddr int) error {
