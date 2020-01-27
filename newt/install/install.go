@@ -344,21 +344,23 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	for _, name := range names {
 		r := inst.repos[name]
 		curVer := inst.installedVer(name)
-		if curVer != nil && curVer.Commit != "" {
-			c, err := r.CurrentHash()
-			if err == nil {
-				curVer.Commit = c
+		if curVer != nil {
+			if curVer.Commit != "" {
+				c, err := r.CurrentHash()
+				if err == nil {
+					curVer.Commit = c
+				}
 			}
-		}
-		destVer := vm[name]
+			destVer := vm[name]
 
-		msg, err := inst.installMessageOneRepo(
-			r, op, force, curVer, destVer)
-		if err != nil {
-			return false, err
-		}
+			msg, err := inst.installMessageOneRepo(
+				r, op, force, curVer, destVer)
+			if err != nil {
+				return false, err
+			}
 
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", msg)
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", msg)
+		}
 	}
 
 	if !ask {
