@@ -134,9 +134,6 @@ func (repo *Repo) FilteredSearchList(
 		}
 
 		name := entry.Name()
-		if err != nil {
-			continue
-		}
 
 		if !entry.IsDir() {
 			continue
