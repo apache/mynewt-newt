@@ -850,7 +850,7 @@ func OneTimeWarning(text string, args ...interface{}) {
 		warnings[body] = struct{}{}
 
 		body := fmt.Sprintf(text, args...)
-		StatusMessage(VERBOSITY_QUIET, "WARNING: %s\n", body)
+		ErrorMessage(VERBOSITY_QUIET, "WARNING: %s\n", body)
 	}
 }
 
