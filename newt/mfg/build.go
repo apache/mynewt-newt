@@ -155,7 +155,8 @@ func calcBsp(dm DecodedMfg,
 	}
 
 	if len(bspMap) == 0 {
-		return nil, util.FmtNewtError("at least one target required")
+		return nil, util.FmtNewtError(
+			"failed to determine BSP: no targets and no \"bsp\" field")
 	}
 
 	if len(bspMap) > 1 {
