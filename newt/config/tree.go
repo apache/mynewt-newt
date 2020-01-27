@@ -87,6 +87,11 @@ func BuildTree(entries []FileEntry) (*Node, error) {
 		}
 	}
 
+	if root == nil {
+		return nil, util.FmtNewtError(
+			"failed to build a config tree: no root file")
+	}
+
 	SortTree(root)
 	return root, nil
 }
