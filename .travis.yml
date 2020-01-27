@@ -53,7 +53,7 @@ before_install:
   - go version
 
 install:
-  - git clone https://github.com/JuulLabs-OSS/mynewt-travis-ci $HOME/ci
+  - git clone -b fix-newt-dump-diff https://github.com/utzig/mynewt-travis-ci $HOME/ci
   - chmod +x $HOME/ci/*.sh
   - export TEST=TEST_NEWT
   - $HOME/ci/${TRAVIS_OS_NAME}_travis_install.sh
