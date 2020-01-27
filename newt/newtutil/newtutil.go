@@ -185,3 +185,8 @@ func ProjRelPath(path string) string {
 	proj := interfaces.GetProject()
 	return strings.TrimPrefix(path, proj.Path()+"/")
 }
+
+func PrintNewtVersion() {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Apache Newt %s / %s / %s\n",
+		NewtVersionStr, NewtGitHash, NewtDate)
+}
