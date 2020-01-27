@@ -127,6 +127,8 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func infoRunCmd(cmd *cobra.Command, args []string) {
+	newtutil.PrintNewtVersion()
+
 	proj := TryGetProject()
 
 	// If no arguments specified, print status of all installed repos.
