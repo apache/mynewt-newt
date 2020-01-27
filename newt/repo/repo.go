@@ -417,8 +417,8 @@ func parseRepoDepMap(depName string,
 	}
 
 	versMap, err := cast.ToStringMapStringE(versYml)
-	if !ok {
-		return nil, util.FmtNewtError("invalid \"vers\" map")
+	if err != nil {
+		return nil, util.FmtNewtError("invalid \"vers\" map: %v", err)
 	}
 
 	fields := map[string]string{}
