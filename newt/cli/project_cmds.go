@@ -102,18 +102,6 @@ func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
 	}
 }
 
-func installRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetOrDownloadProject()
-	interfaces.SetProject(proj)
-
-	pred := makeRepoPredicate(args)
-	if err := proj.UpgradeIf(
-		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
-
-		NewtUsage(nil, err)
-	}
-}
-
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetOrDownloadProject()
 	interfaces.SetProject(proj)
@@ -181,39 +169,7 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func syncRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetOrDownloadProject()
-	pred := makeRepoPredicate(args)
-
-	if err := proj.UpgradeIf(
-		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
-
-		NewtUsage(nil, err)
-	}
-}
-
 func AddProjectCommands(cmd *cobra.Command) {
-	installHelpText := ""
-	installHelpEx := "  newt install\n"
-	installHelpEx += "    Installs all repositories specified in project.yml.\n\n"
-	installHelpEx += "  newt install apache-mynewt-core\n"
-	installHelpEx += "    Installs the apache-mynewt-core repository."
-	installCmd := &cobra.Command{
-		Use:        "install [repo-1] [repo-2] [...]",
-		Deprecated: "use \"upgrade\" instead",
-		Long:       installHelpText,
-		Example:    installHelpEx,
-		Run:        installRunCmd,
-	}
-	installCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
-		"force", "f", false,
-		"Force install of the repositories in project, regardless of what "+
-			"exists in repos directory")
-	installCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
-		"ask", "a", false, "Prompt user before installing any repos")
-
-	cmd.AddCommand(installCmd)
-
 	upgradeHelpText := ""
 	upgradeHelpEx := "  newt upgrade\n"
 	upgradeHelpEx += "    Upgrades all repositories specified in project.yml.\n\n"
@@ -233,25 +189,6 @@ func AddProjectCommands(cmd *cobra.Command) {
 		"ask", "a", false, "Prompt user before upgrading any repos")
 
 	cmd.AddCommand(upgradeCmd)
-
-	syncHelpText := ""
-	syncHelpEx := "  newt sync\n"
-	syncHelpEx += "    Syncs all repositories specified in project.yml.\n\n"
-	syncHelpEx += "  newt sync apache-mynewt-core\n"
-	syncHelpEx += "    Syncs the apache-mynewt-core repository."
-	syncCmd := &cobra.Command{
-		Use:        "sync [repo-1] [repo-2] [...]",
-		Deprecated: "use \"upgrade\" instead",
-		Long:       syncHelpText,
-		Example:    syncHelpEx,
-		Run:        syncRunCmd,
-	}
-	syncCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
-		"force", "f", false,
-		"Force overwrite of existing remote repositories.")
-	syncCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
-		"ask", "a", false, "Prompt user before syncing any repos")
-	cmd.AddCommand(syncCmd)
 
 	newHelpText := ""
 	newHelpEx := ""
