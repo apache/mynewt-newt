@@ -583,7 +583,7 @@ func (proj *Project) loadConfig(download bool) error {
 	// Read `repository.yml` files belonging to dependee repos from disk.
 	// These repos might not be specified in the `project.yml` file, but they
 	// are still part of the project.
-	if err := proj.loadRepoDeps(false); err != nil {
+	if err := proj.loadRepoDeps(download); err != nil {
 		return err
 	}
 
