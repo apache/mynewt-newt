@@ -48,6 +48,7 @@ type MfgBuildTarget struct {
 	Target        *target.Target
 	Area          flash.FlashArea
 	Offset        int
+	Size          int
 	IsBoot        bool
 	BinPath       string
 	ExtraManifest map[string]interface{}
@@ -229,12 +230,21 @@ func newMfgBuildTarget(dt DecodedTarget,
 
 	isBoot := parse.ValueIsTrue(man.Syscfg["BOOT_LOADER"])
 
+	binPath := targetSrcBinPath(t, isBoot)
+
+	st, err := os.Stat(binPath)
+	if err != nil {
+		return MfgBuildTarget{}, errors.Wrapf(err,
+			"failed to determine size of file \"%s\"", binPath)
+	}
+
 	return MfgBuildTarget{
 		Target:        t,
 		Area:          area,
 		Offset:        dt.Offset,
+		Size:          int(st.Size()),
 		IsBoot:        isBoot,
-		BinPath:       targetSrcBinPath(t, isBoot),
+		BinPath:       binPath,
 		ExtraManifest: dt.ExtraManifest,
 	}, nil
 }

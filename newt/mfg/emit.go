@@ -53,6 +53,7 @@ type CpEntry struct {
 type MfgEmitTarget struct {
 	Name          string
 	Offset        int
+	Size          int
 	IsBoot        bool
 	BinPath       string
 	ElfPath       string
@@ -121,6 +122,7 @@ func newMfgEmitTarget(bt MfgBuildTarget) (MfgEmitTarget, error) {
 	return MfgEmitTarget{
 		Name:    bt.Target.FullName(),
 		Offset:  bt.Area.Offset + bt.Offset,
+		Size:    bt.Size,
 		IsBoot:  bt.IsBoot,
 		BinPath: targetSrcBinPath(bt.Target, bt.IsBoot),
 		ElfPath: targetSrcElfPath(bt.Target),
@@ -386,6 +388,7 @@ func (me *MfgEmitter) emitManifest() ([]byte, error) {
 			Name:         t.Name,
 			ManifestPath: MfgTargetManifestPath(me.Name, i),
 			Offset:       t.Offset,
+			Size:         t.Size,
 			Extra:        t.ExtraManifest,
 		}
 
