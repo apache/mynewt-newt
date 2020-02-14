@@ -62,6 +62,9 @@ type Repo struct {
 
 	// version => commit
 	vers map[newtutil.RepoVersion]string
+
+	hasSubmodules bool
+	submodules    []string
 }
 
 type RepoDependency struct {
@@ -191,6 +194,22 @@ func (r *Repo) patchesFilePath() string {
 		"/.patches/"
 }
 
+// Check that there is a list of submodules to clone; if the key is
+// not present, assume that all submodules should be cloned, otherwise
+// only those configured will be cloned (or none if "")
+func (r *Repo) loadSubmoduleConfig(yc ycfg.YCfg) error {
+	r.hasSubmodules = yc.HasKey("repo.submodules")
+	if r.hasSubmodules {
+		submodules, err := yc.GetValStringSliceNonempty("repo.submodules", nil)
+		if err != nil {
+			return util.PreNewtError(err,
+				"failure parsing submodules for repo \"%s\"", r.Name())
+		}
+		r.submodules = submodules
+	}
+	return nil
+}
+
 func (r *Repo) downloadRepo(commit string) error {
 	dl := r.downloader
 
@@ -204,6 +223,33 @@ func (r *Repo) downloadRepo(commit string) error {
 	if err := dl.Clone(commit, tmpdir); err != nil {
 		return util.FmtNewtError("Error downloading repository %s: %s",
 			r.Name(), err.Error())
+	}
+
+	yc, err := config.ReadFile(tmpdir + "/" + REPO_FILE_NAME)
+	if err != nil {
+		return err
+	}
+
+	if err := r.loadSubmoduleConfig(yc); err != nil {
+		return err
+	}
+
+	if r.hasSubmodules {
+		if len(r.submodules) == 0 {
+			util.StatusMessage(util.VERBOSITY_VERBOSE, "Skipping submodule updates\n")
+		} else {
+			for _, submodule := range r.submodules {
+				if err := dl.UpdateSubmodule(tmpdir, submodule); err != nil {
+					return util.FmtNewtError("Error updating submodule \"%s\" for repository %s: %s",
+						submodule, r.Name(), err.Error())
+				}
+			}
+		}
+	} else {
+		if err := dl.UpdateSubmodules(tmpdir); err != nil {
+			return util.FmtNewtError("Error updating submodules for repository %s: %s",
+				r.Name(), err.Error())
+		}
 	}
 
 	// Copy the Git repo into the the desired local path of the repo
@@ -472,6 +518,10 @@ func (r *Repo) Read() error {
 
 	yc, err := config.ReadFile(r.repoFilePath() + "/" + REPO_FILE_NAME)
 	if err != nil {
+		return err
+	}
+
+	if err := r.loadSubmoduleConfig(yc); err != nil {
 		return err
 	}
 

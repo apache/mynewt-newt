@@ -65,6 +65,12 @@ type Downloader interface {
 	// repo in a "detached head" state.
 	Checkout(path string, commit string) error
 
+	// Recursively updates all submodules in a git repo
+	UpdateSubmodules(path string) error
+
+	// Recursively update a given submodule in a git repo
+	UpdateSubmodule(path string, submodule string) error
+
 	// Indicates whether the repo is in a clean or dirty state.
 	DirtyState(path string) (string, error)
 
@@ -181,34 +187,6 @@ func commitExists(repoDir string, commit string) bool {
 	}
 	_, err := executeGitCommand(repoDir, cmd, true)
 	return err == nil
-}
-
-func initSubmodules(path string) error {
-	cmd := []string{
-		"submodule",
-		"init",
-	}
-
-	_, err := executeGitCommand(path, cmd, true)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func updateSubmodules(path string) error {
-	cmd := []string{
-		"submodule",
-		"update",
-	}
-
-	_, err := executeGitCommand(path, cmd, true)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // fixupCommitString strips "origin/" from the front of a commit, if it is
@@ -474,14 +452,38 @@ func (gd *GenericDownloader) Checkout(repoDir string, commit string) error {
 		applyMcubootPostHack(repoDir, string(o))
 	}
 
-	// Always initialize and update submodules on checkout.  This prevents the
-	// repo from being in a modified "(new commits)" state immediately after
-	// switching commits.  If the submodules have already been updated, this
-	// does not generate any network activity.
-	if err := initSubmodules(repoDir); err != nil {
+	return nil
+}
+
+// Update one submodule tree in a repo (under path)
+func (gd *GenericDownloader) UpdateSubmodule(path string, submodule string) error {
+	cmd := []string{
+		"submodule",
+		"update",
+		"--init",
+		"--recursive",
+		submodule,
+	}
+
+	_, err := executeGitCommand(path, cmd, true)
+	if err != nil {
 		return err
 	}
-	if err := updateSubmodules(repoDir); err != nil {
+
+	return nil
+}
+
+// Update all submodules in a repo (under path)
+func (gd *GenericDownloader) UpdateSubmodules(path string) error {
+	cmd := []string{
+		"submodule",
+		"update",
+		"--init",
+		"--recursive",
+	}
+
+	_, err := executeGitCommand(path, cmd, true)
+	if err != nil {
 		return err
 	}
 

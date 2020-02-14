@@ -266,6 +266,10 @@ func (yc *YCfg) find(key string) *YCfgNode {
 	return cur
 }
 
+func (yc *YCfg) HasKey(key string) bool {
+	return yc.find(key) != nil
+}
+
 // Get retrieves all nodes with the specified key.  If it encounters a parse
 // error in the tree, it ignores the bad node and continues the search.  All
 // bad nodes are indicated in the returned error.  In this sense, the returned
