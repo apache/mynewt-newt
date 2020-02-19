@@ -369,8 +369,17 @@ func ShellCommandLimitDbgOutput(
 		name = "/bin/sh"
 		args = []string{"-c", strings.Replace(cmd, "\"", "\\\"", -1)}
 	} else {
-		name = cmdStrs[0]
-		args = cmdStrs[1:]
+		if strings.HasSuffix(cmdStrs[0], ".sh") {
+			var newt_sh = os.Getenv("NEWT_SH")
+			if newt_sh == "" {
+				newt_sh = "bash"
+			}
+			name = newt_sh
+			args = cmdStrs
+		} else {
+			name = cmdStrs[0]
+			args = cmdStrs[1:]
+		}
 	}
 	cmd := exec.Command(name, args...)
 
@@ -428,6 +437,18 @@ func ShellInteractiveCommand(cmdStr []string, env map[string]string,
 	// Escape special characters for Windows.
 	fixupCmdArgs(cmdStr)
 
+	var newt_sh string
+	if runtime.GOOS == "windows" && strings.HasSuffix(cmdStr[0], ".sh") {
+		newt_sh = os.Getenv("NEWT_SH")
+		if newt_sh == "" {
+			bash, err := exec.LookPath("bash")
+			if err != nil {
+				return err
+			}
+			newt_sh = bash
+		}
+		cmdStr = append([]string{newt_sh}, cmdStr...)
+	}
 	log.Print("[VERBOSE] " + cmdStr[0])
 
 	c := make(chan os.Signal, 1)
