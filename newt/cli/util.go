@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -99,17 +98,6 @@ func ResolveTarget(name string) *target.Target {
 	// Check the local "targets" directory.
 	if t := targetMap[TARGET_DEFAULT_DIR+"/"+name]; t != nil {
 		return t
-	}
-
-	// Check each repo alphabetically.
-	fullNames := []string{}
-	for fullName, _ := range targetMap {
-		fullNames = append(fullNames, fullName)
-	}
-	for _, fullName := range util.SortFields(fullNames...) {
-		if name == filepath.Base(fullName) {
-			return targetMap[fullName]
-		}
 	}
 
 	return nil
