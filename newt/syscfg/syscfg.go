@@ -39,6 +39,7 @@ import (
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -1391,6 +1392,59 @@ func writeSettings(cfg Cfg, w io.Writer) {
 	}
 }
 
+func writeReposInfo(w io.Writer) {
+	repos := make([]string, 0, len(project.GetProject().Repos()))
+	for r, _ := range project.GetProject().Repos() {
+		repos = append(repos, r)
+	}
+	sort.Strings(repos)
+
+	for _, n := range repos {
+		r := project.GetProject().Repos()[n]
+
+		if !r.CheckExists() {
+			continue;
+		}
+
+		commitHash, err := r.CurrentHash()
+		if err != nil {
+			continue;
+		}
+
+		fmt.Fprintf(w, "/*** Repository @%s info */\n", r.Name())
+
+		k := fmt.Sprintf("%s", settingName("REPO_HASH_" + util.CIdentifier(strings.ToUpper(r.Name()))))
+		v := fmt.Sprintf("\"%s", commitHash)
+
+		dirty, err := r.DirtyState()
+		if err != nil {
+			dirty = "unknown"
+		}
+
+		if dirty != "" {
+			v += "-dirty"
+		}
+
+		v += "\""
+
+		writeDefine(k, v, w)
+		fmt.Fprintf(w, "\n")
+
+		ver, err := r.InstalledVersion()
+		if err != nil || ver == nil {
+			v = "0.0.0"
+		} else {
+			v = ver.String();
+		}
+
+		k = fmt.Sprintf("%s", settingName("REPO_VERSION_" + util.CIdentifier(strings.ToUpper(r.Name()))))
+		v = fmt.Sprintf("\"%s\"", v)
+
+		writeDefine(k, v, w)
+		fmt.Fprintf(w, "\n")
+	}
+}
+
 func write(cfg Cfg, w io.Writer) {
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
@@ -1398,6 +1452,9 @@ func write(cfg Cfg, w io.Writer) {
 	fmt.Fprintf(w, "#define H_MYNEWT_SYSCFG_\n\n")
 
 	writeCheckMacros(w)
+	fmt.Fprintf(w, "\n")
+
+	writeReposInfo(w)
 	fmt.Fprintf(w, "\n")
 
 	writeSettings(cfg, w)
