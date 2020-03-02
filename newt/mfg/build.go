@@ -25,10 +25,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/apache/mynewt-artifact/errors"
 	"github.com/apache/mynewt-artifact/flash"
@@ -249,22 +247,35 @@ func newMfgBuildTarget(dt DecodedTarget,
 	}, nil
 }
 
-func newMfgBuildRaw(dr DecodedRaw,
-	fm flashmap.FlashMap, basePath string) (MfgBuildRaw, error) {
-
-	pathToBase := func(s string) string {
-		if !strings.HasPrefix(s, "/") {
-			s = basePath + "/" + s
+func newMfgBuildRaw(dr DecodedRaw, fm flashmap.FlashMap) (MfgBuildRaw, error) {
+	checkFile := func(filename string) (string, int, error) {
+		abs, err := filepath.Abs(filename)
+		if err != nil {
+			return "", 0, util.FmtNewtError(
+				"failed to determine absolute path of file: path=%s", filename)
 		}
 
-		return filepath.Clean(s)
+		st, err := os.Stat(abs)
+		if err != nil {
+			return "", 0, errors.Wrapf(err,
+				"failed to determine size of file \"%s\"", abs)
+		}
+
+		return abs, int(st.Size()), nil
 	}
 
-	filename := pathToBase(dr.Filename)
+	filename, filesize, err := checkFile(dr.Filename)
+	if err != nil {
+		return MfgBuildRaw{}, err
+	}
 
 	var extraFiles []string
 	for _, ef := range dr.ExtraFiles {
-		extraFiles = append(extraFiles, pathToBase(ef))
+		ename, _, err := checkFile(ef)
+		if err != nil {
+			return MfgBuildRaw{}, err
+		}
+		extraFiles = append(extraFiles, ename)
 	}
 
 	area, err := lookUpArea(fm, dr.Area)
@@ -272,16 +283,10 @@ func newMfgBuildRaw(dr DecodedRaw,
 		return MfgBuildRaw{}, err
 	}
 
-	st, err := os.Stat(filename)
-	if err != nil {
-		return MfgBuildRaw{}, errors.Wrapf(err,
-			"failed to determine size of file \"%s\"", filename)
-	}
-
 	return MfgBuildRaw{
-		Filename:      path.Clean(filename),
+		Filename:      filename,
 		Offset:        dr.Offset,
-		Size:          int(st.Size()),
+		Size:          filesize,
 		Area:          area,
 		ExtraFiles:    extraFiles,
 		ExtraManifest: dr.ExtraManifest,
@@ -439,7 +444,7 @@ func newMfgBuilder(basePkg *pkg.LocalPackage, dm DecodedMfg,
 	}
 
 	for _, dr := range dm.Raws {
-		mbr, err := newMfgBuildRaw(dr, bsp.FlashMap, basePkg.BasePath())
+		mbr, err := newMfgBuildRaw(dr, bsp.FlashMap)
 		if err != nil {
 			return mb, err
 		}
