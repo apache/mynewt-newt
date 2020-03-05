@@ -525,7 +525,7 @@ func CopyDir(srcDirStr, dstDirStr string) error {
 		return ChildNewtError(err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dstDirStr), info.Mode()); err != nil {
+	if err := os.MkdirAll(dstDirStr, info.Mode()); err != nil {
 		return ChildNewtError(err)
 	}
 
