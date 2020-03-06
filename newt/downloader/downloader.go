@@ -314,6 +314,57 @@ func getCommits(path string) (map[string]Commit, error) {
 	return m, nil
 }
 
+// urlsEquivalent determines if two URLs point to the same repo.  URLs are
+// equivalent if:
+//     1. The strings are identical after the optional ".git" suffixes are
+//        stripped,
+//          OR
+//     2. One is a "git@" URL and the other is an "https://" URL for the same
+//        repo.  For example:
+//            git@github.com:apache/mynewt-core.git
+//            https://github.com/apache/mynewt-core
+func urlsEquivalent(a string, b string) bool {
+	// Strip optional `.git` suffix.
+	a = strings.TrimSuffix(a, ".git")
+	b = strings.TrimSuffix(b, ".git")
+
+	if a == b {
+		return true
+	}
+
+	gitRE := regexp.MustCompile(`git@([^:]+):(.*)`)
+
+	parseGit := func(s string) string {
+		groups := gitRE.FindStringSubmatch(s)
+		if len(groups) != 3 {
+			return ""
+		}
+
+		return groups[1] + "/" + groups[2]
+	}
+
+	parseHttps := func(s string) string {
+		if !strings.HasPrefix(s, "https://") {
+			return ""
+		}
+
+		return strings.TrimPrefix(s, "https://")
+	}
+
+	var git string
+	var https string
+
+	git = parseGit(a)
+	if git == "" {
+		git = parseGit(b)
+		https = parseHttps(a)
+	} else {
+		https = parseHttps(b)
+	}
+
+	return git != "" && git == https
+}
+
 // init populates a generic downloader with branch and tag information.
 func (gd *GenericDownloader) init(path string) error {
 	cmap, err := getCommits(path)
@@ -848,7 +899,7 @@ func (gd *GithubDownloader) FixupOrigin(path string) error {
 
 	// Use the public URL, i.e., hide the login and password.
 	_, publicUrl := gd.remoteUrls()
-	if curUrl == publicUrl {
+	if urlsEquivalent(curUrl, publicUrl) {
 		return nil
 	}
 
@@ -925,7 +976,7 @@ func (gd *GitDownloader) FixupOrigin(path string) error {
 		return err
 	}
 
-	if curUrl == gd.Url {
+	if urlsEquivalent(curUrl, gd.Url) {
 		return nil
 	}
 
