@@ -60,12 +60,22 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	if err := dl.Clone(newtutil.NewtBlinkyTag, tmpdir); err != nil {
+	if err := dl.Clone("master", tmpdir); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	commit, err := dl.LatestRc(tmpdir, newtutil.NewtBlinkyTag)
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	err = dl.Checkout(tmpdir, commit)
+	if err != nil {
 		NewtUsage(nil, err)
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Installing "+
-		"skeleton in %s...\n", newDir)
+		"skeleton in %s (commit: %s)\n", newDir, commit)
 
 	if err := util.CopyDir(tmpdir, newDir); err != nil {
 		NewtUsage(cmd, err)
