@@ -1,6 +1,6 @@
 # RELEASE NOTES
 
-18 March 2029 - Apache Newt v1.8.0
+18 March 2020 - Apache Newt v1.8.0
 
 For full release notes, please visit the
 [Apache Mynewt Wiki](https://cwiki.apache.org/confluence/display/MYNEWT/Release+Notes).
