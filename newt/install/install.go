@@ -423,6 +423,11 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 
 	for _, r := range repoList {
 		for commit, _ := range r.CommitDepMap() {
+			commit, err := r.Downloader().LatestRc(r.Path(), commit)
+			if err != nil {
+				return nil, err
+			}
+
 			equiv, err := r.Downloader().CommitsFor(r.Path(), commit)
 			if err != nil {
 				return nil, err
