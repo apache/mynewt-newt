@@ -728,14 +728,11 @@ func (gd *GenericDownloader) LatestRc(path string,
 
 	notag := strings.TrimSuffix(base, "_tag")
 	if notag == base {
-		return "", nil
+		return base, nil
 	}
 
 	restr := fmt.Sprintf("^%s_rc(\\d+)_tag$", regexp.QuoteMeta(notag))
-	re, err := regexp.Compile(restr)
-	if err != nil {
-		return "", util.FmtNewtError("internal error: %s", err.Error())
-	}
+	re := regexp.MustCompile(restr)
 
 	bestNum := -1
 	bestStr := ""
@@ -748,6 +745,10 @@ func (gd *GenericDownloader) LatestRc(path string,
 				bestStr = commit
 			}
 		}
+	}
+
+	if bestStr == "" {
+		bestStr = base
 	}
 
 	return bestStr, nil
