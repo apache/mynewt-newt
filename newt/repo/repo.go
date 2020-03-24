@@ -291,7 +291,7 @@ func (r *Repo) updateRepo(commit string) error {
 				"Error updating \"%s\": %s", r.Name(), err.Error())
 		}
 
-		if newCommit != "" {
+		if newCommit != commit {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"in repo \"%s\": commit \"%s\" does not exist; "+
 					"using \"%s\" instead\n",
