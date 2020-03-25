@@ -424,11 +424,7 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	for _, r := range repoList {
 		for commit, _ := range r.CommitDepMap() {
 			equiv, err := r.Downloader().CommitsFor(r.Path(), commit)
-			if err != nil {
-				return nil, err
-			}
-
-			if len(equiv) == 0 {
+			if err != nil || len(equiv) == 0 {
 				util.OneTimeWarning(
 					"repo bases a dependency on a nonexistent commit; "+
 						"repository.yml contains an error; "+
