@@ -11,7 +11,7 @@ when available.  To find these, please go to https://mynewt.apache.org/.
 # Installing From Source
 
 The newt tool is written in Go (https://golang.org/).  In order to build Apache
-Mynewt, you must have Go 1.10 or later installed on your system.  Please visit
+Mynewt, you must have Go 1.12 or later installed on your system.  Please visit
 the Golang website for more information on installing Go (https://golang.org/).
 
 Once you have Go installed, you can build newt by running the contained
@@ -25,12 +25,14 @@ following path, relative to the source directory:
 If you do not wish to run the included script, you can build newt manually with Go as follows (executed from the source directory):
 
 ```no-highlight
-    $ mkdir "$GOPATH"/src/mynewt.apache.org
-    $ cp -r * "$GOPATH"/src/mynewt.apache.org     # Or untar to this path
-    $ go install mynewt.apache.org/newt/newt
+    $ cd "$GOPATH"/src/
+    $ git clone https://github.com/apache/mynewt-newt
+    $ cd mynewt-newt/newt
+    $ go get
+    $ go build
 ```
 
-This puts the newt binary in $GOPATH/bin
+This downloads the dependencies and builds newt executable.
 
 You can test the installation by running newt:
 
