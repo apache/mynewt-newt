@@ -100,22 +100,22 @@ type MfgEmitter struct {
 func targetSrcBinPath(t *target.Target, isBoot bool) string {
 	if isBoot {
 		return builder.AppBinPath(t.Name(), builder.BUILD_NAME_APP,
-			t.App().Name())
+			t.App().FullName())
 	} else {
 		return builder.AppImgPath(t.Name(), builder.BUILD_NAME_APP,
-			t.App().Name())
+			t.App().FullName())
 	}
 }
 
 // Calculates the source path of a target's `.elf` file.
 func targetSrcElfPath(t *target.Target) string {
-	return builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name())
+	return builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().FullName())
 }
 
 // Calculates the source path of a target's manifest file.
 func targetSrcManifestPath(t *target.Target) string {
 	return builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP,
-		t.App().Name())
+		t.App().FullName())
 }
 
 func newMfgEmitTarget(bt MfgBuildTarget) (MfgEmitTarget, error) {
@@ -127,7 +127,7 @@ func newMfgEmitTarget(bt MfgBuildTarget) (MfgEmitTarget, error) {
 		BinPath: targetSrcBinPath(bt.Target, bt.IsBoot),
 		ElfPath: targetSrcElfPath(bt.Target),
 		ManifestPath: builder.ManifestPath(bt.Target.Name(),
-			builder.BUILD_NAME_APP, bt.Target.App().Name()),
+			builder.BUILD_NAME_APP, bt.Target.App().FullName()),
 		ExtraManifest: bt.ExtraManifest,
 	}, nil
 }
