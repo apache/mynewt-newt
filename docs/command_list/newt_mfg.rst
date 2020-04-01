@@ -73,7 +73,7 @@ Create the directory to hold the mfg packages.
 
     $ mkdir -p mfgs/rb_blinky_rsa
 
-The ``rb_blinky_rsa`` package needs a pkg.yml file. In addition it is needs a mfg.yml file to specify the two constituent targets. An example of each file is shown below.
+The ``rb_blinky_rsa`` package needs a pkg.yml file. In addition, it needs a mfg.yml file to specify the two constituent targets. An example of each file is shown below.
 
 .. code-block:: console
 
@@ -87,16 +87,25 @@ The ``rb_blinky_rsa`` package needs a pkg.yml file. In addition it is needs a mf
 .. code-block:: console
 
     $  more mfgs/rb_blinky_rsa/mfg.yml
-    mfg.bootloader: 'targets/rb_boot'
-    mfg.images:
-        - 'targets/rb_blinky'
+    mfg.bsp: "@apache-mynewt-core/hw/bsp/rb-nano2"
+    mfg.targets:
+        - rb_boot:
+          name: "targets/rb_boot"
+          area: FLASH_AREA_BOOTLOADER
+          offset: 0x0
+        - rb_blinky:
+          name: "targets/rb_blinky"
+          area: FLASH_AREA_IMAGE_0
+          offset: 0x0
+    mfg.meta:
+        area: FLASH_AREA_BOOTLOADER
 
 Build the bootloader and app images.
 
 .. code-block:: console
 
-    $ newt build rb_boot
-    $ newt create-image rb_blinky 0.0.1
+    $ newt build rb_boot && newt create-image rb_boot 0.0.1
+    $ newt build rb_blink && newt create-image rb_blinky 0.0.1
 
 Run the ``newt mfg create`` command to collect all the manufacturing snapshot files.
 
