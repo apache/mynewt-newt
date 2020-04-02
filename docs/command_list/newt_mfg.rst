@@ -104,7 +104,7 @@ Build the bootloader and app images.
 
 .. code-block:: console
 
-    $ newt build rb_boot && newt create-image rb_boot 0.0.1
+    $ newt build rb_boot
     $ newt build rb_blink && newt create-image rb_blinky 0.0.1
 
 Run the ``newt mfg create`` command to collect all the manufacturing snapshot files.
@@ -116,3 +116,5 @@ Run the ``newt mfg create`` command to collect all the manufacturing snapshot fi
     <snip>
     Generated the following files:
     <snip>
+
+A description of the generated files is available in the implementation's `readme <https://github.com/apache/mynewt-newt/blob/master/newt/mfg/README.md#file-structure>`_
