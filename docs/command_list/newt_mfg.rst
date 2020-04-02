@@ -105,7 +105,7 @@ Build the bootloader and app images.
 .. code-block:: console
 
     $ newt build rb_boot
-    $ newt build rb_blink && newt create-image rb_blinky 0.0.1
+    $ newt create-image rb_blinky 0.0.1
 
 Run the ``newt mfg create`` command to collect all the manufacturing snapshot files.
 
