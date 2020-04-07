@@ -105,9 +105,11 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			}
 
 			if useV1 {
-				err = imgprod.ProduceAllV1(b, ver, keys, "", -1, -1, -1)
+				err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename, encKeyIndex,
+					hdrPad, imagePad)
 			} else {
-				err = imgprod.ProduceAll(b, ver, keys, "", -1, -1, -1)
+				err = imgprod.ProduceAll(b, ver, keys, encKeyFilename, encKeyIndex,
+					hdrPad, imagePad)
 			}
 			if err != nil {
 				NewtUsage(nil, err)
@@ -150,10 +152,22 @@ func AddRunCommands(cmd *cobra.Command) {
 	runCmd.PersistentFlags().BoolVarP(&newtutil.NewtForce,
 		"force", "f", false,
 		"Ignore flash overflow errors during image creation")
+	runCmd.PersistentFlags().BoolVar(&image.UseRsaPss,
+		"rsa-pss", false,
+		"Use RSA-PSS instead of PKCS#1 v1.5 for RSA sig. "+
+			"Meaningful for version 1 image format.")
 	runCmd.PersistentFlags().BoolVarP(&useV1,
 		"1", "1", false, "Use old image header format")
 	runCmd.PersistentFlags().BoolVarP(&useV2,
 		"2", "2", false, "Use new image header format (default)")
+	runCmd.PersistentFlags().StringVarP(&encKeyFilename,
+		"encrypt", "e", "", "Encrypt image using this key")
+	runCmd.PersistentFlags().IntVarP(&encKeyIndex,
+		"hw-stored-key", "H", -1, "Hardware stored key index")
+	runCmd.PersistentFlags().IntVarP(&hdrPad,
+		"pad-header", "p", 0, "Pad header to this length")
+	runCmd.PersistentFlags().IntVarP(&imagePad,
+		"pad-image", "i", 0, "Pad image to this length")
 
 	cmd.AddCommand(runCmd)
 	AddTabCompleteFn(runCmd, func() []string {
