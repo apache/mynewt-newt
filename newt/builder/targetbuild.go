@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -227,8 +228,19 @@ func (t *TargetBuilder) ensureResolved() error {
 
 	// Configure the basic set of environment variables in the current process.
 	env := BasicEnvVars("", t.bspPkg)
-	for k, v := range env {
-		if err := os.Setenv(k, v); err != nil {
+	keys := make([]string, 0, len(env))
+	for k, _ := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	log.Debugf("exporting environment variables:")
+	for _, k := range keys {
+		v := env[k]
+		log.Debugf("    %s=%s", k, env[k])
+
+		err := os.Setenv(k, v)
+		if err != nil {
 			return util.FmtNewtError(
 				"failed to set env var %s=%s: %s", k, v, err.Error())
 		}
