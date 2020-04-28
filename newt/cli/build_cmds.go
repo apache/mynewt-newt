@@ -104,6 +104,7 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 var extraJtagCmd string
 var noGDB_flag bool
 var diffFriendly_flag bool
+var imgFileOverride string
 
 func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, executeShell bool) {
 	if len(args) < 1 {
@@ -350,7 +351,7 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	if err := b.Load(extraJtagCmd); err != nil {
+	if err := b.Load(extraJtagCmd, imgFileOverride); err != nil {
 		NewtUsage(cmd, err)
 	}
 }
@@ -487,6 +488,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 
 	loadCmd.PersistentFlags().StringVarP(&extraJtagCmd, "extrajtagcmd", "", "",
 		"Extra commands to send to JTAG software")
+	loadCmd.PersistentFlags().StringVarP(&imgFileOverride, "imgfile", "", "",
+		"Path of .img file to load instead of target artifact")
 
 	debugHelpText := "Open a debugger session for <target-name>"
 
