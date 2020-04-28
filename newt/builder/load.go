@@ -48,23 +48,23 @@ func (t *TargetBuilder) loadApp(slot int, extraJtagCmd string, imgFilename strin
 }
 
 func (t *TargetBuilder) debugLoader(extraJtagCmd string, reset bool,
-	noGDB bool) error {
+	noGDB bool, elfBase string) error {
 
 	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 
-	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB)
+	return t.LoaderBuilder.Debug(extraJtagCmd, reset, noGDB, elfBase)
 }
 
 func (t *TargetBuilder) debugApp(extraJtagCmd string, reset bool,
-	noGDB bool) error {
+	noGDB bool, elfBase string) error {
 
 	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 
-	return t.AppBuilder.Debug(extraJtagCmd, reset, noGDB)
+	return t.AppBuilder.Debug(extraJtagCmd, reset, noGDB, elfBase)
 }
 
 // Load loads a .img file onto a device.  If imgFileOverride is not empty, it
@@ -201,15 +201,40 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string, imgFilename string) e
 	return nil
 }
 
-func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
+// Debug runs gdb on the .elf file corresponding to what is running on a
+// device.  If elfFileOverride is not empty, it specifies the path of the .elf
+// file to debug.  If it is empty, the .elf file in the target's `bin`
+// directory is loaded.
+func (t *TargetBuilder) Debug(extraJtagCmd string, reset bool, noGDB bool, elfFileOverride string) error {
 	if err := t.PrepBuild(); err != nil {
 		return err
 	}
 
-	if t.LoaderBuilder == nil {
-		return t.debugApp(extraJtagCmd, reset, noGDB)
+	var elfBase string // Everything except ".elf"
+
+	if elfFileOverride != "" {
+		// The debug script appends ".elf" to the basename.  Make sure we can strip
+		// the extension here and the script will reconstruct the original
+		// filename.
+		elfBase = strings.TrimSuffix(elfFileOverride, ".elf")
+		if elfBase == elfFileOverride {
+			return util.FmtNewtError(
+				"invalid elf filename: must end in \".elf\": filename=%s",
+				elfFileOverride)
+		}
 	}
-	return t.debugLoader(extraJtagCmd, reset, noGDB)
+
+	if t.LoaderBuilder == nil {
+		if elfBase == "" {
+			elfBase = t.AppBuilder.AppBinBasePath()
+		}
+		return t.debugApp(extraJtagCmd, reset, noGDB, elfBase)
+	} else {
+		if elfBase == "" {
+			elfBase = t.LoaderBuilder.AppBinBasePath()
+		}
+		return t.debugLoader(extraJtagCmd, reset, noGDB, elfBase)
+	}
 }
 
 func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
@@ -231,6 +256,9 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 		return err
 	}
 
+	// Make sure the elf override (if any) gets used.
+	env["BIN_BASENAME"] = binPath
+
 	if extraJtagCmd != "" {
 		env["EXTRA_JTAG_CMD"] = extraJtagCmd
 	}
@@ -240,9 +268,6 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	if noGDB == true {
 		env["NO_GDB"] = "1"
 	}
-
-	// The debug script appends ".elf" to the basename.
-	env["BIN_BASENAME"] = strings.TrimSuffix(env["BIN_BASENAME"], ".elf")
 
 	os.Chdir(project.GetProject().Path())
 
@@ -257,11 +282,6 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	return util.ShellInteractiveCommand(cmdLine, env, false)
 }
 
-func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool) error {
-	binPath, err := b.binBasePath()
-	if err != nil {
-		return err
-	}
-
-	return b.debugBin(binPath, extraJtagCmd, reset, noGDB)
+func (b *Builder) Debug(extraJtagCmd string, reset bool, noGDB bool, binBase string) error {
+	return b.debugBin(binBase, extraJtagCmd, reset, noGDB)
 }

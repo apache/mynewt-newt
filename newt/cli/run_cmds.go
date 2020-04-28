@@ -120,7 +120,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			NewtUsage(nil, err)
 		}
 
-		if err := b.Debug(extraJtagCmd, true, noGDB_flag); err != nil {
+		if err := b.Debug(extraJtagCmd, true, noGDB_flag, ""); err != nil {
 			NewtUsage(nil, err)
 		}
 	}
