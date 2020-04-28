@@ -31,20 +31,20 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-func (t *TargetBuilder) loadLoader(slot int, extraJtagCmd string) error {
+func (t *TargetBuilder) loadLoader(slot int, extraJtagCmd string, imgFilename string) error {
 	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 
-	return t.LoaderBuilder.Load(slot, extraJtagCmd)
+	return t.LoaderBuilder.Load(slot, extraJtagCmd, imgFilename)
 }
 
-func (t *TargetBuilder) loadApp(slot int, extraJtagCmd string) error {
+func (t *TargetBuilder) loadApp(slot int, extraJtagCmd string, imgFilename string) error {
 	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
 
-	return t.AppBuilder.Load(slot, extraJtagCmd)
+	return t.AppBuilder.Load(slot, extraJtagCmd, imgFilename)
 }
 
 func (t *TargetBuilder) debugLoader(extraJtagCmd string, reset bool,
@@ -67,19 +67,32 @@ func (t *TargetBuilder) debugApp(extraJtagCmd string, reset bool,
 	return t.AppBuilder.Debug(extraJtagCmd, reset, noGDB)
 }
 
-func (t *TargetBuilder) Load(extraJtagCmd string) error {
+// Load loads a .img file onto a device.  If imgFileOverride is not empty, it
+// specifies the path of the image file to load.  If it is empty, the image in
+// the target's `bin` directory is loaded.
+func (t *TargetBuilder) Load(extraJtagCmd string, imgFileOverride string) error {
 	err := t.PrepBuild()
 	if err != nil {
 		return err
 	}
 
+	if t.LoaderBuilder != nil && imgFileOverride != "" {
+		return util.FmtNewtError(
+			"cannot specify image file override for split images")
+	}
+
+	appImg := imgFileOverride
+	if appImg == "" {
+		appImg = t.AppBuilder.AppBinBasePath()
+	}
+
 	if t.LoaderBuilder != nil {
-		err = t.loadApp(1, extraJtagCmd)
+		err = t.loadApp(1, extraJtagCmd, appImg)
 		if err == nil {
-			err = t.loadLoader(0, extraJtagCmd)
+			err = t.loadLoader(0, extraJtagCmd, t.LoaderBuilder.AppBinBasePath())
 		}
 	} else {
-		err = t.loadApp(0, extraJtagCmd)
+		err = t.loadApp(0, extraJtagCmd, appImg)
 	}
 
 	return err
@@ -149,7 +162,7 @@ func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	return nil
 }
 
-func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
+func (b *Builder) Load(imageSlot int, extraJtagCmd string, imgFilename string) error {
 	if b.appPkg == nil {
 		return util.NewNewtError("app package not specified")
 	}
@@ -171,15 +184,16 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string) error {
 
 	if _, ok := env["BOOT_LOADER"]; ok {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Loading bootloader\n")
+			"Loading bootloader (%s)\n", imgFilename)
 	} else {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"Loading %s image into slot %d\n", b.buildName, imageSlot+1)
+			"Loading %s image into slot %d (%s)\n", b.buildName, imageSlot+1, imgFilename)
 	}
 
 	// Convert the binary path from absolute to relative.  This is required for
 	// compatibility with unix-in-windows environemnts (e.g., cygwin).
-	binPath := util.TryRelPath(b.AppBinBasePath())
+	binPath := util.TryRelPath(imgFilename)
+
 	if err := Load(binPath, b.targetBuilder.bspPkg, env); err != nil {
 		return err
 	}

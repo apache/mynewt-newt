@@ -116,7 +116,7 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		if err := b.Load(extraJtagCmd); err != nil {
+		if err := b.Load(extraJtagCmd, ""); err != nil {
 			NewtUsage(nil, err)
 		}
 
