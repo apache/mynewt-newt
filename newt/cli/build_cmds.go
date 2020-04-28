@@ -105,6 +105,7 @@ var extraJtagCmd string
 var noGDB_flag bool
 var diffFriendly_flag bool
 var imgFileOverride string
+var elfFileOverride string
 
 func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, executeShell bool) {
 	if len(args) < 1 {
@@ -373,7 +374,7 @@ func debugRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	if err := b.Debug(extraJtagCmd, false, noGDB_flag); err != nil {
+	if err := b.Debug(extraJtagCmd, false, noGDB_flag, elfFileOverride); err != nil {
 		NewtUsage(cmd, err)
 	}
 }
@@ -504,6 +505,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		"", "Extra commands to send to JTAG software")
 	debugCmd.PersistentFlags().BoolVarP(&noGDB_flag, "noGDB", "n", false,
 		"Do not start GDB from command line")
+	debugCmd.PersistentFlags().StringVarP(&elfFileOverride, "elffile", "",
+		"", "Path of .elf file to debug instead of target artifact")
 
 	cmd.AddCommand(debugCmd)
 	AddTabCompleteFn(debugCmd, targetList)
