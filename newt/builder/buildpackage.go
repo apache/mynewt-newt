@@ -102,7 +102,7 @@ func (bpkg *BuildPackage) recursiveIncludePaths(
 
 	incls := []string{}
 	for _, p := range deps {
-		incls = append(incls, p.publicIncludeDirs(b.targetBuilder.bspPkg)...)
+		incls = append(incls, p.publicIncludeDirs(b)...)
 	}
 
 	return incls, nil
@@ -237,7 +237,8 @@ func (bpkg *BuildPackage) findSdkIncludes() []string {
 	return sdkPathList
 }
 
-func (bpkg *BuildPackage) publicIncludeDirs(bspPkg *pkg.BspPackage) []string {
+func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
+	bspPkg := b.targetBuilder.bspPkg
 	pkgBase := filepath.Base(bpkg.rpkg.Lpkg.Name())
 	bp := bpkg.rpkg.Lpkg.BasePath()
 
@@ -251,6 +252,16 @@ func (bpkg *BuildPackage) publicIncludeDirs(bspPkg *pkg.BspPackage) []string {
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
+
+		settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
+
+		inclDirs, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+			"pkg.include_dirs", settings)
+		util.OneTimeWarningError(err)
+
+		for _, dir := range inclDirs {
+			incls = append(incls, bp + "/" + dir)
+		}
 	}
 
 	return incls
