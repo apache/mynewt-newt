@@ -126,10 +126,10 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 	// Sort and remove duplicate flags
 	otherFlags = util.SortFields(otherFlags...)
 
-	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
-														PROPERTY
-														COMPILE_FLAGS
-														"%s")`,
+	fmt.Fprintf(w,
+`set_property(SOURCE %s APPEND_STRING
+             PROPERTY COMPILE_FLAGS
+             "%s")`,
 		cj.Filename,
 		strings.Join(escapeFlagsSlice(otherFlags), " "))
 	fmt.Fprintln(w)
@@ -168,7 +168,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 	pkgName := bpkg.rpkg.Lpkg.Name()
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
-	fmt.Fprintf(w, "# Generating CMakeLists.txt for %s\n\n", pkgName)
+	fmt.Fprintf(w, "\n# Generating CMakeLists.txt for %s\n", pkgName)
 	fmt.Fprintf(w, "add_library(%s %s)\n\n",
 		EscapeName(pkgName),
 		strings.Join(files, " "))
@@ -200,7 +200,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	}
 
 	elfName := "cmake_" + filepath.Base(b.AppElfPath())
-	fmt.Fprintf(w, "# Generating code for %s\n\n", elfName)
+	fmt.Fprintf(w, "# Generating code for %s\n", elfName)
 
 	var targetObjectsBuffer bytes.Buffer
 
@@ -228,10 +228,11 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().CXXflags...)
 	compileFlags = util.SortFields(compileFlags...)
 
-	fmt.Fprintf(w, `set_property(TARGET %s APPEND_STRING
-														PROPERTY
-														COMPILE_FLAGS
-														"%s")`,
+	fmt.Fprintf(w,
+`set_property(TARGET %s APPEND_STRING
+             PROPERTY
+             COMPILE_FLAGS
+             "%s")`,
 		elfName,
 		strings.Join(escapeFlagsSlice(compileFlags), " "))
 	fmt.Fprintln(w)
@@ -256,13 +257,14 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	cxxFlags = util.SortFields(cxxFlags...)
 	lFlags = append(lFlags, cxxFlags...)
 
-	fmt.Fprintf(w, `set_target_properties(%s
-							PROPERTIES
-							ARCHIVE_OUTPUT_DIRECTORY %s
-							LIBRARY_OUTPUT_DIRECTORY %s
-							RUNTIME_OUTPUT_DIRECTORY %s
-							LINK_FLAGS "%s"
-							LINKER_LANGUAGE C)`,
+	fmt.Fprintf(w,
+`set_target_properties(%s
+                      PROPERTIES
+                      ARCHIVE_OUTPUT_DIRECTORY %s
+                      LIBRARY_OUTPUT_DIRECTORY %s
+                      RUNTIME_OUTPUT_DIRECTORY %s
+                      LINK_FLAGS "%s"
+                      LINKER_LANGUAGE C)`,
 		elfName,
 		elfOutputDir,
 		elfOutputDir,
@@ -306,11 +308,12 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 	trimProjectPathSlice(includes)
 	replaceBackslashesSlice(includes)
 
-	fmt.Fprintf(w, `set_target_properties(%s
-							PROPERTIES
-							ARCHIVE_OUTPUT_DIRECTORY %s
-							LIBRARY_OUTPUT_DIRECTORY %s
-							RUNTIME_OUTPUT_DIRECTORY %s)`,
+	fmt.Fprintf(w,
+`set_target_properties(%s
+                      PROPERTIES
+                      ARCHIVE_OUTPUT_DIRECTORY %s
+                      LIBRARY_OUTPUT_DIRECTORY %s
+                      RUNTIME_OUTPUT_DIRECTORY %s)`,
 		EscapeName(bpkg.rpkg.Lpkg.Name()),
 		archiveFile,
 		archiveFile,
