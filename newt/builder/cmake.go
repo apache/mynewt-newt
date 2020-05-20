@@ -129,7 +129,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 	fmt.Fprintf(w, `set_property(SOURCE %s APPEND_STRING
 														PROPERTY
 														COMPILE_FLAGS
-														"%s")`,
+														" %s")`,
 		cj.Filename,
 		strings.Join(escapeFlagsSlice(otherFlags), " "))
 	fmt.Fprintln(w)
