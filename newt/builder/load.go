@@ -81,18 +81,28 @@ func (t *TargetBuilder) Load(extraJtagCmd string, imgFileOverride string) error 
 			"cannot specify image file override for split images")
 	}
 
-	appImg := imgFileOverride
-	if appImg == "" {
-		appImg = t.AppBuilder.AppBinBasePath()
+	var imgBase string
+	if imgFileOverride == "" {
+		imgBase = t.AppBuilder.AppBinBasePath()
+	} else {
+		// The download script appends ".img" to the basename.  Make sure we
+		// can strip the extension here and the script will reconstruct the
+		// original filename.
+		imgBase = strings.TrimSuffix(imgFileOverride, ".img")
+		if imgBase == imgFileOverride {
+			return util.FmtNewtError(
+				"invalid img filename: must end in \".img\": filename=%s",
+				imgFileOverride)
+		}
 	}
 
 	if t.LoaderBuilder != nil {
-		err = t.loadApp(1, extraJtagCmd, appImg)
+		err = t.loadApp(1, extraJtagCmd, imgBase)
 		if err == nil {
 			err = t.loadLoader(0, extraJtagCmd, t.LoaderBuilder.AppBinBasePath())
 		}
 	} else {
-		err = t.loadApp(0, extraJtagCmd, appImg)
+		err = t.loadApp(0, extraJtagCmd, imgBase)
 	}
 
 	return err
@@ -193,6 +203,9 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string, imgFilename string) e
 	// Convert the binary path from absolute to relative.  This is required for
 	// compatibility with unix-in-windows environemnts (e.g., cygwin).
 	binPath := util.TryRelPath(imgFilename)
+
+	// Make sure the img override (if any) gets used.
+	env["BIN_BASENAME"] = binPath
 
 	if err := Load(binPath, b.targetBuilder.bspPkg, env); err != nil {
 		return err
