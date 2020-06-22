@@ -152,23 +152,12 @@ func gitPath() (string, error) {
 }
 
 func executeGitCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, util.NewNewtError(err.Error())
-	}
-
 	gp, err := gitPath()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := os.Chdir(dir); err != nil {
-		return nil, util.ChildNewtError(err)
-	}
-
-	defer os.Chdir(wd)
-
-	gitCmd := []string{gp}
+	gitCmd := []string{gp, "-C", dir}
 	gitCmd = append(gitCmd, cmd...)
 	output, err := util.ShellCommandLimitDbgOutput(gitCmd, nil, logCmd, -1)
 	if err != nil {
