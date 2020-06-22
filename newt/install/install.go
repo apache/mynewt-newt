@@ -67,7 +67,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
@@ -691,12 +693,32 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
-	for _, r := range repos {
+
+	// Query each repo in parallel.
+	var lines []string
+	var mtx sync.Mutex
+	util.BatchIndices(0, len(repos), 10, func(idx int, thread int) error {
+		r := repos[idx]
+
+		var s string
 		if r.IsLocal() {
-			inst.localRepoInfo(r)
+			s = inst.localRepoInfo(r)
 		} else {
-			inst.remoteRepoInfo(r, vmp)
+			s = inst.remoteRepoInfo(r, vmp)
 		}
+
+		if s != "" {
+			mtx.Lock()
+			lines = append(lines, s)
+			mtx.Unlock()
+		}
+
+		return nil
+	})
+
+	sort.Strings(lines)
+	for _, line := range lines {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", line)
 	}
 
 	return nil
@@ -704,7 +726,7 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 
 // remoteRepoInfo prints information about the specified repo.  If `vm` is
 // non-nil, the output indicates whether a remote update is available.
-func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
+func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) string {
 	ri := inst.gatherInfo(r, vm)
 	s := fmt.Sprintf("    * %s:", r.Name())
 
@@ -724,16 +746,17 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 			s += ", (needs upgrade)"
 		}
 	}
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
+
+	return s
 }
 
 // remoteRepoInfo prints information about the specified local repo (i.e., the
 // project itself).  It does nothing if the project is not a git repo.
-func (inst *Installer) localRepoInfo(r *repo.Repo) {
+func (inst *Installer) localRepoInfo(r *repo.Repo) string {
 	ri := inst.gatherInfo(r, nil)
 	if ri.commitHash == "" {
 		// The project is not a git repo.
-		return
+		return ""
 	}
 
 	s := fmt.Sprintf("    * %s (project):", r.Name())
@@ -742,5 +765,6 @@ func (inst *Installer) localRepoInfo(r *repo.Repo) {
 	if ri.dirtyState != "" {
 		s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
 	}
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
+
+	return s
 }
