@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -45,6 +46,13 @@ func CmakeListsPath() string {
 
 func EscapeName(name string) string {
 	return strings.Replace(name, "/", "_", -1)
+}
+
+func ExtractLibraryName(filepath string) string {
+	_, name := path.Split(filepath)
+	name = strings.TrimPrefix(name, "lib")
+	name = strings.TrimSuffix(name, ".a")
+	return name
 }
 
 func replaceBackslashes(path string) string {
@@ -136,7 +144,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 }
 
 func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
-	linkFlags *[]string) (*BuildPackage, error) {
+	linkFlags *[]string, libraries *[]string) (*BuildPackage, error) {
 	entries, err := b.collectCompileEntriesBpkg(bpkg)
 	if err != nil {
 		return nil, err
@@ -148,6 +156,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 
 	otherIncludes := []string{}
 	files := []string{}
+	linkDirs := []string{}
 
 	for _, s := range entries {
 		filename := filepath.ToSlash(s.Filename)
@@ -156,9 +165,19 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 			continue
 		}
 
-		CmakeSourceObjectWrite(w, s, &otherIncludes, linkFlags)
-		s.Filename = trimProjectPath(s.Filename)
-		files = append(files, s.Filename)
+		if s.CompilerType == toolchain.COMPILER_TYPE_ARCHIVE {
+			arFile := trimProjectPath(s.Filename)
+			linkDirs = append(linkDirs, filepath.Dir(arFile))
+			*libraries = append(*libraries, arFile)
+		} else {
+			CmakeSourceObjectWrite(w, s, &otherIncludes, linkFlags)
+			s.Filename = trimProjectPath(s.Filename)
+			files = append(files, s.Filename)
+		}
+	}
+
+	if len(linkDirs) > 0 {
+		fmt.Fprintf(w, "link_directories(%s)\n", strings.Join(util.SortFields(linkDirs...), " "))
 	}
 
 	if len(files) <= 0 {
@@ -169,10 +188,9 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
 	fmt.Fprintf(w, "\n# Generating CMakeLists.txt for %s\n", pkgName)
-	fmt.Fprintf(w, "add_library(%s %s)\n\n",
+	fmt.Fprintf(w, "add_library(%s %s)\n",
 		EscapeName(pkgName),
 		strings.Join(files, " "))
-
 	archivePath := replaceBackslashes(trimProjectPath(filepath.Dir(b.ArchivePath(bpkg))))
 	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
 
@@ -183,13 +201,15 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	bpkgs := b.sortedBuildPackages()
 	var compileFlags []string
 	var linkFlags []string
+	var libraries []string
 
 	c := targetCompiler
 	c.AddInfo(b.GetCompilerInfo())
 
 	builtPackages := []*BuildPackage{}
 	for _, bpkg := range bpkgs {
-		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg, &linkFlags)
+		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg,
+			&linkFlags, &libraries)
 		if err != nil {
 			return err
 		}
@@ -207,6 +227,11 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	for _, bpkg := range builtPackages {
 		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
 			EscapeName(bpkg.rpkg.Lpkg.Name())))
+	}
+
+	for _, filename := range libraries {
+		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
+			ExtractLibraryName(filename)))
 	}
 
 	elfOutputDir := replaceBackslashes(trimProjectPath(filepath.Dir(b.AppElfPath())))
