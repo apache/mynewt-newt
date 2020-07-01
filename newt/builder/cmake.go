@@ -177,6 +177,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 	}
 
 	if len(linkDirs) > 0 {
+		replaceBackslashesSlice(linkDirs)
 		fmt.Fprintf(w, "link_directories(%s)\n", strings.Join(util.SortFields(linkDirs...), " "))
 	}
 
