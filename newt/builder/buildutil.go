@@ -315,5 +315,8 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 		env[k] = v
 	}
 
+	env["MYNEWT_INCLUDE_PATH"] = strings.Join(b.compilerInfo.Includes, ":")
+	env["MYNEWT_CFLAGS"] = strings.Join(b.compilerInfo.Cflags, " ")
+
 	return env, nil
 }
