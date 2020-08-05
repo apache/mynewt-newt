@@ -554,6 +554,11 @@ func (t *TargetBuilder) Build() error {
 		}
 	}
 
+	// Execute pre-build custom commands (see:
+	// https://github.com/apache/mynewt-newt/pull/335).
+
+	// The user work dir is a temp directory shared by all custom commands.  It
+	// is useful when one command needs to communicate results to another.
 	workDir, err := makeUserWorkDir()
 	if err != nil {
 		return err
@@ -563,7 +568,6 @@ func (t *TargetBuilder) Build() error {
 		os.RemoveAll(workDir)
 	}()
 
-	// Execute the set of pre-build user scripts.
 	if err := t.execPreBuildCmds(workDir); err != nil {
 		return err
 	}

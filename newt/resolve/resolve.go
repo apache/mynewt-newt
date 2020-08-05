@@ -420,14 +420,14 @@ func (r *Resolver) calcApiReqs() error {
 	return nil
 }
 
-// Completely removes a package from the resolver.  This is used to prune
-// packages when newly-discovered syscfg values nullify dependencies.
+// Completely removes a package from the resolver.  This is used to delete
+// nodes from the dependency graph when newly-discovered syscfg values nullify
+// dependencies.
 func (r *Resolver) deletePkg(rpkg *ResolvePackage) error {
 	i := 0
 	for i < len(r.seedPkgs) {
 		lpkg := r.seedPkgs[i]
 		if lpkg == rpkg.Lpkg {
-			fmt.Printf("DELETING SEED: %s (%p)\n", lpkg.FullName(), lpkg)
 			r.seedPkgs = append(r.seedPkgs[:i], r.seedPkgs[i+1:]...)
 		} else {
 			i++
@@ -609,7 +609,9 @@ func (r *Resolver) reloadCfg() (bool, error) {
 
 // traceToSeed determines if the specified package can be reached from a seed
 // package via a traversal of the dependency graph.  The supplied settings are
-// used to determine the validity of dependencies in the graph.
+// used to determine the validity of dependencies in the graph.  If the package
+// cannot be traced to a seed, it is a so-called imposter package and must be
+// pruned.
 func (rpkg *ResolvePackage) traceToSeed(
 	settings map[string]string) (bool, error) {
 
