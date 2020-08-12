@@ -49,6 +49,28 @@ func processNewtrc(yc ycfg.YCfg) {
 			util.EscapeShellCmds = b
 		}
 	}
+
+	s, _ = yc.GetValString("verify_compat", nil)
+	if s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			log.Warnf(".newtrc contains invalid \"verify_compat\" value: %s; "+
+				"expected \"true\" or \"false\"", s)
+		} else {
+			util.VerifyCompat = b
+		}
+	}
+
+	s, _ = yc.GetValString("write_repos_info", nil)
+	if s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			log.Warnf(".newtrc contains invalid \"write_repos_info\" value: %s; "+
+				"expected \"true\" or \"false\"", s)
+		} else {
+			util.WriteReposInfo = b
+		}
+	}
 }
 
 func readNewtrc() ycfg.YCfg {
