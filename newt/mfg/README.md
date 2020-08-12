@@ -105,6 +105,61 @@ The `meta` manifest object describes the contents of an mfgimage's MMR.  It cons
 | `flash_map_present`   | `true` if the MMR contains a set of flash area TLVs; `false` otherwise. |
 | `mmrs`                | An array of references to external MMRs. |
 
+### MMR Structure
+
+Every mfgimage contains an MMR (manufacturing meta region).  The MMR is always located at the end of a flash area (that is, the last byte in the MMR occupies the last byte in the flash area).
+
+In a boot mfgimage, the MMR must go in the first flash area, i.e., the area containing the boot loader.  A non-boot mfgimage can place its MMR in any flash area.
+
+The reason a boot mfgimage's MMR must go in the boot loader area is to solve a boot strapping problem. The flash map that bsp.yml defines is not necessarily the flash map that every device uses; it is just the flash map that gets embedded in newly built mfg images.  This is so becauase the flash map itself is embedded in the boot mfgimage's MMR. If we change the contents of bsp.yml and then start manufacturing devices with a new mfgimage, we now have two different flash maps being used in the field, even after all devices get upgraded to the latest firmware. Since MMR-0 itself contains the flash map, the firmware must not require a flash map lookup to find this MMR (i.e., chicken and egg). So this initial MMR always gets placed in the boot loader area and the firmware is hardcoded to look for it there.
+
+An MMR has three basic components: header, TLVs, and footer.
+
+
+```
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -,
+    |Version (0x01) |                  0xff padding                 |   >-- Header
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -'
+    |   TLV type    |   TLV size    | TLV data ("TLV size" bytes)   ~
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               ~
+    ~                                                               ~
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |   TLV type    |   TLV size    | TLV data ("TLV size" bytes)   ~
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               ~
+    ~                                                               ~
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -,
+    |   Region size                 |         0xff padding          |   \
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    >- Footer
+    |                       Magic (0x3bb2a269)                      |   /
+    +-+-+-+-+-+--+-+-+-+-end of boot loader area+-+-+-+-+-+-+-+-+-+-+ -'
+```
+
+All numeric fields are in host byte order (typically little endian).
+
+The number of TLVs is variable; two are shown above for illustrative purposes.
+
+*Header*
+
+| Field | Description |
+| ----- | ----------- |
+| Version | Manufacturing meta version number; always 0x01. |
+
+*TLVs*
+
+| Field | Description |
+| ----- | ----------- |
+| TLV type | Indicates the type of data to follow. |
+| TLV size | The number of bytes of data to follow. |
+| TLV data | TLV-size bytes of data. |
+
+*Footer*
+
+| Field | Description |
+| ----- | ----------- |
+| Region size | The size, in bytes, of the entire manufacturing meta region; includes header, TLVs, and footer. |
+| Magic | indicates the presence of the manufacturing meta region. |
 
 ### Design
 
