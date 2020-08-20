@@ -317,30 +317,8 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 		return nil, err
 	}
 
-	srcDirs := []string{}
-
-	if len(bpkg.SourceDirectories) > 0 {
-		for _, relDir := range bpkg.SourceDirectories {
-			dir := bpkg.rpkg.Lpkg.BasePath() + "/" + relDir
-			if util.NodeNotExist(dir) {
-				return nil, util.NewNewtError(fmt.Sprintf(
-					"Specified source directory %s, does not exist.",
-					dir))
-			}
-			srcDirs = append(srcDirs, dir)
-		}
-	} else {
-		srcDir := bpkg.rpkg.Lpkg.BasePath() + "/src"
-		if util.NodeNotExist(srcDir) {
-			// Nothing to compile.
-			return nil, nil
-		}
-
-		srcDirs = append(srcDirs, srcDir)
-	}
-
-	entries := []toolchain.CompilerJob{}
-	for _, dir := range srcDirs {
+	var entries []toolchain.CompilerJob
+	for _, dir := range bpkg.SourceDirectories() {
 		subEntries, err := collectCompileEntriesDir(dir, c,
 			b.targetBuilder.bspPkg.Arch, nil)
 		if err != nil {

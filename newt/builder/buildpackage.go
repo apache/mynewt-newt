@@ -34,7 +34,7 @@ import (
 
 type BuildPackage struct {
 	rpkg              *resolve.ResolvePackage
-	SourceDirectories []string
+	sourceDirectories []string
 	ci                *toolchain.CompilerInfo
 }
 
@@ -198,7 +198,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
-	bpkg.SourceDirectories, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+	bpkg.sourceDirectories, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
 		"pkg.src_dirs", settings)
 	util.OneTimeWarningError(err)
 
@@ -296,4 +296,28 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	}
 
 	return incls
+}
+
+func (bpkg *BuildPackage) SourceDirectories() []string {
+	var dirs []string
+
+	if len(bpkg.sourceDirectories) > 0 {
+		for _, relDir := range bpkg.sourceDirectories {
+			dir := bpkg.rpkg.Lpkg.BasePath() + "/" + relDir
+			if util.NodeNotExist(dir) {
+				util.OneTimeWarning(
+					"specified source directory does not exist: pkg=%s dir=%s",
+					bpkg.rpkg.Lpkg.FullName(), dir)
+			} else {
+				dirs = append(dirs, bpkg.rpkg.Lpkg.BasePath()+"/"+relDir)
+			}
+		}
+	} else {
+		dir := bpkg.rpkg.Lpkg.BasePath() + "/src"
+		if util.NodeExist(dir) {
+			dirs = []string{dir}
+		}
+	}
+
+	return dirs
 }
