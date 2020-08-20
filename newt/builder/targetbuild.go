@@ -587,6 +587,11 @@ func (t *TargetBuilder) Build() error {
 		return err
 	}
 
+	// Construct the "extra" map in the manifest.json file.
+	if err := t.AppBuilder.CoalesceExtraManifest(); err != nil {
+		return err
+	}
+
 	/* Link the app. */
 	if err := t.AppBuilder.Link(linkerScripts, t.extraADirs()); err != nil {
 		return err

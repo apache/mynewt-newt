@@ -229,6 +229,11 @@ func (b *Builder) AppBinBasePath() string {
 		filepath.Base(b.appPkg.rpkg.Lpkg.FullName())
 }
 
+func (b *Builder) ExtraManifestPath() string {
+	return b.PkgBinDir(b.appPkg) + "/" +
+		filepath.Base(b.appPkg.rpkg.Lpkg.FullName()) + "_extra_manifest.json"
+}
+
 func (b *Builder) CompileCmdsPath() string {
 	// The path depends on whether we are building an app or running a test.
 	var basePath string

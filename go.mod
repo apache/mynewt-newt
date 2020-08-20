@@ -15,3 +15,5 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 )
+
+replace github.com/apache/mynewt-artifact => github.com/ccollins476ad/mynewt-artifact v0.0.0-20200820214647-a7fa50d16b05

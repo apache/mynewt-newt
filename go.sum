@@ -18,6 +18,10 @@ github.com/apache/mynewt-artifact v0.0.15/go.mod h1:vFUd47t74KPQMzSBhQ2qp5Hc7D29
 github.com/apache/mynewt-artifact v0.0.16 h1:MUy07kNuCgZHXqEpJRp3JbZcdT3FkWUW4oiOxf1NW/4=
 github.com/apache/mynewt-artifact v0.0.16/go.mod h1:vFUd47t74KPQMzSBhQ2qp5Hc7D29OU/Tl3xHtFwN3k8=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
+github.com/ccollins476ad/mynewt-artifact v0.0.0-20200820211203-bc98fd3e9307 h1:af0ObJcSqNulIZj0o76k0rhX+JRg5JCAm2/emQujyTI=
+github.com/ccollins476ad/mynewt-artifact v0.0.0-20200820211203-bc98fd3e9307/go.mod h1:vFUd47t74KPQMzSBhQ2qp5Hc7D29OU/Tl3xHtFwN3k8=
+github.com/ccollins476ad/mynewt-artifact v0.0.0-20200820214647-a7fa50d16b05 h1:QvCnEfqsuR7y9z4LxlfZ1DZKw6+9a4zle77kiFC2/Uc=
+github.com/ccollins476ad/mynewt-artifact v0.0.0-20200820214647-a7fa50d16b05/go.mod h1:vFUd47t74KPQMzSBhQ2qp5Hc7D29OU/Tl3xHtFwN3k8=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8NzMklzPG4d5KIOhIy30Tk=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
