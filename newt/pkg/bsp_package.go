@@ -38,6 +38,7 @@ type BspPackage struct {
 	CompilerName          string
 	Arch                  string
 	LinkerScripts         []string
+	WholeAppLinkerScripts []string /* scripts to tentatively link app for split image as though it had full use of both slots */
 	SplitAppLinkerScripts []string /* scripts to link app to second partition */
 	DownloadScript        string
 	DebugScript           string
@@ -145,6 +146,8 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 		return err
 	}
 
+	bsp.WholeAppLinkerScripts, err = bsp.resolveLinkerScriptSetting(
+		settings, "bsp.wholeapplinkerscript")
 	if err != nil {
 		return err
 	}
