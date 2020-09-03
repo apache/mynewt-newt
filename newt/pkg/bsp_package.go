@@ -35,17 +35,17 @@ const BSP_YAML_FILENAME = "bsp.yml"
 
 type BspPackage struct {
 	*LocalPackage
-	CompilerName       string
-	Arch               string
-	LinkerScripts      []string
-	Part2LinkerScripts []string /* scripts to link app to second partition */
-	DownloadScript     string
-	DebugScript        string
-	OptChkScript       string
-	ImageOffset        int
-	ImagePad           int
-	FlashMap           flashmap.FlashMap
-	BspV               ycfg.YCfg
+	CompilerName          string
+	Arch                  string
+	LinkerScripts         []string
+	SplitAppLinkerScripts []string /* scripts to link app to second partition */
+	DownloadScript        string
+	DebugScript           string
+	OptChkScript          string
+	ImageOffset           int
+	ImagePad              int
+	FlashMap              flashmap.FlashMap
+	BspV                  ycfg.YCfg
 }
 
 func (bsp *BspPackage) BspYamlPath() string {
@@ -145,10 +145,22 @@ func (bsp *BspPackage) Reload(settings map[string]string) error {
 		return err
 	}
 
-	bsp.Part2LinkerScripts, err = bsp.resolveLinkerScriptSetting(
-		settings, "bsp.part2linkerscript")
 	if err != nil {
 		return err
+	}
+
+	bsp.SplitAppLinkerScripts, err = bsp.resolveLinkerScriptSetting(
+		settings, "bsp.splitapplinkerscript")
+	if err != nil {
+		return err
+	}
+
+	if len(bsp.SplitAppLinkerScripts) == 0 {
+		bsp.SplitAppLinkerScripts, err = bsp.resolveLinkerScriptSetting(
+			settings, "bsp.part2linkerscript")
+		if err != nil {
+			return err
+		}
 	}
 
 	bsp.DownloadScript, err = bsp.resolvePathSetting(

@@ -579,7 +579,7 @@ func (t *TargetBuilder) Build() error {
 		if err := t.buildLoader(); err != nil {
 			return err
 		}
-		linkerScripts = t.bspPkg.Part2LinkerScripts
+		linkerScripts = t.bspPkg.SplitAppLinkerScripts
 	}
 
 	// Execute the set of pre-link user scripts.
