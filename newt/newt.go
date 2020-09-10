@@ -23,9 +23,9 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/shirou/gopsutil/cpu"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/settings"
@@ -44,7 +44,10 @@ var newtEscapeShellCmds bool
 func newtDfltNumJobs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
 	numCpu := runtime.NumCPU()
-
+	cpu, err := cpu.Counts(false)
+	if err == nil {
+		numCpu = cpu
+	}
 	var numJobs int
 	if maxProcs < numCpu {
 		numJobs = maxProcs
