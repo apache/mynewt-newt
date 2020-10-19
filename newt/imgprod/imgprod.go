@@ -24,6 +24,8 @@ package imgprod
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/apache/mynewt-artifact/flash"
@@ -45,6 +47,7 @@ type ImageProdOpts struct {
 	AppHexFilename    string
 	EncKeyFilename    string
 	EncKeyIndex       int
+	Sections          []image.Section
 	Version           image.ImageVersion
 	SigKeys           []sec.PrivSignKey
 	BaseAddr          int
@@ -98,6 +101,7 @@ func produceLoader(opts ImageProdOpts) (ProducedImage, error) {
 
 	igo := image.ImageCreateOpts{
 		SrcBinFilename:    opts.LoaderSrcFilename,
+		Sections:          opts.Sections,
 		SrcEncKeyFilename: opts.EncKeyFilename,
 		SrcEncKeyIndex:    opts.EncKeyIndex,
 		Version:           opts.Version,
@@ -141,6 +145,7 @@ func produceApp(opts ImageProdOpts, loaderHash []byte) (ProducedImage, error) {
 
 	igo := image.ImageCreateOpts{
 		SrcBinFilename:    opts.AppSrcFilename,
+		Sections:          opts.Sections,
 		SrcEncKeyFilename: opts.EncKeyFilename,
 		SrcEncKeyIndex:    opts.EncKeyIndex,
 		Version:           opts.Version,
@@ -265,7 +270,7 @@ func ProduceManifest(opts manifest.ManifestCreateOpts) error {
 
 func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
-	hdrPad int, imagePad int) (ImageProdOpts, error) {
+	hdrPad int, imagePad int, sections []image.Section) (ImageProdOpts, error) {
 
 	// This compiler is just used for converting .img files to .hex files, so
 	// dummy paths are OK.
@@ -299,6 +304,7 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 		BaseAddr:       baseAddr,
 		HdrPad:         hdrPad,
 		ImagePad:       imagePad,
+		Sections:       sections,
 	}
 
 	if b.LoaderBuilder != nil {
@@ -312,10 +318,55 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 
 func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
-	hdrPad int, imagePad int) error {
+	hdrPad int, imagePad int, sectionString string) error {
+
+	elfPath := t.AppBuilder.AppElfPath()
+
+	cmdName := "arm-none-eabi-objdump"
+	cmdOut, err := exec.Command(cmdName, elfPath, "-hw").Output()
+	if err != nil {
+		return err
+	}
+
+	var sections []image.Section
+	section_list := strings.Split(sectionString, ",")
+	lines := strings.Split(string(cmdOut), "\n")
+	var imgBase int
+	for _, line := range lines {
+		fields := strings.Fields(strings.Replace(line, "\t", " ", -1))
+		if len(fields) >= 8 {
+			_, err := strconv.ParseUint(fields[0], 16, 64)
+			if err != nil {
+				continue
+			}
+			if fields[1] == ".imghdr" {
+				base, err := strconv.ParseInt(fields[3], 16, 32)
+				if err != nil {
+					continue
+				}
+				imgBase = int(base)
+			}
+
+			for _, section := range section_list {
+				if fields[1] == section {
+					offset, _ := strconv.ParseInt(fields[3], 16, 32)
+					size, _ := strconv.ParseInt(fields[2], 16, 32)
+					s := image.Section{Name: section,
+						Size:   int(size),
+						Offset: int(offset)}
+					sections = append(sections, s)
+				}
+			}
+		}
+	}
+
+	// update sections offset by subtracting off start of app image
+	for s := range sections {
+		sections[s].Offset = sections[s].Offset - imgBase
+	}
 
 	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename, encKeyIndex,
-		hdrPad, imagePad)
+		hdrPad, imagePad, sections)
 	if err != nil {
 		return err
 	}
