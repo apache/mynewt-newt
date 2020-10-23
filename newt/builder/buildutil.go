@@ -247,13 +247,14 @@ func SlotEnvVars(bspPkg *pkg.BspPackage,
 }
 
 type UserEnvParams struct {
-	Lpkg       *pkg.LocalPackage
-	TargetName string // Short name
-	AppName    string
-	BuildName  string // "app" or "loader"
-	UserSrcDir string // "" if none
-	UserIncDir string // "" if none
-	WorkDir    string
+	Lpkg         *pkg.LocalPackage
+	TargetName   string // Short name
+	BuildProfile string
+	AppName      string
+	BuildName    string // "app" or "loader"
+	UserSrcDir   string // "" if none
+	UserIncDir   string // "" if none
+	WorkDir      string
 }
 
 // UserEnvVars calculates the set of environment variables required by external
@@ -278,6 +279,8 @@ func UserEnvVars(params UserEnvParams) map[string]string {
 	if params.UserIncDir != "" {
 		m["MYNEWT_USER_INCLUDE_DIR"] = params.UserIncDir
 	}
+
+	m["MYNEWT_BUILD_PROFILE"] = params.BuildProfile
 
 	return m
 }
