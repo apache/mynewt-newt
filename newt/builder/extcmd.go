@@ -112,13 +112,14 @@ func (t *TargetBuilder) envVarsForCmd(sf stage.StageFunc, userSrcDir string,
 	}
 
 	p := UserEnvParams{
-		Lpkg:       sf.Pkg,
-		TargetName: t.target.FullName(),
-		AppName:    t.appPkg.FullName(),
-		BuildName:  buildName,
-		UserSrcDir: userSrcDir,
-		UserIncDir: userIncDir,
-		WorkDir:    workDir,
+		Lpkg:         sf.Pkg,
+		TargetName:   t.target.FullName(),
+		BuildProfile: t.target.BuildProfile,
+		AppName:      t.appPkg.FullName(),
+		BuildName:    buildName,
+		UserSrcDir:   userSrcDir,
+		UserIncDir:   userIncDir,
+		WorkDir:      workDir,
 	}
 	uenv := UserEnvVars(p)
 	for k, v := range uenv {
