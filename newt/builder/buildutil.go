@@ -321,5 +321,12 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 	env["MYNEWT_INCLUDE_PATH"] = strings.Join(b.compilerInfo.Includes, ":")
 	env["MYNEWT_CFLAGS"] = strings.Join(b.compilerInfo.Cflags, " ")
 
+	pkgNames := []string{}
+	for _, p := range b.PkgMap {
+		pkgNames = append(pkgNames, p.rpkg.Lpkg.FullName())
+	}
+	sort.Strings(pkgNames)
+	env["MYNEWT_PACKAGES"] = strings.Join(pkgNames, ":")
+
 	return env, nil
 }
