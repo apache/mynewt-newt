@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/NickBall/go-aes-key-wrap v0.0.0-20170929221519-1c3aa3e4dfc5
-	github.com/apache/mynewt-artifact v0.0.16
+	github.com/apache/mynewt-artifact v0.0.20
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/shirou/gopsutil v2.20.8+incompatible

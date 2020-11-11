@@ -106,10 +106,10 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 
 			if useV1 {
 				err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename, encKeyIndex,
-					hdrPad, imagePad)
+					hdrPad, imagePad, sections)
 			} else {
 				err = imgprod.ProduceAll(b, ver, keys, encKeyFilename, encKeyIndex,
-					hdrPad, imagePad)
+					hdrPad, imagePad, sections)
 			}
 			if err != nil {
 				NewtUsage(nil, err)
@@ -168,6 +168,8 @@ func AddRunCommands(cmd *cobra.Command) {
 		"pad-header", "p", 0, "Pad header to this length")
 	runCmd.PersistentFlags().IntVarP(&imagePad,
 		"pad-image", "i", 0, "Pad image to this length")
+	runCmd.PersistentFlags().StringVarP(&sections,
+		"sections", "S", "", "Section names for TLVs, comma delimited")
 
 	cmd.AddCommand(runCmd)
 	AddTabCompleteFn(runCmd, func() []string {

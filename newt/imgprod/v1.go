@@ -209,10 +209,10 @@ func ProduceImagesV1(opts ImageProdOpts) (ProducedImageSetV1, error) {
 
 func ProduceAllV1(t *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
-	hdrPad int, imagePad int) error {
+	hdrPad int, imagePad int, sections string) error {
 
 	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename, encKeyIndex,
-		hdrPad, imagePad)
+		hdrPad, imagePad, nil)
 	if err != nil {
 		return err
 	}

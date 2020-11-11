@@ -39,6 +39,7 @@ var encKeyFilename string
 var encKeyIndex int
 var hdrPad int
 var imagePad int
+var sections string
 
 // @return                      keys, key ID, error
 func parseKeyArgs(args []string) ([]sec.PrivSignKey, uint8, error) {
@@ -135,10 +136,10 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 
 	if useV1 {
 		err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename, encKeyIndex,
-			hdrPad, imagePad)
+			hdrPad, imagePad, sections)
 	} else {
 		err = imgprod.ProduceAll(b, ver, keys, encKeyFilename, encKeyIndex,
-			hdrPad, imagePad)
+			hdrPad, imagePad, sections)
 	}
 	if err != nil {
 		NewtUsage(nil, err)
@@ -200,6 +201,9 @@ func AddImageCommands(cmd *cobra.Command) {
 		"pad-header", "p", 0, "Pad header to this length")
 	createImageCmd.PersistentFlags().IntVarP(&imagePad,
 		"pad-image", "i", 0, "Pad image to this length")
+
+	createImageCmd.PersistentFlags().StringVarP(&sections,
+		"sections", "S", "", "Section names for TLVs, comma delimited")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
