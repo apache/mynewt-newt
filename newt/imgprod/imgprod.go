@@ -54,6 +54,7 @@ type ImageProdOpts struct {
 	HdrPad            int
 	ImagePad          int
 	DummyC            *toolchain.Compiler
+	UseLegacyTLV      bool
 }
 
 type ProducedImage struct {
@@ -153,6 +154,7 @@ func produceApp(opts ImageProdOpts, loaderHash []byte) (ProducedImage, error) {
 		LoaderHash:        loaderHash,
 		HdrPad:            opts.HdrPad,
 		ImagePad:          opts.ImagePad,
+		UseLegacyTLV:      opts.UseLegacyTLV,
 	}
 
 	ri, err := image.GenerateImage(igo)
@@ -270,7 +272,7 @@ func ProduceManifest(opts manifest.ManifestCreateOpts) error {
 
 func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
-	hdrPad int, imagePad int, sections []image.Section) (ImageProdOpts, error) {
+	hdrPad int, imagePad int, sections []image.Section, useLegacyTLV bool) (ImageProdOpts, error) {
 
 	// This compiler is just used for converting .img files to .hex files, so
 	// dummy paths are OK.
@@ -305,6 +307,7 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 		HdrPad:         hdrPad,
 		ImagePad:       imagePad,
 		Sections:       sections,
+		UseLegacyTLV:   useLegacyTLV,
 	}
 
 	if b.LoaderBuilder != nil {
@@ -318,7 +321,7 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 
 func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
 	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
-	hdrPad int, imagePad int, sectionString string) error {
+	hdrPad int, imagePad int, sectionString string, useLegacyTLV bool) error {
 
 	elfPath := t.AppBuilder.AppElfPath()
 
@@ -366,7 +369,7 @@ func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
 	}
 
 	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename, encKeyIndex,
-		hdrPad, imagePad, sections)
+		hdrPad, imagePad, sections, useLegacyTLV)
 	if err != nil {
 		return err
 	}

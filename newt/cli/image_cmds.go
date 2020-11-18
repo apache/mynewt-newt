@@ -35,6 +35,7 @@ import (
 
 var useV1 bool
 var useV2 bool
+var useLegacyTLV bool
 var encKeyFilename string
 var encKeyIndex int
 var hdrPad int
@@ -136,10 +137,10 @@ func createImageRunCmd(cmd *cobra.Command, args []string) {
 
 	if useV1 {
 		err = imgprod.ProduceAllV1(b, ver, keys, encKeyFilename, encKeyIndex,
-			hdrPad, imagePad, sections)
+			hdrPad, imagePad, sections, useLegacyTLV)
 	} else {
 		err = imgprod.ProduceAll(b, ver, keys, encKeyFilename, encKeyIndex,
-			hdrPad, imagePad, sections)
+			hdrPad, imagePad, sections, useLegacyTLV)
 	}
 	if err != nil {
 		NewtUsage(nil, err)
@@ -204,6 +205,9 @@ func AddImageCommands(cmd *cobra.Command) {
 
 	createImageCmd.PersistentFlags().StringVarP(&sections,
 		"sections", "S", "", "Section names for TLVs, comma delimited")
+
+	createImageCmd.PersistentFlags().BoolVarP(&useLegacyTLV,
+		"legacy-tlvs", "L", false, "Use legacy TLV values for NONCE and SECRET_ID")
 
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
