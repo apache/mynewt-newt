@@ -487,19 +487,39 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 	return cmd, nil
 }
 
-// Generates a dependency Makefile (.d) for the specified source C file.
+// Generates a dependency Makefile (.d) for the specified source file.
 //
 // @param file                  The name of the source file.
-func (c *Compiler) GenDepsForFile(file string) error {
+func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 	depPath := c.dstFilePath(file) + ".d"
 	depDir := filepath.Dir(depPath)
 	if util.NodeNotExist(depDir) {
 		os.MkdirAll(depDir, 0755)
 	}
 
+	var cmdName string
+	var flags []string
+	switch compilerType {
+        case COMPILER_TYPE_C:
+                cmdName = c.ccPath
+                flags = c.cflagsStrings()
+        case COMPILER_TYPE_ASM:
+                cmdName = c.asPath
+
+                // Include both the compiler flags and the assembler flags.
+                // XXX: This is not great.  We don't have a way of specifying compiler
+                // flags without also passing them to the assembler.
+                flags = append(c.cflagsStrings(), c.aflagsStrings()...)
+        case COMPILER_TYPE_CPP:
+                cmdName = c.cppPath
+                flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
+        default:
+                return util.NewNewtError("Unknown compiler type")
+	}
+
 	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
-	cmd := []string{c.ccPath}
-	cmd = append(cmd, c.cflagsStrings()...)
+	cmd := []string{cmdName}
+	cmd = append(cmd, flags...)
 	cmd = append(cmd, c.includesStrings()...)
 	cmd = append(cmd, []string{"-MM", "-MG", srcPath}...)
 
