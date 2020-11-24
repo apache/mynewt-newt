@@ -206,7 +206,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 
 	if commandHasChanged(objPath, cmd) {
 		logRebuildReqdCmdChanged(srcFile)
-		err := tracker.compiler.GenDepsForFile(srcFile)
+		err := tracker.compiler.GenDepsForFile(srcFile, compilerType)
 		if err != nil {
 			return false, err
 		}
@@ -214,7 +214,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	}
 
 	if util.NodeNotExist(depPath) {
-		err := tracker.compiler.GenDepsForFile(srcFile)
+		err := tracker.compiler.GenDepsForFile(srcFile, compilerType)
 		if err != nil {
 			return false, err
 		}
@@ -246,7 +246,7 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 	}
 
 	if srcModTime.After(depModTime) {
-		err := tracker.compiler.GenDepsForFile(srcFile)
+		err := tracker.compiler.GenDepsForFile(srcFile, compilerType)
 		if err != nil {
 			return false, err
 		}
