@@ -383,7 +383,7 @@ func (entry *CfgEntry) priorityViolations() []CfgPriority {
 		curType := normalizePkgType(p.Source.Type())
 		defType := normalizePkgType(entry.PackageDef.Type())
 
-		if p.Source != entry.PackageDef && curType <= defType {
+		if p.Source != entry.PackageDef && curType <= defType && entry.History[0].Value != "" {
 			priority := CfgPriority{
 				PackageDef:  entry.PackageDef,
 				PackageSrc:  p.Source,
