@@ -1,7 +1,7 @@
 Installing Newt on Linux
 ------------------------
 
-You can install the latest release (1.5.0) of the newt tool from a Debian binary package (amd64). You can also download
+You can install the latest release (1.7.0) of the newt tool from a Debian binary package (amd64). You can also download
 and build the latest release version of newt from source.
 
 This page shows you how to:
@@ -101,8 +101,8 @@ Download and install the package manually.
 
 .. code-block:: console
 
-    $ wget https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.5.0/newt_1.5.0-1_amd64.deb
-    $ sudo dpkg -i newt_1.5.0-1_amd64.deb
+    $ wget https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.7.0/newt_1.7.0-1_amd64.deb
+    $ sudo dpkg -i newt_1.7.0-1_amd64.deb
 
 See `Checking the Installed Version of Newt`_ to verify that you are using the installed version of newt.
 
@@ -112,20 +112,23 @@ Installing the Latest Release of Newt from a Source Package
 If you are running Linux on a different architecture, you can build and install the latest release version of newt from
 source.
 
+The newt tool is written in Go (https://golang.org/). In order to build Apache Mynewt, you must have Go 1.12 or later
+installed on your system. Please visit the Golang website for more information on installing Go (https://golang.org/).
+
 #. Download and unpack the newt source:
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_5_0_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_5_0_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_8_0_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_1_8_0_tag.tar.gz
 
 #. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_5_0_tag
+    $ cd mynewt-newt-mynewt_1_8_0_tag
     $ ./build.sh
-    $ rm /tmp/mynewt_1_5_0_tag.tar.gz
+    $ rm /tmp/mynewt_1_8_0_tag.tar.gz
 
 #. You should see the ``newt/newt`` executable. Move the executable to a bin directory in your PATH:
 
@@ -152,7 +155,7 @@ Checking the Installed Version of Newt
     $ which newt
     /usr/bin/newt
     $ newt version
-    Apache Newt version: 1.5.0
+    Apache Newt version: 1.8.0
 
 2. Get information about newt:
 
@@ -179,21 +182,23 @@ Checking the Installed Version of Newt
         For help on <command-name>.  If not specified, print this message.
 
     Available Commands:
+      apropos      Search manual page names and descriptions
       build        Build one or more targets
       clean        Delete build artifacts for one or more targets
       create-image Add image header to target binary
       debug        Open debugger session to target
+      docs         Project documentation generation commands
       help         Help about any command
       info         Show project info
-      install      Install project dependencies
       load         Load built target to board
+      man          Browse the man-page for given argument
+      man-build    Build man pages
       mfg          Manufacturing flash image commands
       new          Create a new project
       pkg          Create and manage packages in the current workspace
-      resign-image Re-sign an image.
+      resign-image Obsolete
       run          build/create-image/download/debug <target>
       size         Size of target components
-      sync         Synchronize project dependencies
       target       Commands to create, delete, configure, and query targets
       test         Executes unit tests for one or more packages
       upgrade      Upgrade project dependencies
@@ -201,6 +206,7 @@ Checking the Installed Version of Newt
       version      Display the Newt version number
 
     Flags:
+          --escape            Apply Windows escapes to shell commands
       -h, --help              Help for newt commands
       -j, --jobs int          Number of concurrent build jobs (default 4)
       -l, --loglevel string   Log level (default "WARN")
