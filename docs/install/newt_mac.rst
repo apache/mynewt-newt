@@ -22,7 +22,7 @@ will be prompted for your sudo password.
 
 .. code-block:: console
 
-    $ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    $ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 
 You can also extract (or ``git clone``) Homebrew and install it to
 /usr/local.
