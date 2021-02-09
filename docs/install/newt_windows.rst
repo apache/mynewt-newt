@@ -13,8 +13,9 @@ This guide shows you how to perform the following:
 
 1. Install MSYS2/MinGW.
 2. Install Git.
-3. Install latest release (1.6.0) of newt from binary.
-4. Install latest release of newt from source.
+3. Install latest release (1.8.0) of newt from binary.
+4. Install go for building newt from source.
+5. Install latest release of newt from source.
 
 See :doc:`prev_releases` to install an earlier version of newt. You still need
 to set up your MinGW development environment.
@@ -38,12 +39,13 @@ will use the MinGW subsystem.
 installation), but you must list the **bin** path for your installation in your Windows Path. For example: if you installed
 MSYS2/MinGW in the **C:\\msys64** directory, add **C:\\msys64\\usr\\bin**
 to your Windows Path. If you are using Windows 10 WSL, ensure that you use the
-**C:\\msys64\\usr\\bin\\base.exe** and not the Windows 10 WSL bash.
+**C:\\msys64\\usr\\bin\\bash.exe** and not the Windows 10 WSL bash.
 
 To install and setup MSYS2 and MinGW:
 
 1. Download and run the `MSYS2 installer <http://www.msys2.org>`__. Select the 64 bit version if you are running on a 64 bit
    platform. Follow the prompts and check the ``Run MSYS2 now`` checkbox on the ``Installation Complete`` dialog.
+
 2. In the MSYS2 terminal, run the ``pacman -Syuu`` command. If you get a message to run the update again, close the terminal and
    run the ``pacman -Syuu`` command in a new terminal.
 
@@ -58,7 +60,7 @@ To install and setup MSYS2 and MinGW:
    directory, add **C:\\msys64\\usr\\bin** to your Windows Path.
 
    **Note:** If you are using Windows 10 WSL, ensure that you use the
-   **C:\\msys64\\usr\\bin\\base.exe** and not the Windows 10 WSL bash.
+   **C:\\msys64\\usr\\bin\\bash.exe** and not the Windows 10 WSL bash.
 
 5. Run the ``pacman -Su vim`` command to install the vim editor.
 
@@ -73,10 +75,16 @@ You will need to start a MinGW terminal to run the commands specified in the Myn
 terminal, select the "MSYS2 Mingw" application from the start Menu (you can use either MinGW32 or MinGW64). In Windows, we use the
 MinGW subsystem to build Mynewt tools and applications.
 
-Installing Git for Windows
+Installing Git
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download and install `Git for Windows <https://git-for-windows.github.io>`__ if it is not already installed.
+Git can be installed as MinGW package from MinGW terminal:
+
+.. code-block:: console
+
+ $ pacman -S git
+
+Alternatively download and install `Git for Windows <https://git-for-windows.github.io>`__.
 
 Installing the Latest Release of the Newt Tool from Binary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -85,11 +93,7 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
 1. Start a MinGW terminal.
 
-2. Download the newt binary tar file. The link suggested below should direct you to the nearest mirror automatically. If it does not, go to http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.6.0/ and manually choose the specific mirror site suggested for you.
-
-   .. code-block:: console
-
-    $ wget -P /tmp http://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.6.0/apache-mynewt-newt-bin-windows-1.6.0.tgz
+2. Download the newt binary tar file `apache-mynewt-newt-bin-windows-1.8.0.tgz <https://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.8.0/apache-mynewt-newt-bin-windows-1.8.0.tgz>`__.
 
 3. Extract the file:
 
@@ -98,15 +102,31 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
       .. code-block:: console
 
-        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.6.0.tgz -C $GOPATH/bin
+        $ tar -xzf apache-mynewt-newt-bin-windows-1.8.0.tgz -C $GOPATH/bin --strip-components=1 apache-mynewt-newt-bin-windows-1.8.0/newt.exe
 
    -  If you are installing newt for the first time and do not have a Go workspace setup, you can extract into /usr/bin directory:
 
       .. code-block:: console
 
-        tar -xzf /tmp/apache-mynewt-newt-bin-windows-1.6.0.tgz -C /usr/bin
+        $ tar -xzf apache-mynewt-newt-bin-windows-1.8.0.tgz -C /usr/bin --strip-components=1 apache-mynewt-newt-bin-windows-1.8.0/newt.exe
 
 4. Verify the installed version of newt. See `Checking the Installed Version`_.
+
+Installing Go
+^^^^^^^^^^^^^
+
+Newt requires **Go** version **1.13** or higher.
+If you do not have Go installed, it can be installed from MinGW package repository.
+
+1. Open a MinWG terminal.
+2. Install go package.
+
+   .. code-block:: console
+
+    $ pacman -S mingw-w64-x86_64-go
+
+Alternatively newest version of Go from **golang.org** can be used.
+To download and install a newer version of `Go <https://golang.org/dl/>`__.
 
 Installing the Latest Release of Newt From Source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -114,27 +134,24 @@ Installing the Latest Release of Newt From Source
 If you have an older version of Windows or a 32 bit platform, you can build and install the latest release version of newt from
 source.
 
-1. If you do not have Go installed, download and install the latest version of `Go <https://golang.org/dl/>`__. Newt requires Go
-   version 1.7.6 or higher.
+1. Start a MinGw terminal.
 
-2. Start a MinGw terminal.
-
-3. Download and unpack the newt source:
+2. Download and unpack the newt source:
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_6_0_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_6_0_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_8_0_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_1_8_0_tag.tar.gz
 
-4. Run the build.sh to build the newt tool.
+3. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_6_0_tag
-    $ ./build.sh
-    $ rm /tmp/mynewt_1_6_0_tag.tar.gz
+    $ cd mynewt-newt-mynewt_1_8_0_tag
+    $ MSYS=winsymlinks:nativestrict ./build.sh
+    $ rm /tmp/mynewt_1_8_0_tag.tar.gz
 
-5. You should see the ``newt/newt.exe`` executable. Move the executable to a bin directory in your PATH:
+4. You should see the ``newt/newt.exe`` executable. Move the executable to a bin directory in your PATH:
 
    -  If you previously built newt from the master branch, you can move the executable to the $GOPATH/bin directory.
 
@@ -157,12 +174,13 @@ Checking the Installed Version
    .. code-block:: console
 
     $ newt version
-    Apache Newt version: 1.6.0
+    Apache Newt 1.8.0 / ab96a8a-dirty / 2020-03-18_23:25
 
 2. Get information about newt:
 
    .. code-block:: console
 
+    $ newt help
     Newt allows you to create your own embedded application based on the Mynewt
     operating system. Newt provides both build and package management in a single
     tool, which allows you to compose an embedded application, and set of
@@ -183,20 +201,23 @@ Checking the Installed Version
         For help on <command-name>.  If not specified, print this message.
 
     Available Commands:
+      apropos      Search manual page names and descriptions
       build        Build one or more targets
       clean        Delete build artifacts for one or more targets
       create-image Add image header to target binary
       debug        Open debugger session to target
+      docs         Project documentation generation commands
+      help         Help about any command
       info         Show project info
-      install      Install project dependencies
       load         Load built target to board
+      man          Browse the man-page for given argument
+      man-build    Build man pages
       mfg          Manufacturing flash image commands
       new          Create a new project
       pkg          Create and manage packages in the current workspace
-      resign-image Re-sign an image.
+      resign-image Obsolete
       run          build/create-image/download/debug <target>
       size         Size of target components
-      sync         Synchronize project dependencies
       target       Commands to create, delete, configure, and query targets
       test         Executes unit tests for one or more packages
       upgrade      Upgrade project dependencies
@@ -204,6 +225,7 @@ Checking the Installed Version
       version      Display the Newt version number
 
     Flags:
+          --escape            Apply Windows escapes to shell commands (default true)
       -h, --help              Help for newt commands
       -j, --jobs int          Number of concurrent build jobs (default 8)
       -l, --loglevel string   Log level (default "WARN")
