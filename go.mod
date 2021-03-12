@@ -4,7 +4,9 @@ go 1.13
 
 require (
 	github.com/NickBall/go-aes-key-wrap v0.0.0-20170929221519-1c3aa3e4dfc5
+	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/apache/mynewt-artifact v0.0.21
+	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/shirou/gopsutil v2.20.8+incompatible
@@ -16,4 +18,3 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 )
-
