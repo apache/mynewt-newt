@@ -366,7 +366,8 @@ func (r *Repo) UpdateDesc() (bool, error) {
 func (r *Repo) EnsureExists() error {
 	// Clone the repo if it doesn't exist.
 	if !r.CheckExists() {
-		if err := r.downloadRepo("master"); err != nil {
+		branch := r.downloader.MainBranch()
+		if err := r.downloadRepo(branch); err != nil {
 			return err
 		}
 	}
@@ -401,7 +402,7 @@ func (r *Repo) downloadFile(commit string, srcPath string) (string, error) {
 }
 
 func (r *Repo) downloadRepositoryYml() error {
-	if _, err := r.downloadFile("master", REPO_FILE_NAME); err != nil {
+	if _, err := r.downloadFile(r.downloader.MainBranch(), REPO_FILE_NAME); err != nil {
 		return err
 	}
 
