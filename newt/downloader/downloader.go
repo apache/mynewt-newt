@@ -93,6 +93,10 @@ type Downloader interface {
 	//
 	// If such a commit exists, it is returned.  Otherwise, "" is returned.
 	LatestRc(path string, base string) (string, error)
+
+	// Returns the branch that contains the YAML control files; this option
+	// allows implementers to override "master" as the main branch.
+	MainBranch() string
 }
 
 type Commit struct {
@@ -117,6 +121,7 @@ type GithubDownloader struct {
 	Server string
 	User   string
 	Repo   string
+	Branch string
 
 	// Login for private repos.
 	Login string
@@ -131,7 +136,8 @@ type GithubDownloader struct {
 
 type GitDownloader struct {
 	GenericDownloader
-	Url string
+	Url    string
+	Branch string
 }
 
 type LocalDownloader struct {
@@ -851,8 +857,7 @@ func (gd *GithubDownloader) setRemoteAuth(path string) error {
 }
 
 func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
-	// Currently only the master branch is supported.
-	branch := "master"
+	branch := gd.MainBranch()
 
 	url, publicUrl := gd.remoteUrls()
 
@@ -908,6 +913,14 @@ func (gd *GithubDownloader) FixupOrigin(path string) error {
 	return gd.setOriginUrl(path, publicUrl)
 }
 
+func (gd *GithubDownloader) MainBranch() string {
+	if gd.Branch != "" {
+		return gd.Branch
+	} else {
+		return "master"
+	}
+}
+
 func NewGithubDownloader() *GithubDownloader {
 	return &GithubDownloader{}
 }
@@ -934,8 +947,7 @@ func (gd *GitDownloader) FetchFile(
 }
 
 func (gd *GitDownloader) Clone(commit string, dstPath string) error {
-	// Currently only the master branch is supported.
-	branch := "master"
+	branch := gd.MainBranch()
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Downloading repository %s (commit: %s)\n", gd.Url, commit)
@@ -985,6 +997,14 @@ func (gd *GitDownloader) FixupOrigin(path string) error {
 	return setRemoteUrl(path, "origin", gd.Url, true)
 }
 
+func (gd *GitDownloader) MainBranch() string {
+	if gd.Branch != "" {
+		return gd.Branch
+	} else {
+		return "master"
+	}
+}
+
 func NewGitDownloader() *GitDownloader {
 	return &GitDownloader{}
 }
@@ -1005,7 +1025,7 @@ func (ld *LocalDownloader) FetchFile(
 
 func (ld *LocalDownloader) Fetch(path string) error {
 	os.RemoveAll(path)
-	return ld.Clone("master", path)
+	return ld.Clone(ld.MainBranch(), path)
 }
 
 func (ld *LocalDownloader) Checkout(path string, commit string) error {
@@ -1032,6 +1052,10 @@ func (ld *LocalDownloader) FixupOrigin(path string) error {
 	return nil
 }
 
+func (gd *LocalDownloader) MainBranch() string {
+	return "master"
+}
+
 func NewLocalDownloader() *LocalDownloader {
 	return &LocalDownloader{}
 }
@@ -1051,6 +1075,7 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 		gd.Server = repoVars["server"]
 		gd.User = repoVars["user"]
 		gd.Repo = repoVars["repo"]
+		gd.Branch = repoVars["branch"]
 
 		// The project.yml file can contain github access tokens and
 		// authentication credentials, but this file is probably world-readable
@@ -1080,6 +1105,7 @@ func LoadDownloader(repoName string, repoVars map[string]string) (
 	case "git":
 		gd := NewGitDownloader()
 		gd.Url = repoVars["url"]
+		gd.Branch = repoVars["branch"]
 		if gd.Url == "" {
 			return nil, loadError("repo \"%s\" missing required field \"url\"",
 				repoName)
