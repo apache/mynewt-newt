@@ -44,8 +44,12 @@ func CmakeListsPath() string {
 	return project.GetProject().BasePath + "/" + CMAKELISTS_FILENAME
 }
 
-func EscapeName(name string) string {
-	return strings.Replace(name, "/", "_", -1)
+func EscapePkgName(name string) string {
+	name = strings.Replace(name, "/", "_", -1)
+	if strings.HasPrefix(name, "@") {
+		name = strings.Replace(name, "@", "repos_", 1)
+	}
+	return name
 }
 
 func ExtractLibraryName(filepath string) string {
@@ -185,12 +189,12 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 		return nil, nil
 	}
 
-	pkgName := bpkg.rpkg.Lpkg.Name()
+	pkgName := bpkg.rpkg.Lpkg.NameWithRepo()
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
 	fmt.Fprintf(w, "\n# Generating CMakeLists.txt for %s\n", pkgName)
 	fmt.Fprintf(w, "add_library(%s %s)\n",
-		EscapeName(pkgName),
+		EscapePkgName(pkgName),
 		strings.Join(files, " "))
 	archivePath := replaceBackslashes(trimProjectPath(filepath.Dir(b.ArchivePath(bpkg))))
 	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
@@ -227,7 +231,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 
 	for _, bpkg := range builtPackages {
 		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
-			EscapeName(bpkg.rpkg.Lpkg.Name())))
+			EscapePkgName(bpkg.rpkg.Lpkg.NameWithRepo())))
 	}
 
 	for _, filename := range libraries {
@@ -340,14 +344,14 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
                       ARCHIVE_OUTPUT_DIRECTORY %s
                       LIBRARY_OUTPUT_DIRECTORY %s
                       RUNTIME_OUTPUT_DIRECTORY %s)`,
-		EscapeName(bpkg.rpkg.Lpkg.Name()),
+		EscapePkgName(bpkg.rpkg.Lpkg.NameWithRepo()),
 		archiveFile,
 		archiveFile,
 		archiveFile,
 	)
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s)\n\n",
-		EscapeName(bpkg.rpkg.Lpkg.Name()),
+		EscapePkgName(bpkg.rpkg.Lpkg.NameWithRepo()),
 		strings.Join(includes, " "))
 }
 
