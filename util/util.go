@@ -367,7 +367,10 @@ func ShellCommandLimitDbgOutput(
 	if ExecuteShell && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
 		cmd := strings.Join(cmdStrs, " ")
 		name = "/bin/sh"
-		args = []string{"-c", strings.Replace(cmd, "\"", "\\\"", -1)}
+		cmd = strings.Replace(cmd, "\"", "\\\"", -1)
+		cmd = strings.Replace(cmd, "<", "\\<", -1)
+		cmd = strings.Replace(cmd, ">", "\\>", -1)
+		args = []string{"-c", cmd}
 	} else {
 		if strings.HasSuffix(cmdStrs[0], ".sh") {
 			var newt_sh = os.Getenv("NEWT_SH")
