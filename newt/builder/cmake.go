@@ -69,6 +69,8 @@ func escapeFlags(flag string) string {
 	flag = strings.Replace(flag, "\"", "\\\\\\\"", -1)
 	flag = strings.Replace(flag, "(", "\\\\(", -1)
 	flag = strings.Replace(flag, ")", "\\\\)", -1)
+	flag = strings.Replace(flag, "<", "\\\\<", -1)
+	flag = strings.Replace(flag, ">", "\\\\>", -1)
 	return flag
 }
 
