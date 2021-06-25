@@ -220,7 +220,7 @@ func newMfgBuildTarget(dt DecodedTarget,
 	}
 
 	mpath := builder.ManifestPath(dt.Name, builder.BUILD_NAME_APP,
-		t.App().Name())
+		t.App().FullName())
 	man, err := manifest.ReadManifest(mpath)
 	if err != nil {
 		return MfgBuildTarget{}, util.FmtNewtError("%s", err.Error())
