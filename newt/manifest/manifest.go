@@ -22,7 +22,9 @@
 package manifest
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -49,6 +51,7 @@ type ManifestCreateOpts struct {
 	Version    image.ImageVersion
 	BuildID    string
 	Syscfg     map[string]string
+	Extra      map[string]interface{}
 }
 
 type RepoManager struct {
@@ -238,6 +241,25 @@ func ManifestPkgSizes(b *builder.Builder) (ManifestSizeCollector, error) {
 	return msc, nil
 }
 
+func readExtraManifest(path string) (map[string]interface{}, error) {
+	j, err := ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+
+		return nil, util.ChildNewtError(err)
+	}
+
+	itf := map[string]interface{}{}
+	err = json.Unmarshal(j, &itf)
+	if err != nil {
+		return nil, util.ChildNewtError(err)
+	}
+
+	return itf, nil
+}
+
 func OptsForNonImage(t *builder.TargetBuilder) (ManifestCreateOpts, error) {
 	res, err := t.Resolve()
 	if err != nil {
@@ -258,6 +280,11 @@ func OptsForImage(t *builder.TargetBuilder, ver image.ImageVersion,
 		return ManifestCreateOpts{}, err
 	}
 
+	extra, err := readExtraManifest(t.AppBuilder.ExtraManifestPath())
+	if err != nil {
+		return ManifestCreateOpts{}, err
+	}
+
 	return ManifestCreateOpts{
 		TgtBldr:    t,
 		AppHash:    appHash,
@@ -265,6 +292,7 @@ func OptsForImage(t *builder.TargetBuilder, ver image.ImageVersion,
 		Version:    ver,
 		BuildID:    fmt.Sprintf("%x", appHash),
 		Syscfg:     res.Cfg.SettingValues(),
+		Extra:      extra,
 	}, nil
 }
 
@@ -279,6 +307,7 @@ func CreateManifest(opts ManifestCreateOpts) (manifest.Manifest, error) {
 		Image:     t.AppBuilder.AppImgPath(),
 		ImageHash: fmt.Sprintf("%x", opts.AppHash),
 		Syscfg:    opts.Syscfg,
+		Extra:     opts.Extra,
 	}
 
 	rm := NewRepoManager()

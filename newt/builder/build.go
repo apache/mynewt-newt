@@ -317,30 +317,8 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 		return nil, err
 	}
 
-	srcDirs := []string{}
-
-	if len(bpkg.SourceDirectories) > 0 {
-		for _, relDir := range bpkg.SourceDirectories {
-			dir := bpkg.rpkg.Lpkg.BasePath() + "/" + relDir
-			if util.NodeNotExist(dir) {
-				return nil, util.NewNewtError(fmt.Sprintf(
-					"Specified source directory %s, does not exist.",
-					dir))
-			}
-			srcDirs = append(srcDirs, dir)
-		}
-	} else {
-		srcDir := bpkg.rpkg.Lpkg.BasePath() + "/src"
-		if util.NodeNotExist(srcDir) {
-			// Nothing to compile.
-			return nil, nil
-		}
-
-		srcDirs = append(srcDirs, srcDir)
-	}
-
-	entries := []toolchain.CompilerJob{}
-	for _, dir := range srcDirs {
+	var entries []toolchain.CompilerJob
+	for _, dir := range bpkg.SourceDirectories() {
 		subEntries, err := collectCompileEntriesDir(dir, c,
 			b.targetBuilder.bspPkg.Arch, nil)
 		if err != nil {
@@ -556,6 +534,78 @@ func (b *Builder) addSysinitBpkg() (*BuildPackage, error) {
 func (b *Builder) addUserPreBuildBpkg() (*BuildPackage, error) {
 	return b.addPseudoBpkg("user-pre-build",
 		UserPreBuildDir(b.targetPkg.rpkg.Lpkg.FullName()))
+}
+
+// CoalesceExtraManifest collects every package's `*extra_manifest.json` files
+// and combines them into a single json file.  The result gets written to the
+// target's bin directory (where it will be read and inserted into the
+// `manifest.json` file).
+func (b *Builder) CoalesceExtraManifest() error {
+	m := map[string]interface{}{}
+
+	doDir := func(dir string) error {
+		pattern := dir + "/*extra_manifest.json"
+		paths, err := filepath.Glob(pattern)
+		if err != nil {
+			return util.ChildNewtError(err)
+		}
+
+		for _, p := range paths {
+			j, err := ioutil.ReadFile(p)
+			if err != nil {
+				return util.ChildNewtError(err)
+			}
+
+			subMap := map[string]interface{}{}
+			err = json.Unmarshal(j, &subMap)
+			if err != nil {
+				return util.FmtNewtError(
+					"invalid extra manifest file: %s: %v", p, err)
+			}
+
+			for k, v := range subMap {
+				if m[k] != nil {
+					// XXX: It would probably be better to merge the duplicate
+					// entries.
+					util.OneTimeWarning(
+						"extra manifest files contain duplicate entry for "+
+							"\"%s\"; discarding entry from %s", k, p)
+				} else {
+					m[k] = v
+				}
+			}
+		}
+
+		return nil
+	}
+
+	for _, bpkg := range b.sortedBuildPackages() {
+		for _, d := range bpkg.SourceDirectories() {
+			err := doDir(d)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// The pre-link custom command directory must be processed separately.
+	// Unlike for pre-build commands, pre-link does not get a pseudo package.
+	err := doDir(UserPreLinkSrcDir(b.targetBuilder.target.FullName()))
+	if err != nil {
+		return err
+	}
+
+	j, err := json.Marshal(m)
+	if err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	err = ioutil.WriteFile(b.ExtraManifestPath(), j, 0644)
+	if err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	return nil
 }
 
 // Runs build jobs while any remain.  On failure, signals the other workers to
