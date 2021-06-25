@@ -17,6 +17,12 @@
  * under the License.
  */
 
+// lex.go
+// Tokenizes an expression.  That is, converts an expression string into an
+// array of symbols.
+//
+//     "abc||5" becomes <"abc"> <||> <5>
+
 package parse
 
 import (

@@ -32,6 +32,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+// BuildPackage is a Mynewt package with a structure that is convenient for the
+// compile and link phases.
 type BuildPackage struct {
 	rpkg              *resolve.ResolvePackage
 	SourceDirectories []string
@@ -46,7 +48,7 @@ func NewBuildPackage(rpkg *resolve.ResolvePackage) *BuildPackage {
 	return bpkg
 }
 
-// Recursively iterates through an pkg's dependencies, adding each pkg
+// Recursively iterates through a package's dependencies, adding each pkg
 // encountered to the supplied set.
 func (bpkg *BuildPackage) collectDepsAux(b *Builder,
 	set *map[*BuildPackage]bool) error {
@@ -260,7 +262,7 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 		util.OneTimeWarningError(err)
 
 		for _, dir := range inclDirs {
-			incls = append(incls, bp + "/" + dir)
+			incls = append(incls, bp+"/"+dir)
 		}
 	}
 
