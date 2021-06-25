@@ -44,6 +44,8 @@ var Verbosity int
 var PrintShellCmds bool
 var ExecuteShell bool
 var EscapeShellCmds bool
+var VerifyCompat = true
+var WriteReposInfo = true
 var logFile *os.File
 
 func ParseEqualsPair(v string) (string, string, error) {

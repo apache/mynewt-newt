@@ -588,8 +588,10 @@ func (proj *Project) loadConfig(download bool) error {
 	}
 
 	// Warn the user about incompatibilities with this version of newt.
-	if err := proj.verifyNewtCompat(); err != nil {
-		return err
+	if util.VerifyCompat {
+		if err := proj.verifyNewtCompat(); err != nil {
+			return err
+		}
 	}
 
 	ignoreDirs, err := yc.GetValStringSlice("project.ignore_dirs", nil)
