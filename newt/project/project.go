@@ -92,9 +92,6 @@ func initProject(dir string, download bool) error {
 	if err != nil {
 		return err
 	}
-	if err := globalProject.loadPackageList(); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -732,7 +729,7 @@ func findProjectDir(dir string) (string, error) {
 	return dir, nil
 }
 
-func (proj *Project) loadPackageList() error {
+func (proj *Project) loadPackageList() {
 	proj.packages = interfaces.PackageList{}
 
 	// Go through a list of repositories, starting with local, and search for
@@ -746,11 +743,13 @@ func (proj *Project) loadPackageList() error {
 
 		proj.warnings = append(proj.warnings, warnings...)
 	}
-
-	return nil
 }
 
 func (proj *Project) PackageList() interfaces.PackageList {
+	if proj.packages == nil {
+		proj.loadPackageList()
+	}
+
 	return proj.packages
 }
 
