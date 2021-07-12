@@ -223,7 +223,12 @@ func newMfgBuildTarget(dt DecodedTarget,
 		t.App().Name())
 	man, err := manifest.ReadManifest(mpath)
 	if err != nil {
-		return MfgBuildTarget{}, util.FmtNewtError("%s", err.Error())
+		mpath = builder.ManifestPath(dt.Name, builder.BUILD_NAME_BOOT,
+			t.App().Name())
+		man, err = manifest.ReadManifest(mpath)
+		if err != nil {
+			return MfgBuildTarget{}, util.FmtNewtError("%s", err.Error())
+		}
 	}
 
 	isBoot := parse.ValueIsTrue(man.Syscfg["BOOT_LOADER"])
