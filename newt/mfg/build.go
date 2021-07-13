@@ -79,6 +79,7 @@ type MfgBuilder struct {
 	Targets []MfgBuildTarget
 	Raws    []MfgBuildRaw
 	Meta    *MfgBuildMeta
+	BaseAddress int
 }
 
 // Searches the provided flash map for the named area.
@@ -105,9 +106,9 @@ func lookUpTarget(dt DecodedTarget) (*target.Target, error) {
 }
 
 func normalizeOffset(offset int, length int,
-	area flash.FlashArea) (int, error) {
+	area flash.FlashArea, baseAddress int) (int, error) {
 
-	areaEnd := area.Offset + area.Size
+	areaEnd := area.Offset + area.Size - baseAddress
 	if offset == OFFSET_END {
 		if length > area.Size {
 			return 0, util.FmtNewtError(
@@ -124,7 +125,7 @@ func normalizeOffset(offset int, length int,
 			area.Name, offset, length, area.Size)
 	}
 
-	return area.Offset + offset, nil
+	return (area.Offset + offset - baseAddress), nil
 }
 
 func calcBsp(dm DecodedMfg,
@@ -170,13 +171,13 @@ func calcBsp(dm DecodedMfg,
 	return bsp, nil
 }
 
-func (raw *MfgBuildRaw) ToPart(entryIdx int) (Part, error) {
+func (raw *MfgBuildRaw) ToPart(entryIdx int, baseAddress int) (Part, error) {
 	data, err := ioutil.ReadFile(raw.Filename)
 	if err != nil {
 		return Part{}, util.ChildNewtError(err)
 	}
 
-	off, err := normalizeOffset(raw.Offset, len(data), raw.Area)
+	off, err := normalizeOffset(raw.Offset, len(data), raw.Area, baseAddress)
 	if err != nil {
 		return Part{}, err
 	}
@@ -188,13 +189,13 @@ func (raw *MfgBuildRaw) ToPart(entryIdx int) (Part, error) {
 	}, nil
 }
 
-func (mt *MfgBuildTarget) ToPart() (Part, error) {
+func (mt *MfgBuildTarget) ToPart(baseAddress int) (Part, error) {
 	data, err := ioutil.ReadFile(mt.BinPath)
 	if err != nil {
 		return Part{}, util.ChildNewtError(err)
 	}
 
-	off, err := normalizeOffset(mt.Offset, len(data), mt.Area)
+	off, err := normalizeOffset(mt.Offset, len(data), mt.Area, baseAddress)
 	if err != nil {
 		return Part{}, err
 	}
@@ -327,7 +328,7 @@ func (mb *MfgBuilder) parts() ([]Part, error) {
 
 	// Create parts from the raw entries.
 	for i, raw := range mb.Raws {
-		part, err := raw.ToPart(i)
+		part, err := raw.ToPart(i, mb.BaseAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -336,7 +337,7 @@ func (mb *MfgBuilder) parts() ([]Part, error) {
 
 	// Create parts from the target entries.
 	for _, t := range mb.Targets {
-		part, err := t.ToPart()
+		part, err := t.ToPart(mb.BaseAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -596,7 +597,7 @@ func (mb *MfgBuilder) Build() (mfg.Mfg, error) {
 			return mfg.Mfg{}, err
 		}
 		metap = &meta
-		metaOff = mb.Meta.Area.Offset + mb.Meta.Area.Size - meta.Size()
+		metaOff = mb.Meta.Area.Offset + mb.Meta.Area.Size - meta.Size() - mb.BaseAddress
 	}
 
 	return mfg.Mfg{
