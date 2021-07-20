@@ -31,6 +31,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+var baseAddress int
+
 func ResolveMfgPkg(pkgName string) (*pkg.LocalPackage, error) {
 	proj := TryGetProject()
 
@@ -114,7 +116,7 @@ func mfgCreateRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	me, err := mfg.LoadMfgEmitter(lpkg, ver, keys)
+	me, err := mfg.LoadMfgEmitter(lpkg, ver, keys, baseAddress)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -156,7 +158,7 @@ func mfgDeployRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	me, err := mfg.LoadMfgEmitter(lpkg, ver, nil)
+	me, err := mfg.LoadMfgEmitter(lpkg, ver, nil, baseAddress)
 	if err != nil {
 		NewtUsage(nil, err)
 	}
@@ -179,6 +181,8 @@ func AddMfgCommands(cmd *cobra.Command) {
 		},
 	}
 
+	mfgCmd.PersistentFlags().IntVarP(&baseAddress,
+		"base-address", "b", 0, "Base address of the chip")
 	cmd.AddCommand(mfgCmd)
 
 	mfgCreateCmd := &cobra.Command{

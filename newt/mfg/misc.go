@@ -44,7 +44,7 @@ func loadDecodedMfg(basePath string) (DecodedMfg, error) {
 }
 
 func LoadMfgEmitter(basePkg *pkg.LocalPackage,
-	ver image.ImageVersion, keys []sec.PrivSignKey) (MfgEmitter, error) {
+	ver image.ImageVersion, keys []sec.PrivSignKey, baseAddress int) (MfgEmitter, error) {
 
 	dm, err := loadDecodedMfg(basePkg.BasePath())
 	if err != nil {
@@ -55,6 +55,7 @@ func LoadMfgEmitter(basePkg *pkg.LocalPackage,
 	if err != nil {
 		return MfgEmitter{}, err
 	}
+	mb.BaseAddress = baseAddress
 
 	device, err := mb.calcDevice()
 	if err != nil {
