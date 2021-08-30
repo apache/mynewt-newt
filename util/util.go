@@ -38,6 +38,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/otiai10/copy"
 )
 
 var Verbosity int
@@ -539,37 +541,16 @@ func CopyFile(srcFile string, dstFile string) error {
 }
 
 func CopyDir(srcDirStr, dstDirStr string) error {
-	srcDir, err := os.Open(srcDirStr)
+	opt := copy.Options{
+		OnSymlink: func(src string) copy.SymlinkAction {
+			return copy.Shallow
+		},
+	}
+
+	err := copy.Copy(srcDirStr, dstDirStr, opt)
+
 	if err != nil {
 		return ChildNewtError(err)
-	}
-
-	info, err := srcDir.Stat()
-	if err != nil {
-		return ChildNewtError(err)
-	}
-
-	if err := os.MkdirAll(dstDirStr, info.Mode()); err != nil {
-		return ChildNewtError(err)
-	}
-
-	infos, err := srcDir.Readdir(-1)
-	if err != nil {
-		return ChildNewtError(err)
-	}
-
-	for _, info := range infos {
-		src := srcDirStr + "/" + info.Name()
-		dst := dstDirStr + "/" + info.Name()
-		if info.IsDir() {
-			if err := CopyDir(src, dst); err != nil {
-				return err
-			}
-		} else {
-			if err := CopyFile(src, dst); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
