@@ -441,6 +441,7 @@ func (gd *GenericDownloader) Checkout(repoDir string, commit string) error {
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Will checkout %s\n", hash)
 	cmd := []string{
 		"checkout",
+		"-f",
 		hash,
 	}
 
