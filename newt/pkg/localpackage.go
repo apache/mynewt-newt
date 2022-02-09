@@ -48,11 +48,12 @@ var LocalPackageSpecialNames = map[string]bool{
 }
 
 type LocalPackage struct {
-	repo        *repo.Repo
-	name        string
-	basePath    string
-	packageType interfaces.PackageType
-	linkedName  string
+	repo           *repo.Repo
+	name           string
+	basePath       string
+	packageType    interfaces.PackageType
+	configPriority int
+	linkedName     string
 
 	// General information about the package
 	desc *PackageDesc
@@ -127,6 +128,10 @@ func (pkg *LocalPackage) Type() interfaces.PackageType {
 	return pkg.packageType
 }
 
+func (pkg *LocalPackage) ConfigPriority() int {
+	return pkg.configPriority
+}
+
 func (pkg *LocalPackage) Repo() interfaces.RepoInterface {
 	return pkg.repo
 }
@@ -145,6 +150,10 @@ func (pkg *LocalPackage) SetBasePath(basePath string) {
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
+}
+
+func (pkg *LocalPackage) SetConfigPriority(prio int) {
+	pkg.configPriority = prio
 }
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {

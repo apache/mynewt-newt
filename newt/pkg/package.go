@@ -41,6 +41,7 @@ const (
 	PACKAGE_TYPE_BSP
 	PACKAGE_TYPE_UNITTEST
 	PACKAGE_TYPE_APP
+	PACKAGE_TYPE_CONFIG
 	PACKAGE_TYPE_TARGET
 )
 
@@ -54,6 +55,7 @@ var PackageTypeNames = map[interfaces.PackageType]string{
 	PACKAGE_TYPE_BSP:       "bsp",
 	PACKAGE_TYPE_UNITTEST:  "unittest",
 	PACKAGE_TYPE_APP:       "app",
+	PACKAGE_TYPE_CONFIG:    "config",
 	PACKAGE_TYPE_TARGET:    "target",
 }
 
