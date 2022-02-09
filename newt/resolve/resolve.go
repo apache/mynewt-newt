@@ -511,6 +511,20 @@ func (r *Resolver) loadDepsForPkg(rpkg *ResolvePackage) (bool, error) {
 				return false, err
 			}
 
+			if lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG {
+				if rpkg.Lpkg.Type() != pkg.PACKAGE_TYPE_TARGET &&
+					rpkg.Lpkg.Type() != pkg.PACKAGE_TYPE_CONFIG {
+					return false, util.NewNewtError(fmt.Sprintf("Config packages (%s) "+
+						"can only be included by target or config packages (%s -> %s)",
+						lpkg.FullName(), rpkg.Lpkg.FullName(),
+						pkg.PackageTypeNames[rpkg.Lpkg.Type()]))
+				}
+			} else if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG {
+				return false, util.NewNewtError(fmt.Sprintf("Config packages (%s) "+
+					"can only include config package (%s -> %s)", rpkg.Lpkg.FullName(),
+					lpkg.FullName(), pkg.PackageTypeNames[lpkg.Type()]))
+			}
+
 			depRpkg, _ := r.addPkg(lpkg)
 			rpkg.AddDep(depRpkg, expr)
 		}
@@ -917,6 +931,45 @@ func (r *Resolver) resolveHardDepsOnce() (bool, error) {
 	return false, nil
 }
 
+func (r *Resolver) resolveConfigPriorities() {
+	var q []*ResolvePackage
+
+	// Config packages are only includes by target package so need to find
+	// that one and use it as a start point. Also since this may not be (and
+	// probably is not) our first pass, we need to reset priorities for all
+	// config packages found.
+	for _, rpkg := range r.pkgMap {
+		if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG {
+			rpkg.Lpkg.SetConfigPriority(0)
+		}
+		if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_TARGET {
+			q = append(q, rpkg)
+		}
+	}
+
+	for len(q) > 0 {
+		var parentPrio int
+
+		parent := q[0]
+		q = q[1:]
+
+		// Direct dependencies of target package will have priority=99,
+		// subsequent levels of dependency will have priority reduced.
+		if parent.Lpkg.Type() == pkg.PACKAGE_TYPE_TARGET {
+			parentPrio = 100
+		} else {
+			parentPrio = parent.Lpkg.ConfigPriority()
+		}
+
+		for rpkg, _ := range parent.Deps {
+			if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG && rpkg.Lpkg.ConfigPriority() == 0 {
+				rpkg.Lpkg.SetConfigPriority(parentPrio - 1)
+				q = append(q, rpkg)
+			}
+		}
+	}
+}
+
 // Fully resolves all hard dependencies (i.e., packages listed in `pkg.deps`;
 // not API dependencies).
 func (r *Resolver) resolveHardDeps() error {
@@ -927,9 +980,13 @@ func (r *Resolver) resolveHardDeps() error {
 		}
 
 		if !reprocess {
-			return nil
+			break
 		}
 	}
+
+	r.resolveConfigPriorities()
+
+	return nil
 }
 
 // Given a fully calculated syscfg and API map, resolves package dependencies

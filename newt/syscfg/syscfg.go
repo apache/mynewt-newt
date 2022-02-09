@@ -328,9 +328,7 @@ func (entry *CfgEntry) ambiguities() []CfgPoint {
 		}
 
 		// If the two package have different priorities, there is no ambiguity.
-		if normalizePkgType(cur.Source.Type()) !=
-			normalizePkgType(next.Source.Type()) {
-
+		if findPkgPriority(cur.Source) != findPkgPriority(next.Source) {
 			break
 		}
 
@@ -380,10 +378,10 @@ func (entry *CfgEntry) priorityViolations() []CfgPriority {
 
 		// Overrides must come from a higher priority package, with one
 		// exception: a package can override its own setting.
-		curType := normalizePkgType(p.Source.Type())
-		defType := normalizePkgType(entry.PackageDef.Type())
+		curPrio := findPkgPriority(p.Source)
+		defPrio := findPkgPriority(entry.PackageDef)
 
-		if p.Source != entry.PackageDef && curType <= defType && entry.History[0].Value != "" {
+		if p.Source != entry.PackageDef && curPrio <= defPrio && entry.History[0].Value != "" {
 			priority := CfgPriority{
 				PackageDef:  entry.PackageDef,
 				PackageSrc:  p.Source,
@@ -1054,6 +1052,10 @@ func settingName(setting string) string {
 	return SYSCFG_PREFIX_SETTING + util.CIdentifier(setting)
 }
 
+func findPkgPriority(lpkg *pkg.LocalPackage) int {
+	return int(lpkg.Type())*100 + lpkg.ConfigPriority()
+}
+
 func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
 	switch typ {
 	case pkg.PACKAGE_TYPE_TARGET:
@@ -1064,6 +1066,8 @@ func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
 		return pkg.PACKAGE_TYPE_UNITTEST
 	case pkg.PACKAGE_TYPE_BSP:
 		return pkg.PACKAGE_TYPE_BSP
+	case pkg.PACKAGE_TYPE_CONFIG:
+		return pkg.PACKAGE_TYPE_CONFIG
 	default:
 		return pkg.PACKAGE_TYPE_LIB
 	}
@@ -1074,6 +1078,7 @@ func categorizePkgs(
 
 	pmap := map[interfaces.PackageType][]*pkg.LocalPackage{
 		pkg.PACKAGE_TYPE_TARGET:   []*pkg.LocalPackage{},
+		pkg.PACKAGE_TYPE_CONFIG:   []*pkg.LocalPackage{},
 		pkg.PACKAGE_TYPE_APP:      []*pkg.LocalPackage{},
 		pkg.PACKAGE_TYPE_UNITTEST: []*pkg.LocalPackage{},
 		pkg.PACKAGE_TYPE_BSP:      []*pkg.LocalPackage{},
@@ -1166,6 +1171,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		pkg.PACKAGE_TYPE_BSP,
 		pkg.PACKAGE_TYPE_UNITTEST,
 		pkg.PACKAGE_TYPE_APP,
+		pkg.PACKAGE_TYPE_CONFIG,
 		pkg.PACKAGE_TYPE_TARGET,
 	} {
 		if err := cfg.readDefsForPkgType(lpkgMap[ptype], settings); err != nil {
@@ -1178,6 +1184,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 		pkg.PACKAGE_TYPE_BSP,
 		pkg.PACKAGE_TYPE_UNITTEST,
 		pkg.PACKAGE_TYPE_APP,
+		pkg.PACKAGE_TYPE_CONFIG,
 		pkg.PACKAGE_TYPE_TARGET,
 	} {
 		if err := cfg.readValsForPkgType(lpkgMap[ptype], settings); err != nil {
