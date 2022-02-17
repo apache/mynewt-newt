@@ -237,14 +237,24 @@ func (bpkg *BuildPackage) findSdkIncludes() []string {
 	return sdkPathList
 }
 
+func addIncludeDir(incls *[]string, inc string) bool {
+	if _, err := os.Stat(inc); err == nil {
+		*incls = append(*incls, inc)
+
+		return true
+	}
+
+	return false
+}
+
 func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 	bspPkg := b.targetBuilder.bspPkg
 	pkgBase := filepath.Base(bpkg.rpkg.Lpkg.Name())
 	bp := bpkg.rpkg.Lpkg.BasePath()
 
-	incls := []string{
-		bp + "/include",
-		bp + "/include/" + pkgBase + "/arch/" + bspPkg.Arch,
+	incls := []string{}
+	if addIncludeDir(&incls, bp+"/include") {
+		addIncludeDir(&incls, bp+"/include/"+pkgBase+"/arch/"+bspPkg.Arch)
 	}
 
 	if bpkg.rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_SDK {
@@ -260,7 +270,7 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 		util.OneTimeWarningError(err)
 
 		for _, dir := range inclDirs {
-			incls = append(incls, bp + "/" + dir)
+			incls = append(incls, bp+"/"+dir)
 		}
 	}
 
@@ -271,8 +281,9 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	srcDir := bpkg.rpkg.Lpkg.BasePath() + "/src/"
 
 	incls := []string{}
-	incls = append(incls, srcDir)
-	incls = append(incls, srcDir+"/arch/"+b.targetBuilder.bspPkg.Arch)
+	if addIncludeDir(&incls, srcDir) {
+		addIncludeDir(&incls, srcDir+"/arch/"+b.targetBuilder.bspPkg.Arch)
+	}
 
 	switch bpkg.rpkg.Lpkg.Type() {
 	case pkg.PACKAGE_TYPE_SDK:
