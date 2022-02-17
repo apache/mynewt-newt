@@ -940,7 +940,7 @@ func (r *Resolver) resolveConfigPriorities() {
 	// config packages found.
 	for _, rpkg := range r.pkgMap {
 		if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG {
-			rpkg.Lpkg.SetConfigPriority(0)
+			rpkg.Lpkg.SetSubPriority(0)
 		}
 		if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_TARGET {
 			q = append(q, rpkg)
@@ -956,14 +956,14 @@ func (r *Resolver) resolveConfigPriorities() {
 		// Direct dependencies of target package will have priority=99,
 		// subsequent levels of dependency will have priority reduced.
 		if parent.Lpkg.Type() == pkg.PACKAGE_TYPE_TARGET {
-			parentPrio = 100
+			parentPrio = pkg.PACKAGE_SUBPRIO_NUM
 		} else {
-			parentPrio = parent.Lpkg.ConfigPriority()
+			parentPrio = parent.Lpkg.SubPriority()
 		}
 
 		for rpkg, _ := range parent.Deps {
-			if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG && rpkg.Lpkg.ConfigPriority() == 0 {
-				rpkg.Lpkg.SetConfigPriority(parentPrio - 1)
+			if rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG && rpkg.Lpkg.SubPriority() == 0 {
+				rpkg.Lpkg.SetSubPriority(parentPrio - 1)
 				q = append(q, rpkg)
 			}
 		}

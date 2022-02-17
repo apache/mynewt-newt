@@ -45,6 +45,8 @@ const (
 	PACKAGE_TYPE_TARGET
 )
 
+const PACKAGE_SUBPRIO_NUM = 100
+
 var PackageTypeNames = map[interfaces.PackageType]string{
 	PACKAGE_TYPE_COMPILER:  "compiler",
 	PACKAGE_TYPE_MFG:       "mfg",
