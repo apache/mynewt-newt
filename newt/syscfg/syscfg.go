@@ -1053,7 +1053,7 @@ func settingName(setting string) string {
 }
 
 func findPkgPriority(lpkg *pkg.LocalPackage) int {
-	return int(lpkg.Type())*100 + lpkg.ConfigPriority()
+	return int(lpkg.Type())*pkg.PACKAGE_SUBPRIO_NUM + lpkg.SubPriority()
 }
 
 func normalizePkgType(typ interfaces.PackageType) interfaces.PackageType {
@@ -1410,17 +1410,17 @@ func writeReposInfo(w io.Writer) {
 		r := project.GetProject().Repos()[n]
 
 		if !r.CheckExists() {
-			continue;
+			continue
 		}
 
 		commitHash, err := r.CurrentHash()
 		if err != nil {
-			continue;
+			continue
 		}
 
 		fmt.Fprintf(w, "/*** Repository @%s info */\n", r.Name())
 
-		k := fmt.Sprintf("%s", settingName("REPO_HASH_" + util.CIdentifier(strings.ToUpper(r.Name()))))
+		k := fmt.Sprintf("%s", settingName("REPO_HASH_"+util.CIdentifier(strings.ToUpper(r.Name()))))
 		v := fmt.Sprintf("\"%s", commitHash)
 
 		dirty, err := r.DirtyState()
@@ -1441,10 +1441,10 @@ func writeReposInfo(w io.Writer) {
 		if err != nil || ver == nil {
 			v = "0.0.0"
 		} else {
-			v = ver.String();
+			v = ver.String()
 		}
 
-		k = fmt.Sprintf("%s", settingName("REPO_VERSION_" + util.CIdentifier(strings.ToUpper(r.Name()))))
+		k = fmt.Sprintf("%s", settingName("REPO_VERSION_"+util.CIdentifier(strings.ToUpper(r.Name()))))
 		v = fmt.Sprintf("\"%s\"", v)
 
 		writeDefine(k, v, w)

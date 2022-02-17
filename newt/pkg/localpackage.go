@@ -48,12 +48,12 @@ var LocalPackageSpecialNames = map[string]bool{
 }
 
 type LocalPackage struct {
-	repo           *repo.Repo
-	name           string
-	basePath       string
-	packageType    interfaces.PackageType
-	configPriority int
-	linkedName     string
+	repo        *repo.Repo
+	name        string
+	basePath    string
+	packageType interfaces.PackageType
+	subPriority int
+	linkedName  string
 
 	// General information about the package
 	desc *PackageDesc
@@ -128,8 +128,8 @@ func (pkg *LocalPackage) Type() interfaces.PackageType {
 	return pkg.packageType
 }
 
-func (pkg *LocalPackage) ConfigPriority() int {
-	return pkg.configPriority
+func (pkg *LocalPackage) SubPriority() int {
+	return pkg.subPriority
 }
 
 func (pkg *LocalPackage) Repo() interfaces.RepoInterface {
@@ -152,8 +152,8 @@ func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {
 	pkg.packageType = packageType
 }
 
-func (pkg *LocalPackage) SetConfigPriority(prio int) {
-	pkg.configPriority = prio
+func (pkg *LocalPackage) SetSubPriority(prio int) {
+	pkg.subPriority = prio
 }
 
 func (pkg *LocalPackage) SetDesc(desc *PackageDesc) {
@@ -334,6 +334,20 @@ func (pkg *LocalPackage) Load() error {
 		// We don't really want anything else for this package
 		return nil
 	}
+
+	subPriority, err := pkg.PkgY.GetValInt("pkg.subpriority", nil)
+	util.OneTimeWarningError(err)
+	if subPriority >= PACKAGE_SUBPRIO_NUM {
+		return util.FmtNewtError(
+			"Package \"%s\" subpriority value \"%d\" is out of range (0 - \"%d\")",
+			pkg.basePath, subPriority, PACKAGE_SUBPRIO_NUM-1)
+	}
+	if subPriority > 0 && pkg.packageType >= PACKAGE_TYPE_BSP {
+		return util.FmtNewtError(
+			"Package \"%s\" of type \"%s\" does not support subpriorities",
+			pkg.basePath, typeString)
+	}
+	pkg.subPriority = subPriority
 
 	// Read the package description from the file
 	pkg.desc, err = pkg.readDesc(pkg.PkgY)
