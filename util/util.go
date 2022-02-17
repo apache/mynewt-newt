@@ -44,6 +44,7 @@ import (
 
 var Verbosity int
 var PrintShellCmds bool
+var InjectSyscfg string
 var ExecuteShell bool
 var EscapeShellCmds bool
 var logFile *os.File

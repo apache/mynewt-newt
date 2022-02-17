@@ -212,6 +212,23 @@ func (cfg *Cfg) ExpandRef(val string) (string, string, error) {
 
 }
 
+func (cfg *Cfg) AddInjectedSettings() {
+	for _, setting := range strings.Split(util.InjectSyscfg, ":") {
+		kv := strings.SplitN(setting, "=", 2)
+		if len(kv) < 2 {
+			continue
+		}
+
+		k := kv[0]
+		v := kv[1]
+
+		if entry, ok := cfg.Settings[k]; ok {
+			entry.appendValue(nil, v)
+			cfg.Settings[k] = entry
+		}
+	}
+}
+
 func (cfg *Cfg) ResolveValueRefs() {
 	for k, entry := range cfg.Settings {
 		refName, val, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
@@ -1053,6 +1070,12 @@ func settingName(setting string) string {
 }
 
 func findPkgPriority(lpkg *pkg.LocalPackage) int {
+	if lpkg == nil {
+		// this is correct when doing lookup for a setting that was
+		// injected from command line, so let's assume this is always
+		// the case here
+		return int(pkg.PACKAGE_TYPE_TARGET)*pkg.PACKAGE_SUBPRIO_NUM + 1
+	}
 	return int(lpkg.Type())*pkg.PACKAGE_SUBPRIO_NUM + lpkg.SubPriority()
 }
 

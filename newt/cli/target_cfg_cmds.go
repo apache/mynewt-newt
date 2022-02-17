@@ -62,8 +62,16 @@ func printSetting(entry syscfg.CfgEntry) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"    * Overridden: ")
 		for i := 1; i < len(entry.History); i++ {
-			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s, ",
-				entry.History[i].Source.FullName())
+			var fullName string
+
+			lpkg := entry.History[i].Source
+			if lpkg == nil {
+				fullName = "<command line>"
+			} else {
+				fullName = lpkg.FullName()
+			}
+
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s, ", fullName)
 		}
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"default=%s\n", entry.History[0].Value)
@@ -82,8 +90,16 @@ func printBriefSetting(entry syscfg.CfgEntry) {
 	var extras []string
 
 	if len(entry.History) > 1 {
-		s := fmt.Sprintf("overridden by %s",
-			entry.History[len(entry.History)-1].Source.FullName())
+		var fullName string
+
+		lpkg := entry.History[len(entry.History)-1].Source
+		if lpkg == nil {
+			fullName = "<command line>"
+		} else {
+			fullName = lpkg.FullName()
+		}
+
+		s := fmt.Sprintf("overridden by %s", fullName)
 		extras = append(extras, s)
 	}
 	if len(entry.ValueRefName) > 0 {
@@ -786,6 +802,9 @@ func targetCfgCmdAll() []*cobra.Command {
 		Run:   targetConfigShowCmd,
 	}
 
+	configShowCmd.Flags().StringVarP(&util.InjectSyscfg, "syscfg", "S", "",
+		"Injected syscfg settings, key=value pairs separated by colon")
+
 	configCmd.AddCommand(configShowCmd)
 	AddTabCompleteFn(configShowCmd, func() []string {
 		return append(targetList(), unittestList()...)
@@ -798,6 +817,9 @@ func targetCfgCmdAll() []*cobra.Command {
 		Run:   targetConfigBriefCmd,
 	}
 
+	configBriefCmd.Flags().StringVarP(&util.InjectSyscfg, "syscfg", "S", "",
+		"Injected syscfg settings, key=value pairs separated by colon")
+
 	configCmd.AddCommand(configBriefCmd)
 	AddTabCompleteFn(configBriefCmd, func() []string {
 		return append(targetList(), unittestList()...)
@@ -809,6 +831,9 @@ func targetCfgCmdAll() []*cobra.Command {
 		Long:  "View a flat table of target's system configuration",
 		Run:   targetConfigFlatCmd,
 	}
+
+	configFlatCmd.Flags().StringVarP(&util.InjectSyscfg, "syscfg", "S", "",
+		"Injected syscfg settings, key=value pairs separated by colon")
 
 	configCmd.AddCommand(configFlatCmd)
 	AddTabCompleteFn(configFlatCmd, func() []string {
