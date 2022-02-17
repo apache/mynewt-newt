@@ -598,6 +598,7 @@ func (r *Resolver) reloadCfg() (bool, error) {
 		return false, err
 	}
 
+	cfg.AddInjectedSettings()
 	cfg.ResolveValueRefs()
 
 	// Determine if any new settings have been added or if any existing

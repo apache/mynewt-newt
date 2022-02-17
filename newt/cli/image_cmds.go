@@ -209,6 +209,9 @@ func AddImageCommands(cmd *cobra.Command) {
 	createImageCmd.PersistentFlags().BoolVarP(&useLegacyTLV,
 		"legacy-tlvs", "L", false, "Use legacy TLV values for NONCE and SECRET_ID")
 
+	createImageCmd.Flags().StringVarP(&util.InjectSyscfg, "syscfg", "", "",
+		"Injected syscfg settings, key=value pairs separated by colon")
+
 	cmd.AddCommand(createImageCmd)
 	AddTabCompleteFn(createImageCmd, targetList)
 

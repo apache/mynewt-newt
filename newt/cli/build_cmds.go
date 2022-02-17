@@ -440,6 +440,9 @@ func AddBuildCommands(cmd *cobra.Command) {
 	buildCmd.Flags().BoolVarP(&printShellCmds, "printCmds", "p", false,
 		"Print executed build commands")
 
+	buildCmd.Flags().StringVarP(&util.InjectSyscfg, "syscfg", "S", "",
+		"Injected syscfg settings, key=value pairs separated by colon")
+
 	buildCmd.Flags().BoolVar(&executeShell, "executeShell", false,
 		"Execute build command using /bin/sh (Linux and MacOS only)")
 
