@@ -918,7 +918,6 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 		cmd = append(cmd, "-Wl,--just-symbols="+elfLib)
 	}
 
-	cmd = append(cmd, "-Wl,-whole-archive")
 	if c.ldResolveCircularDeps {
 		cmd = append(cmd, "-Wl,--start-group")
 		cmd = append(cmd, objList...)
@@ -926,7 +925,6 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 	} else {
 		cmd = append(cmd, objList...)
 	}
-	cmd = append(cmd, "-Wl,-no-whole-archive")
 
 	if keepSymbols != nil {
 		for _, name := range keepSymbols {
