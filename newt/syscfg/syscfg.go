@@ -494,7 +494,14 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	}
 
 	if vals["choices"] != nil {
-		choices := cast.ToStringSlice(vals["choices"])
+		var choices []string
+		switch vals["choices"].(type) {
+		default:
+			choices = cast.ToStringSlice(vals["choices"])
+		case string:
+			choices = strings.Split(vals["choices"].(string), ",")
+		}
+
 		entry.ValidChoices = choices
 
 		sort.Slice(choices, func(a, b int) bool {
