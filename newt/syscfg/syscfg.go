@@ -455,6 +455,10 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 	valueVal, valueExist := vals["value"]
 	if valueExist {
 		entry.Value = stringValue(valueVal)
+	} else if entry.State == CFG_SETTING_STATE_DEFUNCT {
+		// defunct settings do not need default value, we only care if
+		// value was set anywhere and emit an error then
+		entry.Value = ""
 	} else {
 		return entry, util.FmtNewtError(
 			"setting %s does not have required value field", name)
