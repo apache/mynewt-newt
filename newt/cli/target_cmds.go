@@ -572,7 +572,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 		srcTarget.FullName(), dstTarget.FullName())
 }
 
-func targetDepCmd(cmd *cobra.Command, args []string) {
+func targetDepCommonCmd(cmd *cobra.Command, args []string) builder.DepGraph {
 	if len(args) < 1 {
 		NewtUsage(cmd,
 			util.NewNewtError("Must specify target or unittest name"))
@@ -611,13 +611,27 @@ func targetDepCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	return dg
+}
+
+func targetDepCmd(cmd *cobra.Command, args []string) {
+	dg := targetDepCommonCmd(cmd, args)
+
 	if len(dg) > 0 {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			builder.DepGraphText(dg)+"\n")
 	}
 }
 
-func targetRevdepCmd(cmd *cobra.Command, args []string) {
+func targetDepvizCmd(cmd *cobra.Command, args []string) {
+	dg := targetDepCommonCmd(cmd, args)
+
+	if len(dg) > 0 {
+		fmt.Print(builder.DepGraphViz(dg))
+	}
+}
+
+func targetRevdepCommonCmd(cmd *cobra.Command, args []string) builder.DepGraph {
 	if len(args) < 1 {
 		NewtUsage(cmd, util.NewNewtError("Must specify target name"))
 	}
@@ -655,9 +669,23 @@ func targetRevdepCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	return dg
+}
+
+func targetRevdepCmd(cmd *cobra.Command, args []string) {
+	dg := targetRevdepCommonCmd(cmd, args)
+
 	if len(dg) > 0 {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			builder.RevdepGraphText(dg)+"\n")
+	}
+}
+
+func targetRevdepvizCmd(cmd *cobra.Command, args []string) {
+	dg := targetRevdepCommonCmd(cmd, args)
+
+	if len(dg) > 0 {
+		fmt.Print(builder.RevdepGraphViz(dg))
 	}
 }
 
@@ -819,6 +847,20 @@ func AddTargetCommands(cmd *cobra.Command) {
 		return append(targetList(), unittestList()...)
 	})
 
+	depvizHelpText := "Output dependency graph in DOT format."
+
+	depvizCmd := &cobra.Command{
+		Use:   "depviz <target> [pkg-1] [pkg-2] [...]",
+		Short: "Output dependency graph in DOT format",
+		Long:  depvizHelpText,
+		Run:   targetDepvizCmd,
+	}
+
+	targetCmd.AddCommand(depvizCmd)
+	AddTabCompleteFn(depvizCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
 	revdepHelpText := "View a target's reverse-dependency graph."
 
 	revdepCmd := &cobra.Command{
@@ -830,6 +872,20 @@ func AddTargetCommands(cmd *cobra.Command) {
 
 	targetCmd.AddCommand(revdepCmd)
 	AddTabCompleteFn(revdepCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	revdepvizHelpText := "Output reverse-dependency graph in DOT format."
+
+	revdepvizCmd := &cobra.Command{
+		Use:   "revdepviz <target> [pkg-1] [pkg-2] [...]",
+		Short: "Output reverse-dependency graph in DOT format",
+		Long:  revdepvizHelpText,
+		Run:   targetRevdepvizCmd,
+	}
+
+	targetCmd.AddCommand(revdepvizCmd)
+	AddTabCompleteFn(revdepvizCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 

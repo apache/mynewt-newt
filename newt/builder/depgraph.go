@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/resolve"
@@ -182,6 +183,27 @@ func DepGraphText(graph DepGraph) string {
 	return buffer.String()
 }
 
+func DepGraphViz(graph DepGraph) string {
+	parents := make([]string, 0, len(graph))
+	for pname, _ := range graph {
+		parents = append(parents, pname)
+	}
+	sort.Strings(parents)
+
+	buffer := bytes.NewBufferString("")
+
+	fmt.Fprintf(buffer, "digraph deps {\n")
+	for _, pname := range parents {
+		for _, child := range graph[pname] {
+			depStr := strings.TrimPrefix(depString(child), child.PkgName)
+			fmt.Fprintf(buffer, "  \"%s\" -> \"%s\" [label=\"%s\"];\n", pname, child.PkgName, depStr)
+		}
+	}
+	fmt.Fprintf(buffer, "}\n")
+
+	return buffer.String()
+}
+
 func RevdepGraphText(graph DepGraph) string {
 	parents := make([]string, 0, len(graph))
 	for pname, _ := range graph {
@@ -202,6 +224,27 @@ func RevdepGraphText(graph DepGraph) string {
 		}
 		fmt.Fprintf(buffer, "]")
 	}
+
+	return buffer.String()
+}
+
+func RevdepGraphViz(graph DepGraph) string {
+	parents := make([]string, 0, len(graph))
+	for pname, _ := range graph {
+		parents = append(parents, pname)
+	}
+	sort.Strings(parents)
+
+	buffer := bytes.NewBufferString("")
+
+	fmt.Fprintf(buffer, "digraph revdeps {\n")
+	for _, pname := range parents {
+		for _, child := range graph[pname] {
+			depStr := strings.TrimPrefix(depString(child), child.PkgName)
+			fmt.Fprintf(buffer, "  \"%s\" -> \"%s\" [label=\"%s\"];\n", child.PkgName, pname, depStr)
+		}
+	}
+	fmt.Fprintf(buffer, "}\n")
 
 	return buffer.String()
 }
