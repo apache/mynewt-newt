@@ -48,6 +48,7 @@ type StageFunc struct {
 	ArgList    string
 	Pkg        *pkg.LocalPackage
 	Deps       []*StageFunc
+	DepsI      []*StageFunc
 	Resolved   bool
 	Resolving  bool
 }
