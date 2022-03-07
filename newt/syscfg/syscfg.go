@@ -60,6 +60,7 @@ type CfgSettingState int
 
 const (
 	CFG_SETTING_STATE_GOOD CfgSettingState = iota
+	CFG_SETTING_STATE_CONST
 	CFG_SETTING_STATE_DEPRECATED
 	CFG_SETTING_STATE_DEFUNCT
 )
@@ -149,6 +150,9 @@ type Cfg struct {
 	// Use of defunct settings (error).
 	Defunct map[string]struct{}
 
+	// Use of const settings (error).
+	Consts map[string]struct{}
+
 	// Unresolved value references
 	UnresolvedValueRefs map[string]struct{}
 }
@@ -166,6 +170,7 @@ func NewCfg() Cfg {
 		Redefines:           map[string]map[*pkg.LocalPackage]struct{}{},
 		Deprecated:          map[string]struct{}{},
 		Defunct:             map[string]struct{}{},
+		Consts:              map[string]struct{}{},
 		UnresolvedValueRefs: map[string]struct{}{},
 	}
 }
@@ -570,19 +575,46 @@ func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
 
 	if defs != nil {
 		for k, v := range defs {
-			vals, ok := v.(map[interface{}]interface{})
-			if !ok {
-				return util.FmtNewtError("Package \"%s\" contains invalid "+
-					"\"syscfg.defs\" map; expected full setting definition, "+
-					"but setting \"%s\" specifies a single value.  "+
-					"Did you mix up \"syscfg.defs\" and \"syscfg.vals\"?",
-					lpkg.FullName(), k)
-			}
+			var entry CfgEntry
+			var err error
 
-			entry, err := readSetting(k, lpkg, vals)
-			if err != nil {
-				return util.FmtNewtError("Config for package %s: %s",
-					lpkg.FullName(), err.Error())
+			switch v.(type) {
+			case map[interface{}]interface{}:
+				vals := v.(map[interface{}]interface{})
+				entry, err = readSetting(k, lpkg, vals)
+				if err != nil {
+					return util.FmtNewtError("Config for package %s: %s",
+						lpkg.FullName(), err.Error())
+				}
+			case int:
+				val := v.(int)
+				entry = CfgEntry{
+					Name:       k,
+					PackageDef: lpkg,
+					State:      CFG_SETTING_STATE_CONST,
+					Value:      stringValue(val),
+					History: []CfgPoint{{
+						Value:  stringValue(val),
+						Source: lpkg,
+					}},
+				}
+			case string:
+				val := v.(string)
+				entry = CfgEntry{
+					Name:       k,
+					PackageDef: lpkg,
+					State:      CFG_SETTING_STATE_CONST,
+					Value:      val,
+					History: []CfgPoint{{
+						Value:  val,
+						Source: lpkg,
+					}},
+				}
+			default:
+				return util.FmtNewtError("Package \"%s\" contains invalid "+
+					"\"syscfg.defs\" for \"%s\". It should be either full definition "+
+					"(configurable setting) or single value (const setting)",
+					lpkg.FullName(), k)
 			}
 
 			replace := true
@@ -678,6 +710,8 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 			cfg.Deprecated[k] = struct{}{}
 		case CFG_SETTING_STATE_DEFUNCT:
 			cfg.Defunct[k] = struct{}{}
+		case CFG_SETTING_STATE_CONST:
+			cfg.Consts[k] = struct{}{}
 		}
 	}
 
@@ -1008,6 +1042,16 @@ func (cfg *Cfg) ErrorText() string {
 		for name, _ := range cfg.Defunct {
 			entry := cfg.Settings[name]
 			str += "    " + fmt.Sprintf("%s: %s\n", name, entry.Description)
+			historyMap[name] = entry.History
+		}
+	}
+
+	// Overrides of const settings.
+	if len(cfg.Consts) > 0 {
+		str += "Override of consts settings detected:\n"
+		for name, _ := range cfg.Consts {
+			entry := cfg.Settings[name]
+			str += "    " + fmt.Sprintf("%s\n", name)
 			historyMap[name] = entry.History
 		}
 	}
