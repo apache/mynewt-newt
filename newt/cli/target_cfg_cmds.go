@@ -575,6 +575,30 @@ func printSysinitBrief(targetName string, scfg sysinit.SysinitCfg) {
 	printStageBriefTable(scfg.StageFuncs)
 }
 
+func printSysinitGraphviz(targetName string, scfg sysinit.SysinitCfg) {
+	if errText := scfg.ErrorText(); errText != "" {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
+	}
+
+	fmt.Printf("digraph sysinit {\n")
+	for _, sf := range scfg.StageFuncs {
+		if len(sf.Stage.Afters) == 0 && len(sf.Stage.Befores) == 0 {
+			stage, _ := sf.Stage.IntVal()
+			fmt.Printf("  %s [label=\"%s (%d)\"];\n", sf.Name, sf.Name, stage)
+		}
+		for _, depSf := range sf.DepsI {
+			fmt.Printf("  %s -> %s;\n", sf.Name, depSf.Name)
+		}
+		for _, depStr := range sf.Stage.Afters {
+			fmt.Printf("  %s -> %s [label=\"$after:%s\"];\n", depStr, sf.Name, depStr)
+		}
+		for _, depStr := range sf.Stage.Befores {
+			fmt.Printf("  %s -> %s [label=\"$before:%s\"];\n", sf.Name, depStr, depStr)
+		}
+	}
+	fmt.Printf("}\n")
+}
+
 func targetSysinitShowCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		NewtUsage(cmd,
@@ -614,6 +638,29 @@ func targetSysinitBriefCmd(cmd *cobra.Command, args []string) {
 
 		res := targetBuilderConfigResolve(b)
 		printSysinitBrief(b.GetTarget().Name(), res.SysinitCfg)
+
+		if i < len(args)-1 {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
+		}
+	}
+}
+
+func targetSysinitGraphvizCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target or unittest name"))
+	}
+
+	TryGetProject()
+
+	for i, arg := range args {
+		b, err := TargetBuilderForTargetOrUnittest(arg)
+		if err != nil {
+			NewtUsage(cmd, err)
+		}
+
+		res := targetBuilderConfigResolve(b)
+		printSysinitGraphviz(b.GetTarget().Name(), res.SysinitCfg)
 
 		if i < len(args)-1 {
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
@@ -936,6 +983,18 @@ func targetCfgCmdAll() []*cobra.Command {
 
 	sysinitCmd.AddCommand(sysinitBriefCmd)
 	AddTabCompleteFn(sysinitBriefCmd, func() []string {
+		return append(targetList(), unittestList()...)
+	})
+
+	sysinitGraphvizCmd := &cobra.Command{
+		Use:   "graphviz <target> [target...]",
+		Short: "Print a graph representation of target's sysinit configuration (DOT format)",
+		Long:  "Print a graph representation of target's sysinit configuration (DOT format)",
+		Run:   targetSysinitGraphvizCmd,
+	}
+
+	sysinitCmd.AddCommand(sysinitGraphvizCmd)
+	AddTabCompleteFn(sysinitGraphvizCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
 

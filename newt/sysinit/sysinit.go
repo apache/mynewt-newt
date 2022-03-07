@@ -164,6 +164,9 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 		for _, sfsP := range sfsPrev {
 			for _, sfsC := range sfsCurr {
 				sfsP.Deps = append(sfsP.Deps, sfsC)
+				// Keep separate list of implicit dependencies
+				// This is only used for Graphviz output
+				sfsP.DepsI = append(sfsP.DepsI, sfsC)
 			}
 		}
 
