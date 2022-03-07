@@ -483,8 +483,17 @@ func printStage(sf stage.StageFunc) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s:\n", sf.Name)
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Package: %s\n",
 		sf.Pkg.FullName())
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "    Stage:  %s\n",
-		valSettingString(sf.Stage))
+	if len(sf.Stage.Afters) > 0 || len(sf.Stage.Befores) > 0 {
+		for _, s := range sf.Stage.Afters {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "    After:   %s\n", s)
+		}
+		for _, s := range sf.Stage.Befores {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "    Before:  %s\n", s)
+		}
+	} else {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "    Stage:   %s\n",
+			valSettingString(sf.Stage))
+	}
 }
 
 func printStageBriefOne(sf stage.StageFunc,
