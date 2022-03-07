@@ -47,6 +47,9 @@ type StageFunc struct {
 	ReturnType string
 	ArgList    string
 	Pkg        *pkg.LocalPackage
+	Deps       []*StageFunc
+	Resolved   bool
+	Resolving  bool
 }
 
 func NewStageFunc(name string, textVal string,
@@ -71,6 +74,36 @@ func NewStageFunc(name string, textVal string,
 	}
 
 	return sf, nil
+}
+
+func NewStageFuncMultiDeps(name string, stageDeps []string,
+	p *pkg.LocalPackage, cfg *syscfg.Cfg) (StageFunc, error) {
+	sf := StageFunc{
+		Name:  name,
+		Pkg:   p,
+		Stage: val.ValSetting{},
+	}
+
+	for _, stageDep := range stageDeps {
+		s := strings.TrimPrefix(stageDep, "$before:")
+		if s != stageDep {
+			sf.Stage.Befores = append(sf.Stage.Befores, s)
+		} else {
+			s = strings.TrimPrefix(stageDep, "$after:")
+			if s != stageDep {
+				sf.Stage.Afters = append(sf.Stage.Afters, s)
+			} else {
+				return StageFunc{}, util.FmtNewtError("Invalid setting: \"%s: %s\"; "+
+					"value should specify a $before or $after dependency.", name, stageDep)
+			}
+		}
+	}
+
+	return sf, nil
+}
+
+func ValIsDep(textVal string) bool {
+	return strings.HasPrefix(textVal, "$before:") || strings.HasPrefix(textVal, "$after:")
 }
 
 // SortStageFuncs performs an in-place sort of the provided StageFunc slice.
@@ -138,21 +171,37 @@ func WriteCalls(sortedFuncs []StageFunc, argList string, w io.Writer) {
 
 	for i, f := range sortedFuncs {
 		intStage, _ := f.Stage.IntVal()
+		noStage := len(f.Stage.Afters) > 0 || len(f.Stage.Befores) > 0
 
 		if intStage != prevStage {
 			prevStage = intStage
 			dupCount = 0
 
-			if i != 0 {
+			if noStage {
 				fmt.Fprintf(w, "\n")
+			} else {
+				if i != 0 {
+					fmt.Fprintf(w, "\n")
+				}
+				fmt.Fprintf(w, "    /*** Stage %d */\n", intStage)
 			}
-			fmt.Fprintf(w, "    /*** Stage %d */\n", intStage)
 		} else {
 			dupCount += 1
 		}
 
-		fmt.Fprintf(w, "    /* %d.%d: %s (%s) */\n",
-			intStage, dupCount, f.Name, f.Pkg.Name())
+		if noStage {
+			for _, s := range f.Stage.Afters {
+				fmt.Fprintf(w, "    /* [$after:%s]: %s (%s) */\n",
+					s, f.Name, f.Pkg.Name())
+			}
+			for _, s := range f.Stage.Befores {
+				fmt.Fprintf(w, "    /* [$before:%s]: %s (%s) */\n",
+					s, f.Name, f.Pkg.Name())
+			}
+		} else {
+			fmt.Fprintf(w, "    /* %d.%d: %s (%s) */\n",
+				intStage, dupCount, f.Name, f.Pkg.Name())
+		}
 		fmt.Fprintf(w, "    %s(%s);\n", f.Name, argList)
 	}
 }

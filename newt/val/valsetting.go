@@ -37,6 +37,10 @@ type ValSetting struct {
 
 	// The setting value, after setting references are resolved.
 	Value string
+
+	// List of $after and $before dependencies
+	Afters  []string
+	Befores []string
 }
 
 // IntVal Extracts a setting's integer value.

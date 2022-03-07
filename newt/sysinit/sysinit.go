@@ -22,7 +22,11 @@ package sysinit
 import (
 	"bytes"
 	"fmt"
+	"github.com/spf13/cast"
 	"io"
+	"mynewt.apache.org/newt/util"
+	"sort"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -45,8 +49,30 @@ type SysinitCfg struct {
 func (scfg *SysinitCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg) {
 	settings := cfg.AllSettingsForLpkg(lpkg)
 	initMap := lpkg.InitFuncs(settings)
-	for name, stageStr := range initMap {
-		sf, err := stage.NewStageFunc(name, stageStr, lpkg, cfg)
+	for name, stageDef := range initMap {
+		var sf stage.StageFunc
+		var err error
+
+		switch stageDef.(type) {
+		default:
+			stageStr := cast.ToString(stageDef)
+
+			if stage.ValIsDep(stageStr) {
+				stageDeps := strings.Split(stageStr, ",")
+				sf, err = stage.NewStageFuncMultiDeps(name, stageDeps, lpkg, cfg)
+			} else {
+				sf, err = stage.NewStageFunc(name, stageStr, lpkg, cfg)
+			}
+		case []interface{}:
+			var stageDeps []string
+
+			for _, stageDepIf := range stageDef.([]interface{}) {
+				stageDeps = append(stageDeps, cast.ToString(stageDepIf))
+			}
+
+			sf, err = stage.NewStageFuncMultiDeps(name, stageDeps, lpkg, cfg)
+		}
+
 		if err != nil {
 			scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
 		} else {
@@ -71,6 +97,114 @@ func (scfg *SysinitCfg) detectConflicts() {
 	}
 }
 
+func stageFuncResolve(sfRef *stage.StageFunc, stack *[]stage.StageFunc) error {
+	if sfRef.Resolved {
+		return nil
+	}
+	if sfRef.Resolving {
+		return util.FmtNewtError("Circular dependency detected while resolving \"%s (%s)\".",
+			sfRef.Name, sfRef.Pkg.FullName())
+	}
+
+	sfRef.Resolving = true
+	for _, sfDepRef := range sfRef.Deps {
+		err := stageFuncResolve(sfDepRef, stack)
+		if err != nil {
+			return err
+		}
+	}
+	sfRef.Resolving = false
+
+	sfRef.Resolved = true
+	*stack = append([]stage.StageFunc{*sfRef}, *stack...)
+
+	return nil
+}
+
+func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
+	var nodes []*stage.StageFunc
+	var nodesQ []*stage.StageFunc
+	nodesByStage := make(map[int][]*stage.StageFunc)
+	nodesByName := make(map[string]*stage.StageFunc)
+
+	for idx, _ := range sfs {
+		sfRef := &sfs[idx]
+		nodesByName[sfRef.Name] = sfRef
+		if len(sfRef.Stage.Befores) == 0 && len(sfRef.Stage.Afters) == 0 {
+			stage, _ := sfRef.Stage.IntVal()
+			nodesByStage[stage] = append(nodesByStage[stage], sfRef)
+			nodes = append(nodes, sfRef)
+		} else {
+			nodesQ = append(nodesQ, sfRef)
+		}
+	}
+
+	// Put nodes without stages first, so they are resolved and put to
+	// stack first - we do not want them to precede all nodes with stages.
+	// While technically correct, it's better not to start sysinit with
+	// nodes that do not have any stage since this will likely happen
+	// before os init packages.
+	nodes = append(nodesQ, nodes...)
+
+	var stages []int
+	for stage := range nodesByStage {
+		stages = append(stages, stage)
+	}
+	sort.Ints(stages)
+
+	// Add implicit dependencies for nodes with stages. We need to add
+	// direct dependencies between each node of stage X to each node of
+	// stage Y to make sure they can be resolved properly and reordered
+	// if needed due to other dependencies.
+	sfsPrev := nodesByStage[stages[0]]
+	stages = stages[1:]
+	for _, stage := range stages {
+		sfsCurr := nodesByStage[stage]
+
+		for _, sfsP := range sfsPrev {
+			for _, sfsC := range sfsCurr {
+				sfsP.Deps = append(sfsP.Deps, sfsC)
+			}
+		}
+
+		sfsPrev = sfsCurr
+	}
+
+	// Now add other dependencies, i.e. $after and $before
+	for _, sf := range nodesQ {
+		for _, depStr := range sf.Stage.Afters {
+			depSf := nodesByName[depStr]
+			if depSf == nil {
+				return []stage.StageFunc{},
+					util.FmtNewtError("Unknown depdendency (\"%s\") for \"%s (%s)\".",
+						depStr, sf.Name, sf.Pkg.FullName())
+			}
+			depSf.Deps = append(depSf.Deps, sf)
+		}
+		for _, depStr := range sf.Stage.Befores {
+			depSf := nodesByName[depStr]
+			if depSf == nil {
+				return []stage.StageFunc{},
+					util.FmtNewtError("Unknown depdendency (\"%s\") for \"%s (%s)\".",
+						depStr, sf.Name, sf.Pkg.FullName())
+			}
+			sf.Deps = append(sf.Deps, depSf)
+		}
+	}
+
+	// Now we can resolve order of functions by sorting dependency graph
+	// topologically. This will also detect circular dependencies.
+	sfs = []stage.StageFunc{}
+	for _, sfRef := range nodes {
+		err := stageFuncResolve(sfRef, &sfs)
+		if err != nil {
+			return []stage.StageFunc{}, err
+		}
+	}
+
+	return sfs, nil
+}
+
 func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysinitCfg {
 	scfg := SysinitCfg{
 		Conflicts: map[string][]stage.StageFunc{},
@@ -81,7 +215,19 @@ func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysinitCfg {
 	}
 
 	scfg.detectConflicts()
-	stage.SortStageFuncs(scfg.StageFuncs, "sysinit")
+
+	// Don't try to resolve order if there are name conflicts since that
+	// process depends on unique names for each function and could return
+	// other confusing errors.
+	if len(scfg.Conflicts) > 0 {
+		return scfg
+	}
+
+	var err error
+	scfg.StageFuncs, err = ResolveStageFuncsOrder(scfg.StageFuncs)
+	if err != nil {
+		scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
+	}
 
 	return scfg
 }
