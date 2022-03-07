@@ -367,9 +367,9 @@ func (pkg *LocalPackage) Load() error {
 }
 
 func (pkg *LocalPackage) InitFuncs(
-	settings map[string]string) map[string]string {
+	settings map[string]string) map[string]interface{} {
 
-	vals, err := pkg.PkgY.GetValStringMapString("pkg.init", settings)
+	vals, err := pkg.PkgY.GetValStringMap("pkg.init", settings)
 	util.OneTimeWarningError(err)
 	return vals
 }
