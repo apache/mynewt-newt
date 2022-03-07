@@ -619,6 +619,8 @@ func (r *Resolver) reloadCfg() (bool, error) {
 		}
 	}
 
+	r.cfg = cfg
+
 	return false, nil
 }
 
