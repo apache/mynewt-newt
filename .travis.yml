@@ -41,7 +41,7 @@ matrix:
         - TEST=TEST_NEWT
 
     - os: osx
-      osx_image: xcode9.2
+      osx_image: xcode13.2
       env:
         - TEST=TEST_NEWT
 
@@ -55,7 +55,7 @@ before_install:
   - go version
 
 install:
-  - git clone https://github.com/JuulLabs-OSS/mynewt-travis-ci $HOME/ci
+  - git clone https://github.com/sjanc/mynewt-travis-ci -b brew_gcc $HOME/ci
   - chmod +x $HOME/ci/*.sh
   - export TEST=TEST_NEWT
   - $HOME/ci/${TRAVIS_OS_NAME}_travis_install.sh
