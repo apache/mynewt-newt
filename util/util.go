@@ -47,6 +47,7 @@ var PrintShellCmds bool
 var InjectSyscfg string
 var ExecuteShell bool
 var EscapeShellCmds bool
+var ShallowCloneDepth int
 var logFile *os.File
 
 func ParseEqualsPair(v string) (string, string, error) {
