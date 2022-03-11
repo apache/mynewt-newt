@@ -53,6 +53,9 @@ func processNewtrc(yc ycfg.YCfg) {
 			util.EscapeShellCmds = b
 		}
 	}
+
+	// default is 0 anyway, no need to initialize first
+	util.ShallowCloneDepth, _ = yc.GetValInt("shallow_clone", nil)
 }
 
 func readNewtrc() ycfg.YCfg {

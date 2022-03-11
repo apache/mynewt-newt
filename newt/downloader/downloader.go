@@ -766,6 +766,9 @@ func (gd *GithubDownloader) Fetch(repoDir string) error {
 			gd.Repo)
 
 		cmd := []string{"fetch", "--tags"}
+		if util.ShallowCloneDepth > 0 {
+			cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+		}
 		_, err := gd.authenticatedCommand(repoDir, cmd)
 		return err
 	})
@@ -876,9 +879,13 @@ func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 		"clone",
 		"-b",
 		branch,
-		url,
-		dstPath,
 	}
+
+	if util.ShallowCloneDepth > 0 {
+		cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+	}
+
+	cmd = append(cmd, url, dstPath)
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
 		err = util.ShellInteractiveCommand(cmd, nil, false)
@@ -927,7 +934,11 @@ func NewGithubDownloader() *GithubDownloader {
 
 func (gd *GitDownloader) Fetch(repoDir string) error {
 	return gd.cachedFetch(func() error {
-		_, err := executeGitCommand(repoDir, []string{"fetch", "--tags"}, true)
+		cmd := []string{"fetch", "--tags"}
+		if util.ShallowCloneDepth > 0 {
+			cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+		}
+		_, err := executeGitCommand(repoDir, cmd, true)
 		return err
 	})
 }
@@ -963,9 +974,13 @@ func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 		"clone",
 		"-b",
 		branch,
-		gd.Url,
-		dstPath,
 	}
+
+	if util.ShallowCloneDepth > 0 {
+		cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+	}
+
+	cmd = append(cmd, gd.Url, dstPath)
 
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
 		err = util.ShellInteractiveCommand(cmd, nil, false)

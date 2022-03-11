@@ -123,6 +123,8 @@ func newtCmd() *cobra.Command {
 		false, "Help for newt commands")
 	newtCmd.PersistentFlags().BoolVarP(&util.EscapeShellCmds, "escape", "",
 		util.EscapeShellCmds, "Apply Windows escapes to shell commands")
+	newtCmd.PersistentFlags().IntVarP(&util.ShallowCloneDepth, "shallow", "",
+		util.ShallowCloneDepth, "Use shallow clone for git repositories up to specified number of commits")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
