@@ -20,6 +20,7 @@
 package main
 
 import (
+	"mynewt.apache.org/newt/newt/settings"
 	"os"
 	"runtime"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/newtutil"
-	"mynewt.apache.org/newt/newt/settings"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -39,7 +39,6 @@ var newtVerbose bool
 var newtLogFile string
 var newtNumJobs int
 var newtHelp bool
-var newtEscapeShellCmds bool
 
 func newtDfltNumJobs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
@@ -81,9 +80,6 @@ func newtCmd() *cobra.Command {
 		Long:    newtHelpText,
 		Example: newtHelpEx,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Ensure .newtrc file gets read.
-			settings.Newtrc()
-
 			verbosity := util.VERBOSITY_DEFAULT
 			if newtSilent {
 				verbosity = util.VERBOSITY_SILENT
@@ -92,8 +88,6 @@ func newtCmd() *cobra.Command {
 			} else if newtVerbose {
 				verbosity = util.VERBOSITY_VERBOSE
 			}
-
-			util.EscapeShellCmds = newtEscapeShellCmds
 
 			var err error
 			NewtLogLevel, err = log.ParseLevel(logLevelStr)
@@ -127,8 +121,8 @@ func newtCmd() *cobra.Command {
 		newtDfltNumJobs(), "Number of concurrent build jobs")
 	newtCmd.PersistentFlags().BoolVarP(&newtHelp, "help", "h",
 		false, "Help for newt commands")
-	newtCmd.PersistentFlags().BoolVarP(&newtEscapeShellCmds, "escape", "",
-		runtime.GOOS == "windows", "Apply Windows escapes to shell commands")
+	newtCmd.PersistentFlags().BoolVarP(&util.EscapeShellCmds, "escape", "",
+		util.EscapeShellCmds, "Apply Windows escapes to shell commands")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
@@ -148,6 +142,11 @@ func newtCmd() *cobra.Command {
 }
 
 func main() {
+	// Ensure newtrc is read before setting up command flags so we can use
+	// values stored in newtrc as defaults for flags. This way newtrc settings
+	// won't be overwritten by default flag values.
+	settings.Newtrc()
+
 	cmd := newtCmd()
 
 	cli.AddBuildCommands(cmd)

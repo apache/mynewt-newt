@@ -22,6 +22,7 @@ package settings
 import (
 	"fmt"
 	"os/user"
+	"runtime"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -39,6 +40,9 @@ const NEWTRC_FILENAME string = "newtrc.yml"
 var newtrc *ycfg.YCfg
 
 func processNewtrc(yc ycfg.YCfg) {
+	// set default value
+	util.EscapeShellCmds = runtime.GOOS == "windows"
+
 	s, _ := yc.GetValString("escape_shell", nil)
 	if s != "" {
 		b, err := strconv.ParseBool(s)
