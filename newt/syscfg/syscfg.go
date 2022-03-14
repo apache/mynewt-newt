@@ -1394,7 +1394,11 @@ func writeDefine(key string, value string, w io.Writer) {
 		fmt.Fprintf(w, "#undef %s\n", key)
 	} else {
 		fmt.Fprintf(w, "#ifndef %s\n", key)
-		fmt.Fprintf(w, "#define %s (%s)\n", key, value)
+		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+			fmt.Fprintf(w, "#define %s %s\n", key, value)
+		} else {
+			fmt.Fprintf(w, "#define %s (%s)\n", key, value)
+		}
 		fmt.Fprintf(w, "#endif\n")
 	}
 }
