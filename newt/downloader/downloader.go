@@ -883,6 +883,11 @@ func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 
 	if util.ShallowCloneDepth > 0 {
 		cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+	} else if util.ShallowCloneDepth < 0 {
+		// default for clone, if not set by user, is to do shallow clone
+		cmd = append(cmd, "--depth", "1")
+		util.OneTimeWarning("Creating a shallow clone by default. " +
+			"To unshallow repository later use \"git fetch --unshallow\".")
 	}
 
 	cmd = append(cmd, url, dstPath)
@@ -978,6 +983,11 @@ func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 
 	if util.ShallowCloneDepth > 0 {
 		cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+	} else if util.ShallowCloneDepth < 0 {
+		// default for clone, if not set by user, is to do shallow clone
+		cmd = append(cmd, "--depth", "1")
+		util.OneTimeWarning("Creating a shallow clone by default. " +
+			"To unshallow repository later use \"git fetch --unshallow\".")
 	}
 
 	cmd = append(cmd, gd.Url, dstPath)

@@ -549,6 +549,18 @@ func (yc *YCfg) GetValInt(key string, settings map[string]string) (int, error) {
 	}
 }
 
+// GetValIntDflt retrieves the first entry with the specified key and returns its
+// value coerced to an int.  It returns the specified default if no matching entry
+// is found.  The returned error is a set of warnings just as in `Get`.
+func (yc *YCfg) GetValIntDflt(key string, settings map[string]string, dflt int) (int, error) {
+	entry, ok, getErr := yc.GetFirst(key, settings)
+	if !ok {
+		return dflt, getErr
+	} else {
+		return cast.ToInt(entry.Value), getErr
+	}
+}
+
 // GetValBoolDflt retrieves the first entry with the specified key and returns
 // its value coerced to a bool.  It returns the specified default if no
 // matching entry is found.  The returned error is a set of warnings just as in
