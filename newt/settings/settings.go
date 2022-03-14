@@ -55,7 +55,7 @@ func processNewtrc(yc ycfg.YCfg) {
 	}
 
 	// default is 0 anyway, no need to initialize first
-	util.ShallowCloneDepth, _ = yc.GetValInt("shallow_clone", nil)
+	util.ShallowCloneDepth, _ = yc.GetValIntDflt("shallow_clone", nil, -1)
 }
 
 func readNewtrc() ycfg.YCfg {
