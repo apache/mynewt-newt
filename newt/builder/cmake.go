@@ -141,7 +141,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 	otherFlags = util.SortFields(otherFlags...)
 
 	fmt.Fprintf(w,
-`set_property(SOURCE %s APPEND_STRING
+		`set_property(SOURCE %s APPEND_STRING
              PROPERTY COMPILE_FLAGS
              "%s")`,
 		cj.Filename,
@@ -261,7 +261,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	compileFlags = util.SortFields(compileFlags...)
 
 	fmt.Fprintf(w,
-`set_property(TARGET %s APPEND_STRING
+		`set_property(TARGET %s APPEND_STRING
              PROPERTY
              COMPILE_FLAGS
              "%s")`,
@@ -290,7 +290,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	lFlags = append(lFlags, cxxFlags...)
 
 	fmt.Fprintf(w,
-`set_target_properties(%s
+		`set_target_properties(%s
                       PROPERTIES
                       ARCHIVE_OUTPUT_DIRECTORY %s
                       LIBRARY_OUTPUT_DIRECTORY %s
@@ -341,7 +341,7 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 	replaceBackslashesSlice(includes)
 
 	fmt.Fprintf(w,
-`set_target_properties(%s
+		`set_target_properties(%s
                       PROPERTIES
                       ARCHIVE_OUTPUT_DIRECTORY %s
                       LIBRARY_OUTPUT_DIRECTORY %s
