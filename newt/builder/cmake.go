@@ -88,8 +88,8 @@ func escapeFlagsSlice(flags []string) []string {
 
 func trimProjectPath(path string) string {
 	proj := interfaces.GetProject()
-	path = strings.TrimPrefix(path, proj.Path()+"/")
-	return path
+	path, _ = filepath.Rel(proj.Path(), path)
+	return replaceBackslashes(path)
 }
 
 func trimProjectPathSlice(elements []string) {
@@ -198,7 +198,7 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 	fmt.Fprintf(w, "add_library(%s %s)\n",
 		EscapePkgName(pkgName),
 		strings.Join(files, " "))
-	archivePath := replaceBackslashes(trimProjectPath(filepath.Dir(b.ArchivePath(bpkg))))
+	archivePath := trimProjectPath(filepath.Dir(b.ArchivePath(bpkg)))
 	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
 
 	return bpkg, nil
@@ -241,7 +241,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 			ExtractLibraryName(filename)))
 	}
 
-	elfOutputDir := replaceBackslashes(trimProjectPath(filepath.Dir(b.AppElfPath())))
+	elfOutputDir := trimProjectPath(filepath.Dir(b.AppElfPath()))
 	fmt.Fprintf(w, "file(WRITE %s \"\")\n", replaceBackslashes(filepath.Join(elfOutputDir, "null.c")))
 	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName,
 		replaceBackslashes(filepath.Join(elfOutputDir, "null.c")))
