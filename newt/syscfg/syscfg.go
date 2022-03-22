@@ -463,6 +463,24 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 		entry.State = CFG_SETTING_STATE_GOOD
 	}
 
+	stateVal, stateExist := vals["state"]
+	if stateExist {
+		if entry.State != CFG_SETTING_STATE_GOOD {
+			util.OneTimeWarning("Setting %s has duplicated state definition, using \"state\".", name)
+		}
+
+		switch stringValue(stateVal) {
+		case "defunct":
+			entry.State = CFG_SETTING_STATE_DEFUNCT
+		case "deprecated":
+			entry.State = CFG_SETTING_STATE_DEPRECATED
+		case "experimental":
+			entry.State = CFG_SETTING_STATE_EXPERIMENTAL
+		default:
+			util.OneTimeWarning("Invalid \"state\" for setting %s, assuming regular state.", name)
+		}
+	}
+
 	// The value field for setting definition is required.
 	valueVal, valueExist := vals["value"]
 	if valueExist {
