@@ -275,6 +275,10 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		log.Warn(line)
 	}
 
+	for _, line := range t.res.ExperimentalWarning() {
+		log.Warn(line)
+	}
+
 	incDir := GeneratedIncludeDir(t.target.FullName())
 	srcDir := GeneratedSrcDir(t.target.FullName())
 

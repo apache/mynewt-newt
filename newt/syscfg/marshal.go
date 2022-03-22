@@ -32,9 +32,10 @@ var cfgSettingNameTypeMap = map[string]CfgSettingType{
 }
 
 var cfgSettingNameStateMap = map[string]CfgSettingState{
-	"good":       CFG_SETTING_STATE_GOOD,
-	"deprecated": CFG_SETTING_STATE_DEPRECATED,
-	"defunct":    CFG_SETTING_STATE_DEFUNCT,
+	"good":         CFG_SETTING_STATE_GOOD,
+	"deprecated":   CFG_SETTING_STATE_DEPRECATED,
+	"defunct":      CFG_SETTING_STATE_DEFUNCT,
+	"experimental": CFG_SETTING_STATE_EXPERIMENTAL,
 }
 
 var cfgFlashConflictNameCodeMap = map[string]CfgFlashConflictCode{

@@ -1357,6 +1357,10 @@ func (res *Resolution) DeprecatedWarning() []string {
 	return res.Cfg.DeprecatedWarning()
 }
 
+func (res *Resolution) ExperimentalWarning() []string {
+	return res.Cfg.ExperimentalWarning()
+}
+
 func LogTransientWarning(lpkg *pkg.LocalPackage) {
 	if lpkg.Type() == pkg.PACKAGE_TYPE_TRANSIENT {
 		log.Warnf("Transient package %s used, update configuration "+
