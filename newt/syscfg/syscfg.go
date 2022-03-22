@@ -63,6 +63,7 @@ const (
 	CFG_SETTING_STATE_CONST
 	CFG_SETTING_STATE_DEPRECATED
 	CFG_SETTING_STATE_DEFUNCT
+	CFG_SETTING_STATE_EXPERIMENTAL
 )
 
 type CfgFlashConflictCode int
@@ -153,6 +154,9 @@ type Cfg struct {
 	// Use of const settings (error).
 	Consts map[string]struct{}
 
+	// Use of experimental settings (warning).
+	Experimental map[string]struct{}
+
 	// Unresolved value references
 	UnresolvedValueRefs map[string]struct{}
 }
@@ -171,6 +175,7 @@ func NewCfg() Cfg {
 		Deprecated:          map[string]struct{}{},
 		Defunct:             map[string]struct{}{},
 		Consts:              map[string]struct{}{},
+		Experimental:        map[string]struct{}{},
 		UnresolvedValueRefs: map[string]struct{}{},
 	}
 }
@@ -452,6 +457,8 @@ func readSetting(name string, lpkg *pkg.LocalPackage,
 		entry.State = CFG_SETTING_STATE_DEFUNCT
 	} else if boolValue(vals["deprecated"]) {
 		entry.State = CFG_SETTING_STATE_DEPRECATED
+	} else if boolValue(vals["experimental"]) {
+		entry.State = CFG_SETTING_STATE_EXPERIMENTAL
 	} else {
 		entry.State = CFG_SETTING_STATE_GOOD
 	}
@@ -712,6 +719,8 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 			cfg.Defunct[k] = struct{}{}
 		case CFG_SETTING_STATE_CONST:
 			cfg.Consts[k] = struct{}{}
+		case CFG_SETTING_STATE_EXPERIMENTAL:
+			cfg.Experimental[k] = struct{}{}
 		}
 	}
 
@@ -1115,6 +1124,25 @@ func (cfg *Cfg) DeprecatedWarning() []string {
 		lines = append(lines,
 			fmt.Sprintf("Use of deprecated setting %s in %s: %s", k,
 				point.Source.FullName(), entry.Description))
+	}
+
+	return lines
+}
+
+func (cfg *Cfg) ExperimentalWarning() []string {
+	lines := []string{}
+
+	for k, _ := range cfg.Experimental {
+		entry, ok := cfg.Settings[k]
+		if !ok {
+			log.Errorf("Internal error; experimental setting \"%s\" not in cfg",
+				k)
+		}
+
+		point := mostRecentPoint(entry)
+		lines = append(lines,
+			fmt.Sprintf("Use of experimental setting %s in %s", k,
+				point.Source.FullName()))
 	}
 
 	return lines
