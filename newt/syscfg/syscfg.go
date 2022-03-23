@@ -54,6 +54,7 @@ const (
 	CFG_SETTING_TYPE_TASK_PRIO
 	CFG_SETTING_TYPE_INTERRUPT_PRIO
 	CFG_SETTING_TYPE_FLASH_OWNER
+	CFG_SETTING_TYPE_EXPRESSION
 )
 
 type CfgSettingState int
@@ -74,6 +75,15 @@ const (
 )
 
 const SYSCFG_PRIO_ANY = "any"
+
+type CfgEvalState int
+
+const (
+	CFG_EVAL_STATE_NONE CfgEvalState = iota
+	CFG_EVAL_STATE_RUNNING
+	CFG_EVAL_STATE_SUCCESS
+	CFG_EVAL_STATE_FAILED
+)
 
 // Reserve last 16 priorities for the system (sanity, idle).
 const SYSCFG_TASK_PRIO_MAX = 0xef
@@ -102,6 +112,11 @@ type CfgEntry struct {
 	PackageDef   *pkg.LocalPackage
 	History      []CfgPoint
 	State        CfgSettingState
+
+	EvalState     CfgEvalState
+	EvalValue     interface{}
+	EvalOrigValue string
+	EvalError     error
 }
 
 type CfgPriority struct {
@@ -159,6 +174,9 @@ type Cfg struct {
 
 	// Unresolved value references
 	UnresolvedValueRefs map[string]struct{}
+
+	// Invalid expressions
+	InvalidExpressions map[string]struct{}
 }
 
 func NewCfg() Cfg {
@@ -177,6 +195,7 @@ func NewCfg() Cfg {
 		Consts:              map[string]struct{}{},
 		Experimental:        map[string]struct{}{},
 		UnresolvedValueRefs: map[string]struct{}{},
+		InvalidExpressions:  map[string]struct{}{},
 	}
 }
 
@@ -205,20 +224,20 @@ func ResolveValueRefName(val string) string {
 	}
 }
 
-func (cfg *Cfg) ExpandRef(val string) (string, string, error) {
+func (cfg *Cfg) ExpandRef(val string) (string, string, CfgSettingType, error) {
 	refName := ResolveValueRefName(val)
 	if refName == "" {
 		// Not a reference.
-		return "", val, nil
+		return "", val, CFG_SETTING_TYPE_RAW, nil
 	}
 
 	entry, ok := cfg.Settings[refName]
 	if !ok {
-		return "", "", util.FmtNewtError(
+		return "", "", CFG_SETTING_TYPE_RAW, util.FmtNewtError(
 			"setting value \"%s\" references undefined setting", val)
 	}
 
-	return entry.Name, entry.Value, nil
+	return entry.Name, entry.Value, entry.SettingType, nil
 
 }
 
@@ -241,7 +260,7 @@ func (cfg *Cfg) AddInjectedSettings() {
 
 func (cfg *Cfg) ResolveValueRefs() {
 	for k, entry := range cfg.Settings {
-		refName, val, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
+		refName, val, stype, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
 		if err != nil {
 			// Referenced setting doesn't exist.  Set unresolved setting value
 			// to 0, this way restrictions can be evaluated and won't create
@@ -252,8 +271,23 @@ func (cfg *Cfg) ResolveValueRefs() {
 		} else if refName != "" {
 			entry.ValueRefName = refName
 			entry.Value = val
+			// If referenced setting is an expression, make this one also
+			// an expression so it can be calculated properly
+			if stype == CFG_SETTING_TYPE_EXPRESSION {
+				entry.SettingType = stype
+			}
 			cfg.Settings[k] = entry
 		}
+	}
+}
+
+func (cfg *Cfg) EvaluateExpressions() {
+	for k, entry := range cfg.Settings {
+		if entry.SettingType != CFG_SETTING_TYPE_EXPRESSION {
+			continue
+		}
+
+		cfg.Evaluate(k)
 	}
 }
 
@@ -1093,6 +1127,25 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Invalid expressions
+	if len(cfg.InvalidExpressions) > 0 {
+		str += "Invalid syscfg expressions:\n"
+
+		names := make([]string, 0, len(cfg.InvalidExpressions))
+		for name, _ := range cfg.InvalidExpressions {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		for _, name := range names {
+			entry := cfg.Settings[name]
+			if len(entry.EvalError.Error()) > 0 {
+				str += "    " + fmt.Sprintf("%s: %s\n", name, entry.EvalError.Error())
+				historyMap[name] = entry.History
+			}
+		}
+	}
+
 	if len(historyMap) > 0 {
 		str += "\n" + historyText(historyMap)
 	}
@@ -1432,6 +1485,10 @@ func writeComment(entry CfgEntry, w io.Writer) {
 	if len(entry.ValueRefName) > 1 {
 		fmt.Fprintf(w, "/* Value copied from %s */\n",
 			entry.ValueRefName)
+	}
+	if len(entry.EvalOrigValue) > 1 {
+		fmt.Fprintf(w, "/* Expression: %s */\n",
+			entry.EvalOrigValue)
 	}
 }
 

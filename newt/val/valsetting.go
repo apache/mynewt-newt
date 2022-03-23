@@ -55,7 +55,7 @@ func (vs *ValSetting) IntVal() (int, error) {
 
 // Constructs a setting from a YAML string.
 func ResolveValSetting(s string, cfg *syscfg.Cfg) (ValSetting, error) {
-	refName, val, err := cfg.ExpandRef(s)
+	refName, val, _, err := cfg.ExpandRef(s)
 	if err != nil {
 		return ValSetting{},
 			util.FmtNewtError("value \"%s\" references undefined setting", s)
