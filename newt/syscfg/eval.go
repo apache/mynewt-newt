@@ -79,11 +79,11 @@ func (cfg *Cfg) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
 	var y interface{}
 	var err error
 
-	x, err = cfg.exprEvalNode(e.X)
+	x, err = cfg.exprEvalNode(e.X, nil)
 	if err != nil {
 		return 0, err
 	}
-	y, err = cfg.exprEvalNode(e.Y)
+	y, err = cfg.exprEvalNode(e.Y, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -148,7 +148,7 @@ func (cfg *Cfg) exprEvalUnaryExpr(e *ast.UnaryExpr) (int, error) {
 		return 0, util.FmtNewtError("Invalid \"%s\" operator in expression", e.Op.String())
 	}
 
-	x, err := cfg.exprEvalNode(e.X)
+	x, err := cfg.exprEvalNode(e.X, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -201,7 +201,7 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	argv := []interface{}{}
 	argvs := []string{}
 	for _, node := range e.Args {
-		arg, err := cfg.exprEvalNode(node)
+		arg, err := cfg.exprEvalNode(node, nil)
 		if err != nil {
 			return 0, err
 		}
@@ -271,8 +271,16 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	return ret, nil
 }
 
-func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident) (interface{}, error) {
+func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident, parentEntry *CfgEntry) (interface{}, error) {
 	name := e.Name
+
+	if parentEntry != nil {
+		for _, s := range parentEntry.ValidChoices {
+			if s == name {
+				return s, nil
+			}
+		}
+	}
 
 	entry, ok := cfg.Settings[name]
 	if !ok {
@@ -308,7 +316,7 @@ func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident) (interface{}, error) {
 	return val, err
 }
 
-func (cfg *Cfg) exprEvalNode(node ast.Node) (interface{}, error) {
+func (cfg *Cfg) exprEvalNode(node ast.Node, parentEntry *CfgEntry) (interface{}, error) {
 	switch e := node.(type) {
 	case *ast.BasicLit:
 		return cfg.exprEvalLiteral(e)
@@ -319,9 +327,9 @@ func (cfg *Cfg) exprEvalNode(node ast.Node) (interface{}, error) {
 	case *ast.CallExpr:
 		return cfg.exprEvalCallExpr(e)
 	case *ast.Ident:
-		return cfg.exprEvalIdentifier(e)
+		return cfg.exprEvalIdentifier(e, parentEntry)
 	case *ast.ParenExpr:
-		return cfg.exprEvalNode(e.X)
+		return cfg.exprEvalNode(e.X, nil)
 	}
 
 	return 0, util.FmtNewtError("Invalid token in expression")
