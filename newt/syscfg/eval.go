@@ -56,9 +56,12 @@ func (cfg *Cfg) exprEvalLiteral(e *ast.BasicLit) (interface{}, error) {
 	case token.STRING:
 		v, err := strconv.Unquote(val)
 		return string(v), err
+	case token.FLOAT:
+		return 0, util.FmtNewtError("Unsupported non-integer number (%s) literal found, "+
+			"consider using integer division instead", e.Value)
 	}
 
-	return 0, util.FmtNewtError("Invalid exprEvalLiteral used in expression")
+	return 0, util.FmtNewtError("Invalid literal used in expression")
 }
 
 func (cfg *Cfg) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
