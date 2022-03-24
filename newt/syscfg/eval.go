@@ -24,10 +24,17 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/util"
 	"strconv"
 	"strings"
 )
+
+type EvalCtx struct {
+	cfg       *Cfg
+	currEntry *CfgEntry
+	lpkgm     map[string]struct{}
+}
 
 type RawString struct {
 	string
@@ -45,7 +52,11 @@ func bool2int(b bool) int {
 	return 0
 }
 
-func (cfg *Cfg) exprEvalLiteral(e *ast.BasicLit) (interface{}, error) {
+func (cfg *Cfg) NewEvalCtx(lpkgm map[string]struct{}) EvalCtx {
+	return EvalCtx{cfg: cfg, currEntry: nil, lpkgm: lpkgm}
+}
+
+func (ctx *EvalCtx) exprEvalLiteral(e *ast.BasicLit) (interface{}, error) {
 	kind := e.Kind
 	val := e.Value
 
@@ -64,7 +75,7 @@ func (cfg *Cfg) exprEvalLiteral(e *ast.BasicLit) (interface{}, error) {
 	return 0, util.FmtNewtError("Invalid literal used in expression")
 }
 
-func (cfg *Cfg) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
+func (ctx *EvalCtx) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
 	switch e.Op {
 	case token.ADD:
 	case token.SUB:
@@ -87,11 +98,11 @@ func (cfg *Cfg) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
 	var y interface{}
 	var err error
 
-	x, err = cfg.exprEvalNode(e.X, nil)
+	x, err = ctx.exprEvalNode(e.X, nil)
 	if err != nil {
 		return 0, err
 	}
-	y, err = cfg.exprEvalNode(e.Y, nil)
+	y, err = ctx.exprEvalNode(e.Y, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -151,12 +162,12 @@ func (cfg *Cfg) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
 	return ret, nil
 }
 
-func (cfg *Cfg) exprEvalUnaryExpr(e *ast.UnaryExpr) (int, error) {
+func (ctx *EvalCtx) exprEvalUnaryExpr(e *ast.UnaryExpr) (int, error) {
 	if e.Op != token.NOT && e.Op != token.SUB {
 		return 0, util.FmtNewtError("Invalid \"%s\" operator in expression", e.Op.String())
 	}
 
-	x, err := cfg.exprEvalNode(e.X, nil)
+	x, err := ctx.exprEvalNode(e.X, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -178,13 +189,13 @@ func (cfg *Cfg) exprEvalUnaryExpr(e *ast.UnaryExpr) (int, error) {
 	return ret, nil
 }
 
-func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
+func (ctx *EvalCtx) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	f := e.Fun.(*ast.Ident)
 	expectedArgc := -1
 	minArgc := -1
 
 	switch f.Name {
-	case "raw":
+	case "raw", "has_pkg":
 		expectedArgc = 1
 	case "min", "max":
 		expectedArgc = 2
@@ -211,7 +222,7 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	argv := []interface{}{}
 	argvs := []string{}
 	for _, node := range e.Args {
-		arg, err := cfg.exprEvalNode(node, nil)
+		arg, err := ctx.exprEvalNode(node, nil)
 		if err != nil {
 			return 0, err
 		}
@@ -227,6 +238,18 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 		s, _ := argv[0].(string)
 		rs := RawString{s}
 		return rs, nil
+	case "has_pkg":
+		s, _ := argv[0].(string)
+		repo, name, err := newtutil.ParsePackageString(s)
+		if err != nil {
+			return 0, util.FmtNewtError("Invalid package string (%s) in has_pkg()", s)
+		}
+		if len(repo) == 0 {
+			repo = ctx.currEntry.PackageDef.Repo().Name()
+		}
+		fullName := newtutil.BuildPackageString(repo, name)
+		_, ok := ctx.lpkgm[fullName]
+		ret = bool2int(ok)
 	case "min":
 		a, ok1 := argv[0].(int)
 		b, ok2 := argv[1].(int)
@@ -285,7 +308,8 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	return ret, nil
 }
 
-func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident, parentEntry *CfgEntry) (interface{}, error) {
+func (ctx *EvalCtx) exprEvalIdentifier(e *ast.Ident, parentEntry *CfgEntry) (interface{}, error) {
+	cfg := ctx.cfg
 	name := e.Name
 
 	if parentEntry != nil {
@@ -317,7 +341,7 @@ func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident, parentEntry *CfgEntry) (interfa
 
 	switch entry.EvalState {
 	case CFG_EVAL_STATE_NONE:
-		entry, err = cfg.evalEntry(entry)
+		entry, err = ctx.evalEntry(entry)
 		val = entry.EvalValue
 	case CFG_EVAL_STATE_RUNNING:
 		err = util.FmtNewtError("Circular identifier dependency in expression")
@@ -330,31 +354,35 @@ func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident, parentEntry *CfgEntry) (interfa
 	return val, err
 }
 
-func (cfg *Cfg) exprEvalNode(node ast.Node, parentEntry *CfgEntry) (interface{}, error) {
+func (ctx *EvalCtx) exprEvalNode(node ast.Node, parentEntry *CfgEntry) (interface{}, error) {
 	switch e := node.(type) {
 	case *ast.BasicLit:
-		return cfg.exprEvalLiteral(e)
+		return ctx.exprEvalLiteral(e)
 	case *ast.BinaryExpr:
-		return cfg.exprEvalBinaryExpr(e)
+		return ctx.exprEvalBinaryExpr(e)
 	case *ast.UnaryExpr:
-		return cfg.exprEvalUnaryExpr(e)
+		return ctx.exprEvalUnaryExpr(e)
 	case *ast.CallExpr:
-		return cfg.exprEvalCallExpr(e)
+		return ctx.exprEvalCallExpr(e)
 	case *ast.Ident:
-		return cfg.exprEvalIdentifier(e, parentEntry)
+		return ctx.exprEvalIdentifier(e, parentEntry)
 	case *ast.ParenExpr:
-		return cfg.exprEvalNode(e.X, nil)
+		return ctx.exprEvalNode(e.X, nil)
 	}
 
 	return 0, util.FmtNewtError("Invalid token in expression")
 }
 
-func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
+func (ctx *EvalCtx) evalEntry(entry CfgEntry) (CfgEntry, error) {
+	cfg := ctx.cfg
 	name := entry.Name
 
 	if entry.EvalState != CFG_EVAL_STATE_NONE {
 		panic("This should never happen :>")
 	}
+
+	prevEntry := ctx.currEntry
+	ctx.currEntry = &entry
 
 	entry.EvalState = CFG_EVAL_STATE_RUNNING
 	cfg.Settings[name] = entry
@@ -363,7 +391,7 @@ func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
 
 	if len(entry.Value) > 0 {
 		node, _ := parser.ParseExpr(entry.Value)
-		newVal, err := cfg.exprEvalNode(node, &entry)
+		newVal, err := ctx.exprEvalNode(node, &entry)
 		if err != nil {
 			entry.EvalState = CFG_EVAL_STATE_FAILED
 			entry.EvalError = err
@@ -394,15 +422,18 @@ func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
 	entry.EvalState = CFG_EVAL_STATE_SUCCESS
 	cfg.Settings[entry.Name] = entry
 
+	ctx.currEntry = prevEntry
+
 	return entry, nil
 }
 
-func (cfg *Cfg) Evaluate(name string) {
+func (ctx *EvalCtx) Evaluate(name string) {
+	cfg := ctx.cfg
 	entry := cfg.Settings[name]
 
 	switch entry.EvalState {
 	case CFG_EVAL_STATE_NONE:
-		cfg.evalEntry(entry)
+		ctx.evalEntry(entry)
 	case CFG_EVAL_STATE_RUNNING:
 		panic("This should never happen :>")
 	case CFG_EVAL_STATE_SUCCESS:

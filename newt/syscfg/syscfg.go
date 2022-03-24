@@ -275,13 +275,21 @@ func (cfg *Cfg) ResolveValueRefs() {
 	}
 }
 
-func (cfg *Cfg) EvaluateExpressions() {
+func (cfg *Cfg) EvaluateExpressions(lpkgs []*pkg.LocalPackage) {
+	lpkgm := make(map[string]struct{})
+	for _, lpkg := range lpkgs {
+		fn := lpkg.FullName()
+		lpkgm[fn] = struct{}{}
+	}
+
+	ctx := cfg.NewEvalCtx(lpkgm)
+
 	for k, entry := range cfg.Settings {
 		if entry.State == CFG_SETTING_STATE_DEFUNCT {
 			continue
 		}
 
-		cfg.Evaluate(k)
+		ctx.Evaluate(k)
 	}
 }
 
