@@ -358,12 +358,9 @@ func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
 
 	entry.EvalOrigValue = entry.Value
 
-	var newVal interface{}
-
 	if len(entry.Value) > 0 {
-		var err error
 		node, _ := parser.ParseExpr(entry.Value)
-		newVal, err = cfg.exprEvalNode(node, &entry)
+		newVal, err := cfg.exprEvalNode(node, &entry)
 		if err != nil {
 			entry.EvalState = CFG_EVAL_STATE_FAILED
 			entry.EvalError = err
@@ -372,22 +369,23 @@ func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
 			err = util.FmtNewtError("")
 			return entry, err
 		}
-	} else {
-		newVal = ""
-	}
 
-	switch val := newVal.(type) {
-	case int:
-		entry.EvalValue = val
-		entry.Value = strconv.Itoa(val)
-	case string:
-		entry.EvalValue = val
-		entry.Value = val
-	case RawString:
-		entry.EvalValue = val
-		entry.Value = val.string
-	default:
-		panic("This should never happen :>")
+		switch val := newVal.(type) {
+		case int:
+			entry.EvalValue = val
+			entry.Value = strconv.Itoa(val)
+		case string:
+			entry.EvalValue = val
+			entry.Value = val
+		case RawString:
+			entry.EvalValue = val
+			entry.Value = val.string
+		default:
+			panic("This should never happen :>")
+		}
+	} else {
+		entry.EvalValue = nil
+		entry.Value = ""
 	}
 
 	entry.EvalState = CFG_EVAL_STATE_SUCCESS

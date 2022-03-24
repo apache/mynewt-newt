@@ -1487,25 +1487,21 @@ func writeComment(entry CfgEntry, w io.Writer) {
 }
 
 func writeDefine(key string, value interface{}, w io.Writer) {
-	switch v := value.(type) {
-	case string:
-		if len(v) == 0 {
-			fmt.Fprintf(w, "#undef %s\n", key)
-		} else {
-			fmt.Fprintf(w, "#ifndef %s\n", key)
+	if value == nil {
+		fmt.Fprintf(w, "#undef %s\n", key)
+	} else {
+		fmt.Fprintf(w, "#ifndef %s\n", key)
+		switch v := value.(type) {
+		case string:
 			fmt.Fprintf(w, "#define %s \"%s\"\n", key, v)
-			fmt.Fprintf(w, "#endif\n")
+		case int:
+			fmt.Fprintf(w, "#define %s (%d)\n", key, v)
+		case RawString:
+			fmt.Fprintf(w, "#define %s (%s)\n", key, v.string)
+		default:
+			panic("This should not happen :>")
 		}
-	case int:
-		fmt.Fprintf(w, "#ifndef %s\n", key)
-		fmt.Fprintf(w, "#define %s (%d)\n", key, v)
 		fmt.Fprintf(w, "#endif\n")
-	case RawString:
-		fmt.Fprintf(w, "#ifndef %s\n", key)
-		fmt.Fprintf(w, "#define %s (%s)\n", key, v.string)
-		fmt.Fprintf(w, "#endif\n")
-	default:
-		panic("This should not happen :>")
 	}
 }
 
