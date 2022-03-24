@@ -1493,7 +1493,7 @@ func writeDefine(key string, value interface{}, w io.Writer) {
 			fmt.Fprintf(w, "#undef %s\n", key)
 		} else {
 			fmt.Fprintf(w, "#ifndef %s\n", key)
-			fmt.Fprintf(w, "#define %s %s\n", key, v)
+			fmt.Fprintf(w, "#define %s \"%s\"\n", key, v)
 			fmt.Fprintf(w, "#endif\n")
 		}
 	case int:

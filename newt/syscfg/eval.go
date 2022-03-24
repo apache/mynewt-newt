@@ -54,7 +54,8 @@ func (cfg *Cfg) exprEvalLiteral(e *ast.BasicLit) (interface{}, error) {
 		v, err := strconv.ParseInt(val, 0, 0)
 		return int(v), err
 	case token.STRING:
-		return val, nil
+		v, err := strconv.Unquote(val)
+		return string(v), err
 	}
 
 	return 0, util.FmtNewtError("Invalid exprEvalLiteral used in expression")
@@ -220,7 +221,7 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 
 	switch f.Name {
 	case "raw":
-		s, _ := strconv.Unquote(argv[0].(string))
+		s, _ := argv[0].(string)
 		rs := RawString{s}
 		return rs, nil
 	case "min":
