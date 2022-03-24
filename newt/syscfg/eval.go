@@ -327,15 +327,22 @@ func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
 
 	entry.EvalOrigValue = entry.Value
 
-	node, _ := parser.ParseExpr(entry.Value)
-	newVal, err := cfg.exprEvalNode(node)
-	if err != nil {
-		entry.EvalState = CFG_EVAL_STATE_FAILED
-		entry.EvalError = err
-		cfg.Settings[entry.Name] = entry
-		cfg.InvalidExpressions[entry.Name] = struct{}{}
-		err = util.FmtNewtError("")
-		return entry, err
+	var newVal interface{}
+
+	if len(entry.Value) > 0 {
+		var err error
+		node, _ := parser.ParseExpr(entry.Value)
+		newVal, err = cfg.exprEvalNode(node, &entry)
+		if err != nil {
+			entry.EvalState = CFG_EVAL_STATE_FAILED
+			entry.EvalError = err
+			cfg.Settings[entry.Name] = entry
+			cfg.InvalidExpressions[entry.Name] = struct{}{}
+			err = util.FmtNewtError("")
+			return entry, err
+		}
+	} else {
+		newVal = ""
 	}
 
 	switch val := newVal.(type) {
