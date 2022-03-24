@@ -1480,35 +1480,44 @@ func writeComment(entry CfgEntry, w io.Writer) {
 		fmt.Fprintf(w, "/* Value copied from %s */\n",
 			entry.ValueRefName)
 	}
-	if len(entry.EvalOrigValue) > 1 {
-		fmt.Fprintf(w, "/* Expression: %s */\n",
-			entry.EvalOrigValue)
+
+	if entry.Value != entry.EvalOrigValue {
+		fmt.Fprintf(w, "/* %s */\n", entry.EvalOrigValue)
 	}
 }
 
-func writeDefine(key string, value string, w io.Writer) {
-	if value == "" {
-		fmt.Fprintf(w, "#undef %s\n", key)
-	} else {
-		fmt.Fprintf(w, "#ifndef %s\n", key)
-		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
-			fmt.Fprintf(w, "#define %s %s\n", key, value)
+func writeDefine(key string, value interface{}, w io.Writer) {
+	switch v := value.(type) {
+	case string:
+		if len(v) == 0 {
+			fmt.Fprintf(w, "#undef %s\n", key)
 		} else {
-			fmt.Fprintf(w, "#define %s (%s)\n", key, value)
+			fmt.Fprintf(w, "#ifndef %s\n", key)
+			fmt.Fprintf(w, "#define %s %s\n", key, v)
+			fmt.Fprintf(w, "#endif\n")
 		}
+	case int:
+		fmt.Fprintf(w, "#ifndef %s\n", key)
+		fmt.Fprintf(w, "#define %s (%d)\n", key, v)
 		fmt.Fprintf(w, "#endif\n")
+	case RawString:
+		fmt.Fprintf(w, "#ifndef %s\n", key)
+		fmt.Fprintf(w, "#define %s (%s)\n", key, v.string)
+		fmt.Fprintf(w, "#endif\n")
+	default:
+		panic("This should not happen :>")
 	}
 }
 
-func writeChoiceDefine(key string, value string, choices []string, w io.Writer) {
-	parentVal := ""
-	value = strings.ToLower(value)
+func writeChoiceDefine(key string, value interface{}, choices []string, w io.Writer) {
+	parentVal := 0
+	value = strings.ToLower(value.(string))
 
 	for _, choice := range choices {
 		definedVal := 0
 		if value == strings.ToLower(choice) {
 			definedVal = 1
-			parentVal = "1"
+			parentVal = 1
 		}
 		fmt.Fprintf(w, "#ifndef %s__%s\n", key, choice)
 		fmt.Fprintf(w, "#define %s__%s (%d)\n", key, choice, definedVal)
@@ -1545,6 +1554,11 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 	first := true
 	for _, n := range names {
 		entry := cfg.Settings[n]
+
+		if entry.State == CFG_SETTING_STATE_DEFUNCT {
+			continue
+		}
+
 		if first {
 			first = false
 		} else {
@@ -1552,10 +1566,13 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 		}
 
 		writeComment(entry, w)
+		if entry.EvalState != CFG_EVAL_STATE_SUCCESS {
+			panic("This should not happen :>")
+		}
 		if entry.ValidChoices != nil {
-			writeChoiceDefine(settingName(n), entry.Value, entry.ValidChoices, w)
+			writeChoiceDefine(settingName(n), entry.EvalValue, entry.ValidChoices, w)
 		} else {
-			writeDefine(settingName(n), entry.Value, w)
+			writeDefine(settingName(n), entry.EvalValue, w)
 		}
 	}
 }

@@ -29,6 +29,10 @@ import (
 	"strings"
 )
 
+type RawString struct {
+	string
+}
+
 func int2bool(x int) bool {
 	return x != 0
 }
@@ -176,6 +180,8 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	minArgc := -1
 
 	switch f.Name {
+	case "raw":
+		expectedArgc = 1
 	case "min", "max":
 		expectedArgc = 2
 	case "in_range", "clamp", "ite":
@@ -213,6 +219,10 @@ func (cfg *Cfg) exprEvalCallExpr(e *ast.CallExpr) (interface{}, error) {
 	var ret interface{}
 
 	switch f.Name {
+	case "raw":
+		s, _ := strconv.Unquote(argv[0].(string))
+		rs := RawString{s}
+		return rs, nil
 	case "min":
 		a, ok1 := argv[0].(int)
 		b, ok2 := argv[1].(int)
@@ -372,6 +382,9 @@ func (cfg *Cfg) evalEntry(entry CfgEntry) (CfgEntry, error) {
 	case string:
 		entry.EvalValue = val
 		entry.Value = val
+	case RawString:
+		entry.EvalValue = val
+		entry.Value = val.string
 	default:
 		panic("This should never happen :>")
 	}
