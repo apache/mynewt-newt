@@ -29,7 +29,6 @@ var cfgSettingNameTypeMap = map[string]CfgSettingType{
 	"raw":           CFG_SETTING_TYPE_RAW,
 	"task_priority": CFG_SETTING_TYPE_TASK_PRIO,
 	"flash_owner":   CFG_SETTING_TYPE_FLASH_OWNER,
-	"expr":          CFG_SETTING_TYPE_EXPRESSION,
 }
 
 var cfgSettingNameStateMap = map[string]CfgSettingState{

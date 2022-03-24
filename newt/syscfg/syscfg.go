@@ -54,7 +54,6 @@ const (
 	CFG_SETTING_TYPE_TASK_PRIO
 	CFG_SETTING_TYPE_INTERRUPT_PRIO
 	CFG_SETTING_TYPE_FLASH_OWNER
-	CFG_SETTING_TYPE_EXPRESSION
 )
 
 type CfgSettingState int
@@ -224,20 +223,20 @@ func ResolveValueRefName(val string) string {
 	}
 }
 
-func (cfg *Cfg) ExpandRef(val string) (string, string, CfgSettingType, error) {
+func (cfg *Cfg) ExpandRef(val string) (string, string, error) {
 	refName := ResolveValueRefName(val)
 	if refName == "" {
 		// Not a reference.
-		return "", val, CFG_SETTING_TYPE_RAW, nil
+		return "", val, nil
 	}
 
 	entry, ok := cfg.Settings[refName]
 	if !ok {
-		return "", "", CFG_SETTING_TYPE_RAW, util.FmtNewtError(
+		return "", "", util.FmtNewtError(
 			"setting value \"%s\" references undefined setting", val)
 	}
 
-	return entry.Name, entry.Value, entry.SettingType, nil
+	return entry.Name, entry.Value, nil
 
 }
 
@@ -260,7 +259,7 @@ func (cfg *Cfg) AddInjectedSettings() {
 
 func (cfg *Cfg) ResolveValueRefs() {
 	for k, entry := range cfg.Settings {
-		refName, val, stype, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
+		refName, val, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
 		if err != nil {
 			// Referenced setting doesn't exist.  Set unresolved setting value
 			// to 0, this way restrictions can be evaluated and won't create
@@ -271,11 +270,6 @@ func (cfg *Cfg) ResolveValueRefs() {
 		} else if refName != "" {
 			entry.ValueRefName = refName
 			entry.Value = val
-			// If referenced setting is an expression, make this one also
-			// an expression so it can be calculated properly
-			if stype == CFG_SETTING_TYPE_EXPRESSION {
-				entry.SettingType = stype
-			}
 			cfg.Settings[k] = entry
 		}
 	}
@@ -283,7 +277,7 @@ func (cfg *Cfg) ResolveValueRefs() {
 
 func (cfg *Cfg) EvaluateExpressions() {
 	for k, entry := range cfg.Settings {
-		if entry.SettingType != CFG_SETTING_TYPE_EXPRESSION {
+		if entry.State == CFG_SETTING_STATE_DEFUNCT {
 			continue
 		}
 
