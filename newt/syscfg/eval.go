@@ -46,7 +46,8 @@ func (cfg *Cfg) exprEvalLiteral(e *ast.BasicLit) (interface{}, error) {
 
 	switch kind {
 	case token.INT:
-		return strconv.Atoi(val)
+		v, err := strconv.ParseInt(val, 0, 0)
+		return int(v), err
 	case token.STRING:
 		return val, nil
 	}
