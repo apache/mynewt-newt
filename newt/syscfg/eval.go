@@ -26,6 +26,7 @@ import (
 	"go/token"
 	"mynewt.apache.org/newt/util"
 	"strconv"
+	"strings"
 )
 
 func int2bool(x int) bool {
@@ -275,7 +276,18 @@ func (cfg *Cfg) exprEvalIdentifier(e *ast.Ident) (interface{}, error) {
 
 	entry, ok := cfg.Settings[name]
 	if !ok {
-		return 0, util.FmtNewtError("Undefined identifier referenced: %s", name)
+		fixedName := name
+		if strings.HasPrefix(fixedName, SYSCFG_PREFIX_SETTING) {
+			fixedName = strings.TrimPrefix(fixedName, SYSCFG_PREFIX_SETTING)
+		}
+
+		entry, ok = cfg.Settings[fixedName]
+		if !ok {
+			return 0, util.FmtNewtError("Undefined identifier referenced: %s", name)
+		}
+
+		util.OneTimeWarning("Referenced identifier \"%s\" does not exist, did you mean \"%s\"?",
+			name, fixedName)
 	}
 
 	var val interface{}
