@@ -142,7 +142,7 @@ func (cfg *Cfg) exprEvalBinaryExpr(e *ast.BinaryExpr) (int, error) {
 }
 
 func (cfg *Cfg) exprEvalUnaryExpr(e *ast.UnaryExpr) (int, error) {
-	if e.Op != token.NOT {
+	if e.Op != token.NOT && e.Op != token.SUB {
 		return 0, util.FmtNewtError("Invalid \"%s\" operator in expression", e.Op.String())
 	}
 
@@ -156,7 +156,14 @@ func (cfg *Cfg) exprEvalUnaryExpr(e *ast.UnaryExpr) (int, error) {
 		return 0, util.FmtNewtError("String literals not applicable for \"%s\" operator", e.Op.String())
 	}
 
-	ret := bool2int(!int2bool(xv))
+	var ret int
+
+	switch e.Op {
+	case token.NOT:
+		ret = bool2int(!int2bool(xv))
+	case token.SUB:
+		ret = -xv
+	}
 
 	return ret, nil
 }
