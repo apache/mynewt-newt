@@ -40,6 +40,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
+var GlobalResolver *resolve.Resolver
+
 const TARGET_KEYWORD_ALL string = "all"
 const TARGET_DEFAULT_DIR string = "targets"
 const MFG_DEFAULT_DIR string = "mfgs"

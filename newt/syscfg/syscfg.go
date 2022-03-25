@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mynewt.apache.org/newt/newt/expr"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -75,15 +76,6 @@ const (
 
 const SYSCFG_PRIO_ANY = "any"
 
-type CfgEvalState int
-
-const (
-	CFG_EVAL_STATE_NONE CfgEvalState = iota
-	CFG_EVAL_STATE_RUNNING
-	CFG_EVAL_STATE_SUCCESS
-	CFG_EVAL_STATE_FAILED
-)
-
 // Reserve last 16 priorities for the system (sanity, idle).
 const SYSCFG_TASK_PRIO_MAX = 0xef
 
@@ -112,10 +104,9 @@ type CfgEntry struct {
 	History      []CfgPoint
 	State        CfgSettingState
 
-	EvalState     CfgEvalState
-	EvalValue     interface{}
-	EvalOrigValue string
-	EvalError     error
+	EvalDone  bool
+	EvalValue interface{}
+	EvalError error
 }
 
 type CfgPriority struct {
@@ -282,14 +273,14 @@ func (cfg *Cfg) EvaluateExpressions(lpkgs []*pkg.LocalPackage) {
 		lpkgm[fn] = struct{}{}
 	}
 
-	ctx := cfg.NewEvalCtx(lpkgm)
+	ctx := expr.CreateCtx(&ExprEvalCtx{cfg: cfg, lpkgm: lpkgm})
 
-	for k, entry := range cfg.Settings {
+	for name, entry := range cfg.Settings {
 		if entry.State == CFG_SETTING_STATE_DEFUNCT {
 			continue
 		}
 
-		ctx.Evaluate(k)
+		ctx.Evaluate(name)
 	}
 }
 
@@ -1489,9 +1480,7 @@ func writeComment(entry CfgEntry, w io.Writer) {
 			entry.ValueRefName)
 	}
 
-	if entry.Value != entry.EvalOrigValue {
-		fmt.Fprintf(w, "/* %s */\n", entry.EvalOrigValue)
-	}
+	fmt.Fprintf(w, "/* value: %s */\n", entry.Value)
 }
 
 func writeDefine(key string, value interface{}, w io.Writer) {
@@ -1504,8 +1493,8 @@ func writeDefine(key string, value interface{}, w io.Writer) {
 			fmt.Fprintf(w, "#define %s \"%s\"\n", key, v)
 		case int:
 			fmt.Fprintf(w, "#define %s (%d)\n", key, v)
-		case RawString:
-			fmt.Fprintf(w, "#define %s (%s)\n", key, v.string)
+		case expr.RawString:
+			fmt.Fprintf(w, "#define %s (%s)\n", key, v.S)
 		default:
 			panic("This should not happen :>")
 		}
@@ -1570,8 +1559,8 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 		}
 
 		writeComment(entry, w)
-		if entry.EvalState != CFG_EVAL_STATE_SUCCESS {
-			panic("This should not happen :>")
+		if !entry.EvalDone {
+			panic("This should never happen :>")
 		}
 		if entry.ValidChoices != nil {
 			writeChoiceDefine(settingName(n), entry.EvalValue, entry.ValidChoices, w)
