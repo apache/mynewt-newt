@@ -21,6 +21,7 @@ package extcmd
 
 import (
 	"fmt"
+	"mynewt.apache.org/newt/newt/cfgv"
 
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/stage"
@@ -44,7 +45,7 @@ type ExtCmdCfg struct {
 // example, one GetMapFn instance might retrieve a package's pre-build
 // commands.
 type GetMapFn func(
-	lpkg *pkg.LocalPackage, settings map[string]string) map[string]string
+	lpkg *pkg.LocalPackage, settings *cfgv.Settings) map[string]string
 
 func (ecfg *ExtCmdCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg,
 	getMapCb GetMapFn) {

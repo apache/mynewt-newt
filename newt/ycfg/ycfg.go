@@ -21,6 +21,7 @@ package ycfg
 
 import (
 	"fmt"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"strings"
 
 	"github.com/spf13/cast"
@@ -276,7 +277,7 @@ func (yc *YCfg) HasKey(key string) bool {
 // object is valid even if there is an error, and the error can be thought of
 // as a set of warnings.
 func (yc *YCfg) Get(key string,
-	settings map[string]string) ([]YCfgEntry, error) {
+	settings *cfgv.Settings) ([]YCfgEntry, error) {
 
 	node := yc.find(key)
 	if node == nil {
@@ -329,7 +330,7 @@ func (yc *YCfg) Get(key string,
 // values to type []interface{}.  The returned []YCfgEntry is formed from the
 // union of all these slices.  The returned error is a set of warnings just as
 // in `Get`.
-func (yc *YCfg) GetSlice(key string, settings map[string]string) ([]YCfgEntry, error) {
+func (yc *YCfg) GetSlice(key string, settings *cfgv.Settings) ([]YCfgEntry, error) {
 	sliceEntries, getErr := yc.Get(key, settings)
 	if len(sliceEntries) == 0 {
 		return nil, getErr
@@ -360,7 +361,7 @@ func (yc *YCfg) GetSlice(key string, settings map[string]string) ([]YCfgEntry, e
 // values to type []interface{}.  The returned slice is the union of all these
 // slices. The returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValSlice(
-	key string, settings map[string]string) ([]interface{}, error) {
+	key string, settings *cfgv.Settings) ([]interface{}, error) {
 
 	entries, getErr := yc.GetSlice(key, settings)
 	if len(entries) == 0 {
@@ -380,7 +381,7 @@ func (yc *YCfg) GetValSlice(
 // union of all these slices.  The returned error is a set of warnings just as
 // in `Get`.
 func (yc *YCfg) GetStringSlice(key string,
-	settings map[string]string) ([]YCfgEntry, error) {
+	settings *cfgv.Settings) ([]YCfgEntry, error) {
 
 	sliceEntries, getErr := yc.Get(key, settings)
 	if len(sliceEntries) == 0 {
@@ -412,7 +413,7 @@ func (yc *YCfg) GetStringSlice(key string,
 // their values to type []string.  The returned []string is the union of all
 // these slices.  The returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValStringSlice(
-	key string, settings map[string]string) ([]string, error) {
+	key string, settings *cfgv.Settings) ([]string, error) {
 
 	entries, getErr := yc.GetStringSlice(key, settings)
 	if len(entries) == 0 {
@@ -434,7 +435,7 @@ func (yc *YCfg) GetValStringSlice(
 // of all these slices.  Empty strings are excluded from this union.  The
 // returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValStringSliceNonempty(
-	key string, settings map[string]string) ([]string, error) {
+	key string, settings *cfgv.Settings) ([]string, error) {
 
 	strs, getErr := yc.GetValStringSlice(key, settings)
 	filtered := make([]string, 0, len(strs))
@@ -452,7 +453,7 @@ func (yc *YCfg) GetValStringSliceNonempty(
 // formed from the union of all these maps.  The returned error is a set of
 // warnings just as in `Get`.
 func (yc *YCfg) GetStringMap(
-	key string, settings map[string]string) (map[string]YCfgEntry, error) {
+	key string, settings *cfgv.Settings) (map[string]YCfgEntry, error) {
 
 	mapEntries, getErr := yc.Get(key, settings)
 	if len(mapEntries) == 0 {
@@ -481,7 +482,7 @@ func (yc *YCfg) GetStringMap(
 // map[string]YCfgEntry is the union of all these maps.  The returned error is
 // a set of warnings just as in `Get`.
 func (yc *YCfg) GetValStringMap(
-	key string, settings map[string]string) (map[string]interface{}, error) {
+	key string, settings *cfgv.Settings) (map[string]interface{}, error) {
 
 	entryMap, getErr := yc.GetStringMap(key, settings)
 
@@ -499,7 +500,7 @@ func (yc *YCfg) GetValStringMap(
 // value is true if a matching entry was found.  The returned error is a set of
 // warnings just as in `Get`.
 func (yc *YCfg) GetFirst(key string,
-	settings map[string]string) (YCfgEntry, bool, error) {
+	settings *cfgv.Settings) (YCfgEntry, bool, error) {
 
 	entries, getErr := yc.Get(key, settings)
 	if len(entries) == 0 {
@@ -513,7 +514,7 @@ func (yc *YCfg) GetFirst(key string,
 // value.  It returns nil if no matching entry is found.  The returned error is
 // a set of warnings just as in `Get`.
 func (yc *YCfg) GetFirstVal(key string,
-	settings map[string]string) (interface{}, error) {
+	settings *cfgv.Settings) (interface{}, error) {
 
 	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
@@ -527,7 +528,7 @@ func (yc *YCfg) GetFirstVal(key string,
 // its value coerced to a string.  It returns "" if no matching entry is found.
 // The returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValString(key string,
-	settings map[string]string) (string, error) {
+	settings *cfgv.Settings) (string, error) {
 
 	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
@@ -540,7 +541,7 @@ func (yc *YCfg) GetValString(key string,
 // GetValInt retrieves the first entry with the specified key and returns its
 // value coerced to an int.  It returns 0 if no matching entry is found.  The
 // returned error is a set of warnings just as in `Get`.
-func (yc *YCfg) GetValInt(key string, settings map[string]string) (int, error) {
+func (yc *YCfg) GetValInt(key string, settings *cfgv.Settings) (int, error) {
 	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
 		return 0, getErr
@@ -552,7 +553,7 @@ func (yc *YCfg) GetValInt(key string, settings map[string]string) (int, error) {
 // GetValIntDflt retrieves the first entry with the specified key and returns its
 // value coerced to an int.  It returns the specified default if no matching entry
 // is found.  The returned error is a set of warnings just as in `Get`.
-func (yc *YCfg) GetValIntDflt(key string, settings map[string]string, dflt int) (int, error) {
+func (yc *YCfg) GetValIntDflt(key string, settings *cfgv.Settings, dflt int) (int, error) {
 	entry, ok, getErr := yc.GetFirst(key, settings)
 	if !ok {
 		return dflt, getErr
@@ -565,7 +566,7 @@ func (yc *YCfg) GetValIntDflt(key string, settings map[string]string, dflt int) 
 // its value coerced to a bool.  It returns the specified default if no
 // matching entry is found.  The returned error is a set of warnings just as in
 // `Get`.
-func (yc *YCfg) GetValBoolDflt(key string, settings map[string]string,
+func (yc *YCfg) GetValBoolDflt(key string, settings *cfgv.Settings,
 	dflt bool) (bool, error) {
 
 	entry, ok, getErr := yc.GetFirst(key, settings)
@@ -580,7 +581,7 @@ func (yc *YCfg) GetValBoolDflt(key string, settings map[string]string,
 // its value coerced to a bool.  It returns false if no matching entry is
 // found.  The returned error is a set of warnings just as in `Get`.
 func (yc *YCfg) GetValBool(key string,
-	settings map[string]string) (bool, error) {
+	settings *cfgv.Settings) (bool, error) {
 
 	return yc.GetValBoolDflt(key, settings, false)
 }
@@ -590,7 +591,7 @@ func (yc *YCfg) GetValBool(key string,
 // is formed from the union of all these maps.  The returned error is a set of
 // warnings just as in `Get`.
 func (yc *YCfg) GetStringMapString(key string,
-	settings map[string]string) (map[string]YCfgEntry, error) {
+	settings *cfgv.Settings) (map[string]YCfgEntry, error) {
 
 	mapEntries, getErr := yc.Get(key, settings)
 	if len(mapEntries) == 0 {
@@ -619,7 +620,7 @@ func (yc *YCfg) GetStringMapString(key string,
 // is the union of all these maps.  The returned error is a set of warnings
 // just as in `Get`.
 func (yc *YCfg) GetValStringMapString(key string,
-	settings map[string]string) (map[string]string, error) {
+	settings *cfgv.Settings) (map[string]string, error) {
 
 	entryMap, getErr := yc.GetStringMapString(key, settings)
 

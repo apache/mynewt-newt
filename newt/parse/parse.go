@@ -21,6 +21,7 @@ package parse
 
 import (
 	"fmt"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"sort"
 
 	"mynewt.apache.org/newt/util"
@@ -308,7 +309,7 @@ func Parse(tokens []Token) (*Node, error) {
 
 // Evaluates two expressions into boolean values.
 func evalTwo(expr1 *Node, expr2 *Node,
-	settings map[string]string) (bool, bool, error) {
+	settings *cfgv.Settings) (bool, bool, error) {
 
 	v1, err := Eval(expr1, settings)
 	if err != nil {
@@ -322,7 +323,7 @@ func evalTwo(expr1 *Node, expr2 *Node,
 	return v1, v2, nil
 }
 
-func coerceToInt(n *Node, settings map[string]string) (int, error) {
+func coerceToInt(n *Node, settings *cfgv.Settings) (int, error) {
 	switch n.Code {
 	case PARSE_NUMBER:
 		num, ok := util.AtoiNoOctTry(n.Data)
@@ -334,7 +335,7 @@ func coerceToInt(n *Node, settings map[string]string) (int, error) {
 		return num, nil
 
 	case PARSE_IDENT:
-		val := settings[n.Data]
+		val := settings.Get(n.Data)
 		num, ok := util.AtoiNoOctTry(val)
 		if !ok {
 			return 0,
@@ -351,7 +352,7 @@ func coerceToInt(n *Node, settings map[string]string) (int, error) {
 }
 
 func coerceTwoInts(left *Node, right *Node,
-	settings map[string]string, opStr string) (int, int, error) {
+	settings *cfgv.Settings, opStr string) (int, int, error) {
 
 	lnum, err := coerceToInt(left, settings)
 	if err != nil {
@@ -368,7 +369,7 @@ func coerceTwoInts(left *Node, right *Node,
 	return lnum, rnum, nil
 }
 
-type equalsFn func(left *Node, right *Node, settings map[string]string) bool
+type equalsFn func(left *Node, right *Node, settings *cfgv.Settings) bool
 type equalsEntry struct {
 	LeftCode  ParseCode
 	RightCode ParseCode
@@ -381,8 +382,8 @@ var equalsDispatch = []equalsEntry{
 	equalsEntry{
 		LeftCode:  PARSE_IDENT,
 		RightCode: PARSE_IDENT,
-		Fn: func(left *Node, right *Node, settings map[string]string) bool {
-			return settings[left.Data] == settings[right.Data]
+		Fn: func(left *Node, right *Node, settings *cfgv.Settings) bool {
+			return settings.Get(left.Data) == settings.Get(right.Data)
 		},
 	},
 
@@ -392,8 +393,8 @@ var equalsDispatch = []equalsEntry{
 	equalsEntry{
 		LeftCode:  PARSE_IDENT,
 		RightCode: PARSE_NUMBER,
-		Fn: func(left *Node, right *Node, settings map[string]string) bool {
-			lnum, ok := util.AtoiNoOctTry(settings[left.Data])
+		Fn: func(left *Node, right *Node, settings *cfgv.Settings) bool {
+			lnum, ok := util.AtoiNoOctTry(settings.Get(left.Data))
 			if !ok {
 				return false
 			}
@@ -411,8 +412,8 @@ var equalsDispatch = []equalsEntry{
 	equalsEntry{
 		LeftCode:  PARSE_IDENT,
 		RightCode: PARSE_STRING,
-		Fn: func(left *Node, right *Node, settings map[string]string) bool {
-			return settings[left.Data] == right.Data
+		Fn: func(left *Node, right *Node, settings *cfgv.Settings) bool {
+			return settings.Get(left.Data) == right.Data
 		},
 	},
 
@@ -421,7 +422,7 @@ var equalsDispatch = []equalsEntry{
 	equalsEntry{
 		LeftCode:  PARSE_NUMBER,
 		RightCode: PARSE_NUMBER,
-		Fn: func(left *Node, right *Node, settings map[string]string) bool {
+		Fn: func(left *Node, right *Node, settings *cfgv.Settings) bool {
 			lnum, ok := util.AtoiNoOctTry(left.Data)
 			if !ok {
 				return false
@@ -439,7 +440,7 @@ var equalsDispatch = []equalsEntry{
 	equalsEntry{
 		LeftCode:  PARSE_NUMBER,
 		RightCode: PARSE_STRING,
-		Fn: func(left *Node, right *Node, settings map[string]string) bool {
+		Fn: func(left *Node, right *Node, settings *cfgv.Settings) bool {
 			return left.Data == right.Data
 		},
 	},
@@ -449,14 +450,14 @@ var equalsDispatch = []equalsEntry{
 	equalsEntry{
 		LeftCode:  PARSE_STRING,
 		RightCode: PARSE_STRING,
-		Fn: func(left *Node, right *Node, settings map[string]string) bool {
+		Fn: func(left *Node, right *Node, settings *cfgv.Settings) bool {
 			return left.Data == right.Data
 		},
 	},
 }
 
 func evalEqualsOnce(
-	left *Node, right *Node, settings map[string]string) (bool, bool) {
+	left *Node, right *Node, settings *cfgv.Settings) (bool, bool) {
 
 	for _, entry := range equalsDispatch {
 		if entry.LeftCode == left.Code && entry.RightCode == right.Code {
@@ -475,7 +476,7 @@ func evalEqualsOnce(
 //
 // @return bool                 Whether the expression evaluates to true.
 func evalEquals(
-	left *Node, right *Node, settings map[string]string) (bool, error) {
+	left *Node, right *Node, settings *cfgv.Settings) (bool, error) {
 
 	// The equals operator has special semantics.  Rather than evaluating both
 	// operands as booleans and then comparing, the behavior of this operator
@@ -506,7 +507,7 @@ func evalEquals(
 // @param settings              The map of syscfg settings.
 //
 // @return bool                 Whether the expression evaluates to true.
-func Eval(expr *Node, settings map[string]string) (bool, error) {
+func Eval(expr *Node, settings *cfgv.Settings) (bool, error) {
 	// The null expression is true by default.
 	if expr == nil {
 		return true, nil
@@ -587,7 +588,7 @@ func Eval(expr *Node, settings map[string]string) (bool, error) {
 		return ValueIsTrue(expr.Data), nil
 
 	case PARSE_IDENT:
-		val := settings[expr.Data]
+		val := settings.Get(expr.Data)
 		return ValueIsTrue(val), nil
 
 	default:
@@ -616,7 +617,7 @@ func LexAndParse(expr string) (*Node, error) {
 // @param settings              The map of syscfg settings.
 //
 // @return bool                 Whether the expression evaluates to true.
-func ParseAndEval(expr string, settings map[string]string) (bool, error) {
+func ParseAndEval(expr string, settings *cfgv.Settings) (bool, error) {
 	n, err := LexAndParse(expr)
 	if err != nil {
 		return false, err

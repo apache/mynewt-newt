@@ -22,6 +22,7 @@ package toolchain
 import (
 	"fmt"
 	"io/ioutil"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"os"
 	"path"
 	"path/filepath"
@@ -274,7 +275,7 @@ func NewCompiler(compilerDir string, dstDir string,
 	return c, nil
 }
 
-func loadFlags(yc ycfg.YCfg, settings map[string]string, key string) []string {
+func loadFlags(yc ycfg.YCfg, settings *cfgv.Settings, key string) []string {
 	flags := []string{}
 
 	rawFlags, err := yc.GetValStringSlice(key, settings)
@@ -300,10 +301,10 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 		return err
 	}
 
-	settings := map[string]string{
+	settings := cfgv.NewSettingsFromMap(map[string]string{
 		buildProfile:                  "1",
 		strings.ToUpper(runtime.GOOS): "1",
-	}
+	})
 
 	c.ccPath, err = yc.GetValString("compiler.path.cc", settings)
 	util.OneTimeWarningError(err)
@@ -500,21 +501,21 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 	var cmdName string
 	var flags []string
 	switch compilerType {
-        case COMPILER_TYPE_C:
-                cmdName = c.ccPath
-                flags = c.cflagsStrings()
-        case COMPILER_TYPE_ASM:
-                cmdName = c.asPath
+	case COMPILER_TYPE_C:
+		cmdName = c.ccPath
+		flags = c.cflagsStrings()
+	case COMPILER_TYPE_ASM:
+		cmdName = c.asPath
 
-                // Include both the compiler flags and the assembler flags.
-                // XXX: This is not great.  We don't have a way of specifying compiler
-                // flags without also passing them to the assembler.
-                flags = append(c.cflagsStrings(), c.aflagsStrings()...)
-        case COMPILER_TYPE_CPP:
-                cmdName = c.cppPath
-                flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
-        default:
-                return util.NewNewtError("Unknown compiler type")
+		// Include both the compiler flags and the assembler flags.
+		// XXX: This is not great.  We don't have a way of specifying compiler
+		// flags without also passing them to the assembler.
+		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
+	case COMPILER_TYPE_CPP:
+		cmdName = c.cppPath
+		flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
+	default:
+		return util.NewNewtError("Unknown compiler type")
 	}
 
 	srcPath := strings.TrimPrefix(file, c.baseDir+"/")

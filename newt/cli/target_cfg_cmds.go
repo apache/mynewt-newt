@@ -193,7 +193,7 @@ func printFlatCfg(targetName string, cfg syscfg.Cfg) {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "!!! %s\n\n", errText)
 	}
 
-	settings := cfg.SettingValues()
+	settings := cfg.SettingValues().ToMap()
 	names := make([]string, 0, len(settings))
 	for name, _ := range settings {
 		names = append(names, name)

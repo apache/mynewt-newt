@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -180,16 +181,16 @@ func NewCfg() Cfg {
 	}
 }
 
-func SettingValues(settings map[string]CfgEntry) map[string]string {
-	values := make(map[string]string, len(settings))
-	for k, v := range settings {
-		values[k] = v.Value
+func SettingValues(entries map[string]CfgEntry) *cfgv.Settings {
+	settings := cfgv.NewSettingsPrealloc(len(entries))
+	for k, v := range entries {
+		settings.Set(k, v.Value)
 	}
 
-	return values
+	return settings
 }
 
-func (cfg *Cfg) SettingValues() map[string]string {
+func (cfg *Cfg) SettingValues() *cfgv.Settings {
 	return SettingValues(cfg.Settings)
 }
 
@@ -263,34 +264,29 @@ func (cfg *Cfg) ResolveValueRefs() {
 //
 // Else (no injected settings), returns the base settings unmodified.
 func (cfg *Cfg) settingsForLpkg(lpkg *pkg.LocalPackage,
-	baseSettings map[string]string) map[string]string {
-
-	var settings map[string]string
+	baseSettings *cfgv.Settings) *cfgv.Settings {
 
 	injected := lpkg.InjectedSettings()
-	if len(injected) == 0 {
+	if injected.Count() == 0 {
 		return baseSettings
 	}
 
-	settings = make(map[string]string, len(baseSettings))
-	for k, v := range baseSettings {
-		settings[k] = v
-	}
+	settings := cfgv.NewSettings(baseSettings)
 
-	for k, v := range lpkg.InjectedSettings() {
-		_, ok := settings[k]
+	for k, v := range lpkg.InjectedSettings().ToMap() {
+		ok := settings.Exists(k)
 		if ok {
 			log.Warnf("Attempt to override syscfg setting %s with "+
 				"injected feature from package %s", k, lpkg.FullName())
 		} else {
-			settings[k] = v
+			settings.Set(k, v)
 		}
 	}
 
 	return settings
 }
 
-func (cfg *Cfg) AllSettingsForLpkg(lpkg *pkg.LocalPackage) map[string]string {
+func (cfg *Cfg) AllSettingsForLpkg(lpkg *pkg.LocalPackage) *cfgv.Settings {
 	return cfg.settingsForLpkg(lpkg, cfg.SettingValues())
 }
 
@@ -590,7 +586,7 @@ func (cfg *Cfg) addRedefine(settingName string,
 }
 
 func (cfg *Cfg) readDefsOnce(lpkg *pkg.LocalPackage,
-	settings map[string]string) error {
+	settings *cfgv.Settings) error {
 	yc := lpkg.SyscfgY
 
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
@@ -683,7 +679,7 @@ func (cfg *Cfg) addOrphan(settingName string, value string,
 }
 
 func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
-	settings map[string]string) error {
+	settings *cfgv.Settings) error {
 
 	yc := lpkg.SyscfgY
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
@@ -704,7 +700,7 @@ func (cfg *Cfg) readRestrictions(lpkg *pkg.LocalPackage,
 }
 
 func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
-	settings map[string]string) error {
+	settings *cfgv.Settings) error {
 	yc := lpkg.SyscfgY
 
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
@@ -1222,7 +1218,7 @@ func categorizePkgs(
 }
 
 func (cfg *Cfg) readDefsForPkgType(lpkgs []*pkg.LocalPackage,
-	settings map[string]string) error {
+	settings *cfgv.Settings) error {
 
 	for _, lpkg := range lpkgs {
 		if err := cfg.readDefsOnce(lpkg, settings); err != nil {
@@ -1232,7 +1228,7 @@ func (cfg *Cfg) readDefsForPkgType(lpkgs []*pkg.LocalPackage,
 	return nil
 }
 func (cfg *Cfg) readValsForPkgType(lpkgs []*pkg.LocalPackage,
-	settings map[string]string) error {
+	settings *cfgv.Settings) error {
 
 	for _, lpkg := range lpkgs {
 		if err := cfg.readValsOnce(lpkg, settings); err != nil {
@@ -1261,11 +1257,11 @@ func (cfg *Cfg) DetectErrors(flashMap flashmap.FlashMap) {
 }
 
 func Read(lpkgs []*pkg.LocalPackage, apis []string,
-	injectedSettings map[string]string, settings map[string]string,
+	injectedSettings *cfgv.Settings, settings *cfgv.Settings,
 	flashMap flashmap.FlashMap) (Cfg, error) {
 
 	cfg := NewCfg()
-	for k, v := range injectedSettings {
+	for k, v := range injectedSettings.ToMap() {
 		cfg.Settings[k] = CfgEntry{
 			Name:        k,
 			Description: "Injected setting",
@@ -1276,7 +1272,7 @@ func Read(lpkgs []*pkg.LocalPackage, apis []string,
 			}},
 		}
 
-		settings[k] = v
+		settings.Set(k, v)
 	}
 
 	// Read system configuration files.  In case of conflicting settings, the

@@ -22,6 +22,7 @@ package pkg
 import (
 	"bytes"
 	"fmt"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,7 +61,7 @@ type LocalPackage struct {
 
 	// Extra package-specific settings that don't come from syscfg.  For
 	// example, SELFTEST gets set when the newt test command is used.
-	injectedSettings map[string]string
+	injectedSettings *cfgv.Settings
 
 	// Settings read from pkg.yml.
 	PkgY ycfg.YCfg
@@ -77,7 +78,7 @@ func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
 		desc:             &PackageDesc{},
 		repo:             r,
 		basePath:         filepath.ToSlash(filepath.Clean(pkgDir)),
-		injectedSettings: map[string]string{},
+		injectedSettings: cfgv.NewSettings(nil),
 	}
 
 	pkg.PkgY = ycfg.NewYCfg(pkg.PkgYamlPath())
@@ -367,7 +368,7 @@ func (pkg *LocalPackage) Load() error {
 }
 
 func (pkg *LocalPackage) InitFuncs(
-	settings map[string]string) map[string]interface{} {
+	settings *cfgv.Settings) map[string]interface{} {
 
 	vals, err := pkg.PkgY.GetValStringMap("pkg.init", settings)
 	util.OneTimeWarningError(err)
@@ -377,7 +378,7 @@ func (pkg *LocalPackage) InitFuncs(
 // DownFuncs retrieves the package's shutdown functions.  The returned map has:
 // key=C-function-name, value=numeric-stage.
 func (pkg *LocalPackage) DownFuncs(
-	settings map[string]string) map[string]string {
+	settings *cfgv.Settings) map[string]string {
 
 	vals, err := pkg.PkgY.GetValStringMapString("pkg.down", settings)
 	util.OneTimeWarningError(err)
@@ -385,7 +386,7 @@ func (pkg *LocalPackage) DownFuncs(
 }
 
 func (pkg *LocalPackage) PreBuildCmds(
-	settings map[string]string) map[string]string {
+	settings *cfgv.Settings) map[string]string {
 
 	vals, err := pkg.PkgY.GetValStringMapString("pkg.pre_build_cmds", settings)
 	util.OneTimeWarningError(err)
@@ -393,7 +394,7 @@ func (pkg *LocalPackage) PreBuildCmds(
 }
 
 func (pkg *LocalPackage) PreLinkCmds(
-	settings map[string]string) map[string]string {
+	settings *cfgv.Settings) map[string]string {
 
 	vals, err := pkg.PkgY.GetValStringMapString("pkg.pre_link_cmds", settings)
 	util.OneTimeWarningError(err)
@@ -401,14 +402,14 @@ func (pkg *LocalPackage) PreLinkCmds(
 }
 
 func (pkg *LocalPackage) PostLinkCmds(
-	settings map[string]string) map[string]string {
+	settings *cfgv.Settings) map[string]string {
 
 	vals, err := pkg.PkgY.GetValStringMapString("pkg.post_link_cmds", settings)
 	util.OneTimeWarningError(err)
 	return vals
 }
 
-func (pkg *LocalPackage) InjectedSettings() map[string]string {
+func (pkg *LocalPackage) InjectedSettings() *cfgv.Settings {
 	return pkg.injectedSettings
 }
 

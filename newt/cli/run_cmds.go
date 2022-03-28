@@ -76,8 +76,8 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 			}
 			settings := res.Cfg.SettingValues()
 
-			if !parse.ValueIsTrue(settings["BOOT_LOADER"]) &&
-				!parse.ValueIsTrue(settings["BSP_SIMULATED"]) {
+			if !parse.ValueIsTrue(settings.Get("BOOT_LOADER")) &&
+				!parse.ValueIsTrue(settings.Get("BSP_SIMULATED")) {
 
 				verStr = "0"
 				fmt.Println("Enter image version(default 0):")

@@ -21,13 +21,14 @@ package resolve
 
 import (
 	"github.com/spf13/cast"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
 )
 
 func getExprMapStringSlice(
-	yc ycfg.YCfg, key string, settings map[string]string) (
+	yc ycfg.YCfg, key string, settings *cfgv.Settings) (
 	map[*parse.Node][]string, string, error) {
 
 	var warning string
@@ -70,7 +71,7 @@ func revExprMapStringSlice(
 	return m
 }
 
-func readExprMap(yc ycfg.YCfg, key string, settings map[string]string) (
+func readExprMap(yc ycfg.YCfg, key string, settings *cfgv.Settings) (
 	parse.ExprMap, string, error) {
 
 	ems, warning, err := getExprMapStringSlice(yc, key, settings)
