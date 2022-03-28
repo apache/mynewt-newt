@@ -164,7 +164,7 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	// Package-specific injected settings get specified as C flags on the
 	// command line.
-	for k, _ := range bpkg.rpkg.Lpkg.InjectedSettings() {
+	for _, k := range bpkg.rpkg.Lpkg.InjectedSettings().Names() {
 		ci.Cflags = append(ci.Cflags, syscfg.FeatureToCflag(k))
 	}
 

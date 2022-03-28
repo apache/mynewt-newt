@@ -21,6 +21,7 @@ package builder
 
 import (
 	"bytes"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,11 +43,11 @@ func TestTargetName(testPkgName string) string {
 
 // FeatureString converts a syscfg map to a string.  The string is a
 // space-separate list of "enabled" settings.
-func FeatureString(settings map[string]string) string {
+func FeatureString(settings *cfgv.Settings) string {
 	var buffer bytes.Buffer
 
-	featureSlice := make([]string, 0, len(settings))
-	for k, v := range settings {
+	featureSlice := make([]string, 0, settings.Count())
+	for k, v := range settings.ToMap() {
 		if parse.ValueIsTrue(v) {
 			featureSlice = append(featureSlice, k)
 		}
@@ -196,15 +197,15 @@ func ToolchainEnvVars(c *toolchain.Compiler) map[string]string {
 
 // SettingsEnvVars calculates the syscfg set of environment variables required
 // by image loading scripts.
-func SettingsEnvVars(settings map[string]string) map[string]string {
+func SettingsEnvVars(settings *cfgv.Settings) map[string]string {
 	env := map[string]string{}
 
 	// Add all syscfg settings to the environment with the MYNEWT_VAL_ prefix.
-	for k, v := range settings {
+	for k, v := range settings.ToMap() {
 		env["MYNEWT_VAL_"+k] = v
 	}
 
-	if parse.ValueIsTrue(settings["BOOT_LOADER"]) {
+	if parse.ValueIsTrue(settings.Get("BOOT_LOADER")) {
 		env["BOOT_LOADER"] = "1"
 	}
 
@@ -305,7 +306,7 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 	env := BasicEnvVars(binBasePath, bspPkg)
 	setEnv := SettingsEnvVars(settings)
 
-	if parse.ValueIsTrue(settings["BOOT_LOADER"]) {
+	if parse.ValueIsTrue(settings.Get("BOOT_LOADER")) {
 		imageSlot = -1
 	}
 

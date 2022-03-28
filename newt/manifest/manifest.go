@@ -246,7 +246,7 @@ func OptsForNonImage(t *builder.TargetBuilder) (ManifestCreateOpts, error) {
 
 	return ManifestCreateOpts{
 		TgtBldr: t,
-		Syscfg:  res.Cfg.SettingValues(),
+		Syscfg:  res.Cfg.SettingValues().ToMap(),
 	}, nil
 }
 
@@ -264,7 +264,7 @@ func OptsForImage(t *builder.TargetBuilder, ver image.ImageVersion,
 		LoaderHash: loaderHash,
 		Version:    ver,
 		BuildID:    fmt.Sprintf("%x", appHash),
-		Syscfg:     res.Cfg.SettingValues(),
+		Syscfg:     res.Cfg.SettingValues().ToMap(),
 	}, nil
 }
 

@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"os"
 	"path/filepath"
 	"sort"
@@ -59,7 +60,7 @@ type TargetBuilder struct {
 	LoaderList    interfaces.PackageList
 
 	keyFile          string
-	injectedSettings map[string]string
+	injectedSettings *cfgv.Settings
 
 	res *resolve.Resolution
 }
@@ -94,7 +95,7 @@ func NewTargetTester(target *target.Target,
 		loaderPkg:        target.Loader(),
 		keyFile:          target.KeyFile,
 		testPkg:          testPkg,
-		injectedSettings: map[string]string{},
+		injectedSettings: cfgv.NewSettings(nil),
 	}
 
 	return t, nil
@@ -190,9 +191,9 @@ func (t *TargetBuilder) ensureResolved() error {
 		//       dependency resolution.
 		//     * The app source files receive "-DSPLIT_[...]=1" command line
 		//       arguments during compilation.
-		t.loaderPkg.InjectedSettings()["SPLIT_LOADER"] = "1"
+		t.loaderPkg.InjectedSettings().Set("SPLIT_LOADER", "1")
 		if t.appPkg != nil {
-			t.appPkg.InjectedSettings()["SPLIT_APPLICATION"] = "1"
+			t.appPkg.InjectedSettings().Set("SPLIT_APPLICATION", "1")
 		}
 
 		// Inject the SPLIT_IMAGE setting into the entire target.  All packages
@@ -745,7 +746,7 @@ func (t *TargetBuilder) GetTestPkg() *pkg.LocalPackage {
 }
 
 func (t *TargetBuilder) InjectSetting(key string, value string) {
-	t.injectedSettings[key] = value
+	t.injectedSettings.Set(key, value)
 }
 
 // Calculates the size of a single boot trailer.  This is the amount of flash

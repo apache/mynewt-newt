@@ -21,6 +21,7 @@ package resolve
 
 import (
 	"fmt"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"sort"
 	"strings"
 
@@ -62,7 +63,7 @@ type Resolver struct {
 	apis             map[string]resolveApi
 	pkgMap           map[*pkg.LocalPackage]*ResolvePackage
 	seedPkgs         []*pkg.LocalPackage
-	injectedSettings map[string]string
+	injectedSettings *cfgv.Settings
 	flashMap         flashmap.FlashMap
 	cfg              syscfg.Cfg
 	lcfg             logcfg.LCfg
@@ -144,7 +145,7 @@ type Resolution struct {
 
 func newResolver(
 	seedPkgs []*pkg.LocalPackage,
-	injectedSettings map[string]string,
+	injectedSettings *cfgv.Settings,
 	flashMap flashmap.FlashMap) *Resolver {
 
 	r := &Resolver{
@@ -159,7 +160,7 @@ func newResolver(
 	}
 
 	if injectedSettings == nil {
-		r.injectedSettings = map[string]string{}
+		r.injectedSettings = cfgv.NewSettings(nil)
 	}
 
 	for _, lpkg := range seedPkgs {
@@ -628,7 +629,7 @@ func (r *Resolver) reloadCfg() (bool, error) {
 // package via a traversal of the dependency graph.  The supplied settings are
 // used to determine the validity of dependencies in the graph.
 func (rpkg *ResolvePackage) traceToSeed(
-	settings map[string]string) (bool, error) {
+	settings *cfgv.Settings) (bool, error) {
 
 	seen := map[*ResolvePackage]struct{}{}
 
@@ -1075,17 +1076,17 @@ func (r *Resolver) resolveDepsAndCfg() error {
 
 	r.preBuildCmdCfg = extcmd.Read("pre_build_cmds", lpkgs, &r.cfg,
 		func(lpkg *pkg.LocalPackage,
-			settings map[string]string) map[string]string {
+			settings *cfgv.Settings) map[string]string {
 			return lpkg.PreBuildCmds(settings)
 		})
 	r.preLinkCmdCfg = extcmd.Read("pre_link_cmds", lpkgs, &r.cfg,
 		func(lpkg *pkg.LocalPackage,
-			settings map[string]string) map[string]string {
+			settings *cfgv.Settings) map[string]string {
 			return lpkg.PreLinkCmds(settings)
 		})
 	r.postLinkCmdCfg = extcmd.Read("post_link_cmds", lpkgs, &r.cfg,
 		func(lpkg *pkg.LocalPackage,
-			settings map[string]string) map[string]string {
+			settings *cfgv.Settings) map[string]string {
 			return lpkg.PostLinkCmds(settings)
 		})
 
@@ -1166,7 +1167,7 @@ func (r *Resolver) apiResolution() (
 func ResolveFull(
 	loaderSeeds []*pkg.LocalPackage,
 	appSeeds []*pkg.LocalPackage,
-	injectedSettings map[string]string,
+	injectedSettings *cfgv.Settings,
 	flashMap flashmap.FlashMap) (*Resolution, error) {
 
 	// First, calculate syscfg and determine which package provides each

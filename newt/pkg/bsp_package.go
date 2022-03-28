@@ -21,6 +21,7 @@ package pkg
 
 import (
 	"fmt"
+	"mynewt.apache.org/newt/newt/cfgv"
 	"runtime"
 	"strings"
 
@@ -53,7 +54,7 @@ func (bsp *BspPackage) BspYamlPath() string {
 }
 
 func (bsp *BspPackage) resolvePathSetting(
-	settings map[string]string, key string) (string, error) {
+	settings *cfgv.Settings, key string) (string, error) {
 
 	proj := interfaces.GetProject()
 
@@ -74,7 +75,7 @@ func (bsp *BspPackage) resolvePathSetting(
 // Interprets a setting as either a single linker script or a list of linker
 // scripts.
 func (bsp *BspPackage) resolveLinkerScriptSetting(
-	settings map[string]string, key string) ([]string, error) {
+	settings *cfgv.Settings, key string) ([]string, error) {
 
 	paths := []string{}
 
@@ -113,13 +114,13 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 	return paths, nil
 }
 
-func (bsp *BspPackage) Reload(settings map[string]string) error {
+func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 	var err error
 
 	if settings == nil {
-		settings = map[string]string{}
+		settings = cfgv.NewSettings(nil)
 	}
-	settings[strings.ToUpper(runtime.GOOS)] = "1"
+	settings.Set(strings.ToUpper(runtime.GOOS), "1")
 
 	bsp.BspV, err = config.ReadFile(bsp.BspYamlPath())
 	if err != nil {
