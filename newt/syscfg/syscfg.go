@@ -1589,8 +1589,10 @@ func write(cfg Cfg, w io.Writer) {
 	writeCheckMacros(w)
 	fmt.Fprintf(w, "\n")
 
-	writeReposInfo(w)
-	fmt.Fprintf(w, "\n")
+	if !util.SkipSyscfgRepoHash {
+		writeReposInfo(w)
+		fmt.Fprintf(w, "\n")
+	}
 
 	writeSettings(cfg, w)
 	fmt.Fprintf(w, "\n")
