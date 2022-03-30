@@ -22,6 +22,7 @@ package newtutil
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -178,12 +179,17 @@ func MakeTempRepoDir() (string, error) {
 }
 
 func ProjRelPath(path string) string {
-	if strings.HasPrefix(path, "/") {
-		return path
+	if filepath.IsAbs(path) {
+		proj := interfaces.GetProject()
+		if proj != nil {
+			relPath, err := filepath.Rel(proj.Path(), path)
+			if err == nil {
+				path = relPath
+			}
+		}
 	}
 
-	proj := interfaces.GetProject()
-	return strings.TrimPrefix(path, proj.Path()+"/")
+	return path
 }
 
 func PrintNewtVersion() {
