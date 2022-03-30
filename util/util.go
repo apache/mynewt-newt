@@ -49,6 +49,8 @@ var ExecuteShell bool
 var EscapeShellCmds bool
 var ShallowCloneDepth int
 var logFile *os.File
+var SkipNewtCompat bool
+var SkipSyscfgRepoHash bool
 
 func ParseEqualsPair(v string) (string, string, error) {
 	s := strings.Split(v, "=")
