@@ -21,6 +21,7 @@ package project
 
 import (
 	"fmt"
+	"mynewt.apache.org/newt/newt/cache"
 	"os"
 	"path"
 	"path/filepath"
@@ -56,6 +57,8 @@ type Project struct {
 
 	// Base path of the project
 	BasePath string
+
+	cache *cache.ProjectCache
 
 	packages interfaces.PackageList
 
@@ -634,6 +637,13 @@ func (proj *Project) Init(dir string, download bool) error {
 		return err
 	}
 
+	if util.EnableProjectCache {
+		proj.cache = cache.InitCache(proj.BasePath)
+		if proj.cache == nil {
+			util.OneTimeWarning("Failed to initialize project cache")
+		}
+	}
+
 	return nil
 }
 
@@ -741,12 +751,37 @@ func (proj *Project) loadPackageList() error {
 	// packages / store them in the project package list.
 	repos := proj.Repos()
 	for name, repo := range repos {
-		list, warnings, err := pkg.ReadLocalPackages(repo, repo.Path())
-		if err == nil {
-			proj.packages[name] = list
+		pkgMap := &map[string]interfaces.PackageInterface{}
+
+		var dirList []string
+
+		if proj.cache != nil {
+			dirList = proj.cache.GetPackagesDirs(repo)
 		}
 
-		proj.warnings = append(proj.warnings, warnings...)
+		if proj.cache != nil && dirList != nil {
+			log.Debug("Using cache for packages in \"%s\"\n", repo.Name())
+			for _, pkgPath := range dirList {
+				warnings, err := pkg.ReadPackage(repo, *pkgMap, pkgPath)
+				if err == nil {
+					proj.packages[name] = pkgMap
+				}
+
+				proj.warnings = append(proj.warnings, warnings...)
+			}
+		} else {
+			log.Debug("Not using cache for packages in \"%s\"\n", repo.Name())
+			warnings, err := pkg.ReadLocalPackages(repo, *pkgMap, repo.Path())
+			if err == nil {
+				proj.packages[name] = pkgMap
+			}
+
+			if proj.cache != nil {
+				proj.cache.AddPackages(repo, *pkgMap)
+			}
+
+			proj.warnings = append(proj.warnings, warnings...)
+		}
 	}
 
 	return nil

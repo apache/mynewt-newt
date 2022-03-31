@@ -449,8 +449,34 @@ func LocalPackageSpecialName(dirName string) bool {
 	return ok
 }
 
+func ReadPackage(repo *repo.Repo, pkgMap map[string]interfaces.PackageInterface,
+	pkgPath string) ([]string, error) {
+
+	var warnings []string
+
+	pkg, err := LoadLocalPackage(repo, pkgPath)
+	if err != nil {
+		warnings = append(warnings, err.Error())
+		return warnings, nil
+	}
+
+	if oldPkg, ok := pkgMap[pkg.Name()]; ok {
+		oldlPkg := oldPkg.(*LocalPackage)
+		warnings = append(warnings,
+			fmt.Sprintf("Multiple packages with same pkg.name=%s "+
+				"in repo %s; path1=%s path2=%s", oldlPkg.Name(), repo.Name(),
+				oldlPkg.BasePath(), pkg.BasePath()))
+
+		return warnings, nil
+	}
+
+	pkgMap[pkg.Name()] = pkg
+
+	return warnings, nil
+}
+
 func ReadLocalPackageRecursive(repo *repo.Repo,
-	pkgList map[string]interfaces.PackageInterface, basePath string,
+	pkgMap map[string]interfaces.PackageInterface, basePath string,
 	pkgName string, searchedMap map[string]struct{}) ([]string, error) {
 
 	var warnings []string
@@ -465,7 +491,7 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 			continue
 		}
 
-		subWarnings, err := ReadLocalPackageRecursive(repo, pkgList,
+		subWarnings, err := ReadLocalPackageRecursive(repo, pkgMap,
 			basePath, filepath.Join(pkgName, name), searchedMap)
 		warnings = append(warnings, subWarnings...)
 		if err != nil {
@@ -477,39 +503,21 @@ func ReadLocalPackageRecursive(repo *repo.Repo,
 		return warnings, nil
 	}
 
-	pkg, err := LoadLocalPackage(repo, filepath.Join(basePath, pkgName))
-	if err != nil {
-		warnings = append(warnings, err.Error())
-		return warnings, nil
-	}
+	var subWarnings []string
+	subWarnings, err = ReadPackage(repo, pkgMap, filepath.Join(basePath, pkgName))
+	warnings = append(warnings, subWarnings...)
 
-	if oldPkg, ok := pkgList[pkg.Name()]; ok {
-		oldlPkg := oldPkg.(*LocalPackage)
-		warnings = append(warnings,
-			fmt.Sprintf("Multiple packages with same pkg.name=%s "+
-				"in repo %s; path1=%s path2=%s", oldlPkg.Name(), repo.Name(),
-				oldlPkg.BasePath(), pkg.BasePath()))
-
-		return warnings, nil
-	}
-
-	pkgList[pkg.Name()] = pkg
-
-	return warnings, nil
+	return warnings, err
 }
 
-func ReadLocalPackages(repo *repo.Repo, basePath string) (
-	*map[string]interfaces.PackageInterface, []string, error) {
-
-	pkgMap := &map[string]interfaces.PackageInterface{}
-
+func ReadLocalPackages(repo *repo.Repo, pkgMap map[string]interfaces.PackageInterface, basePath string) ([]string, error) {
 	// Keep track of which directories we have traversed.  Prevent infinite
 	// loops caused by symlink cycles by not inspecting the same directory
 	// twice.
 	searchedMap := map[string]struct{}{}
 
-	warnings, err := ReadLocalPackageRecursive(repo, *pkgMap,
+	warnings, err := ReadLocalPackageRecursive(repo, pkgMap,
 		basePath, "", searchedMap)
 
-	return pkgMap, warnings, err
+	return warnings, err
 }
