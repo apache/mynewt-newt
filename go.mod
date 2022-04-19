@@ -8,7 +8,7 @@ require (
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/otiai10/copy v1.6.0 // indirect
+	github.com/otiai10/copy v1.6.0
 	github.com/shirou/gopsutil v2.20.8+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cast v1.3.0
