@@ -231,6 +231,10 @@ func flashMapVarDecl(fm FlashMap) string {
 
 func writeFlashAreaHeader(w io.Writer, area flash.FlashArea) {
 	fmt.Fprintf(w, "#define %-40s %d\n", area.Name, area.Id)
+	fmt.Fprintf(w, "#define %-40s %d\n", area.Name+"_DEVICE", area.Device)
+	fmt.Fprintf(w, "#define %-40s 0x%08x\n", area.Name+"_OFFSET", area.Offset)
+	fmt.Fprintf(w, "#define %-40s %d\n", area.Name+"_SIZE", area.Size)
+	fmt.Fprintf(w, "\n")
 }
 
 func writeFlashMapHeader(w io.Writer, fm FlashMap) {
@@ -249,7 +253,7 @@ func writeFlashMapHeader(w io.Writer, fm FlashMap) {
 		writeFlashAreaHeader(w, area)
 	}
 
-	fmt.Fprintf(w, "\n#endif\n")
+	fmt.Fprintf(w, "#endif\n")
 }
 
 func sizeComment(size int) string {
@@ -261,12 +265,11 @@ func sizeComment(size int) string {
 }
 
 func writeFlashAreaSrc(w io.Writer, area flash.FlashArea) {
-	fmt.Fprintf(w, "    /* %s */\n", area.Name)
 	fmt.Fprintf(w, "    {\n")
-	fmt.Fprintf(w, "        .fa_id = %d,\n", area.Id)
-	fmt.Fprintf(w, "        .fa_device_id = %d,\n", area.Device)
-	fmt.Fprintf(w, "        .fa_off = 0x%08x,\n", area.Offset)
-	fmt.Fprintf(w, "        .fa_size = %d,%s\n", area.Size,
+	fmt.Fprintf(w, "        .fa_id = %s,\n", area.Name)
+	fmt.Fprintf(w, "        .fa_device_id = %s_DEVICE,\n", area.Name)
+	fmt.Fprintf(w, "        .fa_off = %s_OFFSET,\n", area.Name)
+	fmt.Fprintf(w, "        .fa_size = %s_SIZE, %s\n", area.Name,
 		sizeComment(area.Size))
 	fmt.Fprintf(w, "    },\n")
 }
