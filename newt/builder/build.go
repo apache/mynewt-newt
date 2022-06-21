@@ -56,6 +56,7 @@ type Builder struct {
 	linkerScripts    []string
 	buildName        string
 	linkElf          string
+	workDir          string
 	injectedSettings map[string]string
 }
 
@@ -64,7 +65,8 @@ func NewBuilder(
 	buildName string,
 	rpkgs []*resolve.ResolvePackage,
 	apiMap map[string]*resolve.ResolvePackage,
-	cfg syscfg.Cfg) (*Builder, error) {
+	cfg syscfg.Cfg,
+	workDir string) (*Builder, error) {
 
 	b := &Builder{
 		PkgMap: make(map[*resolve.ResolvePackage]*BuildPackage, len(rpkgs)),
@@ -74,6 +76,7 @@ func NewBuilder(
 		apiMap:           make(map[string]*BuildPackage, len(apiMap)),
 		linkElf:          "",
 		targetBuilder:    t,
+		workDir:          workDir,
 		injectedSettings: map[string]string{},
 	}
 

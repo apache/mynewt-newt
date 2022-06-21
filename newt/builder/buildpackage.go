@@ -109,9 +109,13 @@ func (bpkg *BuildPackage) recursiveIncludePaths(
 }
 
 // Replaces instances of "@<repo-name>" with repo paths.
-func expandFlags(flags []string) {
+func expandFlags(b *Builder, flags []string) {
+	m := map[string]string{}
+	m["bin"] = b.AppPath()
+	m["user"] = b.WorkPath()
+
 	for i, f := range flags {
-		newFlag, changed := newtutil.ReplaceRepoDesignators(f)
+		newFlag, changed := newtutil.ReplaceRepoDesignators(f, m)
 		if changed {
 			flags[i] = newFlag
 		}
@@ -148,19 +152,19 @@ func (bpkg *BuildPackage) CompilerInfo(
 	// paths.
 	ci.Cflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
 	util.OneTimeWarningError(err)
-	expandFlags(ci.Cflags)
+	expandFlags(b, ci.Cflags)
 
 	ci.CXXflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
 	util.OneTimeWarningError(err)
-	expandFlags(ci.CXXflags)
+	expandFlags(b, ci.CXXflags)
 
 	ci.Lflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
 	util.OneTimeWarningError(err)
-	expandFlags(ci.Lflags)
+	expandFlags(b, ci.Lflags)
 
 	ci.Aflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
 	util.OneTimeWarningError(err)
-	expandFlags(ci.Aflags)
+	expandFlags(b, ci.Aflags)
 
 	// Package-specific injected settings get specified as C flags on the
 	// command line.

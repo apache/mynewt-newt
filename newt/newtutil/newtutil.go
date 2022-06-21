@@ -135,23 +135,34 @@ func FindRepoDesignator(s string) (int, int) {
 	return start, len
 }
 
-func ReplaceRepoDesignators(s string) (string, bool) {
+func ReplaceRepoDesignators(s string, m map[string]string) (string, bool) {
 	start, len := FindRepoDesignator(s)
 	if start == -1 {
 		return s, false
 	}
-	repoName := s[start+1 : start+len]
 
 	proj := interfaces.GetProject()
-	repoPath := proj.FindRepoPath(repoName)
-	if repoPath == "" {
-		return s, false
+	name := s[start+1 : start+len]
+	var path string
+
+	if name[0:1] == "@" {
+		var ok bool
+
+		path, ok = m[name[1:]]
+		if !ok {
+			return s, false
+		}
+	} else {
+		path = proj.FindRepoPath(name)
+		if path == "" {
+			return s, false
+		}
 	}
 
 	// Trim common project base from repo path.
-	relRepoPath := strings.TrimPrefix(repoPath, proj.Path()+"/")
+	relPath := strings.TrimPrefix(path, proj.Path()+"/")
 
-	return s[:start] + relRepoPath + s[start+len:], true
+	return s[:start] + relPath + s[start+len:], true
 }
 
 func BuildPackageString(repoName string, pkgName string) string {

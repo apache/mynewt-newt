@@ -59,6 +59,7 @@ type TargetBuilder struct {
 	LoaderList    interfaces.PackageList
 
 	keyFile          string
+	workDir          string
 	injectedSettings map[string]string
 
 	res *resolve.Resolution
@@ -389,7 +390,7 @@ func (t *TargetBuilder) PrepBuild() error {
 
 	if t.res.LoaderSet != nil {
 		t.LoaderBuilder, err = NewBuilder(t, BUILD_NAME_LOADER,
-			t.res.LoaderSet.Rpkgs, t.res.ApiMap, t.res.Cfg)
+			t.res.LoaderSet.Rpkgs, t.res.ApiMap, t.res.Cfg, t.workDir)
 		if err != nil {
 			return err
 		}
@@ -405,7 +406,7 @@ func (t *TargetBuilder) PrepBuild() error {
 	}
 
 	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, t.res.AppSet.Rpkgs,
-		t.res.ApiMap, t.res.Cfg)
+		t.res.ApiMap, t.res.Cfg, t.workDir)
 	if err != nil {
 		return err
 	}
@@ -541,6 +542,17 @@ func (t *TargetBuilder) autogenKeys() error {
 }
 
 func (t *TargetBuilder) Build() error {
+	workDir, err := makeUserWorkDir()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		log.Debugf("removing user work dir: %s", workDir)
+		os.RemoveAll(workDir)
+	}()
+
+	t.workDir = workDir
+
 	if err := t.PrepBuild(); err != nil {
 		return err
 	}
@@ -557,15 +569,6 @@ func (t *TargetBuilder) Build() error {
 			return err
 		}
 	}
-
-	workDir, err := makeUserWorkDir()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		log.Debugf("removing user work dir: %s", workDir)
-		os.RemoveAll(workDir)
-	}()
 
 	// Execute the set of pre-build user scripts.
 	if err := t.execPreBuildCmds(workDir); err != nil {
