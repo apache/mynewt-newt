@@ -225,7 +225,7 @@ func decodeRaw(yamlRaw interface{}, entryIdx int) (DecodedRaw, error) {
 	filenameVal := kv["name"]
 	if filenameVal == nil {
 		return dr, util.FmtNewtError(
-			"mfg raw entry missing required field \"filename\"")
+			"mfg raw entry missing required field \"name\"")
 	}
 	dr.Filename = cast.ToString(filenameVal)
 
