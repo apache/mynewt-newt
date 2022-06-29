@@ -74,11 +74,11 @@ type MfgBuildMeta struct {
 
 // Can be used to construct an Mfg object.
 type MfgBuilder struct {
-	BasePkg *pkg.LocalPackage
-	Bsp     *pkg.BspPackage
-	Targets []MfgBuildTarget
-	Raws    []MfgBuildRaw
-	Meta    *MfgBuildMeta
+	BasePkg     *pkg.LocalPackage
+	Bsp         *pkg.BspPackage
+	Targets     []MfgBuildTarget
+	Raws        []MfgBuildRaw
+	Meta        *MfgBuildMeta
 	BaseAddress int
 }
 
@@ -220,8 +220,7 @@ func newMfgBuildTarget(dt DecodedTarget,
 		return MfgBuildTarget{}, err
 	}
 
-	mpath := builder.ManifestPath(dt.Name, builder.BUILD_NAME_APP,
-		t.App().Name())
+	mpath := builder.ManifestPath(dt.Name, builder.BUILD_NAME_APP, t.App().FullName())
 	man, err := manifest.ReadManifest(mpath)
 	if err != nil {
 		return MfgBuildTarget{}, util.FmtNewtError("%s", err.Error())
