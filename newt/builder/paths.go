@@ -28,7 +28,6 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const BUILD_NAME_BOOT = "app/@mcuboot"
 const BUILD_NAME_APP = "app"
 const BUILD_NAME_LOADER = "loader"
 
