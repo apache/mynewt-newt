@@ -99,7 +99,7 @@ type MfgEmitter struct {
 // `.bin` files; image targets use `.img`.
 func targetSrcBinPath(t *target.Target, isBoot bool) string {
 	if isBoot {
-		return builder.AppBinPath(t.Name(), builder.BUILD_NAME_BOOT,
+		return builder.AppBinPath(t.Name(), builder.BUILD_NAME_APP,
 			t.App().Name())
 	} else {
 		return builder.AppImgPath(t.Name(), builder.BUILD_NAME_APP,
@@ -108,41 +108,26 @@ func targetSrcBinPath(t *target.Target, isBoot bool) string {
 }
 
 // Calculates the source path of a target's `.elf` file.
-func targetSrcElfPath(t *target.Target, isBoot bool) string {
-	if isBoot {
-		return builder.AppElfPath(t.Name(), builder.BUILD_NAME_BOOT, t.App().Name())
-	} else {
-		return builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name())
-	}
+func targetSrcElfPath(t *target.Target) string {
+	return builder.AppElfPath(t.Name(), builder.BUILD_NAME_APP, t.App().Name())
 }
 
 // Calculates the source path of a target's manifest file.
-func targetSrcManifestPath(t *target.Target, isBoot bool) string {
-	if isBoot {
-		return builder.ManifestPath(t.Name(), builder.BUILD_NAME_BOOT,
-			t.App().Name())
-	} else {
-		return builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP,
-			t.App().Name())
-	}
+func targetSrcManifestPath(t *target.Target) string {
+	return builder.ManifestPath(t.Name(), builder.BUILD_NAME_APP,
+		t.App().Name())
 }
 
 func newMfgEmitTarget(bt MfgBuildTarget) (MfgEmitTarget, error) {
-	var build_name string
-	if bt.IsBoot {
-		build_name = builder.BUILD_NAME_BOOT
-	} else {
-		build_name = builder.BUILD_NAME_APP
-	}
 	return MfgEmitTarget{
 		Name:    bt.Target.FullName(),
 		Offset:  bt.Area.Offset + bt.Offset,
 		Size:    bt.Size,
 		IsBoot:  bt.IsBoot,
 		BinPath: targetSrcBinPath(bt.Target, bt.IsBoot),
-		ElfPath: targetSrcElfPath(bt.Target, bt.IsBoot),
+		ElfPath: targetSrcElfPath(bt.Target),
 		ManifestPath: builder.ManifestPath(bt.Target.Name(),
-			build_name, bt.Target.App().Name()),
+			builder.BUILD_NAME_APP, bt.Target.App().Name()),
 		ExtraManifest: bt.ExtraManifest,
 	}, nil
 }
