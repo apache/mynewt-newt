@@ -60,6 +60,14 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	}
 	defer os.RemoveAll(tmpdir)
 
+	/* For new command don't use shallow copy by default
+	 * as release tag may not be present on tip of master
+	 * branch.
+	 */
+	if util.ShallowCloneDepth < 0 {
+		util.ShallowCloneDepth = 0;
+	}
+
 	if err := dl.Clone("master", tmpdir); err != nil {
 		NewtUsage(nil, err)
 	}
