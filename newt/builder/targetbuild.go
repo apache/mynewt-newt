@@ -282,7 +282,8 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	incDir := GeneratedIncludeDir(t.target.FullName())
 	srcDir := GeneratedSrcDir(t.target.FullName())
 
-	if err := syscfg.EnsureWritten(t.res.Cfg, incDir); err != nil {
+	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.MasterSet.Rpkgs)
+	if err := syscfg.EnsureWritten(t.res.Cfg, incDir, lpkgs); err != nil {
 		return err
 	}
 
@@ -292,7 +293,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 
 	// Generate loader sysinit.
 	if t.res.LoaderSet != nil {
-		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
+		lpkgs = resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
 		if err := t.res.SysinitCfg.EnsureWritten(lpkgs, srcDir,
 			pkg.ShortName(t.target.Package()), true); err != nil {
 
@@ -301,7 +302,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	}
 
 	// Generate app sysinit.
-	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
+	lpkgs = resolve.RpkgSliceToLpkgSlice(t.res.AppSet.Rpkgs)
 	if err := t.res.SysinitCfg.EnsureWritten(lpkgs, srcDir,
 		pkg.ShortName(t.target.Package()), false); err != nil {
 
@@ -310,7 +311,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 
 	// Generate loader sysinit.
 	if t.res.LoaderSet != nil {
-		lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
+		lpkgs = resolve.RpkgSliceToLpkgSlice(t.res.LoaderSet.Rpkgs)
 		if err := t.res.SysdownCfg.EnsureWritten(lpkgs, srcDir,
 			pkg.ShortName(t.target.Package()), true); err != nil {
 

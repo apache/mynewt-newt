@@ -80,6 +80,8 @@ const SYSCFG_TASK_PRIO_MAX = 0xef
 
 var cfgRefRe = regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
 var cfgChoiceValRe = regexp.MustCompile("^[A-Za-z0-9_]+$")
+var cfgPkgRepoName = regexp.MustCompile("^@([A-Za-z0-9-_]+)/")
+var cfgPkgIllegalChar = regexp.MustCompile("[^A-Za-z0-9_]")
 
 type CfgPoint struct {
 	Value  string
@@ -1580,7 +1582,28 @@ func writeReposInfo(w io.Writer) {
 	}
 }
 
-func write(cfg Cfg, w io.Writer) {
+func sanitizePkgName(name string) string {
+	name = cfgPkgRepoName.ReplaceAllString(name, "${1}__")
+	name = cfgPkgIllegalChar.ReplaceAllLiteralString(name, "_")
+
+	return name
+}
+
+func writePackages(lpkgs []*pkg.LocalPackage, w io.Writer) {
+	pkgs := []string{}
+	for _, lpkg := range lpkgs {
+		pkgs = append(pkgs, sanitizePkgName(lpkg.FullName()))
+	}
+
+	sort.Strings(pkgs)
+
+	fmt.Fprintf(w, "/*** Included packages */\n")
+	for _, name := range pkgs {
+		fmt.Fprintf(w, "#define MYNEWT_PKG_%s 1\n", name)
+	}
+}
+
+func write(cfg Cfg, lpkgs []*pkg.LocalPackage, w io.Writer) {
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_SYSCFG_\n")
@@ -1597,10 +1620,13 @@ func write(cfg Cfg, w io.Writer) {
 	writeSettings(cfg, w)
 	fmt.Fprintf(w, "\n")
 
+	writePackages(lpkgs, w)
+	fmt.Fprintf(w, "\n")
+
 	fmt.Fprintf(w, "#endif\n")
 }
 
-func EnsureWritten(cfg Cfg, includeDir string) error {
+func EnsureWritten(cfg Cfg, includeDir string, lpkgs []*pkg.LocalPackage) error {
 	// XXX: Detect these problems at error text generation time.
 	if err := calcPriorities(cfg, CFG_SETTING_TYPE_TASK_PRIO,
 		SYSCFG_TASK_PRIO_MAX, false); err != nil {
@@ -1609,7 +1635,7 @@ func EnsureWritten(cfg Cfg, includeDir string) error {
 	}
 
 	buf := bytes.Buffer{}
-	write(cfg, &buf)
+	write(cfg, lpkgs, &buf)
 
 	path := includeDir + "/" + HEADER_PATH
 
