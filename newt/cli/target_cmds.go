@@ -40,6 +40,7 @@ import (
 
 var amendDelete bool = false
 var showAll bool = false
+var listAll bool = false
 
 // target variables that can have values amended with the amend command.
 var amendVars = []string{"aflags", "cflags", "cxxflags", "lflags", "syscfg"}
@@ -245,6 +246,39 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 					k, kvPairs[k])
 			}
 		}
+	}
+}
+
+func targetListCmd(cmd *cobra.Command, args []string) {
+	TryGetProject()
+	targetNames := []string{}
+
+	for name, t := range target.GetTargets() {
+		keep := func() bool {
+			// Don't display the special unittest target; this is used
+			// internally by newt, so the user doesn't need to know about
+			// it.
+			if strings.HasSuffix(name, "/unittest") {
+				return false
+			}
+
+			// Don't show foreign targets without the `-a` option.
+			if !listAll && !t.Package().Repo().IsLocal() {
+				return false
+			}
+
+			return true
+		}
+
+		if keep() {
+			targetNames = append(targetNames, name)
+		}
+	}
+
+	sort.Strings(targetNames)
+
+	for _, name := range targetNames {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, name+"\n")
 	}
 }
 
@@ -720,6 +754,20 @@ func AddTargetCommands(cmd *cobra.Command) {
 		"Show all targets (including from other repos)")
 	targetCmd.AddCommand(showCmd)
 	AddTabCompleteFn(showCmd, targetList)
+
+	listHelpText := "List all available targets."
+	listHelpEx := "  newt target list"
+
+	listCmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List available targets",
+		Long:    listHelpText,
+		Example: listHelpEx,
+		Run:     targetListCmd,
+	}
+	listCmd.Flags().BoolVarP(&listAll, "all", "a", false,
+		"List all targets (including from other repos)")
+	targetCmd.AddCommand(listCmd)
 
 	cmakeHelpText := "Generate CMakeLists.txt for target specified " +
 		"by <target-name>."
