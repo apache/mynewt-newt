@@ -84,6 +84,9 @@ func (b *Builder) sortedBuildPackages() []*BuildPackage {
 	}
 
 	for _, bpkg := range b.PkgMap {
+		if bpkg.rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_CONFIG || bpkg.rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_TRANSIENT {
+			continue
+		}
 		sorter.bpkgs = append(sorter.bpkgs, bpkg)
 	}
 
