@@ -66,7 +66,6 @@ type TargetBuilder struct {
 
 func NewTargetTester(target *target.Target,
 	testPkg *pkg.LocalPackage) (*TargetBuilder, error) {
-
 	if err := target.Validate(testPkg == nil); err != nil {
 		return nil, err
 	}
@@ -76,8 +75,13 @@ func NewTargetTester(target *target.Target,
 		return nil, err
 	}
 
+	compilerName := bspPkg.CompilerName
+	if len(target.CompilerName) > 0 {
+		compilerName = target.CompilerName
+	}
+
 	compilerPkg, err := project.GetProject().ResolvePackage(
-		bspPkg.Repo(), bspPkg.CompilerName)
+		bspPkg.Repo(), compilerName)
 	if err != nil {
 		return nil, err
 	}
