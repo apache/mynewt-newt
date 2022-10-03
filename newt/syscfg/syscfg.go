@@ -1592,7 +1592,7 @@ func sanitizePkgName(name string) string {
 func writePackages(lpkgs []*pkg.LocalPackage, w io.Writer) {
 	pkgs := []string{}
 	for _, lpkg := range lpkgs {
-		pkgs = append(pkgs, sanitizePkgName(lpkg.FullName()))
+		pkgs = append(pkgs, sanitizePkgName(lpkg.NameWithRepo()))
 	}
 
 	sort.Strings(pkgs)
