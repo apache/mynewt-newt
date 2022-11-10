@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -416,18 +417,32 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		if err != nil {
 			return err
 		}
-		c.AddInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
+		c.AddInfo(&toolchain.CompilerInfo{
+			Lflags: ci.Lflags, IgnorePkgs: ci.IgnorePkgs})
 	}
 	dirs = append(dirs, extraADirs...)
 
-	// Find all .a files in the input directories.
+	// Find all .a files in the input directories for all non-ignored packages
+	ignorePkgs := c.GetCompilerInfo().IgnorePkgs
 	trimmedANames := []string{}
 	for _, dir := range dirs {
-		fullANames, _ := filepath.Glob(dir + "/*.a")
-		for i, archiveName := range fullANames {
-			fullANames[i] = filepath.ToSlash(archiveName)
+		ignoreThisPkg := false
+		for i, ignorePkg := range ignorePkgs {
+			if strings.HasSuffix(dir, ignorePkg.String()) {
+				// Pop the ignore package to speed up subsequent checks.
+				// Assumes no duplicate packages.
+				ignorePkgs[i] = ignorePkgs[len(ignorePkgs)-1]
+				ignorePkgs = ignorePkgs[:len(ignorePkgs)-1]
+				ignoreThisPkg = true
+			}
 		}
-		trimmedANames = append(trimmedANames, fullANames...)
+		if !ignoreThisPkg {
+			fullANames, _ := filepath.Glob(dir + "/*.a")
+			for i, archiveName := range fullANames {
+				fullANames[i] = filepath.ToSlash(archiveName)
+			}
+			trimmedANames = append(trimmedANames, fullANames...)
+		}
 	}
 
 	c.LinkerScripts = linkerScripts
