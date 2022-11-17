@@ -44,7 +44,7 @@ func newtDfltNumJobs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
 	numCpu := runtime.NumCPU()
 	cpu, err := cpu.Counts(false)
-	if err == nil {
+	if err == nil && cpu > 0 {
 		numCpu = cpu
 	}
 	var numJobs int
