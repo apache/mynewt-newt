@@ -65,7 +65,7 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 	 * branch.
 	 */
 	if util.ShallowCloneDepth < 0 {
-		util.ShallowCloneDepth = 0;
+		util.ShallowCloneDepth = 0
 	}
 
 	if err := dl.Clone("master", tmpdir); err != nil {

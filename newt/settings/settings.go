@@ -55,7 +55,7 @@ func processNewtrc(yc ycfg.YCfg) {
 	}
 
 	// default is 0 anyway, no need to initialize first
-	util.ShallowCloneDepth, _ = yc.GetValIntDflt("shallow_clone", nil, -1)
+	util.ShallowCloneDepth, _ = yc.GetValInt("shallow_clone", nil)
 
 	util.SkipNewtCompat, _ = yc.GetValBoolDflt("skip_newt_compat", nil, false)
 	util.SkipSyscfgRepoHash, _ = yc.GetValBoolDflt("skip_syscfg_repo_hash", nil, false)
