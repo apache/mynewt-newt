@@ -450,10 +450,13 @@ func (proj *Project) downloadRepositoryYmlFiles() error {
 	// Download the `repository.yml` file for each root-level repo (those
 	// specified in the `project.yml` file).
 	for _, r := range proj.repos.Sorted() {
-		if !r.IsLocal() {
+		if !r.IsLocal() && !r.IsExternal(r.Path()) {
 			if _, err := r.UpdateDesc(); err != nil {
 				return err
 			}
+		}
+		if r.IsExternal(r.Path()) {
+			r.Downloader().Fetch(r.Path())
 		}
 	}
 
