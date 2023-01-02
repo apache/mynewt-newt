@@ -88,7 +88,9 @@ func escapeFlagsSlice(flags []string) []string {
 
 func trimProjectPath(path string) string {
 	proj := interfaces.GetProject()
-	path, _ = filepath.Rel(proj.Path(), path)
+	if strings.HasPrefix(replaceBackslashes(path), proj.Path()) {
+		path, _ = filepath.Rel(proj.Path(), path)
+	}
 	return replaceBackslashes(path)
 }
 

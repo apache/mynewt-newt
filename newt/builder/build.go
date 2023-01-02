@@ -321,7 +321,19 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 
 	if len(bpkg.SourceDirectories) > 0 {
 		for _, relDir := range bpkg.SourceDirectories {
-			dir := bpkg.rpkg.Lpkg.BasePath() + "/" + relDir
+			var dir string
+			repo, path, err := newtutil.ParsePackageString(relDir)
+
+			if err != nil {
+				return nil, err
+			}
+
+			if repo != "" {
+				dir = "repos/" + repo + "/" + path
+			} else {
+				dir = bpkg.rpkg.Lpkg.BasePath() + "/" + relDir
+			}
+
 			if util.NodeNotExist(dir) {
 				return nil, util.NewNewtError(fmt.Sprintf(
 					"Specified source directory %s, does not exist.",

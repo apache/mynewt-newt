@@ -270,7 +270,17 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 		util.OneTimeWarningError(err)
 
 		for _, dir := range inclDirs {
-			incls = append(incls, bp+"/"+dir)
+			repo, path, err := newtutil.ParsePackageString(dir)
+
+			if err != nil {
+				util.OneTimeWarningError(err)
+			}
+
+			if repo != "" {
+				incls = append(incls, "repos/"+repo+"/"+path)
+			} else {
+				incls = append(incls, bp+"/"+dir)
+			}
 		}
 	}
 

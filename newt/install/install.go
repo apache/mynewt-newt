@@ -621,9 +621,11 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 	if vm != nil {
 		// The caller requested a remote query.  Download this repo's latest
 		// `repository.yml` file.
-		if err := r.DownloadDesc(); err != nil {
-			ri.errorText = strings.TrimSpace(err.Error())
-			return ri
+		if !r.IsExternal(r.Path()) {
+			if err := r.DownloadDesc(); err != nil {
+				ri.errorText = strings.TrimSpace(err.Error())
+				return ri
+			}
 		}
 	}
 
@@ -671,7 +673,7 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 	if remote {
 		// Fetch the latest for all repos.
 		for _, r := range repos {
-			if !r.IsLocal() {
+			if !r.IsLocal() && !r.IsExternal(r.Path()) {
 				if err := r.DownloadDesc(); err != nil {
 					return err
 				}

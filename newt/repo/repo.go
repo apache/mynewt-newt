@@ -194,6 +194,18 @@ func (r *Repo) patchesFilePath() string {
 		"/.patches/"
 }
 
+// Checks for repository.yml file presence in specified repo folder.
+// If there is no such file, the repo in specified folder is external.
+func (r *Repo) IsExternal(dir string) bool {
+	path := dir + "/repository.yml"
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return true
+	} else {
+		return false
+	}
+}
+
 // Check that there is a list of submodules to clone; if the key is
 // not present, assume that all submodules should be cloned, otherwise
 // only those configured will be cloned (or none if "")
@@ -225,13 +237,15 @@ func (r *Repo) downloadRepo(commit string) error {
 			r.Name(), err.Error())
 	}
 
-	yc, err := config.ReadFile(tmpdir + "/" + REPO_FILE_NAME)
-	if err != nil {
-		return err
-	}
+	if !r.IsExternal(tmpdir) {
+		yc, err := config.ReadFile(tmpdir + "/" + REPO_FILE_NAME)
+		if err != nil {
+			return err
+		}
 
-	if err := r.loadSubmoduleConfig(yc); err != nil {
-		return err
+		if err := r.loadSubmoduleConfig(yc); err != nil {
+			return err
+		}
 	}
 
 	if r.hasSubmodules {
