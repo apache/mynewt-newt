@@ -255,6 +255,7 @@ func (pkg *LocalPackage) Save() error {
 
 	file.WriteString("\n")
 
+	file.WriteString(pkg.sequenceString("pkg.deps"))
 	file.WriteString(pkg.sequenceString("pkg.aflags"))
 	file.WriteString(pkg.sequenceString("pkg.cflags"))
 	file.WriteString(pkg.sequenceString("pkg.cxxflags"))
