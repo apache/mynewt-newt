@@ -1,0 +1,2 @@
+syscfg.vals:
+    HAL_FLASH_VERIFY_ERASES: 1

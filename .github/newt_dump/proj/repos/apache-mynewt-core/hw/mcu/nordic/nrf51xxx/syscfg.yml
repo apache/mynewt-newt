@@ -1,0 +1,108 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+syscfg.defs:
+    I2C_0:
+        description: 'I2C (TWI) interface 0'
+        value:  0
+        restrictions:
+            - "!SPI_0_MASTER"
+            - "!SPI_0_SLAVE"
+    I2C_1:
+        description: 'I2C (TWI) interface 1'
+        value:  0
+        restrictions:
+            - "!SPI_1_MASTER"
+            - "!SPI_1_SLAVE"
+
+    MCU_FLASH_MIN_WRITE_SIZE:
+        description: >
+            Specifies the required alignment for internal flash writes.
+            Used internally by the newt tool.
+        value: 1
+
+    MCU_DCDC_ENABLED:
+        description: >
+            Specifies whether or not to enable DC/DC regulator. This requires
+            external circuitry so is defined to be zero by default and
+            expected to be overridden by the BSP.
+        value: 0
+
+    SPI_0_MASTER:
+        description: 'SPI 0 master'
+        value:  0
+        restrictions:
+            - "!SPI_0_SLAVE"
+            - "!I2C_0"
+    SPI_0_SLAVE:
+        description: 'SPI 0 slave'
+        value:  0
+        restrictions:
+            - "!SPI_0_MASTER"
+            - "!I2C_0"
+
+    SPI_1_MASTER:
+        description: 'SPI 1 master'
+        value:  0
+        restrictions:
+            - "!SPI_1_SLAVE"
+            - "!I2C_1"
+    SPI_1_SLAVE:
+        description: 'SPI 1 slave'
+        value:  0
+        restrictions:
+            - "!SPI_1_MASTER"
+            - "!I2C_1"
+
+    ADC_0:
+        description: 'ADC'
+        value:  0
+
+    ADC_0_REFMV_0:
+        description: 'reference mV in AREF0 if used'
+        value: 0
+    ADC_0_REFMV_1:
+        description: 'reference mV in AREF1 if used'
+        value: 0
+    ADC_0_REFMV_VDD:
+        description: 'reference mV in VDD if used'
+        value: 0
+
+# The XTAL_xxx definitions are used to set the clock source used for the low
+# frequency clock. It is required that at least one of these sources is
+# enabled (the bsp should set one of these clock sources).
+    XTAL_32768:
+        description: 'External 32k oscillator LF clock source.'
+        value: 0
+        restrictions:
+            - "!XTAL_32768_SYNTH"
+            - "!XTAL_RC"
+
+    XTAL_RC:
+        description: 'internal RC LF clock source'
+        value: 0
+        restrictions:
+            - "!XTAL_32768_SYNTH"
+            - "!XTAL_32768"
+
+    XTAL_32768_SYNTH:
+        description: 'Synthesized 32k LF clock source.'
+        value: 0
+        restrictions:
+            - "!XTAL_RC"
+            - "!XTAL_32768"

@@ -1,0 +1,9 @@
+### Package: targets/bleprph-nrf52dk
+pkg.name: "targets/bleprph-nrf52840pdk"
+pkg.type: "target"
+pkg.description: 
+pkg.author: 
+pkg.homepage: 
+
+pkg.deps.'GAGA || (BAHA ^^ SASA) && "B"':
+    - encoding/json

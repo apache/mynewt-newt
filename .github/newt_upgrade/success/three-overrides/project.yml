@@ -1,0 +1,50 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+repository.mynewt-dummy-repo-01:
+   type: git
+   vers: 1.0.2
+   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-01.git'
+
+repository.mynewt-dummy-repo-05:
+   type: git
+   vers: 1.0.0
+   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-05.git'
+
+### Project overrides of repo-01 dependencies:
+
+# Override with git hashes.  These overrides should always take precedence over
+# interdeps, so the upgrade should succeed.
+
+repository.mynewt-dummy-repo-02:
+   type: git
+   vers: ffd8b4f1f0dfb1ee823840b5bd8d62ecfc16a884-commit
+   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-02.git'
+
+# This hash corresponds to a version number (1.1.0).
+repository.mynewt-dummy-repo-03:
+   type: git
+   vers: bc92264a442925503121dad4e28bd365863e4b69-commit
+   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-03.git'
+
+# This hash corresponds to a version number (1.0.2).
+repository.mynewt-dummy-repo-04:
+   type: git
+   vers: e727f88ca34fffba63a52bb8a0089f50d16f6259-commit
+   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-04.git'

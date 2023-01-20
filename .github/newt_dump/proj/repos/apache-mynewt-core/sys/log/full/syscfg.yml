@@ -1,0 +1,102 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+# 
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+syscfg.defs:
+    LOG_FULL:
+        description: >
+            Indicates that the full logging facility (not the stub) is present.
+            This setting should not be overridden.
+        value: 1
+
+    LOG_VERSION:
+        description: 'Log entry header version used.'
+        value: 2
+
+    LOG_LEVEL:
+        description: 'Limits what level log messages are compiled in.'
+        value: 0
+
+    LOG_FCB:
+        description: 'Support logging to FCB.'
+        value: 0
+
+    LOG_FCB_SLOT1:
+        description: >
+            Support logging to FCB located in slot 1.
+            This is a thin wrapper over LOG_FCB which should be used if
+            destination FCB is located in slot 1 as it can detect when
+            a new image is uploaded to this slot and stop logging to
+            prevent data corruption.
+        value: 0
+        restrictions:
+            - "LOG_FCB"
+
+    LOG_CONSOLE:
+        description: 'Support logging to console.'
+        value: 1
+
+    LOG_CLI:
+        description: 'Expose "log" command in shell.'
+        value: 0
+        restrictions:
+            - SHELL_TASK
+
+    LOG_NEWTMGR:
+        description: 'Expose "log" command in newtmgr.'
+        value: 0
+
+    LOG_MAX_USER_MODULES:
+        description: 'Maximum number of user modules to register'
+        value: 1
+
+    LOG_MODULE_LEVELS:
+        description: >
+            Enables global configuration of minimum log level by module ID.
+            Writes with a level less than the module's minimum level are
+            discarded.  Enabling this setting requires 128 bytes of bss.
+        value: 1
+
+    LOG_STATS:
+        description: 'Log statistics'
+        value: 0
+
+    LOG_STORAGE_INFO:
+        description: >
+            Enable "storage_info" API which keeps track of log storage usage and
+            can return total number of bytes available for log and number of
+            bytes used by entries in log.
+        value: 0
+
+    LOG_STORAGE_WATERMARK:
+        description: >
+            Enable "set_watermark" API which can watermark log by entry index and
+            thus allow to e.g. keep track of read items in log e.g. (via newtmgr).
+            This also extends information returned by "storage_info" to number of
+            bytes used by entries above watermark.
+        value: 0
+        restrictions: LOG_STORAGE_INFO
+
+    LOG_SYSINIT_STAGE_MAIN:
+        description: >
+            Primary sysinit stage for logging functionality.
+        value: 100
+    LOG_SYSINIT_STAGE_SLOT1:
+        description: >
+            Sysinit stage for logging to the second image slot.
+        value: 101

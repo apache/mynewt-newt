@@ -1,0 +1,45 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+name: dump
+
+on: [push, pull_request]
+
+jobs:
+  test_dump:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        targets: [bleprph-nrf52840pdk, boot-nrf52dk, btshell-nrf52840pdk, btshell-nrf52dk, my_blinky_sim]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.16'
+      - name: Build newt
+        run: |
+             go version
+             sh ./build.sh
+             echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+      - name: Test dump
+        working-directory: .github/newt_dump/proj
+        run: |
+             echo "Checking target ${{ matrix.targets }}"
+             newt target dump ${{ matrix.targets }} | jq 'del(.sysinit)' > tmp.txt
+             diff -w ../answers/${{ matrix.targets }}.json tmp.txt

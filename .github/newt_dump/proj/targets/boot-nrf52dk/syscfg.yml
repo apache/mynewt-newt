@@ -1,0 +1,4 @@
+syscfg.vals:
+    BOOTUTIL_SIGN_RSA: 0
+    BOOTUTIL_SIGN_ECC: 0
+    SOFT_PWM: 0
