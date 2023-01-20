@@ -1,0 +1,4 @@
+### Target: targets/btshell-nrf52dk
+target.app: "@apache-mynewt-nimble/apps/btshell"
+target.bsp: "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+target.build_profile: "optimized"

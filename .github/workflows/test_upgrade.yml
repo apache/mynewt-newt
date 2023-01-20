@@ -1,0 +1,76 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+name: upgrade
+
+on: [push, pull_request]
+
+jobs:
+  test_upgrade_success:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        projects: [basic01, basic02, basic03, branches01, dup-overrides, inferrc, one-override, three-overrides]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.16'
+      - name: Build newt
+        run: |
+             go version
+             sh ./build.sh
+             echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+             git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - name: Test upgrade success
+        working-directory: .github/newt_upgrade/success/${{ matrix.projects }}
+        run: |
+             echo "Checking target ${{ matrix.targets }}"
+             echo "Test initial install"
+             newt upgrade
+             newt info | grep mynewt-dummy | diff -w expected.txt -
+             echo "Checking out repos to origin/master"
+             for repo in `ls repos`; do git -C repos/"$repo" checkout -q origin/master; done
+             echo "Test upgrade"
+             newt upgrade
+             newt info | grep mynewt-dummy | diff -w expected.txt -
+
+  test_upgrade_fail:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        projects: [conflict01, conflict02, nonexistent-commit, nonexistent-version]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.16'
+      - name: Build newt
+        run: |
+             go version
+             sh ./build.sh
+             echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+             git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - name: Test upgrade fail
+        working-directory: .github/newt_upgrade/fail/${{ matrix.projects }}
+        id: upgrade
+        run: |
+             echo "Checking target ${{ matrix.targets }}"
+             ! newt upgrade &> tmp.txt
+             cat tmp.txt | tail -n `wc -l < expected.txt` | diff -w expected.txt -

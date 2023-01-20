@@ -1,0 +1,5912 @@
+{
+  "target_name": "targets/btshell-nrf52dk",
+  "dep_graph": {
+    "@apache-mynewt-core/hw/bsp/nordic_pca10040": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/libc/baselibc",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/nimble/nrf52": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/drivers/nrf52",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "ble_driver": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart/uart_hal": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/hal": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic": [
+      {
+        "name": "@apache-mynewt-core/hw/cmsis-core",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx": [
+      {
+        "name": "@apache-mynewt-core/hw/cmsis-core",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/nimble/nrf52",
+        "dep_exprs": [
+          "BLE_DEVICE"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          "UART_0"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/os": [
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sys",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysdown",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/libc/baselibc": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/console/full": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart",
+        "dep_exprs": [
+          "CONSOLE_UART"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/flash_map": [
+      {
+        "name": "@apache-mynewt-core/sys/defs",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/full": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/common",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/cbmem",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/modlog": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/full",
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/util/rwlock",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/mfg": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/shell": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/time/datetime",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/stats/full": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/shell",
+        "dep_exprs": [
+          "STATS_CLI"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysdown": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysinit": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/time/datetime": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/cbmem": [
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/mem": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/rwlock": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/apps/btshell": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/full",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/shell",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/stats/full",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "stats": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/services/ans",
+        "dep_exprs": [
+          "BTSHELL_ANS"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/services/gap",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/services/gatt",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/store/ram",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/porting/npl/mynewt",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/controller": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/stats/full",
+        "api_exprs": {
+          "stats": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "stats": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/drivers/nrf52",
+        "api_exprs": {
+          "ble_driver": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "ble_driver": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport/ram",
+        "api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/drivers/nrf52": [
+      {
+        "name": "@apache-mynewt-nimble/nimble",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host": [
+      {
+        "name": "@apache-mynewt-core/crypto/tinycrypt",
+        "dep_exprs": [
+          "BLE_SM_SC"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/stats/full",
+        "api_exprs": {
+          "stats": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "stats": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport/ram",
+        "api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/services/ans": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/services/gap": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/services/gatt": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/store/ram": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/transport": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "dep_exprs": [
+          "BLE_HCI_TRANSPORT_NIMBLE_BUILTIN"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport/ram",
+        "dep_exprs": [
+          "BLE_HCI_TRANSPORT_NIMBLE_BUILTIN"
+        ],
+        "api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/transport/ram": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/porting/npl/mynewt": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ]
+  },
+  "revdep_graph": {
+    "@apache-mynewt-core/crypto/tinycrypt": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          "BLE_SM_SC"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/cmsis-core": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/nimble/nrf52": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          "BLE_DEVICE"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "dep_exprs": [
+          "CONSOLE_UART"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart/uart_hal": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          "UART_0"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/hal": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/cbmem",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/nordic_pca10040",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/os": [
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/libc/baselibc",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/full",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/full",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/shell",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/stats/full",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysdown",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/time/datetime",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/cbmem",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/rwlock",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport/ram",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/porting/npl/mynewt",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/libc/baselibc": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/nordic_pca10040",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/console/full": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/libc/baselibc",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/shell",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/defs": [
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/flash_map": [
+      {
+        "name": "@apache-mynewt-core/sys/log/full",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/common": [
+      {
+        "name": "@apache-mynewt-core/sys/log/full",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/full": [
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/log/modlog": [
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/mfg": [
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/shell": [
+      {
+        "name": "@apache-mynewt-core/sys/stats/full",
+        "dep_exprs": [
+          "STATS_CLI"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/stats/full": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "stats": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "api_exprs": {
+          "stats": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "stats": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "api_exprs": {
+          "stats": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "stats": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/sys": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysdown": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysinit": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/time/datetime": [
+      {
+        "name": "@apache-mynewt-core/sys/shell",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/cbmem": [
+      {
+        "name": "@apache-mynewt-core/sys/log/full",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/mem": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/rwlock": [
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/drivers/nrf52",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport/ram",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/controller": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/drivers/nrf52",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport",
+        "dep_exprs": [
+          "BLE_HCI_TRANSPORT_NIMBLE_BUILTIN"
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/drivers/nrf52": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/nimble/nrf52",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "ble_driver": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "api_exprs": {
+          "ble_driver": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "ble_driver": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/services/ans",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/services/gap",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/services/gatt",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host/store/ram",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/services/ans": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          "BTSHELL_ANS"
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/services/gap": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/services/gatt": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/host/store/ram": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/transport": [
+      {
+        "name": "@apache-mynewt-nimble/apps/btshell",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-nimble/nimble/transport/ram": [
+      {
+        "name": "@apache-mynewt-nimble/nimble/controller",
+        "api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/host",
+        "api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-nimble/nimble/transport",
+        "dep_exprs": [
+          "BLE_HCI_TRANSPORT_NIMBLE_BUILTIN"
+        ],
+        "api_exprs": {
+          "ble_transport": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-nimble/porting/npl/mynewt": [
+      {
+        "name": "@apache-mynewt-nimble/nimble",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ]
+  },
+  "syscfg": {
+    "settings": {
+      "ADC_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "ADC_0_REFMV_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "APP_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"btshell\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "APP_btshell": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "ARCH_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"cortex_m4\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "ARCH_cortex_m4": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BASELIBC_ASSERT_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/libc/baselibc"
+          }
+        ],
+        "state": "defunct"
+      },
+      "BASELIBC_PRESENT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/libc/baselibc"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ACL_BUF_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ACL_BUF_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "255",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_PREFERRED_MTU": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "256",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_FIND_INFO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_FIND_TYPE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_INDICATE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_MAX_PREP_ENTRIES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "64",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_NOTIFY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_QUEUED_WRITE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_QUEUED_WRITE_TMO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "30000",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_READ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_READ_BLOB": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_READ_GROUP_TYPE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_READ_MULT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_READ_TYPE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_SIGNED_WRITE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_WRITE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ATT_SVR_WRITE_NO_RSP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_DEVICE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_EXT_ADV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_EXT_ADV_MAX_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "31",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GAP_MAX_PENDING_CONN_PARAM_UPDATE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_DISC_ALL_CHRS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_DISC_ALL_DSCS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_DISC_ALL_SVCS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_DISC_CHR_UUID": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_DISC_SVC_UUID": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_FIND_INC_SVCS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_INDICATE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_MAX_PROCS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_NOTIFY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_READ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_READ_LONG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_READ_MAX_ATTRS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_READ_MULT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_READ_UUID": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_RESUME_RATE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_SIGNED_WRITE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_WRITE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_WRITE_LONG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_WRITE_MAX_ATTRS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_WRITE_NO_RSP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_GATT_WRITE_RELIABLE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_ROLE_CENTRAL",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_EVT_BUF_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "70",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_EVT_HI_BUF_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_EVT_LO_BUF_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_TRANSPORT_EMSPI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/transport"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_TRANSPORT_NIMBLE_BUILTIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/transport"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_TRANSPORT_RAM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/transport"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_TRANSPORT_SOCKET": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/transport"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HCI_TRANSPORT_UART": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/transport"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HOST": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_AUTO_START": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_FLOW_CTRL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_FLOW_CTRL_ITVL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_FLOW_CTRL_THRESH": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_FLOW_CTRL_TX_ON_DISCONNECT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_PHONY_HCI_ACKS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_REQUIRE_OS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_STOP_ON_SHUTDOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "200",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_HW_WHITELIST_ENABLE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_L2CAP_COC_MAX_NUM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_L2CAP_COC_MTU": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_MSYS_1_BLOCK_SIZE-8",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_L2CAP_JOIN_RX_FRAGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_L2CAP_MAX_CHANS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "3*MYNEWT_VAL_BLE_MAX_CONNECTIONS",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_L2CAP_RX_FRAG_TIMEOUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "30000",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_L2CAP_SIG_MAX_PROCS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_ADD_STRICT_SCHED_PERIODS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_CONN_PARAM_REQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_DATA_LEN_EXT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_EXT_SCAN_FILT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LE_2M_PHY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LE_CODED_PHY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LE_CSA2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LE_ENCRYPTION": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LE_PING": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_LL_CFG_FEAT_LE_ENCRYPTION",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LL_EXT_ADV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_EXT_ADV",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_LL_PRIVACY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CFG_FEAT_SLAVE_INIT_FEAT_XCHG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CONN_INIT_MAX_TX_BYTES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "27",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CONN_INIT_MIN_WIN_OFFSET": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_CONN_INIT_SLOTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_DIRECT_TEST_MODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_EXT_ADV_AUX_PTR_CNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "5",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_MASTER_SCA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_MAX_PKT_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "251",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_MFRG_ID": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0xFFFF",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_NUM_SCAN_DUP_ADVS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "32",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_NUM_SCAN_RSP_ADVS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "32",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_OUR_SCA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "60",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_PRIO": {
+        "type": "task_priority",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_RESOLV_LIST_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_RNG_BUFSIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "32",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_STRICT_CONN_SCHEDULING": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_SUPP_MAX_RX_BYTES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_LL_MAX_PKT_SIZE",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_SUPP_MAX_TX_BYTES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "MYNEWT_VAL_BLE_LL_MAX_PKT_SIZE",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "250",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_SYSVIEW": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_TX_PWR_DBM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_USECS_PER_PERIOD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "3250",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_VND_EVENT_ON_ASSERT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LL_WHITELIST_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_LP_CLOCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MAX_CONNECTIONS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MESH": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_CONSOLE_BUFFER_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_RTT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_RTT_BUFFERED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_RTT_BUFFER_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"btmonitor\"",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_RTT_BUFFER_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "256",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_UART": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_UART_BAUDRATE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000000",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_UART_BUFFER_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "64",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MONITOR_UART_DEV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"uart0\"",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_MULTI_ADV_INSTANCES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_NUM_COMP_PKT_RATE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "(2 * OS_TICKS_PER_SEC)",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_CODED_RX_IFS_EXTRA_MARGIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_DBG_TIME_ADDRESS_END_PIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_DBG_TIME_TXRXEN_READY_PIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_DBG_TIME_WFR_PIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_NRF52840_ERRATA_164": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_NRF52840_ERRATA_191": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PHY_SYSVIEW": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_PUBLIC_DEV_ADDR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "(uint8_t[6]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00}",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ROLE_BROADCASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ROLE_CENTRAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ROLE_OBSERVER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_ROLE_PERIPHERAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_RPA_TIMEOUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "300",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_BONDING": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_IO_CAP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "BLE_HS_IO_NO_INPUT_OUTPUT",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_KEYPRESS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_LEGACY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          },
+          {
+            "value": "0",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_MAX_PROCS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_MITM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "0",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_OOB_DATA_FLAG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "0",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_OUR_KEY_DIST": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "7",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_SC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          },
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_SC_DEBUG_KEYS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SM_THEIR_KEY_DIST": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          },
+          {
+            "value": "7",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_STORE_MAX_BONDS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "3",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_STORE_MAX_CCCDS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_STORE_RAM_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "500",
+            "package": "@apache-mynewt-nimble/nimble/host/store/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_ANS_NEW_ALERT_CAT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/ans"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_ANS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "303",
+            "package": "@apache-mynewt-nimble/nimble/host/services/ans"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_ANS_UNR_ALERT_CAT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/ans"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_APPEARANCE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_APPEARANCE_WRITE_PERM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_CENTRAL_ADDRESS_RESOLUTION": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_DEVICE_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"nimble\"",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_DEVICE_NAME_MAX_LENGTH": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "31",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_DEVICE_NAME_WRITE_PERM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_PPCP_MAX_CONN_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_PPCP_MIN_CONN_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_PPCP_SLAVE_LATENCY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_PPCP_SUPERVISION_TMO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GAP_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "301",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_SVC_GATT_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "302",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gatt"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_TRANS_RAM_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_WHITELIST": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "good"
+      },
+      "BLE_XTAL_SETTLE_TIME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          },
+          {
+            "value": "1500",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOT_SERIAL_NVREG_INDEX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOT_SERIAL_NVREG_MAGIC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0xB7",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "(BOOT_SERIAL_NVREG_MAGIC != 0)"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"nordic_pca10040\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_NRF52": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_nordic_pca10040": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BTSHELL_ANS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_BLE_MONITOR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_COMPAT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_DEFAULT_LOCK_TIMEOUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_ECHO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_HISTORY_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_INPUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_MAX_INPUT_LEN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "256",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_RTT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_RTT_INPUT_POLL_INTERVAL_MAX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "250",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_RTT_RETRY_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_RTT_RETRY_DELAY_MS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_RTT_RETRY_IN_ISR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "20",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_TICKS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_BAUD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "115200",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_DEV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"uart0\"",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_FLOW_CONTROL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "UART_FLOW_CTL_NONE",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_RX_BUF_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "32",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_TX_BUF_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "32",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "good"
+      },
+      "DEBUG_PANIC_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sys"
+          }
+        ],
+        "state": "good"
+      },
+      "ENC_FLASH_DEV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "FLASH_MAP_MAX_AREAS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "good"
+      },
+      "FLASH_MAP_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "good"
+      },
+      "FLOAT_USER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "GPIO_AS_PIN_RESET": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_BUF_SZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "16",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_ERASES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_WRITES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HARDFLOAT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/compiler/arm-none-eabi-m4"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_0_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!SPI_0_SLAVE"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0_FREQ_KHZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0_PIN_SCL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "27",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0_PIN_SDA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "26",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_1_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!SPI_1_SLAVE"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1_FREQ_KHZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1_PIN_SCL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1_PIN_SDA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_CLI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "SHELL_TASK"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_CONSOLE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_FCB": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_FCB_SLOT1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "LOG_FCB"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_FULL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_LEVEL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          },
+          {
+            "value": "0",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_MAX_USER_MODULES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_MODULE_LEVELS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_NEWTMGR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_STATS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_STORAGE_INFO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_STORAGE_WATERMARK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "LOG_STORAGE_INFO"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_SYSINIT_STAGE_MAIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_SYSINIT_STAGE_SLOT1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "101",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_VERSION": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_BUS_DRIVER_I2C_USE_TWIM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_DCDC_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_FLASH_MIN_WRITE_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_I2C_RECOVERY_DELAY_USEC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_NRF52832": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_NRF52840": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_LOG_MODULE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_MAX_MMRS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_CONSOLE_DFLT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_LOG_MACROS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_MAX_MAPPINGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "16",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_MAX_PRINTF_LEN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_1_BLOCK_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "12",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_1_BLOCK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "292",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_2_BLOCK_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_2_BLOCK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "NEWT_FEATURE_LOGCFG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "NEWT_FEATURE_SYSDOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "NFC_PINS_AS_GPIO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CLI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "SHELL_TASK"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_COREDUMP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CPUTIME_FREQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000000",
+            "package": "@apache-mynewt-core/kernel/os"
+          },
+          {
+            "value": "32768",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CPUTIME_TIMER_NUM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          },
+          {
+            "value": "5",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_LOG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_RESTORE_REGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_STACKTRACE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CTX_SW_STACK_CHECK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CTX_SW_STACK_GUARD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_DEBUG_MODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_IDLE_TICKLESS_MS_MAX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "600000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_IDLE_TICKLESS_MS_MIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MAIN_STACK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1024",
+            "package": "@apache-mynewt-core/kernel/os"
+          },
+          {
+            "value": "512",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MAIN_TASK_PRIO": {
+        "type": "task_priority",
+        "history": [
+          {
+            "value": "127",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_CHECK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_GUARD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_POISON": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SCHEDULING": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_CALLOUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_EVENTQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MBUF": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MEMPOOL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MUTEX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_SEM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_TIME_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_WATCHDOG_MONITOR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_3": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_ADDRMODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_DPMCONFIG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_ENABLE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_FLASH_PAGE_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_FLASH_SECTOR_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_FLASH_SECTOR_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_CS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO3": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_READOC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_SCK_DELAY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_SCK_FREQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_SPI_MODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_WRITEOC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "RAM_RESIDENT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "RWLOCK_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/util/rwlock"
+          }
+        ],
+        "state": "good"
+      },
+      "SANITY_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "15000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_CMD_ARGC_MAX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "12",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_CMD_HELP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_COMPAT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_COMPLETION": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_MAX_CMD_QUEUED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_MAX_COMPAT_COMMANDS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "20",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_MAX_MODULES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "3",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_NEWTMGR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/shell"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_OS_MODULE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_OS_SERIAL_BOOT_NVREG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "(BOOT_SERIAL_NVREG_INDEX != -1)"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_PROMPT_MODULE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_PROMPT_SUFFIX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"> \"",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "500",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "good"
+      },
+      "SHELL_TASK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/shell"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          }
+        ],
+        "state": "good"
+      },
+      "SOFT_PWM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_0_SLAVE"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_0"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "25",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "24",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "23",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_0_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_0"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "25",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "24",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "23",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "22",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_1_SLAVE"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_1"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_1_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_1"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_2_SLAVE"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_2_MASTER"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_3_SLAVE"
+          },
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_3_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_CLI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          },
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "SHELL_TASK"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_NAMES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          },
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_NEWTMGR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_PERSIST": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_PERSIST_BUF_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_PERSIST_MAX_NAME_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "32",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_SYSDOWN_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "500",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "STATS_SYSINIT_STAGE_CONF": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "51",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_CONSTRAIN_DOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_PANIC_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_PANIC_MESSAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_TIMEOUT_MS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10000",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_CONSTRAIN_INIT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_PANIC_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_PANIC_MESSAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "good"
+      },
+      "TARGET_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"btshell-nrf52dk\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "TARGET_btshell_nrf52dk": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_3": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_4": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_5": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "TINYCRYPT_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "200",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "good"
+      },
+      "TINYCRYPT_UECC_RNG_TRNG_DEV_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"trng\"",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "good"
+      },
+      "TINYCRYPT_UECC_RNG_USE_TRNG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "good"
+      },
+      "TRNG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UARTBB_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UARTBB_0_PIN_RX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UARTBB_0_PIN_TX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_CTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "7",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_RTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "5",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_RX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "8",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_TX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "6",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_CTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_RTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_RX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_TX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "WATCHDOG_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "30000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "XTAL_32768": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768_SYNTH"
+          },
+          {
+            "code": "expr",
+            "expr": "!XTAL_RC"
+          }
+        ],
+        "state": "good"
+      },
+      "XTAL_32768_SYNTH": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!XTAL_RC"
+          },
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768"
+          }
+        ],
+        "state": "good"
+      },
+      "XTAL_RC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768_SYNTH"
+          },
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768"
+          }
+        ],
+        "state": "good"
+      }
+    },
+    "pkg_restrictions": {
+      "hw/bsp/nordic_pca10040": [
+        {
+          "code": "expr",
+          "expr": "!UARTBB_0 || (UARTBB_0_PIN_TX >= 0 && UARTBB_0_PIN_RX >= 0)"
+        }
+      ],
+      "hw/mcu/nordic/nrf52xxx": [
+        {
+          "code": "expr",
+          "expr": "MCU_NRF52832 ^^ MCU_NRF52840"
+        },
+        {
+          "code": "expr",
+          "expr": "!I2C_0 || (I2C_0_PIN_SCL && I2C_0_PIN_SDA)"
+        },
+        {
+          "code": "expr",
+          "expr": "!I2C_1 || (I2C_1_PIN_SCL && I2C_1_PIN_SDA)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_0_MASTER || (SPI_0_MASTER_PIN_SCK && SPI_0_MASTER_PIN_MOSI && SPI_0_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_1_MASTER || (SPI_1_MASTER_PIN_SCK && SPI_1_MASTER_PIN_MOSI && SPI_1_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_2_MASTER || (SPI_2_MASTER_PIN_SCK && SPI_2_MASTER_PIN_MOSI && SPI_2_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_3_MASTER || (SPI_3_MASTER_PIN_SCK && SPI_3_MASTER_PIN_MOSI && SPI_3_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_0_SLAVE || (SPI_0_SLAVE_PIN_SCK && SPI_0_SLAVE_PIN_MOSI && SPI_0_SLAVE_PIN_MISO && SPI_0_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_1_SLAVE || (SPI_1_SLAVE_PIN_SCK && SPI_1_SLAVE_PIN_MOSI && SPI_1_SLAVE_PIN_MISO && SPI_1_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_2_SLAVE || (SPI_2_SLAVE_PIN_SCK && SPI_2_SLAVE_PIN_MOSI && SPI_2_SLAVE_PIN_MISO && SPI_2_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_3_SLAVE || (SPI_3_SLAVE_PIN_SCK && SPI_3_SLAVE_PIN_MOSI && SPI_3_SLAVE_PIN_MISO && SPI_3_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!UART_0 || (UART_0_PIN_TX && UART_0_PIN_RX)"
+        },
+        {
+          "code": "expr",
+          "expr": "!UART_1 || (UART_1_PIN_TX && UART_1_PIN_RX)"
+        }
+      ]
+    },
+    "orphans": {
+      "BLE_EDDYSTONE": [
+        {
+          "value": "1",
+          "package": "targets/btshell-nrf52dk"
+        }
+      ],
+      "BOOT_SERIAL_DETECT_PIN": [
+        {
+          "value": "13",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "CONFIG_FCB_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_NFFS",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "COREDUMP_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_IMAGE_1",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "NFFS_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_NFFS",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "REBOOT_LOG_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_REBOOT_LOG",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ]
+    },
+    "ambiguities": {},
+    "set_violations": {},
+    "pkg_violations": {},
+    "prio_violations": [],
+    "flash_conflicts": [],
+    "redefines": {},
+    "deprecated": [],
+    "defunct": [],
+    "unresolved_refs": []
+  },
+  "sysdown": {
+    "funcs": [
+      {
+        "name": "ble_hs_shutdown",
+        "stage": 200,
+        "package": "@apache-mynewt-nimble/nimble/host"
+      }
+    ]
+  },
+  "pre_build_cmds": {
+    "cmds": []
+  },
+  "pre_link_cmds": {
+    "cmds": []
+  },
+  "post_link_cmds": {
+    "cmds": []
+  },
+  "logcfg": {
+    "logs": {}
+  },
+  "api_map": {
+    "ble_driver": "@apache-mynewt-nimble/nimble/drivers/nrf52",
+    "ble_transport": "@apache-mynewt-nimble/nimble/transport/ram",
+    "console": "@apache-mynewt-core/sys/console/full",
+    "log": "@apache-mynewt-core/sys/log/full",
+    "stats": "@apache-mynewt-core/sys/stats/full"
+  },
+  "unsatisfied_apis": {},
+  "api_conflicts": {},
+  "flash_map": {
+    "areas": {
+      "FLASH_AREA_BOOTLOADER": {
+        "name": "FLASH_AREA_BOOTLOADER",
+        "id": 0,
+        "device": 0,
+        "offset": 0,
+        "size": 16384
+      },
+      "FLASH_AREA_IMAGE_0": {
+        "name": "FLASH_AREA_IMAGE_0",
+        "id": 1,
+        "device": 0,
+        "offset": 32768,
+        "size": 237568
+      },
+      "FLASH_AREA_IMAGE_1": {
+        "name": "FLASH_AREA_IMAGE_1",
+        "id": 2,
+        "device": 0,
+        "offset": 270336,
+        "size": 237568
+      },
+      "FLASH_AREA_IMAGE_SCRATCH": {
+        "name": "FLASH_AREA_IMAGE_SCRATCH",
+        "id": 3,
+        "device": 0,
+        "offset": 507904,
+        "size": 4096
+      },
+      "FLASH_AREA_NFFS": {
+        "name": "FLASH_AREA_NFFS",
+        "id": 17,
+        "device": 0,
+        "offset": 512000,
+        "size": 12288
+      },
+      "FLASH_AREA_REBOOT_LOG": {
+        "name": "FLASH_AREA_REBOOT_LOG",
+        "id": 16,
+        "device": 0,
+        "offset": 16384,
+        "size": 16384
+      }
+    },
+    "overlaps": [],
+    "id_conflicts": []
+  }
+}

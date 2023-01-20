@@ -1,0 +1,43 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+syscfg.defs:
+    BNO055_CLI:
+        description: 'Enable shell support for the BNO055'
+        value: 0
+    BNO055_SHELL_ITF_TYPE:
+        description: 'BNO055 interface type'
+        value: 1
+    BNO055_SHELL_ITF_NUM:
+        description: 'BNO055 interface number'
+        value: 0
+    BNO055_SHELL_ITF_ADDR:
+        description: 'BNO055 I2C Address'
+        value: 0x28
+    BNO055_ITF_LOCK_TMO:
+        description: 'BNO055 interface lock timeout in milliseconds'
+        value: 1000
+    BNO055_LOG_MODULE:
+        description: 'Numeric module ID to use for BNO055 log messages'
+        value: 85
+    BNO055_I2C_RETRIES:
+        description: >
+            Number of retries to use for failed I2C communication.  A retry is
+            used when the BNO055 sends an unexpected NACK.
+        value: 2

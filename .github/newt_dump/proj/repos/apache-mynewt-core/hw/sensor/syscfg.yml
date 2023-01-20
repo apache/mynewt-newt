@@ -1,0 +1,64 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+syscfg.defs:
+    SENSOR_CLI:
+        description: 'Whether or not to enable the sensor shell support'
+        value: 1
+
+    SENSOR_OIC:
+        description: 'Enable/Disable the OIC sensor server'
+        value: 0
+        restrictions:
+            - OC_SERVER
+
+    MATHLIB_SUPPORT:
+        description: 'Is MATHLIB support present'
+        value: 0
+
+    SENSOR_OIC_OBS_RATE:
+        description: 'Set OIC server observation rate in milli seconds'
+        value: 1000
+
+    SENSOR_MGR_EVQ:
+        description: 'Specify the eventq to be used by sensor mgr'
+        value:
+
+    SENSOR_OIC_PERIODIC:
+        description: 'Sensor polling is periodic'
+        value: 0
+
+    SENSOR_POLL_TEST_LOG:
+        description: 'Sensor poller log'
+        value: '0'
+
+    SENSOR_MAX_INTERRUPTS_PINS:
+         desecrition: 'Max number of interupts configuration for the sensor.
+                This should be max from all the sensors attached to the system'
+         value: 2
+
+    SENSOR_NOTIF_EVENTS_MAX:
+         description: 'Max number of events configuration for sensor
+                       notifications, this setting creates a pool of
+                       notification events so that multiple events can be put
+                       on the eventq for processing'
+         value: 5
+    SENSOR_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for the sensors framework.
+        value: 501

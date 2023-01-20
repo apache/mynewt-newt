@@ -1,0 +1,81 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+name: commands
+
+on: [push, pull_request]
+
+jobs:
+  test_commands:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.16'
+      - uses: carlosperate/arm-none-eabi-gcc-action@48db4484a55750df7a0ccca63347fcdea6534d78
+        with:
+          release: '12.2.Rel1'
+      - name: Install Dependencies
+        run: |
+             sudo apt-get update
+             sudo apt-get install -y gcc-multilib
+      - name: Build newt
+        run: |
+             go version
+             sh ./build.sh
+             echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+      - name: Test commands
+        run: |
+             newt
+             newt help
+             newt version
+             newt new project
+             cp -r .github/targets/nordic_pca10056_btshell project/targets
+             cd project/
+             newt upgrade -v --escape=false apache-mynewt-core apache-mynewt-nimble
+             newt info
+             newt build nordic_pca10056_btshell
+             newt create-image nordic_pca10056_btshell 1.0.0
+             newt size nordic_pca10056_btshell
+             newt size -F -R nordic_pca10056_btshell
+             newt vals api app bsp build_profile compiler lib sdk target
+             newt pkg new --type=pkg sys/mylib
+             newt pkg copy apps/blinky apps/myapp
+             newt pkg move apps/myapp apps/newapp
+             newt pkg remove apps/newapp
+             newt target show
+             newt target create my_target1
+             newt target set my_target1 bsp=@apache-mynewt-core/hw/bsp/nordic_pca10056
+             newt target set my_target1 app=apps/blinky
+             newt target set my_target1 build_profile=optimized cflags="-DNDEBUG"
+             newt target set my_target1 syscfg=LOG_NEWTMGR=1:CONFIG_NEWTMGR=0
+             newt target config init -f my_target1
+             newt target copy my_target1 my_target2
+             newt target amend my_target1 lflags="-Lmylib" syscfg=LOG_LEVEL=0:CONFIG_NEWTMGR=0
+             newt target delete -f my_target1
+             newt target delete -f my_target2
+             newt target cmake nordic_pca10056_btshell
+             newt target dep nordic_pca10056_btshell
+             newt target revdep nordic_pca10056_btshell
+             rm -rf repos/apache-mynewt-mcumgr
+             newt upgrade -v
+             newt test @apache-mynewt-core/util/cbmem
+             newt build my_blinky_sim
+             newt clean my_blinky_sim

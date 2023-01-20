@@ -1,0 +1,1599 @@
+{
+  "target_name": "targets/my_blinky_sim",
+  "dep_graph": {
+    "@apache-mynewt-core/hw/bsp/native": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/flash/enc_flash/ef_tinycrypt",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/native",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/net/ip/native_sockets",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/flash/enc_flash": [
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/flash/enc_flash/ef_tinycrypt": [
+      {
+        "name": "@apache-mynewt-core/crypto/tinycrypt",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/flash/enc_flash",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart/uart_hal": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/hal": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/native": [
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/stub",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/kernel/os": [
+      {
+        "name": "@apache-mynewt-core/kernel/sim",
+        "dep_exprs": [
+          "BSP_SIMULATED"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/stub",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sys",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysdown",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/sim": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/net/ip/mn_socket": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/net/ip/native_sockets": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/net/ip/mn_socket",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/flash_map": [
+      {
+        "name": "@apache-mynewt-core/sys/defs",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/modlog": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/rwlock",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/mfg": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysdown": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysinit": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/mem": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/rwlock": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "apps/blinky": [
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/stub",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ]
+  },
+  "revdep_graph": {
+    "@apache-mynewt-core/crypto/tinycrypt": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/flash/enc_flash/ef_tinycrypt",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/flash/enc_flash": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/flash/enc_flash/ef_tinycrypt",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/flash/enc_flash/ef_tinycrypt": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/native",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart/uart_hal": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/native",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/hal": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/flash/enc_flash",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/native",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "apps/blinky",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/native": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/native",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/os": [
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/sim",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/net/ip/mn_socket",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/net/ip/native_sockets",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysdown",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/rwlock",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "apps/blinky",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/sim": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          "BSP_SIMULATED"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/net/ip/mn_socket": [
+      {
+        "name": "@apache-mynewt-core/net/ip/native_sockets",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/net/ip/native_sockets": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/native",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/console/stub": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/native",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "apps/blinky",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/defs": [
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/flash_map": [
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/modlog": [
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/mfg": [
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sys": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysdown": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysinit": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/mem": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/rwlock": [
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ]
+  },
+  "syscfg": {
+    "settings": {
+      "APP_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"blinky\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "APP_blinky": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "ARCH_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"sim\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "ARCH_sim": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"native\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_SIMULATED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/native"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_native": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_BAUD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "115200",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_DEV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"uart0\"",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_FLOW_CONTROL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "UART_FLOW_CTL_NONE",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "DEBUG_PANIC_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sys"
+          }
+        ],
+        "state": "good"
+      },
+      "FLASH_MAP_MAX_AREAS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "good"
+      },
+      "FLASH_MAP_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "good"
+      },
+      "FLOAT_USER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_BUF_SZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "16",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_ERASES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/hal"
+          },
+          {
+            "value": "1",
+            "package": "targets/my_blinky_sim"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_WRITES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_FLASH_MIN_WRITE_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_FLASH_STYLE_NORDIC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!MCU_FLASH_STYLE_ST"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_FLASH_STYLE_ST": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!MCU_FLASH_STYLE_NORDIC"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_NATIVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_NATIVE_USE_SIGNALS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_UART_POLLER_PRIO": {
+        "type": "task_priority",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_LOG_MODULE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_MAX_MMRS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_CONSOLE_DFLT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_LOG_MACROS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_MAX_MAPPINGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "16",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_MAX_PRINTF_LEN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_1_BLOCK_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "12",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_1_BLOCK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "292",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_2_BLOCK_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_2_BLOCK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "NATIVE_SOCKETS_MAX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "8",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "good"
+      },
+      "NATIVE_SOCKETS_MAX_UDP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2048",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "good"
+      },
+      "NATIVE_SOCKETS_POLL_ITVL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "OS_TICKS_PER_SEC / 5",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "good"
+      },
+      "NATIVE_SOCKETS_PRIO": {
+        "type": "task_priority",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "good"
+      },
+      "NATIVE_SOCKETS_STACK_SZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4096",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "good"
+      },
+      "NATIVE_SOCKETS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "200",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "good"
+      },
+      "NEWT_FEATURE_LOGCFG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "NEWT_FEATURE_SYSDOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CLI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "SHELL_TASK"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_COREDUMP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CPUTIME_FREQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CPUTIME_TIMER_NUM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_LOG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_RESTORE_REGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_STACKTRACE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CTX_SW_STACK_CHECK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CTX_SW_STACK_GUARD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_DEBUG_MODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_IDLE_TICKLESS_MS_MAX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "600000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_IDLE_TICKLESS_MS_MIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/kernel/os"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/native"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MAIN_STACK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1024",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MAIN_TASK_PRIO": {
+        "type": "task_priority",
+        "history": [
+          {
+            "value": "127",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_CHECK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_GUARD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_POISON": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SCHEDULING": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_CALLOUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_EVENTQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MBUF": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MEMPOOL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MUTEX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_SEM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_TIME_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_WATCHDOG_MONITOR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "RWLOCK_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/util/rwlock"
+          }
+        ],
+        "state": "good"
+      },
+      "SANITY_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "15000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_CONSTRAIN_DOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_PANIC_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_PANIC_MESSAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_TIMEOUT_MS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10000",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_CONSTRAIN_INIT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_PANIC_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/native"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_PANIC_MESSAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/native"
+          }
+        ],
+        "state": "good"
+      },
+      "TARGET_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"my_blinky_sim\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "TARGET_my_blinky_sim": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "TINYCRYPT_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "200",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "good"
+      },
+      "TINYCRYPT_UECC_RNG_TRNG_DEV_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"trng\"",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "good"
+      },
+      "TINYCRYPT_UECC_RNG_USE_TRNG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "good"
+      },
+      "WATCHDOG_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "30000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      }
+    },
+    "pkg_restrictions": {},
+    "orphans": {
+      "BASELIBC_ASSERT_FILE_LINE": [
+        {
+          "value": "1",
+          "package": "@apache-mynewt-core/hw/bsp/native"
+        }
+      ],
+      "CONFIG_FCB_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_NFFS",
+          "package": "@apache-mynewt-core/hw/bsp/native"
+        }
+      ],
+      "COREDUMP_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_IMAGE_1",
+          "package": "@apache-mynewt-core/hw/bsp/native"
+        }
+      ],
+      "NFFS_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_NFFS",
+          "package": "@apache-mynewt-core/hw/bsp/native"
+        }
+      ],
+      "REBOOT_LOG_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_REBOOT_LOG",
+          "package": "@apache-mynewt-core/hw/bsp/native"
+        }
+      ]
+    },
+    "ambiguities": {},
+    "set_violations": {},
+    "pkg_violations": {},
+    "prio_violations": [],
+    "flash_conflicts": [],
+    "redefines": {},
+    "deprecated": [],
+    "defunct": [],
+    "unresolved_refs": []
+  },
+  "sysdown": {
+    "funcs": []
+  },
+  "pre_build_cmds": {
+    "cmds": []
+  },
+  "pre_link_cmds": {
+    "cmds": []
+  },
+  "post_link_cmds": {
+    "cmds": []
+  },
+  "logcfg": {
+    "logs": {}
+  },
+  "api_map": {
+    "console": "@apache-mynewt-core/sys/console/stub"
+  },
+  "unsatisfied_apis": {
+    "log": [
+      "@apache-mynewt-core/sys/log/modlog"
+    ]
+  },
+  "api_conflicts": {},
+  "flash_map": {
+    "areas": {
+      "FLASH_AREA_BOOTLOADER": {
+        "name": "FLASH_AREA_BOOTLOADER",
+        "id": 0,
+        "device": 0,
+        "offset": 0,
+        "size": 16384
+      },
+      "FLASH_AREA_IMAGE_0": {
+        "name": "FLASH_AREA_IMAGE_0",
+        "id": 1,
+        "device": 0,
+        "offset": 131072,
+        "size": 393216
+      },
+      "FLASH_AREA_IMAGE_1": {
+        "name": "FLASH_AREA_IMAGE_1",
+        "id": 2,
+        "device": 0,
+        "offset": 524288,
+        "size": 393216
+      },
+      "FLASH_AREA_IMAGE_SCRATCH": {
+        "name": "FLASH_AREA_IMAGE_SCRATCH",
+        "id": 3,
+        "device": 0,
+        "offset": 917504,
+        "size": 131072
+      },
+      "FLASH_AREA_NFFS": {
+        "name": "FLASH_AREA_NFFS",
+        "id": 17,
+        "device": 0,
+        "offset": 32768,
+        "size": 32768
+      },
+      "FLASH_AREA_REBOOT_LOG": {
+        "name": "FLASH_AREA_REBOOT_LOG",
+        "id": 16,
+        "device": 0,
+        "offset": 16384,
+        "size": 16384
+      }
+    },
+    "overlaps": [],
+    "id_conflicts": []
+  }
+}

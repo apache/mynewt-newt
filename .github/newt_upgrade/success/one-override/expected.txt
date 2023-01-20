@@ -1,0 +1,5 @@
+    * mynewt-dummy-repo-01: 0faa5d19dcfe87abac31cde116e827a078f473a9, 1.0.0
+    * mynewt-dummy-repo-02: af829c7ef96067c0d3ca705237c73bc94e51cc9e, 1.0.0
+    * mynewt-dummy-repo-03: 22344a05cfff9eb7bc38f8acdf609b102c93efdc, 1.0.0
+    * mynewt-dummy-repo-04: 72d82aa347519b8e8f8fe9d90d6f1f875f98a910
+    * mynewt-dummy-repo-05: 492b7645830e8f103c2de840d273c55112e8f960, 1.0.0

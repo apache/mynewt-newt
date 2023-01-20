@@ -1,0 +1,3 @@
+syscfg.vals:
+    LOG_LEVEL: 0
+    BLE_HS_DEBUG: 1

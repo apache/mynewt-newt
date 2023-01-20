@@ -1,0 +1,1 @@
+Error: project.yml depends on an unknown repo version: mynewt-dummy-repo-02/fafa0899ee1a78a3c3b547e368a2a459d708bf27

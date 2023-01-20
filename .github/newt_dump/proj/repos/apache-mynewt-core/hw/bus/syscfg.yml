@@ -1,0 +1,59 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+syscfg.defs:
+    BUS_DRIVER_PRESENT:
+        description: >
+            This indicated that hw/bus package is present in build.
+            Do not override this settings.
+        value: 1
+    BUS_DEFAULT_LOCK_TIMEOUT_MS:
+        description: >
+            Default timeout for locking the bus. This can be overriden per-node.
+        value: 1000
+    BUS_DEFAULT_TRANSACTION_TIMEOUT_MS:
+        description: >
+            Default timeout for transaction on bus. This is used for simple
+            transaction APIs (i.e. without timeout set explicitly)
+        value: 50
+    BUS_PM:
+        description: >
+            Enable extra power management capabilities for bus driver. This
+            allows for some automatic management of bus device state instead of
+            implementing this manually.
+        value: 0
+
+    BUS_STATS:
+        description: >
+            Enable statistics for bus devices. By default only global per-device
+            statistics are enabled. Use BUS_STATS_PER_NODE to enable statistics
+            for each node also.
+        value: 0
+    BUS_STATS_PER_NODE:
+        description: >
+            Enable per-node statistics for each bus node.
+        value: 0
+        restrictions: BUS_STATS
+
+    BUS_DEBUG_OS_DEV:
+        description: >
+            Enable additional debugging for os_dev objects.
+            Each os_dev object created by bus driver will be poisoned with
+            magic value which is then checked on each operation to ensure
+            proper objects are passed to APIs.
+        value: 0

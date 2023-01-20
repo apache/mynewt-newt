@@ -1,0 +1,81 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+syscfg.defs:
+    TSL2561_OFB:
+        description: 'TSL2561 is present'
+        value : 0
+    TSL2591_OFB:
+        description: 'TSL2591 is present'
+        value : 0
+    DRV2605_OFB:
+        description: 'DRV2605 is present'
+        value : 0
+    LSM303DLHC_OFB:
+        description: 'LSM303 is present'
+        value : 0
+    MPU6050_OFB:
+        description: 'MPU6050 is present'
+        value : 0
+    BNO055_OFB:
+        description: 'BNO055 is present'
+        value : 0
+    BME280_OFB:
+        description: 'BME280 is present'
+        value : 0
+    MS5837_OFB:
+        description: 'MS5837 is present'
+        value : 0
+    MS5840_OFB:
+        description: 'MS5840 is present'
+        value : 0
+    BMP280_OFB:
+        description: 'BMP280 is present'
+        value : 0
+    TCS34725_OFB:
+        description: 'TCS34725 is present'
+        value : 0
+    BMA253_OFB:
+        description: 'BMA253 is present'
+        value : 0
+    ADXL345_OFB:
+        description: 'ADXL345 is present'
+        value : 0
+    LPS33HW_OFB:
+        description: 'LPS33HW is present'
+        value : 0
+    LPS33THW_OFB:
+        description: 'LPS33THW is present'
+        value : 0
+    LIS2DW12_OFB:
+        description: 'LIS2DW12 is present'
+        value : 0
+    BMA2XX_OFB:
+        description: 'A sensor in the BMA2XX family is present'
+        value : 0
+    LIS2DS12_OFB:
+        description: 'LIS2DS12 is present'
+        value : 0
+    BME680_OFB:
+        description: 'BME680 is present'
+        value: 0
+
+    SENSOR_CREATOR_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for the sensor creator package.
+        value: 500

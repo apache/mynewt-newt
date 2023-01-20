@@ -1,0 +1,3372 @@
+{
+  "target_name": "targets/boot-nrf52dk",
+  "dep_graph": {
+    "@apache-mynewt-core/apps/boot": [
+      {
+        "name": "@apache-mynewt-core/boot/bootutil",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "bootloader": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/stub",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/stub",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/boot/bootutil": [
+      {
+        "name": "@apache-mynewt-core/crypto/mbedtls",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/defs",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/bsp/nordic_pca10040": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/libc/baselibc",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart/uart_hal": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/hal": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic": [
+      {
+        "name": "@apache-mynewt-core/hw/cmsis-core",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx": [
+      {
+        "name": "@apache-mynewt-core/hw/cmsis-core",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          "UART_0"
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/os": [
+      {
+        "name": "@apache-mynewt-core/sys/console/stub",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sys",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysdown",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/libc/baselibc": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/console/stub",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/flash_map": [
+      {
+        "name": "@apache-mynewt-core/sys/defs",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/modlog": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/stub",
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/util/rwlock",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/stub": [
+      {
+        "name": "@apache-mynewt-core/sys/log/common",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/mfg": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysdown": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysinit": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/mem": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/rwlock": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ]
+  },
+  "revdep_graph": {
+    "@apache-mynewt-core/boot/bootutil": [
+      {
+        "name": "@apache-mynewt-core/apps/boot",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "bootloader": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/crypto/mbedtls": [
+      {
+        "name": "@apache-mynewt-core/boot/bootutil",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/cmsis-core": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart": [
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/drivers/uart/uart_hal": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          "UART_0"
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/hal": [
+      {
+        "name": "@apache-mynewt-core/boot/bootutil",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/drivers/uart/uart_hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic": [
+      {
+        "name": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/nordic_pca10040",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/kernel/os": [
+      {
+        "name": "@apache-mynewt-core/apps/boot",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/boot/bootutil",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/hw/hal",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/libc/baselibc",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysdown",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/mem",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/util/rwlock",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/libc/baselibc": [
+      {
+        "name": "@apache-mynewt-core/hw/bsp/nordic_pca10040",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/console/stub": [
+      {
+        "name": "@apache-mynewt-core/apps/boot",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/libc/baselibc",
+        "api_exprs": {
+          "console": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "console": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/defs": [
+      {
+        "name": "@apache-mynewt-core/boot/bootutil",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/flash_map": [
+      {
+        "name": "@apache-mynewt-core/boot/bootutil",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      },
+      {
+        "name": "@apache-mynewt-core/sys/sysinit",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/common": [
+      {
+        "name": "@apache-mynewt-core/sys/log/stub",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/modlog": [
+      {
+        "name": "@apache-mynewt-core/sys/mfg",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/log/stub": [
+      {
+        "name": "@apache-mynewt-core/apps/boot",
+        "dep_exprs": [
+          ""
+        ],
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      },
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "api_exprs": {
+          "log": [
+            ""
+          ]
+        },
+        "req_api_exprs": {
+          "log": [
+            ""
+          ]
+        }
+      }
+    ],
+    "@apache-mynewt-core/sys/mfg": [
+      {
+        "name": "@apache-mynewt-core/sys/flash_map",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sys": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysdown": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/sys/sysinit": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/mem": [
+      {
+        "name": "@apache-mynewt-core/kernel/os",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ],
+    "@apache-mynewt-core/util/rwlock": [
+      {
+        "name": "@apache-mynewt-core/sys/log/modlog",
+        "dep_exprs": [
+          ""
+        ]
+      }
+    ]
+  },
+  "syscfg": {
+    "settings": {
+      "ADC_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "ADC_0_REFMV_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "APP_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"boot\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "APP_boot": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "ARCH_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"cortex_m4\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "ARCH_cortex_m4": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BASELIBC_ASSERT_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/libc/baselibc"
+          }
+        ],
+        "state": "defunct"
+      },
+      "BASELIBC_PRESENT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/libc/baselibc"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOTUTIL_SIGN_EC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/boot/bootutil"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOTUTIL_SIGN_EC256": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/boot/bootutil"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOTUTIL_SIGN_RSA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/boot/bootutil"
+          },
+          {
+            "value": "0",
+            "package": "targets/boot-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOTUTIL_VALIDATE_SLOT0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/boot/bootutil"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOT_LOADER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/apps/boot"
+          }
+        ],
+        "state": "good"
+      },
+      "BOOT_SERIAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/apps/boot"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"nordic_pca10040\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_NRF52": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "BSP_nordic_pca10040": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_BAUD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "115200",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_DEV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"uart0\"",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "CONSOLE_UART_FLOW_CONTROL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "UART_FLOW_CTL_NONE",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "DEBUG_PANIC_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sys"
+          }
+        ],
+        "state": "good"
+      },
+      "ENC_FLASH_DEV": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "FLASH_MAP_MAX_AREAS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "good"
+      },
+      "FLASH_MAP_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "good"
+      },
+      "FLOAT_USER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "GPIO_AS_PIN_RESET": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_BUF_SZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "16",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_ERASES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HAL_FLASH_VERIFY_WRITES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "good"
+      },
+      "HARDFLOAT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/compiler/arm-none-eabi-m4"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_0_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!SPI_0_SLAVE"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0_FREQ_KHZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0_PIN_SCL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "27",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_0_PIN_SDA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "26",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_1_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!SPI_1_SLAVE"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1_FREQ_KHZ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1_PIN_SCL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "I2C_1_PIN_SDA": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_CONSOLE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_FCB": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_FCB_SLOT1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/stub"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "LOG_FCB"
+          }
+        ],
+        "state": "good"
+      },
+      "LOG_LEVEL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "255",
+            "package": "@apache-mynewt-core/sys/log/stub"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_AES_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_AES_ROM_TABLES": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ARC4_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_BASE64_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_BLOWFISH_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CAMELLIA_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CCM_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CHACHA20_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CHACHAPOLY_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CIPHER_MODE_CBC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CIPHER_MODE_CFB": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CIPHER_MODE_CTR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CIPHER_MODE_OFB": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CIPHER_MODE_XTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_CTR_DRBG_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_DES_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_BP256R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_BP384R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_BP512R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_CURVE25519": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP192K1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP192R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP224K1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP224R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP256K1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP256R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP384R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ECP_DP_SECP521R1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_ENTROPY_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_GENPRIME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_HKDF_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_KEY_EXCHANGE_RSA_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_MD5_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_NIST_KW_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_PKCS1_V15": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_PKCS1_V21": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_POLY1305_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_RIPEMD160_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_SHA1_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_SHA512_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_SSL_TLS_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MBEDTLS_TIMING_C": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_BUS_DRIVER_I2C_USE_TWIM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_DCDC_ENABLED": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_FLASH_MIN_WRITE_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_I2C_RECOVERY_DELAY_USEC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_NRF52832": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "MCU_NRF52840": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_LOG_MODULE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_MAX_MMRS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "2",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MFG_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_CONSOLE_DFLT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_LOG_MACROS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_MAX_MAPPINGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "16",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_MAX_PRINTF_LEN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "128",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MODLOG_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_1_BLOCK_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "12",
+            "package": "@apache-mynewt-core/kernel/os"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/apps/boot"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_1_BLOCK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "292",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_2_BLOCK_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "MSYS_2_BLOCK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "NEWT_FEATURE_LOGCFG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "NEWT_FEATURE_SYSDOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "NFC_PINS_AS_GPIO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CLI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "SHELL_TASK"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_COREDUMP": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CPUTIME_FREQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1000000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CPUTIME_TIMER_NUM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_LOG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_RESTORE_REGS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CRASH_STACKTRACE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CTX_SW_STACK_CHECK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_CTX_SW_STACK_GUARD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "4",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_DEBUG_MODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_IDLE_TICKLESS_MS_MAX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "600000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_IDLE_TICKLESS_MS_MIN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "100",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MAIN_STACK_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1024",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MAIN_TASK_PRIO": {
+        "type": "task_priority",
+        "history": [
+          {
+            "value": "127",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_CHECK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_GUARD": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_MEMPOOL_POISON": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SCHEDULING": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/apps/boot"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSINIT_STAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_CALLOUT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_EVENTQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MBUF": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MEMPOOL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_MUTEX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_SYSVIEW_TRACE_SEM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_TIME_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "OS_WATCHDOG_MONITOR": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "PWM_3": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_ADDRMODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_DPMCONFIG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_ENABLE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_FLASH_PAGE_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_FLASH_SECTOR_COUNT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_FLASH_SECTOR_SIZE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_CS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_DIO3": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_READOC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_SCK_DELAY": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_SCK_FREQ": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_SPI_MODE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "QSPI_WRITEOC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "RAM_RESIDENT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "RWLOCK_DEBUG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/util/rwlock"
+          }
+        ],
+        "state": "good"
+      },
+      "SANITY_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "15000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "SOFT_PWM": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          },
+          {
+            "value": "0",
+            "package": "targets/boot-nrf52dk"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_0_SLAVE"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_0"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "25",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "24",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "23",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_0_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_0"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "25",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "24",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "23",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_0_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "22",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_1_SLAVE"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_1"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_1_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "!I2C_1"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_1_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_2_SLAVE"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_2_MASTER"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_2_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_3_SLAVE"
+          },
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_MASTER_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!SPI_3_MASTER"
+          },
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_MISO": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_MOSI": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_SCK": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SPI_3_SLAVE_PIN_SS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_CONSTRAIN_DOWN": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_PANIC_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_PANIC_MESSAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSDOWN_TIMEOUT_MS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "10000",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_CONSTRAIN_INIT": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          },
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/apps/boot"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_PANIC_FILE_LINE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "good"
+      },
+      "SYSINIT_PANIC_MESSAGE": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "good"
+      },
+      "TARGET_NAME": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "\"boot-nrf52dk\"",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "TARGET_boot_nrf52dk": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "newt"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_2": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_3": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_4": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TIMER_5": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "TRNG": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UARTBB_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UARTBB_0_PIN_RX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UARTBB_0_PIN_TX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_CTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "7",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_RTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "5",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_RX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "8",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_0_PIN_TX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "6",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "MCU_NRF52840"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_CTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_RTS": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "-1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_RX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "UART_1_PIN_TX": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "good"
+      },
+      "WATCHDOG_INTERVAL": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "30000",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "good"
+      },
+      "XTAL_32768": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          },
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768_SYNTH"
+          },
+          {
+            "code": "expr",
+            "expr": "!XTAL_RC"
+          }
+        ],
+        "state": "good"
+      },
+      "XTAL_32768_SYNTH": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!XTAL_RC"
+          },
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768"
+          }
+        ],
+        "state": "good"
+      },
+      "XTAL_RC": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "0",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "restrictions": [
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768_SYNTH"
+          },
+          {
+            "code": "expr",
+            "expr": "!XTAL_32768"
+          }
+        ],
+        "state": "good"
+      }
+    },
+    "pkg_restrictions": {
+      "hw/bsp/nordic_pca10040": [
+        {
+          "code": "expr",
+          "expr": "!UARTBB_0 || (UARTBB_0_PIN_TX >= 0 && UARTBB_0_PIN_RX >= 0)"
+        }
+      ],
+      "hw/mcu/nordic/nrf52xxx": [
+        {
+          "code": "expr",
+          "expr": "MCU_NRF52832 ^^ MCU_NRF52840"
+        },
+        {
+          "code": "expr",
+          "expr": "!I2C_0 || (I2C_0_PIN_SCL && I2C_0_PIN_SDA)"
+        },
+        {
+          "code": "expr",
+          "expr": "!I2C_1 || (I2C_1_PIN_SCL && I2C_1_PIN_SDA)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_0_MASTER || (SPI_0_MASTER_PIN_SCK && SPI_0_MASTER_PIN_MOSI && SPI_0_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_1_MASTER || (SPI_1_MASTER_PIN_SCK && SPI_1_MASTER_PIN_MOSI && SPI_1_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_2_MASTER || (SPI_2_MASTER_PIN_SCK && SPI_2_MASTER_PIN_MOSI && SPI_2_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_3_MASTER || (SPI_3_MASTER_PIN_SCK && SPI_3_MASTER_PIN_MOSI && SPI_3_MASTER_PIN_MISO)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_0_SLAVE || (SPI_0_SLAVE_PIN_SCK && SPI_0_SLAVE_PIN_MOSI && SPI_0_SLAVE_PIN_MISO && SPI_0_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_1_SLAVE || (SPI_1_SLAVE_PIN_SCK && SPI_1_SLAVE_PIN_MOSI && SPI_1_SLAVE_PIN_MISO && SPI_1_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_2_SLAVE || (SPI_2_SLAVE_PIN_SCK && SPI_2_SLAVE_PIN_MOSI && SPI_2_SLAVE_PIN_MISO && SPI_2_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!SPI_3_SLAVE || (SPI_3_SLAVE_PIN_SCK && SPI_3_SLAVE_PIN_MOSI && SPI_3_SLAVE_PIN_MISO && SPI_3_SLAVE_PIN_SS)"
+        },
+        {
+          "code": "expr",
+          "expr": "!UART_0 || (UART_0_PIN_TX && UART_0_PIN_RX)"
+        },
+        {
+          "code": "expr",
+          "expr": "!UART_1 || (UART_1_PIN_TX && UART_1_PIN_RX)"
+        }
+      ]
+    },
+    "orphans": {
+      "BOOTUTIL_SIGN_ECC": [
+        {
+          "value": "0",
+          "package": "targets/boot-nrf52dk"
+        }
+      ],
+      "BOOT_SERIAL_DETECT_PIN": [
+        {
+          "value": "13",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "CONFIG_FCB_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_NFFS",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "COREDUMP_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_IMAGE_1",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "NFFS_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_NFFS",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ],
+      "REBOOT_LOG_FLASH_AREA": [
+        {
+          "value": "FLASH_AREA_REBOOT_LOG",
+          "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+        }
+      ]
+    },
+    "ambiguities": {},
+    "set_violations": {},
+    "pkg_violations": {},
+    "prio_violations": [],
+    "flash_conflicts": [],
+    "redefines": {},
+    "deprecated": [],
+    "defunct": [],
+    "unresolved_refs": []
+  },
+  "sysdown": {
+    "funcs": []
+  },
+  "pre_build_cmds": {
+    "cmds": []
+  },
+  "pre_link_cmds": {
+    "cmds": []
+  },
+  "post_link_cmds": {
+    "cmds": []
+  },
+  "logcfg": {
+    "logs": {}
+  },
+  "api_map": {
+    "bootloader": "@apache-mynewt-core/boot/bootutil",
+    "console": "@apache-mynewt-core/sys/console/stub",
+    "log": "@apache-mynewt-core/sys/log/stub"
+  },
+  "unsatisfied_apis": {},
+  "api_conflicts": {},
+  "flash_map": {
+    "areas": {
+      "FLASH_AREA_BOOTLOADER": {
+        "name": "FLASH_AREA_BOOTLOADER",
+        "id": 0,
+        "device": 0,
+        "offset": 0,
+        "size": 16384
+      },
+      "FLASH_AREA_IMAGE_0": {
+        "name": "FLASH_AREA_IMAGE_0",
+        "id": 1,
+        "device": 0,
+        "offset": 32768,
+        "size": 237568
+      },
+      "FLASH_AREA_IMAGE_1": {
+        "name": "FLASH_AREA_IMAGE_1",
+        "id": 2,
+        "device": 0,
+        "offset": 270336,
+        "size": 237568
+      },
+      "FLASH_AREA_IMAGE_SCRATCH": {
+        "name": "FLASH_AREA_IMAGE_SCRATCH",
+        "id": 3,
+        "device": 0,
+        "offset": 507904,
+        "size": 4096
+      },
+      "FLASH_AREA_NFFS": {
+        "name": "FLASH_AREA_NFFS",
+        "id": 17,
+        "device": 0,
+        "offset": 512000,
+        "size": 12288
+      },
+      "FLASH_AREA_REBOOT_LOG": {
+        "name": "FLASH_AREA_REBOOT_LOG",
+        "id": 16,
+        "device": 0,
+        "offset": 16384,
+        "size": 16384
+      }
+    },
+    "overlaps": [],
+    "id_conflicts": []
+  }
+}
