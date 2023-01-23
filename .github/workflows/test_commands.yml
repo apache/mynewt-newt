@@ -23,7 +23,11 @@ on: [push, pull_request]
 
 jobs:
   test_commands:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
@@ -33,15 +37,19 @@ jobs:
         with:
           release: '12.2.Rel1'
       - name: Install Dependencies
+        if: matrix.os == 'ubuntu-latest'
         run: |
              sudo apt-get update
              sudo apt-get install -y gcc-multilib
       - name: Build newt
+        working-directory: newt
+        shell: bash
         run: |
              go version
-             sh ./build.sh
+             go build
              echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
       - name: Test commands
+        shell: bash
         run: |
              newt
              newt help
@@ -76,6 +84,10 @@ jobs:
              newt target revdep nordic_pca10056_btshell
              rm -rf repos/apache-mynewt-mcumgr
              newt upgrade -v
+      - name: Test commands 2
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+             cd project
              newt test @apache-mynewt-core/util/cbmem
              newt build my_blinky_sim
              newt clean my_blinky_sim

@@ -23,22 +23,27 @@ on: [push, pull_request]
 
 jobs:
   test_dump:
-    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         targets: [bleprph-nrf52840pdk, boot-nrf52dk, btshell-nrf52840pdk, btshell-nrf52dk, my_blinky_sim]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
           go-version: '1.16'
       - name: Build newt
+        working-directory: newt
+        shell: bash
         run: |
              go version
-             sh ./build.sh
+             go build
              echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
       - name: Test dump
         working-directory: .github/newt_dump/proj
+        shell: bash
         run: |
              echo "Checking target ${{ matrix.targets }}"
              newt target dump ${{ matrix.targets }} | jq 'del(.sysinit)' > tmp.txt
