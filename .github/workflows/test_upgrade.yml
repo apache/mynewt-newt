@@ -23,22 +23,27 @@ on: [push, pull_request]
 
 jobs:
   test_upgrade_success:
-    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         projects: [basic01, basic02, basic03, branches01, dup-overrides, inferrc, one-override, three-overrides]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
           go-version: '1.16'
       - name: Build newt
+        working-directory: newt
+        shell: bash
         run: |
              go version
-             sh ./build.sh
+             go build
              echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
              git config --global url."https://github.com/".insteadOf "git@github.com:"
       - name: Test upgrade success
+        shell: bash
         working-directory: .github/newt_upgrade/success/${{ matrix.projects }}
         run: |
              echo "Checking target ${{ matrix.targets }}"
@@ -52,24 +57,28 @@ jobs:
              newt info | grep mynewt-dummy | diff -w expected.txt -
 
   test_upgrade_fail:
-    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         projects: [conflict01, conflict02, nonexistent-commit, nonexistent-version]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
           go-version: '1.16'
       - name: Build newt
+        working-directory: newt
+        shell: bash
         run: |
              go version
-             sh ./build.sh
+             go build
              echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
              git config --global url."https://github.com/".insteadOf "git@github.com:"
       - name: Test upgrade fail
+        shell: bash
         working-directory: .github/newt_upgrade/fail/${{ matrix.projects }}
-        id: upgrade
         run: |
              echo "Checking target ${{ matrix.targets }}"
              ! newt upgrade &> tmp.txt
