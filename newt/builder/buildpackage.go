@@ -171,8 +171,14 @@ func (bpkg *BuildPackage) CompilerInfo(
 	ci.IgnoreFiles = []*regexp.Regexp{}
 
 	ignPats, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
-		"pkg.ign_files", settings)
+		"pkg.ignore_files", settings)
 	util.OneTimeWarningError(err)
+
+	if len(ignPats) == 0 {
+		ignPats, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+			"pkg.ign_files", settings)
+		util.OneTimeWarningError(err)
+	}
 
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
@@ -186,8 +192,14 @@ func (bpkg *BuildPackage) CompilerInfo(
 	ci.IgnoreDirs = []*regexp.Regexp{}
 
 	ignPats, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
-		"pkg.ign_dirs", settings)
+		"pkg.ignore_dirs", settings)
 	util.OneTimeWarningError(err)
+
+	if len(ignPats) == 0 {
+		ignPats, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+			"pkg.ign_dirs", settings)
+		util.OneTimeWarningError(err)
+	}
 
 	for _, str := range ignPats {
 		re, err := regexp.Compile(str)
@@ -199,8 +211,14 @@ func (bpkg *BuildPackage) CompilerInfo(
 	}
 
 	bpkg.SourceDirectories, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
-		"pkg.src_dirs", settings)
+		"pkg.source_dirs", settings)
 	util.OneTimeWarningError(err)
+
+	if len(bpkg.SourceDirectories) == 0 {
+		bpkg.SourceDirectories, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+			"pkg.src_dirs", settings)
+		util.OneTimeWarningError(err)
+	}
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {
