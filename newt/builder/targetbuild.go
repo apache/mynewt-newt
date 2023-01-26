@@ -431,7 +431,13 @@ func (t *TargetBuilder) buildLoader() error {
 	/* Tentatively link the app (using the normal single image linker
 	 * script)
 	 */
-	if err := t.AppBuilder.TentativeLink(t.bspPkg.LinkerScripts,
+	var appLinkerScripts []string
+	if len(t.bspPkg.WholeAppLinkerScripts) > 0 {
+		appLinkerScripts = t.bspPkg.WholeAppLinkerScripts
+	} else {
+		appLinkerScripts = t.bspPkg.LinkerScripts
+	}
+	if err := t.AppBuilder.TentativeLink(appLinkerScripts,
 		t.extraADirs()); err != nil {
 
 		return err
@@ -584,7 +590,7 @@ func (t *TargetBuilder) Build() error {
 		if err := t.buildLoader(); err != nil {
 			return err
 		}
-		linkerScripts = t.bspPkg.Part2LinkerScripts
+		linkerScripts = t.bspPkg.SplitAppLinkerScripts
 	}
 
 	// Execute the set of pre-link user scripts.
