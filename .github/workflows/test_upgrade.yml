@@ -17,17 +17,32 @@
 # under the License.
 #
 
-name: upgrade
+name: Test commands
 
 on: [push, pull_request]
 
 jobs:
+  populate-projects:
+    runs-on: ubuntu-latest
+    outputs:
+      projects_success: ${{ steps.set-matrix.outputs.projects_success }}
+      projects_fail: ${{ steps.set-matrix.outputs.projects_fail }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        shell: bash
+        run: |
+             echo "::set-output name=projects_success::$(ls .github/newt_upgrade/success/ | jq -R -s -c 'split("\n")[:-1]')"
+             echo "::set-output name=projects_fail::$(ls .github/newt_upgrade/fail/ | jq -R -s -c 'split("\n")[:-1]')"
+
   test_upgrade_success:
+    name: newt upgrade (success)
+    needs: populate-projects
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        projects: [basic01, basic02, basic03, branches01, dup-overrides, inferrc, one-override, three-overrides]
+        projects: ${{ fromJson(needs.populate-projects.outputs.projects_success) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -57,11 +72,13 @@ jobs:
              newt info | grep mynewt-dummy | diff -w expected.txt -
 
   test_upgrade_fail:
+    name: newt upgrade (fail)
+    needs: populate-projects
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        projects: [conflict01, conflict02, nonexistent-commit, nonexistent-version]
+        projects: ${{ fromJson(needs.populate-projects.outputs.projects_fail) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
