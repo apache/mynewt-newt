@@ -17,16 +17,29 @@
 # under the License.
 #
 
-name: dump
+name: Test commands
 
 on: [push, pull_request]
 
 jobs:
+  populate-targets:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.set-matrix.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        shell: bash
+        run: |
+             echo "::set-output name=targets::$(ls .github/newt_dump/proj/targets/ | jq -R -s -c 'split("\n")[:-1]')"
+
   test_dump:
+    name: newt dump
+    needs: populate-targets
     strategy:
       fail-fast: false
       matrix:
-        targets: [bleprph-nrf52840pdk, boot-nrf52dk, btshell-nrf52840pdk, btshell-nrf52dk, my_blinky_sim]
+        targets: ${{ fromJson(needs.populate-targets.outputs.targets) }}
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:

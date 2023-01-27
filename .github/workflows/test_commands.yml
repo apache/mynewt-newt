@@ -17,12 +17,13 @@
 # under the License.
 #
 
-name: commands
+name: Test commands
 
 on: [push, pull_request]
 
 jobs:
   test_commands:
+    name: other
     strategy:
       fail-fast: false
       matrix:
