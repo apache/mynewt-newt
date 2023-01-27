@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mynewt.apache.org/newt/newt/expr"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -104,6 +105,10 @@ type CfgEntry struct {
 	PackageDef   *pkg.LocalPackage
 	History      []CfgPoint
 	State        CfgSettingState
+
+	EvalDone  bool
+	EvalValue interface{}
+	EvalError error
 }
 
 type CfgPriority struct {
@@ -161,6 +166,9 @@ type Cfg struct {
 
 	// Unresolved value references
 	UnresolvedValueRefs map[string]struct{}
+
+	// Invalid expressions
+	InvalidExpressions map[string]struct{}
 }
 
 func NewCfg() Cfg {
@@ -179,6 +187,7 @@ func NewCfg() Cfg {
 		Consts:              map[string]struct{}{},
 		Experimental:        map[string]struct{}{},
 		UnresolvedValueRefs: map[string]struct{}{},
+		InvalidExpressions:  map[string]struct{}{},
 	}
 }
 
@@ -256,6 +265,24 @@ func (cfg *Cfg) ResolveValueRefs() {
 			entry.Value = val
 			cfg.Settings[k] = entry
 		}
+	}
+}
+
+func (cfg *Cfg) EvaluateExpressions(lpkgs []*pkg.LocalPackage) {
+	lpkgm := make(map[string]struct{})
+	for _, lpkg := range lpkgs {
+		fn := lpkg.FullName()
+		lpkgm[fn] = struct{}{}
+	}
+
+	ctx := expr.CreateCtx(&ExprEvalCtx{cfg: cfg, lpkgm: lpkgm})
+
+	for name, entry := range cfg.Settings {
+		if entry.State == CFG_SETTING_STATE_DEFUNCT {
+			continue
+		}
+
+		ctx.Evaluate(name)
 	}
 }
 
@@ -1095,6 +1122,25 @@ func (cfg *Cfg) ErrorText() string {
 		}
 	}
 
+	// Invalid expressions
+	if len(cfg.InvalidExpressions) > 0 {
+		str += "Invalid syscfg expressions:\n"
+
+		names := make([]string, 0, len(cfg.InvalidExpressions))
+		for name, _ := range cfg.InvalidExpressions {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		for _, name := range names {
+			entry := cfg.Settings[name]
+			if len(entry.EvalError.Error()) > 0 {
+				str += "    " + fmt.Sprintf("%s: %s\n", name, entry.EvalError.Error())
+				historyMap[name] = entry.History
+			}
+		}
+	}
+
 	if len(historyMap) > 0 {
 		str += "\n" + historyText(historyMap)
 	}
@@ -1435,31 +1481,38 @@ func writeComment(entry CfgEntry, w io.Writer) {
 		fmt.Fprintf(w, "/* Value copied from %s */\n",
 			entry.ValueRefName)
 	}
+
+	fmt.Fprintf(w, "/* value: %s */\n", entry.Value)
 }
 
-func writeDefine(key string, value string, w io.Writer) {
-	if value == "" {
+func writeDefine(key string, value interface{}, w io.Writer) {
+	if value == nil {
 		fmt.Fprintf(w, "#undef %s\n", key)
 	} else {
 		fmt.Fprintf(w, "#ifndef %s\n", key)
-		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
-			fmt.Fprintf(w, "#define %s %s\n", key, value)
-		} else {
-			fmt.Fprintf(w, "#define %s (%s)\n", key, value)
+		switch v := value.(type) {
+		case string:
+			fmt.Fprintf(w, "#define %s \"%s\"\n", key, v)
+		case int:
+			fmt.Fprintf(w, "#define %s (%d)\n", key, v)
+		case expr.RawString:
+			fmt.Fprintf(w, "#define %s (%s)\n", key, v.S)
+		default:
+			panic("This should not happen :>")
 		}
 		fmt.Fprintf(w, "#endif\n")
 	}
 }
 
-func writeChoiceDefine(key string, value string, choices []string, w io.Writer) {
-	parentVal := ""
-	value = strings.ToLower(value)
+func writeChoiceDefine(key string, value interface{}, choices []string, w io.Writer) {
+	parentVal := 0
+	value = strings.ToLower(value.(string))
 
 	for _, choice := range choices {
 		definedVal := 0
 		if value == strings.ToLower(choice) {
 			definedVal = 1
-			parentVal = "1"
+			parentVal = 1
 		}
 		fmt.Fprintf(w, "#ifndef %s__%s\n", key, choice)
 		fmt.Fprintf(w, "#define %s__%s (%d)\n", key, choice, definedVal)
@@ -1496,6 +1549,11 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 	first := true
 	for _, n := range names {
 		entry := cfg.Settings[n]
+
+		if entry.State == CFG_SETTING_STATE_DEFUNCT {
+			continue
+		}
+
 		if first {
 			first = false
 		} else {
@@ -1503,10 +1561,13 @@ func writeSettingsOnePkg(cfg Cfg, pkgName string, pkgEntries []CfgEntry,
 		}
 
 		writeComment(entry, w)
+		if !entry.EvalDone {
+			panic("This should never happen :>")
+		}
 		if entry.ValidChoices != nil {
-			writeChoiceDefine(settingName(n), entry.Value, entry.ValidChoices, w)
+			writeChoiceDefine(settingName(n), entry.EvalValue, entry.ValidChoices, w)
 		} else {
-			writeDefine(settingName(n), entry.Value, w)
+			writeDefine(settingName(n), entry.EvalValue, w)
 		}
 	}
 }
