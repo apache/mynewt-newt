@@ -214,6 +214,10 @@ func (b *Builder) AppPath() string {
 	return b.PkgBinDir(b.appPkg) + "/"
 }
 
+func (b *Builder) WorkPath() string {
+	return b.workDir
+}
+
 func (b *Builder) TestExePath() string {
 	return TestExePath(b.targetPkg.rpkg.Lpkg.FullName(), b.buildName,
 		b.testPkg.rpkg.Lpkg.FullName(), b.testPkg.rpkg.Lpkg.Type())
