@@ -35,6 +35,7 @@ import (
 type BuildPackage struct {
 	rpkg              *resolve.ResolvePackage
 	SourceDirectories []string
+	SourceFiles       []string
 	ci                *toolchain.CompilerInfo
 }
 
@@ -219,6 +220,10 @@ func (bpkg *BuildPackage) CompilerInfo(
 			"pkg.src_dirs", settings)
 		util.OneTimeWarningError(err)
 	}
+
+	bpkg.SourceFiles, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+		"pkg.source_files", settings)
+	util.OneTimeWarningError(err)
 
 	includePaths, err := bpkg.recursiveIncludePaths(b)
 	if err != nil {

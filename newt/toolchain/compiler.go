@@ -667,6 +667,21 @@ func compilerTypeToExts(compilerType int) ([]string, error) {
 	}
 }
 
+func fileNameToCompilerType(filename string) (int, error) {
+	switch filepath.Ext(filename) {
+	case ".c":
+		return COMPILER_TYPE_C, nil
+	case ".s", ".S":
+		return COMPILER_TYPE_ASM, nil
+	case ".cc", ".cpp", ".cxx":
+		return COMPILER_TYPE_CPP, nil
+	case ".a":
+		return COMPILER_TYPE_ARCHIVE, nil
+	default:
+		return -1, util.NewNewtError("Unknown file type for " + filename)
+	}
+}
+
 // Compiles all C files matching the specified file glob.
 func (c *Compiler) CompileC(filename string) error {
 	filename = filepath.ToSlash(filename)
@@ -813,6 +828,21 @@ func (c *Compiler) processEntry(node os.FileInfo, cType int,
 	c.dstDir = prevDstDir
 
 	return entries, err
+}
+
+func (c *Compiler) CollectSingleEntry(filename string) (*CompilerJob, error) {
+	file := filepath.ToSlash(filename)
+	ctype, err := fileNameToCompilerType(file)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &CompilerJob{
+		Filename:     file,
+		Compiler:     c,
+		CompilerType: ctype,
+	}, nil
 }
 
 func (c *Compiler) RecursiveCollectEntries(cType int,

@@ -341,7 +341,8 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 			}
 			srcDirs = append(srcDirs, dir)
 		}
-	} else {
+	} else if len(bpkg.SourceFiles) == 0 {
+		// Add 'src/' automatically only if neither source dirs nor files are defined
 		srcDir := bpkg.rpkg.Lpkg.BasePath() + "/src"
 		if util.NodeNotExist(srcDir) {
 			// Nothing to compile.
@@ -360,6 +361,32 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 		}
 
 		entries = append(entries, subEntries...)
+	}
+
+	for _, filename := range bpkg.SourceFiles {
+		var dir string
+		repo, path, err := newtutil.ParsePackageString(filename)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if repo != "" {
+			filename = "repos/" + repo + "/" + path
+		} else {
+			filename = bpkg.rpkg.Lpkg.BasePath() + "/" + filename
+		}
+
+		if util.NodeNotExist(filename) {
+			return nil, util.NewNewtError(fmt.Sprintf(
+				"Specified source directory %s, does not exist.",
+				dir))
+		}
+
+		entry, err := c.CollectSingleEntry(filename)
+		if err == nil {
+			entries = append(entries, *entry)
+		}
 	}
 
 	return entries, nil
