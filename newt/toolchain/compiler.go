@@ -1215,6 +1215,32 @@ func (c *Compiler) CompileArchiveCmd(archiveFile string,
 	return cmd
 }
 
+func (c *Compiler) CompileArchiveCmdSafe(archiveFile string,
+	objFiles []string) [][]string {
+
+	var cmds [][]string
+
+	objFiles = c.getObjFiles(objFiles)
+
+	for len(objFiles) > 0 {
+		cmd := []string{
+			c.arPath,
+			"rcs",
+			archiveFile,
+		}
+
+		for len(objFiles) > 0 && len(strings.Join(cmd, " ")) < 30000 {
+			var objFile string
+			objFile, objFiles = objFiles[0], objFiles[1:]
+			cmd = append(cmd, objFile)
+		}
+
+		cmds = append(cmds, cmd)
+	}
+
+	return cmds
+}
+
 func linkerScriptFileName(archiveFile string) string {
 	ar_script_name := strings.TrimSuffix(archiveFile, filepath.Ext(archiveFile)) + "_ar.mri"
 	return ar_script_name
@@ -1309,14 +1335,18 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return util.NewNewtError(err.Error())
 	}
 
-	cmd := c.CompileArchiveCmd(archiveFile, objFiles)
-	o, err := util.ShellCommand(cmd, nil)
-	if err != nil {
-		return err
-	}
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
+	fullCmd := c.CompileArchiveCmd(archiveFile, objFiles)
 
-	err = writeCommandFile(archiveFile, cmd)
+	cmdSafe := c.CompileArchiveCmdSafe(archiveFile, objFiles)
+	for _, cmd := range cmdSafe {
+		o, err := util.ShellCommand(cmd, nil)
+		if err != nil {
+			return err
+		}
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
+	}
+
+	err = writeCommandFile(archiveFile, fullCmd)
 	if err != nil {
 		return err
 	}
