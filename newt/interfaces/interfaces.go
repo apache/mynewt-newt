@@ -19,12 +19,15 @@
 
 package interfaces
 
+import "mynewt.apache.org/newt/newt/ycfg"
+
 type PackageInterface interface {
 	Name() string
 	FullName() string
 	BasePath() string
 	Repo() RepoInterface
 	Type() PackageType
+	PkgConfig() *ycfg.YCfg
 }
 
 type PackageType int

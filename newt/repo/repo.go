@@ -54,6 +54,9 @@ type Repo struct {
 	local      bool
 	ncMap      compat.NewtCompatMap
 
+	// If repo was added from package (not from project.yml), this variable stores name of this package
+	pkgName string
+
 	// True if this repo was cloned during this invocation of newt.
 	newlyCloned bool
 
@@ -71,6 +74,10 @@ type RepoDependency struct {
 	Name    string
 	VerReqs newtutil.RepoVersion
 	Fields  map[string]string
+}
+
+func (r *Repo) SetPkgName(pName string) {
+	r.pkgName = pName
 }
 
 func (r *Repo) CommitDepMap() map[string][]*RepoDependency {

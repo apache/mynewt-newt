@@ -112,6 +112,10 @@ func (pkg *LocalPackage) BasePath() string {
 	return pkg.basePath
 }
 
+func (pkg *LocalPackage) PkgConfig() *ycfg.YCfg {
+	return &pkg.PkgY
+}
+
 func (pkg *LocalPackage) RelativePath() string {
 	proj := interfaces.GetProject()
 	return strings.TrimPrefix(pkg.BasePath(), proj.Path())

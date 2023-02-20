@@ -163,6 +163,45 @@ func NewProject(dir string, download bool) (*Project, error) {
 	return proj, nil
 }
 
+func (proj *Project) GetPkgRepos() error {
+
+	for _, pkgList := range proj.packages {
+		for _, pkg := range *pkgList {
+			if pkg.PkgConfig().HasKey("repository") {
+				for k, _ := range pkg.PkgConfig().AllSettings() {
+					repoName := strings.TrimPrefix(k, "repository.")
+					if repoName != k {
+						fields, err := pkg.PkgConfig().GetValStringMapString(k, nil)
+						util.OneTimeWarningError(err)
+
+						r, err := proj.loadRepo(repoName, fields)
+						if err != nil {
+							// if `repository.yml` does not exist, it is not an error; we
+							// will just download a new copy.
+							if !util.IsNotExist(err) {
+								return err
+							}
+						}
+						verReq, err := newtutil.ParseRepoVersion(fields["vers"])
+						if err != nil {
+							return util.FmtNewtError(
+								"Repo \"%s\" contains invalid version requirement: "+
+									"%s (%s)",
+								repoName, fields["vers"], err.Error())
+						}
+						r.SetPkgName(pkg.Name())
+						if err := proj.addRepo(r, true); err != nil {
+							return err
+						}
+						proj.rootRepoReqs[repoName] = verReq
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (proj *Project) Path() string {
 	return proj.BasePath
 }
