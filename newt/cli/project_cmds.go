@@ -124,6 +124,8 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetOrDownloadProject()
 	interfaces.SetProject(proj)
 
+	proj.GetPkgRepos()
+
 	pred := makeRepoPredicate(args)
 	if err := proj.UpgradeIf(
 		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
