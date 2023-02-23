@@ -364,7 +364,6 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 	}
 
 	for _, filename := range bpkg.SourceFiles {
-		var dir string
 		repo, path, err := newtutil.ParsePackageString(filename)
 
 		if err != nil {
@@ -379,8 +378,8 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 
 		if util.NodeNotExist(filename) {
 			return nil, util.NewNewtError(fmt.Sprintf(
-				"Specified source directory %s, does not exist.",
-				dir))
+				"Specified source file %s, does not exist.",
+				filename))
 		}
 
 		entry, err := c.CollectSingleEntry(filename)
