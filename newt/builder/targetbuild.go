@@ -113,8 +113,15 @@ func (t *TargetBuilder) NewCompiler(dstDir string, buildProfile string) (
 		buildProfile = t.target.BuildProfile
 	}
 
+	var cfg *cfgv.Settings
+	cfg = nil
+
+	if t.AppBuilder != nil {
+		cfg = t.AppBuilder.cfg.SettingValues()
+	}
+
 	c, err := toolchain.NewCompiler(
-		t.compilerPkg.BasePath(), dstDir, buildProfile)
+		t.compilerPkg.BasePath(), dstDir, buildProfile, cfg)
 
 	return c, err
 }
