@@ -90,6 +90,7 @@ type Compiler struct {
 	baseDir               string
 	srcDir                string
 	dstDir                string
+	settings              *cfgv.Settings
 
 	// The info to be applied during compilation.
 	info CompilerInfo
@@ -250,7 +251,7 @@ func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 }
 
 func NewCompiler(compilerDir string, dstDir string,
-	buildProfile string) (*Compiler, error) {
+	buildProfile string, cfg *cfgv.Settings) (*Compiler, error) {
 
 	c := &Compiler{
 		mutex:           &sync.Mutex{},
@@ -267,7 +268,7 @@ func NewCompiler(compilerDir string, dstDir string,
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Loading compiler %s, buildProfile %s\n", compilerDir,
 		buildProfile)
-	err := c.load(compilerDir, buildProfile)
+	err := c.load(compilerDir, buildProfile, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +276,19 @@ func NewCompiler(compilerDir string, dstDir string,
 	return c, nil
 }
 
-func loadFlags(yc ycfg.YCfg, settings *cfgv.Settings, key string) []string {
+func replaceVal(cfg *cfgv.Settings) func(string) string {
+
+	return func(m string) string {
+		name := m[2 : len(m)-1]
+		if cfg.Exists(name) {
+			return cfg.Get(name)
+		} else {
+			return ""
+		}
+	}
+}
+
+func loadFlags(yc ycfg.YCfg, settings *cfgv.Settings, key string, cfg *cfgv.Settings) []string {
 	flags := []string{}
 
 	rawFlags, err := yc.GetValStringSlice(key, settings)
@@ -292,10 +305,17 @@ func loadFlags(yc ycfg.YCfg, settings *cfgv.Settings, key string) []string {
 		}
 	}
 
+	if cfg != nil {
+		for i := range flags {
+			re := regexp.MustCompile(`\$\([A-Z0-9_]+\)`)
+			flags[i] = re.ReplaceAllStringFunc(flags[i], replaceVal(cfg))
+		}
+	}
+
 	return flags
 }
 
-func (c *Compiler) load(compilerDir string, buildProfile string) error {
+func (c *Compiler) load(compilerDir string, buildProfile string, cfg *cfgv.Settings) error {
 	yc, err := config.ReadFile(compilerDir + "/" + COMPILER_FILENAME)
 	if err != nil {
 		return err
@@ -327,10 +347,10 @@ func (c *Compiler) load(compilerDir string, buildProfile string) error {
 	c.ocPath, err = yc.GetValString("compiler.path.objcopy", settings)
 	util.OneTimeWarningError(err)
 
-	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags")
-	c.lclInfo.CXXflags = loadFlags(yc, settings, "compiler.cxx.flags")
-	c.lclInfo.Lflags = loadFlags(yc, settings, "compiler.ld.flags")
-	c.lclInfo.Aflags = loadFlags(yc, settings, "compiler.as.flags")
+	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags", cfg)
+	c.lclInfo.CXXflags = loadFlags(yc, settings, "compiler.cxx.flags", cfg)
+	c.lclInfo.Lflags = loadFlags(yc, settings, "compiler.ld.flags", cfg)
+	c.lclInfo.Aflags = loadFlags(yc, settings, "compiler.as.flags", cfg)
 
 	c.ldResolveCircularDeps, err = yc.GetValBool(
 		"compiler.ld.resolve_circular_deps", settings)

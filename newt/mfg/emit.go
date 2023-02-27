@@ -167,7 +167,7 @@ func getCompilerFromBsp(bsp *pkg.BspPackage) (*toolchain.Compiler, error) {
 	}
 
 	c, err := toolchain.NewCompiler(compilerPkg.BasePath(), "",
-		target.DEFAULT_BUILD_PROFILE)
+		target.DEFAULT_BUILD_PROFILE, nil)
 	if err != nil {
 		return nil, err
 	}
