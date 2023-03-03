@@ -46,7 +46,6 @@ type Target struct {
 	BspName      string
 	AppName      string
 	LoaderName   string
-	CompilerName string
 	BuildProfile string
 	HeaderSize   uint32
 	KeyFile      string
@@ -100,9 +99,6 @@ func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	util.OneTimeWarningError(err)
 
 	target.LoaderName, err = yc.GetValString("target.loader", nil)
-	util.OneTimeWarningError(err)
-
-	target.CompilerName, err = yc.GetValString("target.compiler", nil)
 	util.OneTimeWarningError(err)
 
 	target.BuildProfile, err = yc.GetValString("target.build_profile", nil)

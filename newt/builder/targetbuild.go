@@ -77,9 +77,6 @@ func NewTargetTester(target *target.Target,
 	}
 
 	compilerName := bspPkg.CompilerName
-	if len(target.CompilerName) > 0 {
-		compilerName = target.CompilerName
-	}
 
 	compilerPkg, err := project.GetProject().ResolvePackage(
 		bspPkg.Repo(), compilerName)
