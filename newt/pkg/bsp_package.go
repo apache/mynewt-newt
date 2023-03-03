@@ -200,14 +200,14 @@ func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 			"(bsp.arch)")
 	}
 
-	_, ycfg = bsp.selectKey("bsp.flash_map")
+	ypkg, ycfg = bsp.selectKey("bsp.flash_map")
 	ymlFlashMap, err := ycfg.GetValStringMap("bsp.flash_map", settings)
 	util.OneTimeWarningError(err)
 	if ymlFlashMap == nil {
 		return util.NewNewtError("BSP does not specify a flash map " +
 			"(bsp.flash_map)")
 	}
-	bsp.FlashMap, err = flashmap.Read(ymlFlashMap)
+	bsp.FlashMap, err = flashmap.Read(ymlFlashMap, ypkg.FullName())
 	if err != nil {
 		return err
 	}

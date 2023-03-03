@@ -46,6 +46,7 @@ const C_VAR_COMMENT = `/**
 `
 
 type FlashMap struct {
+	PkgName     string
 	Areas       map[string]flash.FlashArea
 	Overlaps    [][]flash.FlashArea
 	IdConflicts [][]flash.FlashArea
@@ -195,8 +196,10 @@ func (flashMap FlashMap) ErrorText() string {
 	return flash.ErrorText(flashMap.Overlaps, flashMap.IdConflicts)
 }
 
-func Read(ymlFlashMap map[string]interface{}) (FlashMap, error) {
+func Read(ymlFlashMap map[string]interface{}, pkgName string) (FlashMap, error) {
 	flashMap := newFlashMap()
+
+	flashMap.PkgName = pkgName
 
 	ymlAreas := ymlFlashMap["areas"]
 	if ymlAreas == nil {
@@ -247,6 +250,8 @@ func writeFlashMapHeader(w io.Writer, fm FlashMap) {
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "%s", C_VAR_COMMENT)
 	fmt.Fprintf(w, "extern %s;\n", flashMapVarDecl(fm))
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "/* Flash map was defined in %s */\n", fm.PkgName)
 	fmt.Fprintf(w, "\n")
 
 	for _, area := range fm.SortedAreas() {
