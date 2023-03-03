@@ -77,6 +77,10 @@ func LoadTarget(basePkg *pkg.LocalPackage) (*Target, error) {
 	return target, nil
 }
 
+func (target *Target) GetBspYCfgOverride() *pkg.BspYCfgOverride {
+	return pkg.NewBspYCfgOverride(target.basePkg, &target.TargetY)
+}
+
 func (target *Target) TargetYamlPath() string {
 	return fmt.Sprintf("%s/%s", target.basePkg.BasePath(), TARGET_FILENAME)
 }

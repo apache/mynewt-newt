@@ -163,7 +163,7 @@ func calcBsp(dm DecodedMfg,
 		return nil, util.FmtNewtError("multiple BSPs detected")
 	}
 
-	bsp, err := pkg.NewBspPackage(bspLpkg)
+	bsp, err := pkg.NewBspPackage(bspLpkg, nil)
 	if err != nil {
 		return nil, util.FmtNewtError(err.Error())
 	}

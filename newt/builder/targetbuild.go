@@ -71,7 +71,7 @@ func NewTargetTester(target *target.Target,
 		return nil, err
 	}
 
-	bspPkg, err := pkg.NewBspPackage(target.Bsp())
+	bspPkg, err := pkg.NewBspPackage(target.Bsp(), target.GetBspYCfgOverride())
 	if err != nil {
 		return nil, err
 	}

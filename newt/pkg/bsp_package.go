@@ -34,9 +34,16 @@ import (
 
 const BSP_YAML_FILENAME = "bsp.yml"
 
+type BspYCfgOverride struct {
+	Pkg  *LocalPackage
+	PkgY *ycfg.YCfg
+}
+
 type BspPackage struct {
 	*LocalPackage
+	yov                *BspYCfgOverride
 	CompilerName       string
+	CompilerNamePkg    *LocalPackage /* package which defines compiler name */
 	Arch               string
 	LinkerScripts      []string
 	Part2LinkerScripts []string /* scripts to link app to second partition */
@@ -55,19 +62,22 @@ func (bsp *BspPackage) BspYamlPath() string {
 
 func (bsp *BspPackage) resolvePathSetting(
 	settings *cfgv.Settings, key string) (string, error) {
+	var ypkg *LocalPackage
+	var ycfg *ycfg.YCfg
 
 	proj := interfaces.GetProject()
 
-	val, err := bsp.BspV.GetValString(key, settings)
+	ypkg, ycfg = bsp.selectKey(key)
+	val, err := ycfg.GetValString(key, settings)
 	util.OneTimeWarningError(err)
 	if val == "" {
 		return "", nil
 	}
-	path, err := proj.ResolvePath(bsp.Repo().Path(), val)
+	path, err := proj.ResolvePath(ypkg.Repo().Path(), val)
 	if err != nil {
 		return "", util.PreNewtError(err,
-			"BSP \"%s\" specifies invalid %s setting",
-			bsp.Name(), key)
+			"Package \"%s\" specifies invalid %s setting",
+			ypkg.FullName(), key)
 	}
 	return path, nil
 }
@@ -76,11 +86,14 @@ func (bsp *BspPackage) resolvePathSetting(
 // scripts.
 func (bsp *BspPackage) resolveLinkerScriptSetting(
 	settings *cfgv.Settings, key string) ([]string, error) {
+	var ypkg *LocalPackage
+	var ycfg *ycfg.YCfg
 
 	paths := []string{}
 
 	// Assume config file specifies a list of scripts.
-	vals, err := bsp.BspV.GetValStringSlice(key, settings)
+	ypkg, ycfg = bsp.selectKey(key)
+	vals, err := ycfg.GetValStringSlice(key, settings)
 	util.OneTimeWarningError(err)
 	if vals == nil {
 		// Couldn't read a list of scripts; try to interpret setting as a
@@ -98,11 +111,11 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 
 		// Read each linker script from the list.
 		for _, val := range vals {
-			path, err := proj.ResolvePath(bsp.Repo().Path(), val)
+			path, err := proj.ResolvePath(ypkg.Repo().Path(), val)
 			if err != nil {
 				return nil, util.PreNewtError(err,
-					"BSP \"%s\" specifies invalid %s setting",
-					bsp.Name(), key)
+					"Package \"%s\" specifies invalid %s setting",
+					ypkg.FullName(), key)
 			}
 
 			if path != "" {
@@ -114,7 +127,17 @@ func (bsp *BspPackage) resolveLinkerScriptSetting(
 	return paths, nil
 }
 
+func (bsp *BspPackage) selectKey(key string) (*LocalPackage, *ycfg.YCfg) {
+	if bsp.yov != nil && bsp.yov.PkgY.HasKey(key) {
+		return bsp.yov.Pkg, bsp.yov.PkgY
+	} else {
+		return bsp.LocalPackage, &bsp.BspV
+	}
+}
+
 func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
+	var ypkg *LocalPackage
+	var ycfg *ycfg.YCfg
 	var err error
 
 	if settings == nil {
@@ -128,26 +151,28 @@ func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 	}
 	bsp.AddCfgFilename(bsp.BspYamlPath())
 
-	bsp.CompilerName, err = bsp.BspV.GetValString("bsp.compiler", settings)
+	ypkg, ycfg = bsp.selectKey("bsp.compiler")
+	bsp.CompilerNamePkg = ypkg
+	bsp.CompilerName, err = ycfg.GetValString("bsp.compiler", settings)
 	util.OneTimeWarningError(err)
 
 	bsp.Arch, err = bsp.BspV.GetValString("bsp.arch", settings)
 	util.OneTimeWarningError(err)
 
-	bsp.ImageOffset, err = bsp.BspV.GetValInt("bsp.image_offset", settings)
+	_, ycfg = bsp.selectKey("bsp.image_offset")
+	bsp.ImageOffset, err = ycfg.GetValInt("bsp.image_offset", settings)
 	util.OneTimeWarningError(err)
 
-	bsp.ImagePad, err = bsp.BspV.GetValInt("bsp.image_pad", settings)
+	_, ycfg = bsp.selectKey("bsp.image_pad")
+	bsp.ImagePad, err = ycfg.GetValInt("bsp.image_pad", settings)
 	util.OneTimeWarningError(err)
 
-	bsp.LinkerScripts, err = bsp.resolveLinkerScriptSetting(
-		settings, "bsp.linkerscript")
+	bsp.LinkerScripts, err = bsp.resolveLinkerScriptSetting(settings, "bsp.linkerscript")
 	if err != nil {
 		return err
 	}
 
-	bsp.Part2LinkerScripts, err = bsp.resolveLinkerScriptSetting(
-		settings, "bsp.part2linkerscript")
+	bsp.Part2LinkerScripts, err = bsp.resolveLinkerScriptSetting(settings, "bsp.part2linkerscript")
 	if err != nil {
 		return err
 	}
@@ -175,7 +200,8 @@ func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 			"(bsp.arch)")
 	}
 
-	ymlFlashMap, err := bsp.BspV.GetValStringMap("bsp.flash_map", settings)
+	_, ycfg = bsp.selectKey("bsp.flash_map")
+	ymlFlashMap, err := ycfg.GetValStringMap("bsp.flash_map", settings)
 	util.OneTimeWarningError(err)
 	if ymlFlashMap == nil {
 		return util.NewNewtError("BSP does not specify a flash map " +
@@ -189,8 +215,9 @@ func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 	return nil
 }
 
-func NewBspPackage(lpkg *LocalPackage) (*BspPackage, error) {
+func NewBspPackage(lpkg *LocalPackage, yov *BspYCfgOverride) (*BspPackage, error) {
 	bsp := &BspPackage{
+		yov:            yov,
 		CompilerName:   "",
 		DownloadScript: "",
 		DebugScript:    "",
@@ -203,4 +230,13 @@ func NewBspPackage(lpkg *LocalPackage) (*BspPackage, error) {
 	err := bsp.Reload(nil)
 
 	return bsp, err
+}
+
+func NewBspYCfgOverride(lpkg *LocalPackage, ycfg *ycfg.YCfg) *BspYCfgOverride {
+	ov := &BspYCfgOverride{
+		Pkg:  lpkg,
+		PkgY: ycfg,
+	}
+
+	return ov
 }
