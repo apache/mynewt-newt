@@ -228,8 +228,7 @@ func Read(ymlFlashMap map[string]interface{}, pkgName string) (FlashMap, error) 
 }
 
 func flashMapVarDecl(fm FlashMap) string {
-	return fmt.Sprintf("const struct flash_area %s[%d]", C_VAR_NAME,
-		len(fm.Areas))
+	return fmt.Sprintf("const struct flash_area %s[FLASH_AREA_COUNT]", C_VAR_NAME)
 }
 
 func writeFlashAreaHeader(w io.Writer, area flash.FlashArea) {
@@ -247,6 +246,8 @@ func writeFlashMapHeader(w io.Writer, fm FlashMap) {
 	fmt.Fprintf(w, "#define H_MYNEWT_SYSFLASH_\n")
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "#include \"flash_map/flash_map.h\"\n")
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "#define FLASH_AREA_COUNT %d\n", len(fm.Areas))
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "%s", C_VAR_COMMENT)
 	fmt.Fprintf(w, "extern %s;\n", flashMapVarDecl(fm))
