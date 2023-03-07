@@ -19,6 +19,18 @@
 #
 -->
 
+<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_commands.yml">
+  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_commands.yml/badge.svg">
+<a/>
+
+<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_dump.yml">
+  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_dump.yml/badge.svg">
+<a/>
+
+<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_upgrade.yml">
+  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_upgrade.yml/badge.svg">
+<a/>
+
 # Newt
 
 Apache Newt is a smart build and package management tool, designed for C and C++
