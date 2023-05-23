@@ -133,24 +133,49 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 		if len(sfRef.Stage.Befores) == 0 && len(sfRef.Stage.Afters) == 0 {
 			stage, _ := sfRef.Stage.IntVal()
 			nodesByStage[stage] = append(nodesByStage[stage], sfRef)
-			nodes = append(nodes, sfRef)
 		} else {
 			nodesQ = append(nodesQ, sfRef)
 		}
 	}
-
-	// Put nodes without stages first, so they are resolved and put to
-	// stack first - we do not want them to precede all nodes with stages.
-	// While technically correct, it's better not to start sysinit with
-	// nodes that do not have any stage since this will likely happen
-	// before os init packages.
-	nodes = append(nodesQ, nodes...)
 
 	var stages []int
 	for stage := range nodesByStage {
 		stages = append(stages, stage)
 	}
 	sort.Ints(stages)
+
+	// Lexicographically sort nodes in each stage, then build the nodes stack.
+	// This helps ensure that sysinit order is reproducable and deterministic
+	for stageIndex, _ := range stages {
+		lsfs := nodesByStage[stages[stageIndex]]
+		sort.Slice(lsfs, func(i int, j int) bool {
+			a := lsfs[i]
+			b := lsfs[j]
+
+			if strings.Compare(a.Name, b.Name) == -1 {
+				return false
+			}
+			return true
+		})
+		nodes = append(nodes, nodesByStage[stages[stageIndex]]...)
+	}
+
+	sort.Slice(nodesQ, func(i int, j int) bool {
+		a := nodesQ[i]
+		b := nodesQ[j]
+
+		if strings.Compare(a.Name, b.Name) == -1 {
+			return false
+		}
+		return true
+	})
+    
+	// Put nodes without stages first, so they are resolved and put to
+	// stack first - we do not want them to precede all nodes with stages.
+	// While technically correct, it's better not to start sysinit with
+	// nodes that do not have any stage since this will likely happen
+	// before os init packages.
+	nodes = append(nodesQ, nodes...)
 
 	// Add implicit dependencies for nodes with stages. We need to add
 	// direct dependencies between each node of stage X to each node of
