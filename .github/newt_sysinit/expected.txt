@@ -1,0 +1,17 @@
+Brief sysinit config for targets/nordic_pca10056_btshell:
+ STAGE   | PACKAGE                                           | FUNCTION                | SETTING                     
+---------+---------------------------------------------------+-------------------------+------------------------------
+ 0       | @apache-mynewt-core/kernel/os                     | os_pkg_init             | OS_SYSINIT_STAGE            
+ 9       | @apache-mynewt-core/sys/flash_map                 | flash_map_init          | FLASH_MAP_SYSINIT_STAGE     
+ 10      | @apache-mynewt-core/sys/stats/full                | stats_module_init       | STATS_SYSINIT_STAGE         
+ 20      | @apache-mynewt-core/sys/console/full              | console_pkg_init        | CONSOLE_SYSINIT_STAGE       
+ 100     | @apache-mynewt-core/sys/log/full                  | log_init                | LOG_SYSINIT_STAGE_MAIN      
+ 100     | @apache-mynewt-core/sys/log/modlog                | modlog_init             | MODLOG_SYSINIT_STAGE        
+ 250     | @apache-mynewt-nimble/nimble/transport            | ble_transport_init      |                             
+ 251     | @apache-mynewt-nimble/nimble/transport            | ble_transport_hs_init   |                             
+ 301     | @apache-mynewt-nimble/nimble/host/services/gap    | ble_svc_gap_init        | BLE_SVC_GAP_SYSINIT_STAGE   
+ 302     | @apache-mynewt-nimble/nimble/host/services/gatt   | ble_svc_gatt_init       | BLE_SVC_GATT_SYSINIT_STAGE  
+ 303     | @apache-mynewt-nimble/nimble/host/services/ans    | ble_svc_ans_init        | BLE_SVC_ANS_SYSINIT_STAGE   
+ 500     | @apache-mynewt-nimble/nimble/host/store/config    | ble_store_config_init   | BLE_STORE_SYSINIT_STAGE     
+ 500     | @apache-mynewt-core/sys/shell                     | shell_init              | SHELL_SYSINIT_STAGE         
+         | @apache-mynewt-nimble/nimble/transport            | ble_transport_ll_init   |                             
