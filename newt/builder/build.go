@@ -444,8 +444,9 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 
 	// Calculate the list of directories containing source .a files.
 	var dirs []string
+	staticLibs := []util.StaticLib{}
+
 	for _, bpkg := range b.sortedBuildPackages() {
-		dirs = append(dirs, b.PkgBinDir(bpkg))
 
 		// Collect lflags from all constituent packages.  Discard everything
 		// from the compiler info except lflags; that is all that is relevant
@@ -454,22 +455,27 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		if err != nil {
 			return err
 		}
+
 		c.AddInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
+		fullANames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
+		for _, archiveName := range fullANames {
+			s := util.NewStaticLib(archiveName, ci.WholeArch)
+			staticLibs = append(staticLibs, s)
+		}
 	}
 	dirs = append(dirs, extraADirs...)
 
 	// Find all .a files in the input directories.
-	trimmedANames := []string{}
-	for _, dir := range dirs {
+	for _, dir := range extraADirs {
 		fullANames, _ := filepath.Glob(dir + "/*.a")
-		for i, archiveName := range fullANames {
-			fullANames[i] = filepath.ToSlash(archiveName)
+		for _, archiveName := range fullANames {
+			s := util.NewStaticLib(archiveName, false)
+			staticLibs = append(staticLibs, s)
 		}
-		trimmedANames = append(trimmedANames, fullANames...)
 	}
 
 	c.LinkerScripts = linkerScripts
-	err = c.CompileElf(elfName, trimmedANames, keepSymbols, b.linkElf)
+	err = c.CompileElf(elfName, staticLibs, keepSymbols, b.linkElf)
 	if err != nil {
 		return err
 	}

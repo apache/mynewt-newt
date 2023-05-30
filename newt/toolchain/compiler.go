@@ -60,6 +60,7 @@ type CompilerInfo struct {
 	Aflags      []string
 	IgnoreFiles []*regexp.Regexp
 	IgnoreDirs  []*regexp.Regexp
+	WholeArch   bool
 }
 
 type CompileCommand struct {
@@ -168,6 +169,7 @@ func NewCompilerInfo() *CompilerInfo {
 	ci.Aflags = []string{}
 	ci.IgnoreFiles = []*regexp.Regexp{}
 	ci.IgnoreDirs = []*regexp.Regexp{}
+	ci.WholeArch = false
 
 	return ci
 }
@@ -943,6 +945,15 @@ func (c *Compiler) getObjFiles(baseObjFiles []string) []string {
 	return baseObjFiles
 }
 
+func (c *Compiler) getStaticLibs(baseStaticLib []util.StaticLib) []util.StaticLib {
+	c.mutex.Lock()
+	for objName, _ := range c.objPathList {
+		baseStaticLib = append(baseStaticLib, util.NewStaticLib(objName, false))
+	}
+	c.mutex.Unlock()
+	return baseStaticLib
+}
+
 // Calculates the command-line invocation necessary to link the specified elf
 // file.
 //
@@ -954,9 +965,9 @@ func (c *Compiler) getObjFiles(baseObjFiles []string) []string {
 //
 // @return                      (success) The command tokens.
 func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
-	objFiles []string, keepSymbols []string, elfLib string) []string {
+	staticLib []util.StaticLib, keepSymbols []string, elfLib string) []string {
 
-	objList := c.getObjFiles(util.UniqueStrings(objFiles))
+	libList := c.getStaticLibs(util.UniqueStaticLib(staticLib))
 
 	cmd := []string{
 		c.ccPath,
@@ -971,10 +982,19 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 
 	if c.ldResolveCircularDeps {
 		cmd = append(cmd, "-Wl,--start-group")
-		cmd = append(cmd, objList...)
+	}
+
+	for _, lib := range libList {
+		if lib.WholeArch {
+			cmd = append(cmd, "-Wl,--whole-archive")
+		}
+		cmd = append(cmd, lib.File)
+		if lib.WholeArch {
+			cmd = append(cmd, "-Wl,--no-whole-archive")
+		}
+	}
+	if c.ldResolveCircularDeps {
 		cmd = append(cmd, "-Wl,--end-group")
-	} else {
-		cmd = append(cmd, objList...)
 	}
 
 	if keepSymbols != nil {
@@ -1007,23 +1027,25 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 //                                  gets generated.
 // @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
-	objFiles []string, keepSymbols []string, elfLib string) error {
+	staticLib []util.StaticLib, keepSymbols []string, elfLib string) error {
 
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
 
-	objList := c.getObjFiles(util.UniqueStrings(objFiles))
-
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", dstFile)
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n",
-		dstFile, objList)
+
+	libList := c.getStaticLibs(util.UniqueStaticLib(staticLib))
+
+	for _, lib := range libList {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with input files %s\n", dstFile, lib.File)
+	}
 
 	if elfLib != "" {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Linking %s with rom image %s\n",
 			dstFile, elfLib)
 	}
 
-	cmd := c.CompileBinaryCmd(dstFile, options, objFiles, keepSymbols, elfLib)
+	cmd := c.CompileBinaryCmd(dstFile, options, libList, keepSymbols, elfLib)
 	o, err := util.ShellCommand(cmd, nil)
 	if err != nil {
 		return err
@@ -1150,7 +1172,7 @@ func (c *Compiler) PrintSize(elfFilename string) (string, error) {
 // @param options               Some build options specifying how the elf file
 //                                  gets generated.
 // @param objFiles              An array of the source .o and .a filenames.
-func (c *Compiler) CompileElf(binFile string, objFiles []string,
+func (c *Compiler) CompileElf(binFile string, staticLib []util.StaticLib,
 	keepSymbols []string, elfLib string) error {
 	options := map[string]bool{"mapFile": c.ldMapFile,
 		"listFile": true, "binFile": c.ldBinFile}
@@ -1159,7 +1181,8 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string,
 	c.ensureLclInfoAdded()
 
 	linkRequired, err := c.depTracker.LinkRequired(binFile, options,
-		objFiles, keepSymbols, elfLib)
+		staticLib, keepSymbols, elfLib)
+
 	if err != nil {
 		return err
 	}
@@ -1167,7 +1190,7 @@ func (c *Compiler) CompileElf(binFile string, objFiles []string,
 		if err := os.MkdirAll(filepath.Dir(binFile), 0755); err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		err := c.CompileBinary(binFile, options, objFiles, keepSymbols, elfLib)
+		err := c.CompileBinary(binFile, options, staticLib, keepSymbols, elfLib)
 		if err != nil {
 			return err
 		}
