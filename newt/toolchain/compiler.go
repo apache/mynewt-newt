@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"mynewt.apache.org/newt/newt/cfgv"
+	"mynewt.apache.org/newt/newt/pkg"
 	"os"
 	"path"
 	"path/filepath"
@@ -315,10 +316,48 @@ func loadFlags(yc ycfg.YCfg, settings *cfgv.Settings, key string, cfg *cfgv.Sett
 	return flags
 }
 
+func getConfigMap(compilerDir string) (map[string]string, error) {
+	dstMap := make(map[string]string)
+
+	scfg, err := config.ReadFile(compilerDir + "/" + pkg.SYSCFG_YAML_FILENAME)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, setting := range scfg.AllSettings() {
+		aSetting, ok := setting.(map[interface{}]interface{})
+		if ok {
+			for settingName, settingFields := range aSetting {
+				aSettingName := settingName.(string)
+				aSettingFields, ok := settingFields.(map[interface{}]interface{})
+				if ok {
+					for settingField, fieldValue := range aSettingFields {
+						if settingField == "value" {
+							aFieldValue, ok := fieldValue.(string)
+							if ok {
+								dstMap[aSettingName] = aFieldValue
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return dstMap, nil
+}
+
 func (c *Compiler) load(compilerDir string, buildProfile string, cfg *cfgv.Settings) error {
 	yc, err := config.ReadFile(compilerDir + "/" + COMPILER_FILENAME)
 	if err != nil {
 		return err
+	}
+
+	if cfg == nil {
+		cfgMap, err := getConfigMap(compilerDir)
+		if err == nil {
+			cfg = cfgv.NewSettingsFromMap(cfgMap)
+		}
 	}
 
 	settings := cfgv.NewSettingsFromMap(map[string]string{
