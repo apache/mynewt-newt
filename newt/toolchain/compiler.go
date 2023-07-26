@@ -471,6 +471,15 @@ func (c *Compiler) includesStrings() []string {
 
 func (c *Compiler) cflagsStrings() []string {
 	cflags := util.SortFields(c.info.Cflags...)
+
+	for _, lclinfo_flag := range util.SortFields(c.lclInfo.Cflags...) {
+		for _, info_flag := range cflags {
+			if lclinfo_flag == info_flag {
+				continue
+			}
+		}
+		cflags = append(cflags, lclinfo_flag)
+	}
 	return cflags
 }
 
