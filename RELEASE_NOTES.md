@@ -1,6 +1,6 @@
 # RELEASE NOTES
 
-20 April 2022 - Apache Newt v1.10.0
+09 August 2023 - Apache Newt v1.11.0
 
 For full release notes, please visit the
 [Apache Mynewt Wiki](https://cwiki.apache.org/confluence/display/MYNEWT/Release+Notes).
