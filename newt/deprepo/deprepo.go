@@ -118,13 +118,13 @@ func isInReqs(repo string, reqs RequirementMap) bool {
 
 // Builds a repo dependency graph from the repo requirements expressed in the
 // `project.yml` file.
-func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
+func BuildDepGraph(repos RepoMap, rootReqs RequirementMap, noDeps bool) (DepGraph, error) {
 	dg := DepGraph{}
 
 	// First, add the hard dependencies expressed in `project.yml`.
 	for repoName, verReq := range rootReqs {
 		repo, ok := repos[repoName]
-		if !ok {
+		if !ok && noDeps {
 			continue
 		}
 		normalizedReq, err := repo.NormalizeVerReq(verReq)
@@ -140,14 +140,14 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 	// Add inter-repo dependencies to the graph.
 	for _, r := range repos.Sorted() {
 		nvers, err := r.NormalizedVersions()
-		if err != nil && isInReqs(r.Name(), rootReqs) {
+		if err != nil && noDeps && isInReqs(r.Name(), rootReqs) {
 			return nil, err
 		}
 		for _, v := range nvers {
 			deps := r.DepsForVersion(v)
 			reqMap := RequirementMap{}
 			for _, d := range deps {
-				if !isInReqs(d.Name, rootReqs) {
+				if noDeps && !isInReqs(d.Name, rootReqs) {
 					continue
 				}
 				depRepo := repos[d.Name]

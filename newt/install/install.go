@@ -416,7 +416,7 @@ func (inst *Installer) versionMapRepos(
 
 // Calculates a map of repos and version numbers that should be included in an
 // install or upgrade operation.
-func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
+func (inst *Installer) calcVersionMap(candidates []*repo.Repo, noDeps bool) (
 	deprepo.VersionMap, error) {
 
 	// Repos that depend on any specified repos must also be considered during
@@ -463,7 +463,7 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 
 	// Construct a repo dependency graph from the `project.yml` version
 	// requirements and from each repo's dependency list.
-	dg, err := deprepo.BuildDepGraph(inst.repos, inst.reqs)
+	dg, err := deprepo.BuildDepGraph(inst.repos, inst.reqs, noDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -550,13 +550,13 @@ func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 
 // Installs or upgrades the specified set of repos.
 func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
-	ask bool) error {
+	ask bool, noDeps bool) error {
 
 	if err := verifyRepoDirtyState(candidates, force); err != nil {
 		return err
 	}
 
-	vm, err := inst.calcVersionMap(candidates)
+	vm, err := inst.calcVersionMap(candidates, noDeps)
 	if err != nil {
 		return err
 	}
@@ -682,7 +682,7 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 			}
 		}
 
-		vm, err := inst.calcVersionMap(repos)
+		vm, err := inst.calcVersionMap(repos, false)
 		if err != nil {
 			return err
 		}

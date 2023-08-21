@@ -314,7 +314,8 @@ func (proj *Project) SelectRepos(pred func(r *repo.Repo) bool) []*repo.Repo {
 
 // Installs or upgrades repos matching the specified predicate.
 func (proj *Project) UpgradeIf(
-	force bool, ask bool, okRepos []string, predicate func(r *repo.Repo) bool) error {
+	force bool, ask bool, noDeps bool, okRepos []string,
+    predicate func(r *repo.Repo) bool) error {
 
 	// Make sure we have an up to date copy of all `repository.yml` files.
 	if err := proj.downloadRepositoryYmlFiles(okRepos); err != nil {
@@ -332,7 +333,7 @@ func (proj *Project) UpgradeIf(
 		return err
 	}
 
-	return inst.Upgrade(specifiedRepoList, force, ask)
+	return inst.Upgrade(specifiedRepoList, force, ask, noDeps && len(okRepos) > 0)
 }
 
 func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
