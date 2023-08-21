@@ -140,7 +140,7 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap, noDeps bool) (DepGrap
 	// Add inter-repo dependencies to the graph.
 	for _, r := range repos.Sorted() {
 		nvers, err := r.NormalizedVersions()
-		if err != nil && noDeps && isInReqs(r.Name(), rootReqs) {
+		if err != nil && !noDeps && isInReqs(r.Name(), rootReqs) {
 			return nil, err
 		}
 		for _, v := range nvers {

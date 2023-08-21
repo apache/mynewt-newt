@@ -85,10 +85,10 @@ type Project struct {
 	yc ycfg.YCfg
 }
 
-func initProject(dir string, download bool, okRepos []string) error {
+func initProject(dir string, download bool, noDeps bool, okRepos []string) error {
 	var err error
 
-	globalProject, err = loadProject(dir, download, okRepos)
+	globalProject, err = loadProject(dir, download, noDeps, okRepos)
 	if err != nil {
 		return err
 	}
@@ -99,14 +99,14 @@ func initProject(dir string, download bool, okRepos []string) error {
 	return nil
 }
 
-func initialize(download bool, okRepos []string) error {
+func initialize(download bool, noDeps bool, okRepos []string) error {
 	if globalProject == nil {
 		wd, err := os.Getwd()
 		wd = filepath.ToSlash(wd)
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
-		if err := initProject(wd, download, okRepos); err != nil {
+		if err := initProject(wd, download, noDeps, okRepos); err != nil {
 			return err
 		}
 	}
@@ -114,14 +114,14 @@ func initialize(download bool, okRepos []string) error {
 }
 
 func TryGetProject() (*Project, error) {
-	if err := initialize(false, nil); err != nil {
+	if err := initialize(false, false, nil); err != nil {
 		return nil, err
 	}
 	return globalProject, nil
 }
 
-func TryGetOrDownloadProject(okRepos []string) (*Project, error) {
-	if err := initialize(true, okRepos); err != nil {
+func TryGetOrDownloadProject(noDeps bool, okRepos []string) (*Project, error) {
+	if err := initialize(true, noDeps, okRepos); err != nil {
 		return nil, err
 	}
 	return globalProject, nil
@@ -153,10 +153,10 @@ func ResetDeps(newList interfaces.PackageList) interfaces.PackageList {
 	return oldList
 }
 
-func newProject(dir string, download bool, okRepos []string) (*Project, error) {
+func newProject(dir string, download bool, noDeps bool, okRepos []string) (*Project, error) {
 	proj := &Project{}
 
-	if err := proj.Init(dir, download, okRepos); err != nil {
+	if err := proj.Init(dir, download, noDeps, okRepos); err != nil {
 		return nil, err
 	}
 
@@ -175,14 +175,14 @@ func isOkRepo(repo string, okRepos []string) bool {
 	return false
 }
 
-func (proj *Project) GetPkgRepos(okRepos []string) error {
+func (proj *Project) GetPkgRepos(noDeps bool, okRepos []string) error {
 
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
 			if pkg.PkgConfig().HasKey("repository") {
 				for k, _ := range pkg.PkgConfig().AllSettings() {
 					repoName := strings.TrimPrefix(k, "repository.")
-					if repoName != k && isOkRepo(repoName, okRepos) {
+					if repoName != k && (!noDeps || isOkRepo(repoName, okRepos)) {
 						fields, err := pkg.PkgConfig().GetValStringMapString(k, nil)
 						util.OneTimeWarningError(err)
 
@@ -318,7 +318,7 @@ func (proj *Project) UpgradeIf(
     predicate func(r *repo.Repo) bool) error {
 
 	// Make sure we have an up to date copy of all `repository.yml` files.
-	if err := proj.downloadRepositoryYmlFiles(okRepos); err != nil {
+	if err := proj.downloadRepositoryYmlFiles(noDeps, okRepos); err != nil {
 		return err
 	}
 
@@ -341,7 +341,7 @@ func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 
 	if remote {
 		// Make sure we have an up to date copy of all `repository.yml` files.
-		if err := proj.downloadRepositoryYmlFiles(nil); err != nil {
+		if err := proj.downloadRepositoryYmlFiles(false, nil); err != nil {
 			return err
 		}
 	}
@@ -438,7 +438,7 @@ func (proj *Project) checkNewtVer() error {
 }
 
 // Loads the `repository.yml` file for each depended-on repo.  This
-func (proj *Project) loadRepoDeps(download bool, okRepos []string) error {
+func (proj *Project) loadRepoDeps(download bool, noDeps bool, okRepos []string) error {
 	seen := map[string]struct{}{}
 
 	loadDeps := func(r *repo.Repo) ([]*repo.Repo, error) {
@@ -447,7 +447,7 @@ func (proj *Project) loadRepoDeps(download bool, okRepos []string) error {
 		depMap := r.CommitDepMap()
 		for _, depSlice := range depMap {
 			for _, dep := range depSlice {
-				if !isOkRepo(dep.Name, okRepos) {
+				if !isOkRepo(dep.Name, okRepos) && noDeps {
 					log.Debugf("Skipping repo %s", dep.Name)
 					continue
 				}
@@ -503,7 +503,8 @@ func (proj *Project) loadRepoDeps(download bool, okRepos []string) error {
 	return nil
 }
 
-func (proj *Project) downloadRepositoryYmlFiles(okRepos []string) error {
+func (proj *Project) downloadRepositoryYmlFiles(noDeps bool,
+	okRepos []string) error {
 	// Download the `repository.yml` file for each root-level repo (those
 	// specified in the `project.yml` file).
 	for _, r := range proj.repos.Sorted() {
@@ -518,7 +519,7 @@ func (proj *Project) downloadRepositoryYmlFiles(okRepos []string) error {
 	}
 
 	// Download the `repository.yml` file for each depended-on repo.
-	if err := proj.loadRepoDeps(true, okRepos); err != nil {
+	if err := proj.loadRepoDeps(true, noDeps, okRepos); err != nil {
 		return err
 	}
 
@@ -584,7 +585,7 @@ func (proj *Project) addRepo(r *repo.Repo, download bool, isDep bool) error {
 	return nil
 }
 
-func (proj *Project) loadConfig(download bool, okRepos []string) error {
+func (proj *Project) loadConfig(download bool, noDeps bool, okRepos []string) error {
 	yc, err := config.ReadFile(proj.BasePath + "/" + PROJECT_FILE_NAME)
 	if err != nil {
 		return util.NewNewtError(err.Error())
@@ -643,7 +644,7 @@ func (proj *Project) loadConfig(download bool, okRepos []string) error {
 	// Read `repository.yml` files belonging to dependee repos from disk.
 	// These repos might not be specified in the `project.yml` file, but they
 	// are still part of the project.
-	if err := proj.loadRepoDeps(download, okRepos); err != nil {
+	if err := proj.loadRepoDeps(download, noDeps, okRepos); err != nil {
 		return err
 	}
 
@@ -680,7 +681,7 @@ func (proj *Project) loadConfig(download bool, okRepos []string) error {
 	return nil
 }
 
-func (proj *Project) Init(dir string, download bool, okRepos []string) error {
+func (proj *Project) Init(dir string, download bool, noDeps bool, okRepos []string) error {
 	proj.BasePath = filepath.ToSlash(filepath.Clean(dir))
 
 	// Only one project per system, when created, set it as the global project
@@ -690,7 +691,7 @@ func (proj *Project) Init(dir string, download bool, okRepos []string) error {
 	proj.rootRepoReqs = map[string]newtutil.RepoVersion{}
 
 	// Load Project configuration
-	if err := proj.loadConfig(download, okRepos); err != nil {
+	if err := proj.loadConfig(download, noDeps, okRepos); err != nil {
 		return err
 	}
 
@@ -831,13 +832,13 @@ func (proj *Project) PackagesOfType(pkgType interfaces.PackageType) []interfaces
 	return matches
 }
 
-func loadProject(dir string, download bool, okRepos []string) (*Project, error) {
+func loadProject(dir string, download bool, noDeps bool, okRepos []string) (*Project, error) {
 	projDir, err := findProjectDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	proj, err := newProject(projDir, download, okRepos)
+	proj, err := newProject(projDir, download, noDeps, okRepos)
 
 	return proj, err
 }

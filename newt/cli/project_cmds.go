@@ -121,10 +121,10 @@ func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetOrDownloadProject(args)
+	proj := TryGetOrDownloadProject(newtutil.NewtNoDeps, args)
 	interfaces.SetProject(proj)
 
-	proj.GetPkgRepos(args)
+	proj.GetPkgRepos(newtutil.NewtNoDeps, args)
 
 	pred := makeRepoPredicate(args)
 	if err := proj.UpgradeIf(

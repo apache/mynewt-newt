@@ -210,11 +210,11 @@ func TryGetProject() *project.Project {
 	return p
 }
 
-func TryGetOrDownloadProject(okRepos []string) *project.Project {
+func TryGetOrDownloadProject(noDeps bool, okRepos []string) *project.Project {
 	var p *project.Project
 	var err error
 
-	if p, err = project.TryGetOrDownloadProject(okRepos); err != nil {
+	if p, err = project.TryGetOrDownloadProject(noDeps, okRepos); err != nil {
 		NewtUsage(nil, err)
 	}
 
