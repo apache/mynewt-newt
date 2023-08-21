@@ -198,8 +198,10 @@ func (inst *Installer) ensureDepsInList(repos []*repo.Repo,
 			deps = r.DepsForVersion(vm[r.Name()])
 		}
 		for _, d := range deps {
-			depRepo := inst.repos[d.Name]
-			result = append(result, recurse(depRepo)...)
+			depRepo, ok := inst.repos[d.Name]
+			if ok {
+				result = append(result, recurse(depRepo)...)
+			}
 		}
 
 		return result
@@ -706,12 +708,14 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 	ri := inst.gatherInfo(r, vm)
 	s := fmt.Sprintf("    * %s:", r.Name())
 
-	s += fmt.Sprintf(" %s", ri.commitHash)
 	if ri.installedVer == nil {
+		s += fmt.Sprintf(" ?")
 		s += ", (not installed)"
 	} else if ri.errorText != "" {
+		s += fmt.Sprintf(" %s", ri.commitHash)
 		s += fmt.Sprintf(", (unknown: %s)", ri.errorText)
 	} else {
+		s += fmt.Sprintf(" %s", ri.commitHash)
 		if ri.installedVer.Commit == "" {
 			s += fmt.Sprintf(", %s", ri.installedVer.String())
 		}
