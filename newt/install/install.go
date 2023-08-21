@@ -725,7 +725,7 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 }
 
-// remoteRepoInfo prints information about the specified local repo (i.e., the
+// localRepoInfo prints information about the specified local repo (i.e., the
 // project itself).  It does nothing if the project is not a git repo.
 func (inst *Installer) localRepoInfo(r *repo.Repo) {
 	ri := inst.gatherInfo(r, nil)
