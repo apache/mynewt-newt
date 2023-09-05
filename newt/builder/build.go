@@ -57,6 +57,7 @@ type Builder struct {
 	buildName        string
 	linkElf          string
 	injectedSettings map[string]string
+	modifiedExtRepos []string
 }
 
 func NewBuilder(
@@ -680,6 +681,8 @@ func (b *Builder) Build() error {
 		}
 		entries = append(entries, subEntries...)
 
+		b.modifiedExtRepos = append(b.modifiedExtRepos, bpkg.getModifiedReposNames()...)
+
 		if len(subEntries) > 0 {
 			bpkgCompilerMap[bpkg] = subEntries[0].Compiler
 		}
@@ -919,4 +922,25 @@ func (b *Builder) CleanArtifacts() {
 	for _, p := range paths {
 		os.Remove(p)
 	}
+}
+
+func Contains(elements []string, val string) bool {
+	for _, s := range elements {
+		if val == s {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *Builder) AppendModifiedRepos(modifiedRepos []string) {
+	for _, repo := range modifiedRepos {
+		if !Contains(b.modifiedExtRepos, repo) {
+			b.modifiedExtRepos = append(b.modifiedExtRepos, repo)
+		}
+	}
+}
+
+func (b *Builder) GetModifiedRepos() []string {
+	return b.modifiedExtRepos
 }
