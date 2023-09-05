@@ -161,6 +161,11 @@ func buildRunCmd(cmd *cobra.Command, args []string, printShellCmds bool, execute
 		}
 
 		if err := b.Build(); err != nil {
+			if b.AppBuilder.GetModifiedRepos() != nil {
+				util.ErrorMessage(util.VERBOSITY_DEFAULT,
+					"Warning: Following external repos are modified or missing, which might be causing build errors:\n%v\n",
+					b.AppBuilder.GetModifiedRepos())
+			}
 			NewtUsage(nil, err)
 		}
 
