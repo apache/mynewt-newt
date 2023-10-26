@@ -92,6 +92,15 @@ func initProject(dir string, download bool) error {
 	if err != nil {
 		return err
 	}
+
+	if download {
+		err = globalProject.UpgradeIf(newtutil.NewtForce, newtutil.NewtAsk,
+			                      func(r *repo.Repo) bool { return !r.IsExternal(r.Path()) })
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := globalProject.loadPackageList(); err != nil {
 		return err
 	}
