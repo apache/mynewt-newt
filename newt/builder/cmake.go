@@ -212,6 +212,11 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	var linkFlags []string
 	var libraries []string
 
+	err := b.appendAppCflags(bpkgs)
+	if err != nil {
+		return err
+	}
+
 	c := targetCompiler
 	c.AddInfo(b.GetCompilerInfo())
 
