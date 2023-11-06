@@ -635,11 +635,39 @@ func buildWorker(
 	}
 }
 
+func (b *Builder) appendAppCflags(bpkgs []*BuildPackage) error {
+	for _, bpkg := range bpkgs {
+		settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
+		globalAppCflags, err := bpkg.rpkg.Lpkg.PkgY.Get("app.cflags", settings)
+		if err != nil {
+			return err
+		}
+		for _, f := range globalAppCflags {
+			if itfVals, ok := f.Value.([]interface{}); ok {
+				for _, itfVal := range itfVals {
+					if strVal, ok := itfVal.(string); ok {
+						b.compilerInfo.Cflags = append(b.compilerInfo.Cflags, strVal)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (b *Builder) Build() error {
+	var err error
+
 	b.CleanArtifacts()
 
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
+
+	err = b.appendAppCflags(bpkgs)
+	if err != nil {
+		return err
+	}
 
 	// Calculate the list of jobs.  Each record represents a single file that
 	// needs to be compiled.
@@ -675,7 +703,6 @@ func (b *Builder) Build() error {
 		go buildWorker(i, jobs, stop, errors)
 	}
 
-	var err error
 	for i := 0; i < newtutil.NewtNumJobs; i++ {
 		subErr := <-errors
 		if err == nil && subErr != nil {
