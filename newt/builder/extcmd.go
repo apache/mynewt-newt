@@ -120,6 +120,8 @@ func (t *TargetBuilder) envVarsForCmd(sf stage.StageFunc, userSrcDir string,
 		UserSrcDir:   userSrcDir,
 		UserIncDir:   userIncDir,
 		WorkDir:      workDir,
+		GeneratedDir: GeneratedBaseDir(t.target.FullName()),
+		TergetBinDir: TargetBinDir(t.target.FullName()),
 	}
 	uenv := UserEnvVars(p)
 	for k, v := range uenv {
