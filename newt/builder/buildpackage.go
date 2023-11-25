@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -162,6 +163,16 @@ func (bpkg *BuildPackage) CompilerInfo(
 	ci.Aflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
 	util.OneTimeWarningError(err)
 	expandFlags(ci.Aflags)
+
+	var strArray []string
+	// // Check if the package should be linked as whole or not
+	strArray, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.whole_archive", settings)
+	util.OneTimeWarningError(err)
+	for _, str := range strArray {
+		if strings.Contains(str, "true") {
+			ci.WholeArch = true
+		}
+	}
 
 	// Package-specific injected settings get specified as C flags on the
 	// command line.

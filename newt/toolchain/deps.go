@@ -328,12 +328,12 @@ func (tracker *DepTracker) ArchiveRequired(archiveFile string,
 //     * One or more source object files has a newer modification time than the
 //       library file.
 func (tracker *DepTracker) LinkRequired(dstFile string,
-	options map[string]bool, objFiles []string,
+	options map[string]bool, staticLib []util.StaticLib,
 	keepSymbols []string, elfLib string) (bool, error) {
 
 	// If the elf file was previously built with a different set of options, a
 	// rebuild is required.
-	cmd := tracker.compiler.CompileBinaryCmd(dstFile, options, objFiles, keepSymbols, elfLib)
+	cmd := tracker.compiler.CompileBinaryCmd(dstFile, options, staticLib, keepSymbols, elfLib)
 	if commandHasChanged(dstFile, cmd) {
 		logRebuildReqdCmdChanged(dstFile)
 		return true, nil
@@ -365,7 +365,11 @@ func (tracker *DepTracker) LinkRequired(dstFile string,
 		return true, nil
 	}
 
+	var objFiles []string
 	// Check timestamp of the linker script and all input libraries.
+	for _, obj := range staticLib {
+		objFiles = append(objFiles, obj.File)
+	}
 	for _, ls := range tracker.compiler.LinkerScripts {
 		objFiles = append(objFiles, ls)
 	}

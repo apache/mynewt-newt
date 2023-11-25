@@ -70,6 +70,19 @@ const (
 	VERBOSITY_VERBOSE = 3
 )
 
+type StaticLib struct {
+	File      string
+	WholeArch bool
+}
+
+func NewStaticLib(file string, wholeArch bool) StaticLib {
+	s := StaticLib{
+		File:      file,
+		WholeArch: wholeArch,
+	}
+	return s
+}
+
 func (se *NewtError) Error() string {
 	return se.Text
 }
@@ -665,6 +678,21 @@ func UniqueStrings(elems []string) []string {
 		}
 	}
 
+	return result
+}
+
+// Removes all duplicate static lib from the specified array, while preserving
+// order.
+func UniqueStaticLib(libs []StaticLib) []StaticLib {
+	set := make(map[StaticLib]bool)
+	result := make([]StaticLib, 0)
+
+	for _, lib := range libs {
+		if !set[lib] {
+			result = append(result, lib)
+			set[lib] = true
+		}
+	}
 	return result
 }
 
