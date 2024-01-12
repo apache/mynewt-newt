@@ -284,7 +284,11 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		log.Warn(line)
 	}
 
-	for _, line := range t.res.ExperimentalWarning() {
+	for _, line := range t.res.CfgExperimentalWarning() {
+		log.Warn(line)
+	}
+
+	for _, line := range t.res.PkgExperimentalWarning() {
 		log.Warn(line)
 	}
 

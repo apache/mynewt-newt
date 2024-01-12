@@ -1358,8 +1358,25 @@ func (res *Resolution) DeprecatedWarning() []string {
 	return res.Cfg.DeprecatedWarning()
 }
 
-func (res *Resolution) ExperimentalWarning() []string {
+func (res *Resolution) CfgExperimentalWarning() []string {
 	return res.Cfg.ExperimentalWarning()
+}
+
+func (res *Resolution) PkgExperimentalWarning() []string {
+	lines := []string{}
+
+	for pkg := range res.LpkgRpkgMap {
+		experimental, err := pkg.PkgY.GetValBool("pkg.experimental", nil)
+		if err != nil {
+			log.Errorf("Internal error; Could not read package %s yml file", pkg.Name())
+		}
+		if experimental {
+			lines = append(lines,
+				fmt.Sprintf("Use of experimental package %s", pkg.Name()))
+		}
+	}
+
+	return lines
 }
 
 func LogTransientWarning(lpkg *pkg.LocalPackage) {
