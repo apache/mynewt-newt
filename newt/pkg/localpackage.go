@@ -59,6 +59,8 @@ type LocalPackage struct {
 	// General information about the package
 	desc *PackageDesc
 
+	linkTables []string
+
 	// Extra package-specific settings that don't come from syscfg.  For
 	// example, SELFTEST gets set when the newt test command is used.
 	injectedSettings *cfgv.Settings
@@ -145,6 +147,10 @@ func (pkg *LocalPackage) Desc() *PackageDesc {
 	return pkg.desc
 }
 
+func (pkg *LocalPackage) LinkTables() []string {
+	return pkg.linkTables
+}
+
 func (pkg *LocalPackage) SetName(name string) {
 	pkg.name = name
 }
@@ -195,6 +201,15 @@ func (pkg *LocalPackage) readDesc(yc ycfg.YCfg) (*PackageDesc, error) {
 	util.OneTimeWarningError(err)
 
 	return pdesc, nil
+}
+
+func (pkg *LocalPackage) readLinkTables(yc ycfg.YCfg) ([]string, error) {
+	var err error
+
+	sections, err := yc.GetValStringSlice("pkg.link_tables", nil)
+	util.OneTimeWarningError(err)
+
+	return sections, nil
 }
 
 func (pkg *LocalPackage) sequenceString(key string) string {
@@ -360,6 +375,8 @@ func (pkg *LocalPackage) Load() error {
 	if err != nil {
 		return err
 	}
+
+	pkg.linkTables, err = pkg.readLinkTables(pkg.PkgY)
 
 	// Load syscfg settings.
 	pkg.SyscfgY, err = config.ReadFile(pkg.SyscfgYamlPath())

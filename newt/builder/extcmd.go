@@ -184,6 +184,47 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	return nil
 }
 
+func getLinkTableEntry(name string) string {
+	indent := "        "
+
+	entry := indent + "__" + name + "_start__ = .;\n" +
+		indent + "KEEP(*(." + name + "))\n" +
+		indent + "__" + name + "_end__ = .;\n\n"
+
+	return entry
+}
+
+func (t *TargetBuilder) generateLinkTables() {
+	var s []string
+
+	for _, pkg := range t.res.LpkgRpkgMap {
+		s = append(s, pkg.Lpkg.LinkTables()...)
+	}
+
+	if len(s) == 0 {
+		return
+	}
+
+	dir := GeneratedBaseDir(t.target.FullName()) + "/link/include"
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		log.Error("Generate link tables error:\n", err)
+		return
+	}
+
+	linkHeader, err := os.Create(dir + "/link_tables.ld.h")
+	if err != nil {
+		log.Error("Generate link tables error:\n", err)
+		return
+	}
+
+	for _, linkTable := range s {
+		linkHeader.WriteString(getLinkTableEntry(linkTable))
+	}
+
+}
+
+//link tables
 // execPreBuildCmds runs the target's set of pre-build user commands.  It is an
 // error if any command fails (exits with a nonzero status).
 func (t *TargetBuilder) execPreBuildCmds(workDir string) error {

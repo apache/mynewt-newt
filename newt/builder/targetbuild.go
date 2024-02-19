@@ -581,6 +581,8 @@ func (t *TargetBuilder) Build() error {
 		os.RemoveAll(workDir)
 	}()
 
+	t.generateLinkTables()
+
 	// Execute the set of pre-build user scripts.
 	if err := t.execPreBuildCmds(workDir); err != nil {
 		return err
