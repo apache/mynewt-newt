@@ -241,6 +241,10 @@ func (inst *Installer) shouldUpgradeRepo(
 		return true, nil
 	}
 
+	if r.IsUpgradedFromProjectYml() {
+		return false, nil
+	}
+
 	if !r.VersionsEqual(*curVer, destVer) {
 		return true, nil
 	}
@@ -589,6 +593,9 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 		destVer := vm[r.Name()]
 		if err := r.Upgrade(destVer); err != nil {
 			return err
+		}
+		if r.IsFromProjectYml() {
+			r.SetIsUpgradedFromProjectYml()
 		}
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"%s successfully upgraded to version %s\n",
