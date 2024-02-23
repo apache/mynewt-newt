@@ -172,6 +172,15 @@ func NewProject(dir string, download bool) (*Project, error) {
 	return proj, nil
 }
 
+func (proj *Project) isRepoAdded(r *repo.Repo) bool {
+	for _, pr := range proj.repos {
+		if pr.Name() == r.Name() {
+			return true
+		}
+	}
+	return false
+}
+
 func (proj *Project) GetPkgRepos() error {
 
 	for _, pkgList := range proj.packages {
@@ -199,10 +208,13 @@ func (proj *Project) GetPkgRepos() error {
 								repoName, fields["vers"], err.Error())
 						}
 						r.SetPkgName(pkg.Name())
-						if err := proj.addRepo(r, true); err != nil {
-							return err
+
+						if !proj.isRepoAdded(r) {
+							if err := proj.addRepo(r, true); err != nil {
+								return err
+							}
+							proj.rootRepoReqs[repoName] = verReq
 						}
-						proj.rootRepoReqs[repoName] = verReq
 					}
 				}
 			}
@@ -623,7 +635,7 @@ func (proj *Project) loadConfig(download bool) error {
 						"%s (%s)",
 					repoName, fields["vers"], err.Error())
 			}
-
+			r.SetIsFromProjectYml()
 			if err := proj.addRepo(r, download); err != nil {
 				return err
 			}
