@@ -61,6 +61,9 @@ type Downloader interface {
 	// Fetches all remotes.
 	Fetch(path string) error
 
+	// Fetches specific commit
+	FetchCommit(path string, commit string) error
+
 	// Checks out the specified commit (hash, tag, or branch).  Always puts the
 	// repo in a "detached head" state.
 	Checkout(path string, commit string) error
@@ -774,6 +777,11 @@ func (gd *GithubDownloader) Fetch(repoDir string) error {
 	})
 }
 
+func (gd *GithubDownloader) FetchCommit(repoDir string, commit string) error {
+	_, err := executeGitCommand(repoDir, []string{"fetch", "--depth=1", "origin", commit}, true)
+	return err
+}
+
 func (gd *GithubDownloader) password() string {
 	if gd.Password != "" {
 		return gd.Password
@@ -943,6 +951,11 @@ func (gd *GitDownloader) Fetch(repoDir string) error {
 	})
 }
 
+func (gd *GitDownloader) FetchCommit(repoDir string, commit string) error {
+	_, err := executeGitCommand(repoDir, []string{"fetch", "--depth=1", "origin", commit}, true)
+	return err
+}
+
 func (gd *GitDownloader) FetchFile(
 	commit string, path string, filename string, dstDir string) error {
 
@@ -1041,6 +1054,11 @@ func (ld *LocalDownloader) FetchFile(
 func (ld *LocalDownloader) Fetch(path string) error {
 	os.RemoveAll(path)
 	return ld.Clone(ld.MainBranch(), path)
+}
+
+func (ld *LocalDownloader) FetchCommit(path string, commit string) error {
+	_, err := executeGitCommand(path, []string{"fetch", "--depth=1", "origin", commit}, true)
+	return err
 }
 
 func (ld *LocalDownloader) Checkout(path string, commit string) error {
