@@ -39,6 +39,7 @@ var NewtBlinkyTag string = "master"
 var NewtNumJobs int
 var NewtForce bool
 var NewtAsk bool
+var NewtNoDeps bool
 
 const CORE_REPO_NAME string = "apache-mynewt-core"
 const ARDUINO_ZERO_REPO_NAME string = "mynewt_arduino_zero"

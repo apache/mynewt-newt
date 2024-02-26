@@ -198,8 +198,10 @@ func (inst *Installer) ensureDepsInList(repos []*repo.Repo,
 			deps = r.DepsForVersion(vm[r.Name()])
 		}
 		for _, d := range deps {
-			depRepo := inst.repos[d.Name]
-			result = append(result, recurse(depRepo)...)
+			depRepo, ok := inst.repos[d.Name]
+			if ok {
+				result = append(result, recurse(depRepo)...)
+			}
 		}
 
 		return result
@@ -414,7 +416,7 @@ func (inst *Installer) versionMapRepos(
 
 // Calculates a map of repos and version numbers that should be included in an
 // install or upgrade operation.
-func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
+func (inst *Installer) calcVersionMap(candidates []*repo.Repo, noDeps bool) (
 	deprepo.VersionMap, error) {
 
 	// Repos that depend on any specified repos must also be considered during
@@ -461,7 +463,7 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 
 	// Construct a repo dependency graph from the `project.yml` version
 	// requirements and from each repo's dependency list.
-	dg, err := deprepo.BuildDepGraph(inst.repos, inst.reqs)
+	dg, err := deprepo.BuildDepGraph(inst.repos, inst.reqs, noDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -548,13 +550,13 @@ func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 
 // Installs or upgrades the specified set of repos.
 func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
-	ask bool) error {
+	ask bool, noDeps bool) error {
 
 	if err := verifyRepoDirtyState(candidates, force); err != nil {
 		return err
 	}
 
-	vm, err := inst.calcVersionMap(candidates)
+	vm, err := inst.calcVersionMap(candidates, noDeps)
 	if err != nil {
 		return err
 	}
@@ -680,7 +682,7 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 			}
 		}
 
-		vm, err := inst.calcVersionMap(repos)
+		vm, err := inst.calcVersionMap(repos, false)
 		if err != nil {
 			return err
 		}
@@ -706,12 +708,14 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 	ri := inst.gatherInfo(r, vm)
 	s := fmt.Sprintf("    * %s:", r.Name())
 
-	s += fmt.Sprintf(" %s", ri.commitHash)
 	if ri.installedVer == nil {
+		s += fmt.Sprintf(" ?")
 		s += ", (not installed)"
 	} else if ri.errorText != "" {
+		s += fmt.Sprintf(" %s", ri.commitHash)
 		s += fmt.Sprintf(", (unknown: %s)", ri.errorText)
 	} else {
+		s += fmt.Sprintf(" %s", ri.commitHash)
 		if ri.installedVer.Commit == "" {
 			s += fmt.Sprintf(", %s", ri.installedVer.String())
 		}
@@ -725,7 +729,7 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 }
 
-// remoteRepoInfo prints information about the specified local repo (i.e., the
+// localRepoInfo prints information about the specified local repo (i.e., the
 // project itself).  It does nothing if the project is not a git repo.
 func (inst *Installer) localRepoInfo(r *repo.Repo) {
 	ri := inst.gatherInfo(r, nil)

@@ -127,14 +127,15 @@ func makeRepoPredicate(repoNames []string) func(r *repo.Repo) bool {
 }
 
 func upgradeRunCmd(cmd *cobra.Command, args []string) {
-	proj := TryGetOrDownloadProject()
+	proj := TryGetOrDownloadProject(newtutil.NewtNoDeps, args)
 	interfaces.SetProject(proj)
 
-	proj.GetPkgRepos()
+	proj.GetPkgRepos(newtutil.NewtNoDeps, args)
 
 	pred := makeRepoPredicate(args)
 	if err := proj.UpgradeIf(
-		newtutil.NewtForce, newtutil.NewtAsk, pred); err != nil {
+		newtutil.NewtForce, newtutil.NewtAsk, newtutil.NewtNoDeps,
+		args, pred); err != nil {
 
 		NewtUsage(nil, err)
 	}
@@ -213,6 +214,9 @@ func AddProjectCommands(cmd *cobra.Command) {
 		"Force upgrade of the repositories to latest state in project.yml")
 	upgradeCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
 		"ask", "a", false, "Prompt user before upgrading any repos")
+	upgradeCmd.PersistentFlags().BoolVarP(&newtutil.NewtNoDeps,
+		"no-deps", "n", false,
+		"Don't upgrade dependencies when repos are provided")
 
 	cmd.AddCommand(upgradeCmd)
 
