@@ -342,7 +342,7 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Making the following changes to the project:\n")
+		"Trying to make the following changes to the project:\n")
 
 	names := vm.SortedNames()
 	for _, name := range names {
@@ -488,46 +488,6 @@ func (inst *Installer) calcVersionMap(candidates []*repo.Repo) (
 	return vm, nil
 }
 
-// Checks if any repos in the specified slice are in a dirty state.  If any
-// repos are dirty and `force` is *not* enabled, an error is returned.  If any
-// repos are dirty and `force` is enabled, a warning is displayed.
-func verifyRepoDirtyState(repos []*repo.Repo, force bool) error {
-	// [repo] => dirty-state.
-	var m map[*repo.Repo]string
-
-	// Collect all dirty repos and insert them into m.
-	for _, r := range repos {
-		dirtyState, err := r.DirtyState()
-		if err != nil {
-			return err
-		}
-
-		if dirtyState != "" {
-			if m == nil {
-				m = make(map[*repo.Repo]string)
-				m[r] = dirtyState
-			}
-		}
-	}
-
-	if len(m) > 0 {
-		s := "some repos are in a dirty state:\n"
-		for r, d := range m {
-			s += fmt.Sprintf("    %s: contains %s\n", r.Name(), d)
-		}
-
-		if !force {
-			s += "Specify the `-f` (force) switch to attempt anyway"
-			return util.NewNewtError(s)
-		} else {
-			util.OneTimeWarning("%s", s)
-		}
-	}
-
-	return nil
-
-}
-
 func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 	var errors []string
 
@@ -553,10 +513,6 @@ func verifyNewtCompat(repos []*repo.Repo, vm deprepo.VersionMap) error {
 // Installs or upgrades the specified set of repos.
 func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 	ask bool) error {
-
-	if err := verifyRepoDirtyState(candidates, force); err != nil {
-		return err
-	}
 
 	vm, err := inst.calcVersionMap(candidates)
 	if err != nil {
@@ -591,6 +547,22 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 	// Upgrade each repo in the version map.
 	for _, r := range repos {
 		destVer := vm[r.Name()]
+		dirtyState, err := r.DirtyState()
+		if err != nil {
+			return err
+		}
+
+		if dirtyState != "" {
+			if !force {
+				util.StatusMessage(util.VERBOSITY_DEFAULT,
+					"%s is in dirty state, it won't be upgraded\n",
+					r.Name())
+				continue
+			} else {
+				util.OneTimeWarning("forced update of repo in dirty state: %s", r.Name())
+			}
+		}
+
 		if err := r.Upgrade(destVer); err != nil {
 			return err
 		}
