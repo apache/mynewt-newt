@@ -197,14 +197,6 @@ func getLinkTableEntry(name string) string {
 func (t *TargetBuilder) generateLinkTables() {
 	var s []string
 
-	for _, pkg := range t.res.LpkgRpkgMap {
-		s = append(s, pkg.Lpkg.LinkTables()...)
-	}
-
-	if len(s) == 0 {
-		return
-	}
-
 	dir := GeneratedBaseDir(t.target.FullName()) + "/link/include"
 	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
@@ -215,6 +207,14 @@ func (t *TargetBuilder) generateLinkTables() {
 	linkHeader, err := os.Create(dir + "/link_tables.ld.h")
 	if err != nil {
 		log.Error("Generate link tables error:\n", err)
+		return
+	}
+
+	for _, pkg := range t.res.LpkgRpkgMap {
+		s = append(s, pkg.Lpkg.LinkTables()...)
+	}
+
+	if len(s) == 0 {
 		return
 	}
 
