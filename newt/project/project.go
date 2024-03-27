@@ -44,6 +44,7 @@ import (
 var globalProject *Project = nil
 
 const PROJECT_FILE_NAME = "project.yml"
+const PATCHES_DIR = "patches"
 
 var ignoreSearchDirs []string = []string{
 	"bin",
@@ -95,7 +96,7 @@ func initProject(dir string, download bool) error {
 
 	if download {
 		err = globalProject.UpgradeIf(newtutil.NewtForce, newtutil.NewtAsk,
-			                      func(r *repo.Repo) bool { return !r.IsExternal(r.Path()) })
+			func(r *repo.Repo) bool { return !r.IsExternal(r.Path()) })
 		if err != nil {
 			return err
 		}
@@ -214,6 +215,21 @@ func (proj *Project) GetPkgRepos() error {
 								return err
 							}
 							proj.rootRepoReqs[repoName] = verReq
+						}
+
+						if _, err := os.Stat(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name()); os.IsNotExist(err) {
+							continue
+						} else {
+							dirEntries, err := os.ReadDir(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name())
+							if err != nil {
+								return err
+							}
+
+							for _, e := range dirEntries {
+								if strings.HasSuffix(e.Name(), ".patch") {
+									r.AddPatch(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name() + "/" + e.Name())
+								}
+							}
 						}
 					}
 				}

@@ -602,6 +602,13 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 			r.Name(), destVer.String())
 	}
 
+	for _, r := range candidates {
+		err = r.ApplyPatches()
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
