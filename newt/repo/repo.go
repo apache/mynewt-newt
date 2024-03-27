@@ -44,6 +44,7 @@ const REPO_DEFAULT_PERMS = 0755
 
 const REPO_FILE_NAME = "repository.yml"
 const REPOS_DIR = "repos"
+const PATCHES_DIR = "patches"
 
 type Repo struct {
 	name       string
@@ -76,6 +77,10 @@ type Repo struct {
 
 	hasSubmodules bool
 	submodules    []string
+
+	// Used with external repos. If package that adds external repository provides patches for it,
+	// the paths to them are going to be stored here.
+	patches []string
 }
 
 type RepoDependency struct {
@@ -122,6 +127,19 @@ func (r *Repo) ignoreDir(dir string) bool {
 
 func (r *Repo) Downloader() downloader.Downloader {
 	return r.downloader
+}
+
+func (r *Repo) AddPatch(path string) {
+	r.patches = append(r.patches, path)
+}
+
+func (r *Repo) ApplyPatches() error {
+	if len(r.patches) == 0 {
+		return nil
+	}
+
+	err := r.Downloader().ApplyPatches(r.Path(), r.patches)
+	return err
 }
 
 func (repo *Repo) FilteredSearchList(

@@ -602,6 +602,16 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 			r.Name(), destVer.String())
 	}
 
+	for _, r := range candidates {
+		err = r.ApplyPatches()
+		if err != nil {
+			util.StatusMessage(util.VERBOSITY_DEFAULT,
+				"Applying patches in repository %s failed\n", r.Name())
+
+			return err
+		}
+	}
+
 	return nil
 }
 
