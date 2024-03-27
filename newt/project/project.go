@@ -44,6 +44,7 @@ import (
 var globalProject *Project = nil
 
 const PROJECT_FILE_NAME = "project.yml"
+const PATCHES_DIR = "patches"
 
 var ignoreSearchDirs []string = []string{
 	"bin",
@@ -95,7 +96,7 @@ func initProject(dir string, download bool) error {
 
 	if download {
 		err = globalProject.UpgradeIf(newtutil.NewtForce, newtutil.NewtAsk,
-			                      func(r *repo.Repo) bool { return !r.IsExternal(r.Path()) })
+			func(r *repo.Repo) bool { return !r.IsExternal(r.Path()) })
 		if err != nil {
 			return err
 		}
@@ -182,7 +183,6 @@ func (proj *Project) isRepoAdded(r *repo.Repo) bool {
 }
 
 func (proj *Project) GetPkgRepos() error {
-
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
 			if pkg.PkgConfig().HasKey("repository") {
@@ -215,10 +215,38 @@ func (proj *Project) GetPkgRepos() error {
 							}
 							proj.rootRepoReqs[repoName] = verReq
 						}
+
+						if _, err := os.Stat(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name()); os.IsNotExist(err) {
+							continue
+						} else {
+							dirEntries, err := os.ReadDir(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name())
+							if err != nil {
+								return err
+							}
+
+							for _, e := range dirEntries {
+								if strings.HasSuffix(e.Name(), ".patch") {
+									r.AddPatch(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name() + "/" + e.Name())
+								}
+							}
+						}
 					}
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (proj *Project) SetGitEnvVariables() error {
+	err := os.Setenv("GIT_COMMITTER_NAME", "newt")
+	if err != nil {
+		return err
+	}
+
+	err = os.Setenv("GIT_COMMITTER_EMAIL", "dev@mynewt.apache.org")
+	if err != nil {
+		return err
 	}
 	return nil
 }
