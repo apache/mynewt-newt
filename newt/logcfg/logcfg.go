@@ -53,6 +53,9 @@ type Log struct {
 
 	// The level assigned to this log.
 	Level val.ValSetting
+
+	// The log's string name
+	NameStr string
 }
 
 // Map of: [log-name] => log
@@ -147,8 +150,15 @@ func parseOneLog(name string, lpkg *pkg.LocalPackage, logMapItf interface{},
 			"\"%s\" contains invalid \"level\": %s", name, err.Error())
 	}
 
+	nameStr := logMap["name"]
+	if nameStr == "" {
+		// If there is no "name:" node, use log id without _LOG suffix
+		nameStr = "\"" + strings.Replace(name, "_LOG", "", 1) + "\""
+	}
+
 	cl.Module = mod
 	cl.Level = level
+	cl.NameStr = nameStr
 
 	return cl, nil
 }
@@ -284,8 +294,28 @@ func (lcfg *LCfg) writeLogMacros(w io.Writer) {
 	}
 }
 
+// Write log C macro definitions for each log in the log configuration.
+func (lcfg *LCfg) writeLogModuleNames(w io.Writer) {
+	logs := lcfg.sortedLogs()
+	fmt.Fprintf(w, "\n")
+	for _, l := range logs {
+		fmt.Fprintf(w,
+			"#define %s_NAME %s\n",
+			l.Name, l.NameStr)
+	}
+}
+
+func (lcfg *LCfg) writeLogModuleCases(w io.Writer) {
+	logs := lcfg.sortedLogs()
+	for _, l := range logs {
+		fmt.Fprintf(w,
+			"    case %s: return %s_NAME;\n",
+			l.Module.Value, l.Name)
+	}
+}
+
 // Writes a logcfg header file to the specified writer.
-func (lcfg *LCfg) write(w io.Writer) {
+func (lcfg *LCfg) writeHeader(w io.Writer) {
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_LOGCFG_\n")
@@ -296,16 +326,33 @@ func (lcfg *LCfg) write(w io.Writer) {
 		fmt.Fprintf(w, "#include \"log_common/log_common.h\"\n")
 
 		lcfg.writeLogMacros(w)
+		lcfg.writeLogModuleNames(w)
 		fmt.Fprintf(w, "\n")
 	}
+	fmt.Fprintf(w, "const char *logcfg_log_module_name(uint8_t id);\n\n")
 
 	fmt.Fprintf(w, "#endif\n")
 }
 
+// Writes a logcfg src file to the specified writer.
+func (lcfg *LCfg) writeSource(w io.Writer) {
+	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+
+	fmt.Fprintf(w, "#include <stdint.h>\n")
+	fmt.Fprintf(w, "#include <stdlib.h>\n")
+	fmt.Fprintf(w, "#include <logcfg/logcfg.h>\n\n")
+	fmt.Fprintf(w, "const char *\nlogcfg_log_module_name(uint8_t id)\n{\n")
+	fmt.Fprintf(w, "    switch (id) {\n")
+	lcfg.writeLogModuleCases(w)
+	fmt.Fprintf(w, "    default: return NULL;\n    }\n}\n")
+}
+
 // Ensures an up-to-date logcfg header is written for the target.
-func (lcfg *LCfg) EnsureWritten(includeDir string) error {
+func (lcfg *LCfg) EnsureWritten(includeDir string, srcDir string, targetName string) error {
 	buf := bytes.Buffer{}
-	lcfg.write(&buf)
+	srcBuf := bytes.Buffer{}
+	lcfg.writeHeader(&buf)
+	lcfg.writeSource(&srcBuf)
 
 	path := includeDir + "/" + HEADER_PATH
 
@@ -313,20 +360,31 @@ func (lcfg *LCfg) EnsureWritten(includeDir string) error {
 	if err != nil {
 		return err
 	}
-	if !writeReqd {
+	if writeReqd {
+		log.Debugf("logcfg changed; writing header file (%s).", path)
+
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+
+		if err := ioutil.WriteFile(path, buf.Bytes(), 0644); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+	} else {
 		log.Debugf("logcfg unchanged; not writing header file (%s).", path)
-		return nil
 	}
 
-	log.Debugf("logcfg changed; writing header file (%s).", path)
+	path = fmt.Sprintf("%s/%s-logcfg.c", srcDir, targetName)
+	writeReqd, err = util.FileContentsChanged(path, srcBuf.Bytes())
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return util.NewNewtError(err.Error())
+	if writeReqd {
+		log.Debugf("logcfg changed; writing source file (%s).", path)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+		if err := os.WriteFile(path, srcBuf.Bytes(), 0644); err != nil {
+			return util.NewNewtError(err.Error())
+		}
 	}
-
-	if err := ioutil.WriteFile(path, buf.Bytes(), 0644); err != nil {
-		return util.NewNewtError(err.Error())
-	}
-
 	return nil
 }

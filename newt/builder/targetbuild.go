@@ -304,7 +304,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		return err
 	}
 
-	if err := t.res.LCfg.EnsureWritten(incDir); err != nil {
+	if err := t.res.LCfg.EnsureWritten(incDir, srcDir, pkg.ShortName(t.target.Package())); err != nil {
 		return err
 	}
 
