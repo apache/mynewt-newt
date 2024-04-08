@@ -61,6 +61,7 @@ type CompilerInfo struct {
 	Aflags      []string
 	IgnoreFiles []*regexp.Regexp
 	IgnoreDirs  []*regexp.Regexp
+	IgnorePkgs  []*regexp.Regexp
 }
 
 type CompileCommand struct {
@@ -170,6 +171,7 @@ func NewCompilerInfo() *CompilerInfo {
 	ci.Aflags = []string{}
 	ci.IgnoreFiles = []*regexp.Regexp{}
 	ci.IgnoreDirs = []*regexp.Regexp{}
+	ci.IgnorePkgs = []*regexp.Regexp{}
 
 	return ci
 }
@@ -250,6 +252,7 @@ func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Aflags = addFlags("aflag", ci.Aflags, newCi.Aflags)
 	ci.IgnoreFiles = append(ci.IgnoreFiles, newCi.IgnoreFiles...)
 	ci.IgnoreDirs = append(ci.IgnoreDirs, newCi.IgnoreDirs...)
+	ci.IgnorePkgs = append(ci.IgnorePkgs, newCi.IgnorePkgs...)
 }
 
 func NewCompiler(compilerDir string, dstDir string,

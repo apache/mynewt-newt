@@ -214,6 +214,21 @@ func (bpkg *BuildPackage) CompilerInfo(
 		ci.IgnoreDirs = append(ci.IgnoreDirs, re)
 	}
 
+	ci.IgnorePkgs = []*regexp.Regexp{}
+
+	ignPkgs, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+		"pkg.ign_pkgs", settings)
+	util.OneTimeWarningError(err)
+
+	for _, str := range ignPkgs {
+		re, err := regexp.Compile(str)
+		if err != nil {
+			return nil, util.NewNewtError(
+				"Ignore pkgs, unable to compile re: " + err.Error())
+		}
+		ci.IgnorePkgs = append(ci.IgnorePkgs, re)
+	}
+
 	bpkg.SourceDirectories, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
 		"pkg.source_dirs", settings)
 	util.OneTimeWarningError(err)
