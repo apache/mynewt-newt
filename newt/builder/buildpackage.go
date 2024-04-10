@@ -166,6 +166,16 @@ func (bpkg *BuildPackage) CompilerInfo(
 	util.OneTimeWarningError(err)
 	expandFlags(ci.Aflags)
 
+	var strArray []string
+	// // Check if the package should be linked as whole or not
+	strArray, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.whole_archive", settings)
+	util.OneTimeWarningError(err)
+	for _, str := range strArray {
+		if strings.Contains(str, "true") {
+			ci.WholeArch = true
+		}
+	}
+
 	// Package-specific injected settings get specified as C flags on the
 	// command line.
 	for _, k := range bpkg.rpkg.Lpkg.InjectedSettings().Names() {
