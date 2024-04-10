@@ -72,14 +72,20 @@ func newRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	commit, err := dl.LatestRc(tmpdir, newtutil.NewtBlinkyTag)
-	if err != nil {
-		NewtUsage(nil, err)
-	}
-
+	commit := newtutil.NewtBlinkyTag
 	err = dl.Checkout(tmpdir, commit)
+
+	/* If checkout with final tag fails, try to find latest rc tag */
 	if err != nil {
-		NewtUsage(nil, err)
+		commit, err = dl.LatestRc(tmpdir, newtutil.NewtBlinkyTag)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+
+		err = dl.Checkout(tmpdir, commit)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Installing "+
@@ -125,6 +131,7 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	interfaces.SetProject(proj)
 
 	proj.GetPkgRepos()
+	proj.SetGitEnvVariables()
 
 	pred := makeRepoPredicate(args)
 	if err := proj.UpgradeIf(

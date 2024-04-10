@@ -30,8 +30,8 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-var NewtVersion = Version{1, 10, 9900}
-var NewtVersionStr = "1.11.0-dev"
+var NewtVersion = Version{1, 12, 9900}
+var NewtVersionStr = "1.13.0-dev"
 var NewtGitHash = "unknown"
 var NewtDate = "unknown"
 

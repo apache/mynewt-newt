@@ -284,7 +284,11 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 		log.Warn(line)
 	}
 
-	for _, line := range t.res.ExperimentalWarning() {
+	for _, line := range t.res.CfgExperimentalWarning() {
+		log.Warn(line)
+	}
+
+	for _, line := range t.res.PkgExperimentalWarning() {
 		log.Warn(line)
 	}
 
@@ -292,7 +296,11 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 	srcDir := GeneratedSrcDir(t.target.FullName())
 
 	lpkgs := resolve.RpkgSliceToLpkgSlice(t.res.MasterSet.Rpkgs)
-	if err := syscfg.EnsureWritten(t.res.Cfg, incDir, lpkgs); err != nil {
+	apis := []string{}
+	for api := range t.res.ApiMap {
+		apis = append(apis, api)
+	}
+	if err := syscfg.EnsureWritten(t.res.Cfg, incDir, lpkgs, apis); err != nil {
 		return err
 	}
 
@@ -576,6 +584,8 @@ func (t *TargetBuilder) Build() error {
 		log.Debugf("removing user work dir: %s", workDir)
 		os.RemoveAll(workDir)
 	}()
+
+	t.generateLinkTables()
 
 	// Execute the set of pre-build user scripts.
 	if err := t.execPreBuildCmds(workDir); err != nil {

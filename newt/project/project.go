@@ -44,6 +44,7 @@ import (
 var globalProject *Project = nil
 
 const PROJECT_FILE_NAME = "project.yml"
+const PATCHES_DIR = "patches"
 
 var ignoreSearchDirs []string = []string{
 	"bin",
@@ -92,6 +93,15 @@ func initProject(dir string, download bool) error {
 	if err != nil {
 		return err
 	}
+
+	if download {
+		err = globalProject.UpgradeIf(newtutil.NewtForce, newtutil.NewtAsk,
+			func(r *repo.Repo) bool { return !r.IsExternal(r.Path()) })
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := globalProject.loadPackageList(); err != nil {
 		return err
 	}
@@ -163,8 +173,16 @@ func NewProject(dir string, download bool) (*Project, error) {
 	return proj, nil
 }
 
-func (proj *Project) GetPkgRepos() error {
+func (proj *Project) isRepoAdded(r *repo.Repo) bool {
+	for _, pr := range proj.repos {
+		if pr.Name() == r.Name() {
+			return true
+		}
+	}
+	return false
+}
 
+func (proj *Project) GetPkgRepos() error {
 	for _, pkgList := range proj.packages {
 		for _, pkg := range *pkgList {
 			if pkg.PkgConfig().HasKey("repository") {
@@ -190,14 +208,45 @@ func (proj *Project) GetPkgRepos() error {
 								repoName, fields["vers"], err.Error())
 						}
 						r.SetPkgName(pkg.Name())
-						if err := proj.addRepo(r, true); err != nil {
-							return err
+
+						if !proj.isRepoAdded(r) {
+							if err := proj.addRepo(r, true); err != nil {
+								return err
+							}
+							proj.rootRepoReqs[repoName] = verReq
 						}
-						proj.rootRepoReqs[repoName] = verReq
+
+						if _, err := os.Stat(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name()); os.IsNotExist(err) {
+							continue
+						} else {
+							dirEntries, err := os.ReadDir(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name())
+							if err != nil {
+								return err
+							}
+
+							for _, e := range dirEntries {
+								if strings.HasSuffix(e.Name(), ".patch") {
+									r.AddPatch(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name() + "/" + e.Name())
+								}
+							}
+						}
 					}
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (proj *Project) SetGitEnvVariables() error {
+	err := os.Setenv("GIT_COMMITTER_NAME", "newt")
+	if err != nil {
+		return err
+	}
+
+	err = os.Setenv("GIT_COMMITTER_EMAIL", "dev@mynewt.apache.org")
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -614,7 +663,7 @@ func (proj *Project) loadConfig(download bool) error {
 						"%s (%s)",
 					repoName, fields["vers"], err.Error())
 			}
-
+			r.SetIsFromProjectYml()
 			if err := proj.addRepo(r, download); err != nil {
 				return err
 			}

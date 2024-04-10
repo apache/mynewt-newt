@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"mynewt.apache.org/newt/newt/ycfg"
 	"os"
 	"sort"
 	"strings"
@@ -245,6 +246,50 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 				util.StatusMessage(util.VERBOSITY_DEFAULT, "    %s=%s\n",
 					k, kvPairs[k])
 			}
+		}
+	}
+}
+
+func printCflags(appCflags []ycfg.YCfgEntry) {
+	for _, f := range appCflags {
+		if itfVals, ok := f.Value.([]interface{}); ok {
+			for _, itfVal := range itfVals {
+				if strVal, ok := itfVal.(string); ok {
+					fmt.Println(strVal)
+				}
+			}
+		}
+	}
+}
+
+func targetInfoCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify target name"))
+	}
+
+	TryGetProject()
+
+	b, err := TargetBuilderForTargetOrUnittest(args[0])
+	if err != nil {
+		NewtUsage(cmd, err)
+	}
+
+	if err := b.PrepBuild(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	fmt.Println("Packages containing app.cflags:")
+
+	for _, rpkg := range b.AppBuilder.SortedRpkgs() {
+		appCflags, err := rpkg.Lpkg.PkgY.Get("app.cflags", nil)
+		if err != nil {
+			NewtUsage(nil, err)
+		}
+		if appCflags != nil {
+			fmt.Println(rpkg.Lpkg.Name())
+			printCflags(appCflags)
+			fmt.Println("")
 		}
 	}
 }
@@ -936,6 +981,21 @@ func AddTargetCommands(cmd *cobra.Command) {
 	AddTabCompleteFn(revdepvizCmd, func() []string {
 		return append(targetList(), unittestList()...)
 	})
+
+	infoHelpText := "Shows which packages contain app cflags in the target specified " +
+		"by <target-name>."
+	infoHelpEx := "  newt target info <target-name>\n"
+	infoHelpEx += "  newt target info my_target1"
+
+	infoCmd := &cobra.Command{
+		Use:     "info",
+		Short:   "Show packages with global cflags",
+		Long:    infoHelpText,
+		Example: infoHelpEx,
+		Run:     targetInfoCmd,
+	}
+	targetCmd.AddCommand(infoCmd)
+	AddTabCompleteFn(infoCmd, targetList)
 
 	for _, cmd := range targetCfgCmdAll() {
 		targetCmd.AddCommand(cmd)

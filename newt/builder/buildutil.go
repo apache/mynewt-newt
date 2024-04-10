@@ -259,6 +259,8 @@ type UserEnvParams struct {
 	UserSrcDir   string // "" if none
 	UserIncDir   string // "" if none
 	WorkDir      string
+	GeneratedDir string
+	TergetBinDir string
 }
 
 // UserEnvVars calculates the set of environment variables required by external
@@ -285,6 +287,8 @@ func UserEnvVars(params UserEnvParams) map[string]string {
 	}
 
 	m["MYNEWT_BUILD_PROFILE"] = params.BuildProfile
+	m["MYNEWT_BUILD_GENERATED_DIR"] = params.GeneratedDir
+	m["MYNEWT_BIN_DIR"] = params.TergetBinDir
 
 	return m
 }
@@ -324,6 +328,8 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 
 	env["MYNEWT_INCLUDE_PATH"] = strings.Join(b.compilerInfo.Includes, ":")
 	env["MYNEWT_CFLAGS"] = strings.Join(b.compilerInfo.Cflags, " ")
+	env["MYNEWT_TARGET_PATH"] = b.targetPkg.rpkg.Lpkg.FullName()
+	env["MYNEWT_APP_PATH"] = b.appPkg.rpkg.Lpkg.FullName()
 
 	pkgNames := []string{}
 	for _, p := range b.PkgMap {

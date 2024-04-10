@@ -1599,7 +1599,19 @@ func writePackages(lpkgs []*pkg.LocalPackage, w io.Writer) {
 	}
 }
 
-func write(cfg Cfg, lpkgs []*pkg.LocalPackage, w io.Writer) {
+func writeApis(apis []string, w io.Writer) {
+	for i, api := range apis {
+		apis[i] = cfgPkgIllegalChar.ReplaceAllLiteralString(api, "_")
+	}
+	sort.Strings(apis)
+
+	fmt.Fprintf(w, "/*** Included APIs */\n")
+	for _, name := range apis {
+		fmt.Fprintf(w, "#define MYNEWT_API_%s 1\n", name)
+	}
+}
+
+func write(cfg Cfg, lpkgs []*pkg.LocalPackage, apis []string, w io.Writer) {
 	fmt.Fprintf(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_SYSCFG_\n")
@@ -1619,10 +1631,13 @@ func write(cfg Cfg, lpkgs []*pkg.LocalPackage, w io.Writer) {
 	writePackages(lpkgs, w)
 	fmt.Fprintf(w, "\n")
 
+	writeApis(apis, w)
+	fmt.Fprintf(w, "\n")
+
 	fmt.Fprintf(w, "#endif\n")
 }
 
-func EnsureWritten(cfg Cfg, includeDir string, lpkgs []*pkg.LocalPackage) error {
+func EnsureWritten(cfg Cfg, includeDir string, lpkgs []*pkg.LocalPackage, apis []string) error {
 	// XXX: Detect these problems at error text generation time.
 	if err := calcPriorities(cfg, CFG_SETTING_TYPE_TASK_PRIO,
 		SYSCFG_TASK_PRIO_MAX, false); err != nil {
@@ -1631,7 +1646,7 @@ func EnsureWritten(cfg Cfg, includeDir string, lpkgs []*pkg.LocalPackage) error 
 	}
 
 	buf := bytes.Buffer{}
-	write(cfg, lpkgs, &buf)
+	write(cfg, lpkgs, apis, &buf)
 
 	path := includeDir + "/" + HEADER_PATH
 

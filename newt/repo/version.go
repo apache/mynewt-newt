@@ -126,6 +126,15 @@ func (r *Repo) VersionIsValid(ver newtutil.RepoVersion) bool {
 	}
 
 	cs, _ := r.downloader.CommitsFor(r.Path(), ver.Commit)
+
+	// Try to fetch commit if it was not found
+	if len(cs) <= 0 {
+		err := r.Downloader().FetchCommit(r.Path(), ver.Commit)
+		if err != nil {
+			return false
+		}
+		cs, _ = r.downloader.CommitsFor(r.Path(), ver.Commit)
+	}
 	return len(cs) > 0
 }
 

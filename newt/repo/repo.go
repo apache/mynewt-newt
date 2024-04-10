@@ -44,6 +44,7 @@ const REPO_DEFAULT_PERMS = 0755
 
 const REPO_FILE_NAME = "repository.yml"
 const REPOS_DIR = "repos"
+const PATCHES_DIR = "patches"
 
 type Repo struct {
 	name       string
@@ -66,8 +67,20 @@ type Repo struct {
 	// version => commit
 	vers map[newtutil.RepoVersion]string
 
+	// Since we are calling upgrade twice - first time for repos from project.yml
+	// and second time for repos from packages, we need to keep track on status
+	// of each repo. If repo is defined in project.yml we want to upgrade it only
+	// once so the version from project.yml stays valid. These flags are used for
+	// this purpose.
+	isFromProjectYml         bool
+	isUpgradedFromProjectYml bool
+
 	hasSubmodules bool
 	submodules    []string
+
+	// Used with external repos. If package that adds external repository provides patches for it,
+	// the paths to them are going to be stored here.
+	patches []string
 }
 
 type RepoDependency struct {
@@ -114,6 +127,19 @@ func (r *Repo) ignoreDir(dir string) bool {
 
 func (r *Repo) Downloader() downloader.Downloader {
 	return r.downloader
+}
+
+func (r *Repo) AddPatch(path string) {
+	r.patches = append(r.patches, path)
+}
+
+func (r *Repo) ApplyPatches() error {
+	if len(r.patches) == 0 {
+		return nil
+	}
+
+	err := r.Downloader().ApplyPatches(r.Path(), r.patches)
+	return err
 }
 
 func (repo *Repo) FilteredSearchList(
@@ -199,6 +225,22 @@ func (r *Repo) repoFilePath() string {
 func (r *Repo) patchesFilePath() string {
 	return interfaces.GetProject().Path() + "/" + REPOS_DIR +
 		"/.patches/"
+}
+
+func (r *Repo) IsUpgradedFromProjectYml() bool {
+	return r.isUpgradedFromProjectYml
+}
+
+func (r *Repo) SetIsUpgradedFromProjectYml() {
+	r.isUpgradedFromProjectYml = true
+}
+
+func (r *Repo) IsFromProjectYml() bool {
+	return r.isFromProjectYml
+}
+
+func (r *Repo) SetIsFromProjectYml() {
+	r.isFromProjectYml = true
 }
 
 // Checks for repository.yml file presence in specified repo folder.

@@ -20,6 +20,8 @@
 package builder
 
 import (
+	"mynewt.apache.org/newt/newt/downloader"
+	"mynewt.apache.org/newt/newt/repo"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -351,4 +353,47 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	}
 
 	return incls
+}
+
+func (bpkg *BuildPackage) getModifiedReposNames() []string {
+	var modifiedRepos []string
+
+	settings := bpkg.rpkg.Lpkg.PkgY.AllSettings()
+	for settingName, setting := range settings {
+		if strings.HasPrefix(settingName, "repository") {
+			var version string
+
+			dl := downloader.NewGitDownloader()
+			rName := strings.TrimPrefix(settingName, "repository.")
+			r, _ := repo.NewRepo(rName, dl)
+
+			if util.NodeNotExist(r.Path()) {
+				modifiedRepos = append(modifiedRepos, r.Name())
+				continue
+			}
+
+			currentHash, _ := dl.HashFor(r.Path(), "HEAD")
+
+			aSetting, ok := setting.(map[interface{}]interface{})
+			if ok {
+				for field, value := range aSetting {
+					if field == "vers" {
+						aValue, ok := value.(string)
+						if ok {
+							version = strings.TrimSuffix(aValue, "-commit")
+						}
+					}
+				}
+			}
+
+			expectedHash, _ := dl.HashFor(r.Path(), version)
+			dirtyState, _ := r.DirtyState()
+
+			if currentHash != expectedHash || dirtyState != "" {
+				modifiedRepos = append(modifiedRepos, r.Name())
+			}
+		}
+	}
+
+	return modifiedRepos
 }

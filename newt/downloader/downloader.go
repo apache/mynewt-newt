@@ -61,6 +61,9 @@ type Downloader interface {
 	// Fetches all remotes.
 	Fetch(path string) error
 
+	// Fetches specific commit
+	FetchCommit(path string, commit string) error
+
 	// Checks out the specified commit (hash, tag, or branch).  Always puts the
 	// repo in a "detached head" state.
 	Checkout(path string, commit string) error
@@ -93,6 +96,10 @@ type Downloader interface {
 	//
 	// If such a commit exists, it is returned.  Otherwise, "" is returned.
 	LatestRc(path string, base string) (string, error)
+
+	// Applies patches provided inside "patches" directory.
+	// If no patch is provided function does nothing
+	ApplyPatches(path string, patches []string) error
 
 	// Returns the branch that contains the YAML control files; this option
 	// allows implementers to override "master" as the main branch.
@@ -448,6 +455,26 @@ func (gd *GenericDownloader) Checkout(repoDir string, commit string) error {
 	return err
 }
 
+func (gd *GenericDownloader) ApplyPatches(repoDir string, patches []string) error {
+	cmd := []string{
+		"am",
+	}
+	cmd = append(cmd, patches...)
+
+	_, err := executeGitCommand(repoDir, cmd, true)
+	if err != nil {
+		// Abort git am if applying patches failed
+		cmd = []string{
+			"am",
+			"--abort",
+		}
+		executeGitCommand(repoDir, cmd, true)
+
+		return err
+	}
+	return nil
+}
+
 // Update one submodule tree in a repo (under path)
 func (gd *GenericDownloader) UpdateSubmodule(path string, submodule string) error {
 	cmd := []string{
@@ -774,6 +801,11 @@ func (gd *GithubDownloader) Fetch(repoDir string) error {
 	})
 }
 
+func (gd *GithubDownloader) FetchCommit(repoDir string, commit string) error {
+	_, err := executeGitCommand(repoDir, []string{"fetch", "--depth=1", "origin", commit}, true)
+	return err
+}
+
 func (gd *GithubDownloader) password() string {
 	if gd.Password != "" {
 		return gd.Password
@@ -943,6 +975,11 @@ func (gd *GitDownloader) Fetch(repoDir string) error {
 	})
 }
 
+func (gd *GitDownloader) FetchCommit(repoDir string, commit string) error {
+	_, err := executeGitCommand(repoDir, []string{"fetch", "--depth=1", "origin", commit}, true)
+	return err
+}
+
 func (gd *GitDownloader) FetchFile(
 	commit string, path string, filename string, dstDir string) error {
 
@@ -1041,6 +1078,11 @@ func (ld *LocalDownloader) FetchFile(
 func (ld *LocalDownloader) Fetch(path string) error {
 	os.RemoveAll(path)
 	return ld.Clone(ld.MainBranch(), path)
+}
+
+func (ld *LocalDownloader) FetchCommit(path string, commit string) error {
+	_, err := executeGitCommand(path, []string{"fetch", "--depth=1", "origin", commit}, true)
+	return err
 }
 
 func (ld *LocalDownloader) Checkout(path string, commit string) error {
