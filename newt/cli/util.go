@@ -50,8 +50,6 @@ func NewtUsage(cmd *cobra.Command, err error) {
 			log.Debugf("%+v", err)
 		} else if ne, ok := err.(*util.NewtError); ok {
 			log.Debugf("%s", ne.StackTrace)
-		} else {
-			panic(fmt.Sprintf("unexpected error type: %T", err))
 		}
 
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
