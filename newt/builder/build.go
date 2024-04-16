@@ -322,6 +322,10 @@ func (b *Builder) collectCompileEntriesBpkg(bpkg *BuildPackage) (
 		return nil, err
 	}
 
+	var privateIncCi toolchain.CompilerInfo
+	privateIncCi.Includes = bpkg.privateIncludeDirs(b)
+	c.AddInfo(&privateIncCi)
+
 	srcDirs := []string{}
 
 	if len(bpkg.SourceDirectories) > 0 {
