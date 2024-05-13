@@ -940,18 +940,9 @@ func (b *Builder) CleanArtifacts() {
 	}
 }
 
-func Contains(elements []string, val string) bool {
-	for _, s := range elements {
-		if val == s {
-			return true
-		}
-	}
-	return false
-}
-
 func (b *Builder) AppendModifiedRepos(modifiedRepos []string) {
 	for _, repo := range modifiedRepos {
-		if !Contains(b.modifiedExtRepos, repo) {
+		if !util.SliceContains(b.modifiedExtRepos, repo) {
 			b.modifiedExtRepos = append(b.modifiedExtRepos, repo)
 		}
 	}
