@@ -70,6 +70,9 @@ type Project struct {
 	//                read.
 	repos deprepo.RepoMap
 
+	// Contains names of repositories that will not be upgraded/downloaded.
+	reposIgnored []string
+
 	// The local repository at the top-level of the project.  This repo is
 	// excluded from most repo operations.
 	localRepo *repo.Repo
@@ -188,7 +191,7 @@ func (proj *Project) GetPkgRepos() error {
 			if pkg.PkgConfig().HasKey("repository") {
 				for k, _ := range pkg.PkgConfig().AllSettings() {
 					repoName := strings.TrimPrefix(k, "repository.")
-					if repoName != k {
+					if repoName != k && !util.SliceContains(proj.reposIgnored, repoName) {
 						fields, err := pkg.PkgConfig().GetValStringMapString(k, nil)
 						util.OneTimeWarningError(err)
 
@@ -429,7 +432,7 @@ func (proj *Project) loadRepo(name string, fields map[string]string) (
 	}
 
 	// Read the full repo definition from its `repository.yml` file.
-	if err := r.Read(); err != nil {
+	if err := r.Read(proj.reposIgnored); err != nil {
 		return r, err
 	}
 
@@ -504,7 +507,7 @@ func (proj *Project) loadRepoDeps(download bool) error {
 					newRepos = append(newRepos, depRepo)
 
 					if download {
-						if _, err := depRepo.UpdateDesc(); err != nil {
+						if _, err := depRepo.UpdateDesc(proj.reposIgnored); err != nil {
 							return nil, err
 						}
 					}
@@ -539,7 +542,7 @@ func (proj *Project) downloadRepositoryYmlFiles() error {
 	// specified in the `project.yml` file).
 	for _, r := range proj.repos.Sorted() {
 		if !r.IsLocal() && !r.IsExternal(r.Path()) {
-			if _, err := r.UpdateDesc(); err != nil {
+			if _, err := r.UpdateDesc(proj.reposIgnored); err != nil {
 				return err
 			}
 		}
@@ -628,6 +631,15 @@ func (proj *Project) loadConfig(download bool) error {
 	proj.name, err = yc.GetValString("project.name", nil)
 	util.OneTimeWarningError(err)
 
+	proj.reposIgnored = make([]string, 0)
+	proj.reposIgnored, err = yc.GetValStringSlice("project.repositories.ignored", nil)
+	util.OneTimeWarningError(err)
+
+	if util.SliceContains(proj.reposIgnored, "apache-mynewt-core") {
+		return util.NewNewtError("apache-mynewt-core repository can't be ignored. " +
+			"Please remove it from the ignored repositories list.")
+	}
+
 	// Local repository always included in initialization
 	r, err := repo.NewLocalRepo(proj.name)
 	if err != nil {
@@ -644,7 +656,7 @@ func (proj *Project) loadConfig(download bool) error {
 	// and try to load it.
 	for k, _ := range yc.AllSettings() {
 		repoName := strings.TrimPrefix(k, "repository.")
-		if repoName != k {
+		if repoName != k && !util.SliceContains(proj.reposIgnored, repoName) {
 			fields, err := yc.GetValStringMapString(k, nil)
 			util.OneTimeWarningError(err)
 

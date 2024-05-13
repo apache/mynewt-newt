@@ -30,6 +30,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -1025,4 +1026,21 @@ func DirsAreEqual(dira string, dirb string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// Function that checks if the slice of any type contains a
+// specified value
+func SliceContains(slice interface{}, elem interface{}) bool {
+	s := reflect.ValueOf(slice)
+
+	if s.Kind() != reflect.Slice {
+		panic("SliceContains() called with non-slice type")
+	}
+
+	for i := 0; i < s.Len(); i++ {
+		if reflect.DeepEqual(s.Index(i).Interface(), elem) {
+			return true
+		}
+	}
+	return false
 }
