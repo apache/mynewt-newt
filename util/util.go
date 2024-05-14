@@ -51,6 +51,7 @@ var ShallowCloneDepth int
 var logFile *os.File
 var SkipNewtCompat bool
 var SkipSyscfgRepoHash bool
+var EnableProjectCache bool
 
 func ParseEqualsPair(v string) (string, string, error) {
 	s := strings.Split(v, "=")
