@@ -1036,11 +1036,10 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 	for _, lib := range libList {
 		if lib.WholeArch {
 			cmd = append(cmd, "-Wl,--whole-archive")
-		}
-		cmd = append(cmd, lib.File)
-		if lib.WholeArch {
+		} else {
 			cmd = append(cmd, "-Wl,--no-whole-archive")
 		}
+		cmd = append(cmd, lib.File)
 	}
 	if c.ldResolveCircularDeps {
 		cmd = append(cmd, "-Wl,--end-group")
