@@ -397,7 +397,7 @@ func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 // from master.  The repo object is then populated with the contents of the
 // downladed file.  If this repo has already had its descriptor updated, this
 // function is a no-op.
-func (r *Repo) UpdateDesc(reposIgnored []string) (bool, error) {
+func (r *Repo) UpdateDesc() (bool, error) {
 	if r.updated {
 		return false, nil
 	}
@@ -417,7 +417,7 @@ func (r *Repo) UpdateDesc(reposIgnored []string) (bool, error) {
 	}
 
 	// Read `repository.yml` and populate this repo object.
-	if err := r.Read(reposIgnored); err != nil {
+	if err := r.Read(); err != nil {
 		return false, err
 	}
 
@@ -555,14 +555,11 @@ func parseRepoDepMap(depName string,
 	return result, nil
 }
 
-func (r *Repo) readDepRepos(yc ycfg.YCfg, reposIgnored []string) error {
+func (r *Repo) readDepRepos(yc ycfg.YCfg) error {
 	depMap, err := yc.GetValStringMap("repo.deps", nil)
 	util.OneTimeWarningError(err)
 
 	for depName, repoMapYml := range depMap {
-		if util.SliceContains(reposIgnored, depName) {
-			continue
-		}
 		rdm, err := parseRepoDepMap(depName, repoMapYml)
 		if err != nil {
 			return util.FmtNewtError(
@@ -580,7 +577,7 @@ func (r *Repo) readDepRepos(yc ycfg.YCfg, reposIgnored []string) error {
 
 // Reads a `repository.yml` file and populates the receiver repo with its
 // contents.
-func (r *Repo) Read(reposIgnored []string) error {
+func (r *Repo) Read() error {
 	r.Init(r.Name(), r.downloader)
 
 	yc, err := config.ReadFile(r.repoFilePath() + "/" + REPO_FILE_NAME)
@@ -607,7 +604,7 @@ func (r *Repo) Read(reposIgnored []string) error {
 		r.vers[vers] = commit
 	}
 
-	if err := r.readDepRepos(yc, reposIgnored); err != nil {
+	if err := r.readDepRepos(yc); err != nil {
 		return err
 	}
 
