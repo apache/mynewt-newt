@@ -33,7 +33,6 @@ import (
 	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/yaml"
 )
 
 var PackageHashIgnoreDirs = map[string]bool{
@@ -218,7 +217,7 @@ func (pkg *LocalPackage) sequenceString(key string) string {
 	vals, err := pkg.PkgY.GetValStringSlice(key, nil)
 	util.OneTimeWarningError(err)
 	for _, f := range vals {
-		buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
+		buffer.WriteString("    - " + util.EscapeString(f) + "\n")
 	}
 
 	if buffer.Len() == 0 {
@@ -263,15 +262,15 @@ func (pkg *LocalPackage) Save() error {
 
 	// XXX: Just iterate ycfg object's settings rather than calling out
 	// cached settings individually.
-	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
+	file.WriteString("pkg.name: " + util.EscapeString(pkg.Name()) + "\n")
 	file.WriteString("pkg.type: " +
-		yaml.EscapeString(PackageTypeNames[pkg.Type()]) + "\n")
+		util.EscapeString(PackageTypeNames[pkg.Type()]) + "\n")
 	file.WriteString("pkg.description: " +
-		yaml.EscapeString(pkg.Desc().Description) + "\n")
+		util.EscapeString(pkg.Desc().Description) + "\n")
 	file.WriteString("pkg.author: " +
-		yaml.EscapeString(pkg.Desc().Author) + "\n")
+		util.EscapeString(pkg.Desc().Author) + "\n")
 	file.WriteString("pkg.homepage: " +
-		yaml.EscapeString(pkg.Desc().Homepage) + "\n")
+		util.EscapeString(pkg.Desc().Homepage) + "\n")
 
 	file.WriteString("\n")
 

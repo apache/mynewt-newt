@@ -29,11 +29,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 
+	"gopkg.in/yaml.v2"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/ycfg"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/yaml"
 )
 
 const (
@@ -60,7 +60,7 @@ func readSettings(path string) (map[string]interface{}, error) {
 	}
 
 	settings := map[string]interface{}{}
-	if err := yaml.Unmarshal(file, &settings); err != nil {
+	if err := yaml.UnmarshalStrict(file, &settings); err != nil {
 		return nil, util.FmtNewtError("Failure parsing \"%s\": %s",
 			path, err.Error())
 	}
