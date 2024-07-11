@@ -100,3 +100,31 @@ jobs:
              echo "Checking target ${{ matrix.targets }}"
              ! newt upgrade &> tmp.txt
              cat tmp.txt | tail -n `wc -l < expected.txt` | diff -w expected.txt -
+
+  test_upgrade_filters:
+    name: newt upgrade (filters)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 'stable'
+      - name: Build newt
+        working-directory: newt
+        shell: bash
+        run: |
+          go version
+          go build
+          echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - name: Test upgrade allowed-ignored
+        shell: bash
+        working-directory: .github/newt_upgrade/allowed-ignored
+        run: |
+             echo "Test upgrade"
+             newt upgrade
+             ls repos | diff -w expected.txt -
