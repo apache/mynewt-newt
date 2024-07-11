@@ -1,0 +1,7 @@
+apache-mynewt-core
+apache-mynewt-mcumgr
+apache-mynewt-nimble
+arm-CMSIS_5
+mbedtls
+mcuboot
+nordic-nrfx
