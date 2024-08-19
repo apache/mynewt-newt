@@ -708,7 +708,9 @@ func (cfg *Cfg) readValsOnce(lpkg *pkg.LocalPackage,
 	lsettings := cfg.settingsForLpkg(lpkg, settings)
 
 	values, err := yc.GetValStringMap("syscfg.vals", lsettings)
-	util.OneTimeWarningError(err)
+	if err != nil {
+		return err
+	}
 
 	for k, v := range values {
 		switch v.(type) {
