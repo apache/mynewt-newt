@@ -469,7 +469,13 @@ func (yc *YCfg) GetStringMap(
 				Expr:  mapEntry.Expr,
 			}
 
-			// XXX: Report collisions?
+			if _, exists := result[k]; exists {
+				if (entry.Value != result[k].Value) && (result[k].Expr != nil) {
+					return nil, fmt.Errorf("Setting %s collision - two conditions true:\n[%s, %s]\n"+
+						"Conflicting file: %s",
+						k, entry.Expr.String(), result[k].Expr.String(), yc.name)
+				}
+			}
 			result[k] = entry
 		}
 	}
@@ -607,7 +613,13 @@ func (yc *YCfg) GetStringMapString(key string,
 				Expr:  mapEntry.Expr,
 			}
 
-			// XXX: Report collisions?
+			if _, exists := result[k]; exists {
+				if (entry.Value != result[k].Value) && (result[k].Expr != nil) {
+					return nil, fmt.Errorf("Setting %s collision - two conditions true:\n[%s, %s]\n"+
+						"Conflicting file: %s",
+						k, entry.Expr.String(), result[k].Expr.String(), yc.name)
+				}
+			}
 			result[k] = entry
 		}
 	}
@@ -623,6 +635,9 @@ func (yc *YCfg) GetValStringMapString(key string,
 	settings *cfgv.Settings) (map[string]string, error) {
 
 	entryMap, getErr := yc.GetStringMapString(key, settings)
+	if getErr != nil {
+		return nil, getErr
+	}
 
 	valMap := make(map[string]string, len(entryMap))
 	for k, v := range entryMap {
@@ -631,7 +646,7 @@ func (yc *YCfg) GetValStringMapString(key string,
 		}
 	}
 
-	return valMap, getErr
+	return valMap, nil
 }
 
 // FullName calculates a node's name with the following form:

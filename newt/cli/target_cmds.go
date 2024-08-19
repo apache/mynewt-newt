@@ -97,7 +97,9 @@ func pkgVarSliceString(pack *pkg.LocalPackage, key string) string {
 func amendSysCfg(value string, t *target.Target) error {
 	// Get the current syscfg.vals name-value pairs
 	sysVals, err := t.Package().SyscfgY.GetValStringMapString("syscfg.vals", nil)
-	util.OneTimeWarningError(err)
+	if err != nil {
+		return err
+	}
 
 	// Convert the input syscfg into name-value pairs
 	amendSysVals, err := syscfg.KeyValueFromStr(value)
