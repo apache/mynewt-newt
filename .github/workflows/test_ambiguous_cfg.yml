@@ -1,0 +1,66 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+name: Test ambiguous config
+
+on: [push, pull_request]
+
+jobs:
+  test_ambiguous_cfg:
+    name: other
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 'stable'
+      - uses: carlosperate/arm-none-eabi-gcc-action@48db4484a55750df7a0ccca63347fcdea6534d78
+        with:
+          release: '12.2.Rel1'
+      - name: Install Dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+      - name: Build newt
+        working-directory: newt
+        shell: bash
+        run: |
+          go version
+          go build
+          echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+      - name: Test ambiguous cfg (success)
+        shell: bash
+        run: |
+          newt new project
+          cp -r .github/targets/ambiguous_success project/targets
+          cd project/
+          newt upgrade -v
+          newt build ambiguous_success
+      - name: Test ambiguous cfg (fail)
+        shell: bash
+        run: |
+          cp -r .github/targets/ambiguous_fail project/targets
+          cd project/
+          ! newt build ambiguous_fail &> tmp.txt
+          grep "Error: Setting CONSOLE_IMPLEMENTATION collision - two conditions true:" tmp.txt -q

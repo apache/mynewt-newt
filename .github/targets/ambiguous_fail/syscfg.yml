@@ -1,0 +1,10 @@
+syscfg.vals:
+    SHELL_PROMPT_MODULE: 1
+    SHELL_TASK: 1
+
+syscfg.vals.SHELL_PROMPT_MODULE:
+    CONSOLE_IMPLEMENTATION: stub
+
+# This should fail
+syscfg.vals.SHELL_TASK:
+    CONSOLE_IMPLEMENTATION: full
