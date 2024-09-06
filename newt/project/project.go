@@ -70,7 +70,12 @@ type Project struct {
 	//                read.
 	repos deprepo.RepoMap
 
-	// Contains names of repositories that will not be upgraded/downloaded.
+	// Contains names of repositories that will be upgraded.
+	// If it's empty all repos are allowed.
+	reposAllowed []string
+
+	// Contains names of repositories that will be excluded from upgrade.
+	// Can override repositories from reposAllowed.
 	reposIgnored []string
 
 	// The local repository at the top-level of the project.  This repo is
@@ -176,9 +181,16 @@ func NewProject(dir string, download bool) (*Project, error) {
 	return proj, nil
 }
 
-func (proj *Project) isRepoAdded(r *repo.Repo) bool {
+func (proj *Project) isRepoAllowed(repoName string) bool {
+	if (len(proj.reposAllowed) == 0) || (util.SliceContains(proj.reposAllowed, repoName)) {
+		return !util.SliceContains(proj.reposIgnored, repoName)
+	}
+	return false
+}
+
+func (proj *Project) isRepoAdded(repoName string) bool {
 	for _, pr := range proj.repos {
-		if pr.Name() == r.Name() {
+		if pr.Name() == repoName {
 			return true
 		}
 	}
@@ -191,7 +203,7 @@ func (proj *Project) GetPkgRepos() error {
 			if pkg.PkgConfig().HasKey("repository") {
 				for k, _ := range pkg.PkgConfig().AllSettings() {
 					repoName := strings.TrimPrefix(k, "repository.")
-					if repoName != k && !util.SliceContains(proj.reposIgnored, repoName) {
+					if repoName != k {
 						fields, err := pkg.PkgConfig().GetValStringMapString(k, nil)
 						util.OneTimeWarningError(err)
 
@@ -203,6 +215,10 @@ func (proj *Project) GetPkgRepos() error {
 								return err
 							}
 						}
+						if r == nil {
+							continue
+						}
+
 						verReq, err := newtutil.ParseRepoVersion(fields["vers"])
 						if err != nil {
 							return util.FmtNewtError(
@@ -212,7 +228,7 @@ func (proj *Project) GetPkgRepos() error {
 						}
 						r.SetPkgName(pkg.Name())
 
-						if !proj.isRepoAdded(r) {
+						if !proj.isRepoAdded(r.Name()) {
 							if err := proj.addRepo(r, true); err != nil {
 								return err
 							}
@@ -405,7 +421,7 @@ func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 // @param name                  The name of the repo to read.
 // @param fields                Fields containing the basic repo description.
 //
-// @return *Repo                The fully-read repo on success; nil on failure.
+// @return *Repo                The fully-read repo on success; nil on failure or when repo is not allowed
 // @return error                Error on failure.
 func (proj *Project) loadRepo(name string, fields map[string]string) (
 	*repo.Repo, error) {
@@ -427,12 +443,16 @@ func (proj *Project) loadRepo(name string, fields map[string]string) (
 		return nil, err
 	}
 
+	if !proj.isRepoAllowed(r.Name()) {
+		return nil, nil
+	}
+
 	for _, ignDir := range ignoreSearchDirs {
 		r.AddIgnoreDir(ignDir)
 	}
 
 	// Read the full repo definition from its `repository.yml` file.
-	if err := r.Read(proj.reposIgnored); err != nil {
+	if err := r.Read(); err != nil {
 		return r, err
 	}
 
@@ -500,6 +520,9 @@ func (proj *Project) loadRepoDeps(download bool) error {
 								return nil, err
 							}
 						}
+						if depRepo == nil {
+							continue
+						}
 						if err := proj.addRepo(depRepo, download); err != nil {
 							return nil, err
 						}
@@ -507,7 +530,7 @@ func (proj *Project) loadRepoDeps(download bool) error {
 					newRepos = append(newRepos, depRepo)
 
 					if download {
-						if _, err := depRepo.UpdateDesc(proj.reposIgnored); err != nil {
+						if _, err := depRepo.UpdateDesc(); err != nil {
 							return nil, err
 						}
 					}
@@ -542,7 +565,7 @@ func (proj *Project) downloadRepositoryYmlFiles() error {
 	// specified in the `project.yml` file).
 	for _, r := range proj.repos.Sorted() {
 		if !r.IsLocal() && !r.IsExternal(r.Path()) {
-			if _, err := r.UpdateDesc(proj.reposIgnored); err != nil {
+			if _, err := r.UpdateDesc(); err != nil {
 				return err
 			}
 		}
@@ -631,13 +654,17 @@ func (proj *Project) loadConfig(download bool) error {
 	proj.name, err = yc.GetValString("project.name", nil)
 	util.OneTimeWarningError(err)
 
+	proj.reposAllowed = make([]string, 0)
+	proj.reposAllowed, err = yc.GetValStringSlice("project.repositories.allowed", nil)
+	util.OneTimeWarningError(err)
+
 	proj.reposIgnored = make([]string, 0)
 	proj.reposIgnored, err = yc.GetValStringSlice("project.repositories.ignored", nil)
 	util.OneTimeWarningError(err)
 
-	if util.SliceContains(proj.reposIgnored, "apache-mynewt-core") {
-		return util.NewNewtError("apache-mynewt-core repository can't be ignored. " +
-			"Please remove it from the ignored repositories list.")
+	if !proj.isRepoAllowed("apache-mynewt-core") {
+		return util.NewNewtError("apache-mynewt-core repository must be allowed. " +
+			"Please add it to the allowed list and/or remove it from the ignored list.")
 	}
 
 	// Local repository always included in initialization
@@ -668,6 +695,10 @@ func (proj *Project) loadConfig(download bool) error {
 					return err
 				}
 			}
+			if r == nil {
+				continue
+			}
+
 			verReq, err := newtutil.ParseRepoVersion(fields["vers"])
 			if err != nil {
 				return util.FmtNewtError(

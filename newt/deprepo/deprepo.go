@@ -136,6 +136,10 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 			reqMap := RequirementMap{}
 			for _, d := range deps {
 				depRepo := repos[d.Name]
+				// This might be nil if d.Name is not on allowed repositories list
+				if depRepo == nil {
+					continue
+				}
 				verReqs, err := depRepo.NormalizeVerReq(d.VerReqs)
 				if err != nil {
 					return nil, err
