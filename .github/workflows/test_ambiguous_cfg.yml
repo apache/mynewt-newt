@@ -63,4 +63,4 @@ jobs:
           cp -r .github/targets/ambiguous_fail project/targets
           cd project/
           ! newt build ambiguous_fail &> tmp.txt
-          grep "Error: Setting CONSOLE_IMPLEMENTATION collision - two conditions true:" tmp.txt -q
+          grep "Error: setting CONSOLE_IMPLEMENTATION collision - two conditions true:" tmp.txt -q

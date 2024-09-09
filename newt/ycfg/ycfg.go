@@ -22,6 +22,7 @@ package ycfg
 import (
 	"fmt"
 	"mynewt.apache.org/newt/newt/cfgv"
+	"reflect"
 	"strings"
 
 	"github.com/spf13/cast"
@@ -470,8 +471,8 @@ func (yc *YCfg) GetStringMap(
 			}
 
 			if _, exists := result[k]; exists {
-				if (entry.Value != result[k].Value) && (result[k].Expr != nil) {
-					return nil, fmt.Errorf("Setting %s collision - two conditions true:\n[%s, %s]\n"+
+				if !reflect.DeepEqual(entry.Value, result[k].Value) && (result[k].Expr != nil) && (entry.Expr != nil) {
+					return nil, fmt.Errorf("setting %s collision - two conditions true:\n[%s, %s]\n"+
 						"Conflicting file: %s",
 						k, entry.Expr.String(), result[k].Expr.String(), yc.name)
 				}
