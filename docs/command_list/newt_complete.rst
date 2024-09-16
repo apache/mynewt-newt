@@ -14,7 +14,7 @@ Install bash autocompletion
         Bash completion has been installed to:
           /usr/local/etc/bash_completion.d
         ==> Summary
-        🍺  /usr/local/Cellar/bash-completion/1.3_1: 189 files, 607.8K
+            /usr/local/Cellar/bash-completion/1.3_1: 189 files, 607.8K
 
 Enable autocompletion for newt
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
