@@ -78,7 +78,7 @@ commands to upgrade to newt latest:
     ==> Downloading from https://raw.githubusercontent.com/juullabs-oss/binary-releases/master/mynewt-newt-tools_1.5.0/mynewt-newt-1.5.0.sierra.bottle.tar.gz
     ######################################################################## 100.0%
     ==> Pouring mynewt-newt-1.5.0.sierra.bottle.tar.gz
-    🍺  /usr/local/Cellar/mynewt-newt/1.5.0: 3 files, 8.1MB
+        /usr/local/Cellar/mynewt-newt/1.5.0: 3 files, 8.1MB
 
 Installing the Latest Release Version of Newt
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,7 +94,7 @@ Run the following command to install the latest release version of newt:
     ==> Downloading from https://raw.githubusercontent.com/JuulLabs-OSS/binary-releases/master/mynewt-newt-tools_1.5.0/mynewt-newt-
     ######################################################################## 100.0%
     ==> Pouring mynewt-newt-1.5.0.sierra.bottle.tar.gz
-    🍺  /usr/local/Cellar/mynewt-newt/1.5.0: 3 files, 8.1MB
+        /usr/local/Cellar/mynewt-newt/1.5.0: 3 files, 8.1MB
 
 **Notes:** Homebrew bottles for newt are available for macOS Sierra. If you are running an earlier version of macOS,
 the installation will install the latest version of Go and compile newt locally.
