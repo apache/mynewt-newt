@@ -33,25 +33,28 @@ To sign an image, provide a .pem file for the ``signing-key`` and an optional ``
 Examples
 ^^^^^^^^
 
-================================================== =================================================================================
-Usage                                              Explanation
-================================================== =================================================================================
-``newt create-image myble2 1.0.1.0``               Creates an image for target ``myble2`` and assigns it version
-                                                   ``1.0.1.0``.
+.. tabularcolumns:: |l|p{7.2cm}|
+.. table::
 
-                                                   For the following target definition:
+   ================================================== =================================================================================
+   Usage                                              Explanation
+   ================================================== =================================================================================
+   ``newt create-image myble2 1.0.1.0``               Creates an image for target ``myble2`` and assigns it version
+                                                      ``1.0.1.0``.
 
-                                                   | targets/myble2
-                                                   | app=\@apache-mynewt-core/apps/btshell
-                                                   | bsp=\@apache-mynewt-core/hw/bsp/nrf52dk
-                                                   | build\_profile=optimized
-                                                   | syscfg=STATS\_NAMES=1
+                                                      For the following target definition:
 
-                                                   the 'bin/targets/myble2/app/apps/btshell/btshell.img' and
-                                                   'bin/targets/myble2/app/apps/btshell/btshell.hex' files are created,
-                                                   and the manifest in 'bin/targets/myble2/app/apps/btshell/manifest.json'
-                                                   is updated with the image information.
+                                                      | targets/myble2
+                                                      | app=\@apache-mynewt-core/apps/btshell
+                                                      | bsp=\@apache-mynewt-core/hw/bsp/nrf52dk
+                                                      | build\_profile=optimized
+                                                      | syscfg=STATS\_NAMES=1
 
-``newt create-image myble2 1.0.1.0 private.pem``   Creates an image for target ``myble2`` and assigns it the version
-                                                   ``1.0.1.0``. Signs the image using private key specified by the private.pem file.
-================================================== =================================================================================
+                                                      the 'bin/targets/myble2/app/apps/btshell/btshell.img' and
+                                                      'bin/targets/myble2/app/apps/btshell/btshell.hex' files are created,
+                                                      and the manifest in 'bin/targets/myble2/app/apps/btshell/manifest.json'
+                                                      is updated with the image information.
+
+   ``newt create-image myble2 1.0.1.0 private.pem``   Creates an image for target ``myble2`` and assigns it the version
+                                                      ``1.0.1.0``. Signs the image using private key specified by the private.pem file.
+   ================================================== =================================================================================
