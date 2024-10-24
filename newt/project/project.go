@@ -634,6 +634,7 @@ func (proj *Project) loadConfig(download bool) error {
 	proj.reposIgnored = make([]string, 0)
 	proj.reposIgnored, err = yc.GetValStringSlice("project.repositories.ignored", nil)
 	util.OneTimeWarningError(err)
+	proj.reposIgnored = append(proj.reposIgnored, newtutil.NewtIgnore...)
 
 	if util.SliceContains(proj.reposIgnored, "apache-mynewt-core") {
 		return util.NewNewtError("apache-mynewt-core repository can't be ignored. " +

@@ -214,6 +214,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 		"Force upgrade of the repositories to latest state in project.yml")
 	upgradeCmd.PersistentFlags().BoolVarP(&newtutil.NewtAsk,
 		"ask", "a", false, "Prompt user before upgrading any repos")
+	upgradeCmd.PersistentFlags().StringSliceVarP(&newtutil.NewtIgnore, "ignore", "i", []string{},
+		"Names of repositories to skip, separated by a comma or by using multiple flags")
 
 	cmd.AddCommand(upgradeCmd)
 
