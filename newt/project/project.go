@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -72,11 +73,11 @@ type Project struct {
 
 	// Contains names of repositories that will be upgraded.
 	// If it's empty all repos are allowed.
-	reposAllowed []string
+	reposAllowedRe []*regexp.Regexp
 
 	// Contains names of repositories that will be excluded from upgrade.
 	// Can override repositories from reposAllowed.
-	reposIgnored []string
+	reposIgnoredRe []*regexp.Regexp
 
 	// The local repository at the top-level of the project.  This repo is
 	// excluded from most repo operations.
@@ -181,10 +182,21 @@ func NewProject(dir string, download bool) (*Project, error) {
 	return proj, nil
 }
 
-func (proj *Project) isRepoAllowed(repoName string) bool {
-	if (len(proj.reposAllowed) == 0) || (util.SliceContains(proj.reposAllowed, repoName)) {
-		return !util.SliceContains(proj.reposIgnored, repoName)
+func (proj *Project) patternsMatch(patterns *[]*regexp.Regexp, repoName string) bool {
+	for _, re := range *patterns {
+		if re.MatchString(repoName) {
+			return true
+		}
 	}
+
+	return false
+}
+
+func (proj *Project) isRepoAllowed(repoName string) bool {
+	if (len(proj.reposAllowedRe) == 0) || proj.patternsMatch(&proj.reposAllowedRe, repoName) {
+		return !proj.patternsMatch(&proj.reposIgnoredRe, repoName)
+	}
+
 	return false
 }
 
@@ -641,6 +653,36 @@ func (proj *Project) addRepo(r *repo.Repo, download bool) error {
 	return nil
 }
 
+func (proj *Project) createRegexpPatterns(patterns []string) ([]*regexp.Regexp, error) {
+	var ret []*regexp.Regexp
+	var errLines []string
+
+	for _, pattern := range patterns {
+		var s string
+
+		if strings.HasPrefix(pattern, "~") {
+			s = "^" + pattern[1:]
+		} else if strings.HasSuffix(pattern, "*") {
+			s = "^" + pattern[:len(pattern)-1] + ".*$"
+		} else {
+			s = "^" + pattern + "$"
+		}
+
+		re, err := regexp.Compile(s)
+		if err != nil {
+			errLines = append(errLines, fmt.Sprintf("Invalid pattern: %s", pattern))
+		} else {
+			ret = append(ret, re)
+		}
+	}
+
+	if len(errLines) > 0 {
+		return ret, util.NewNewtError(strings.Join(errLines, "\n"))
+	} else {
+		return ret, nil
+	}
+}
+
 func (proj *Project) loadConfig(download bool) error {
 	yc, err := config.ReadFile(proj.BasePath + "/" + PROJECT_FILE_NAME)
 	if err != nil {
@@ -654,14 +696,19 @@ func (proj *Project) loadConfig(download bool) error {
 	proj.name, err = yc.GetValString("project.name", nil)
 	util.OneTimeWarningError(err)
 
-	proj.reposAllowed = make([]string, 0)
-	proj.reposAllowed, err = yc.GetValStringSlice("project.repositories.allowed", nil)
+	var reposAllowed []string
+	var reposIgnored []string
+
+	reposAllowed, err = yc.GetValStringSlice("project.repositories.allowed", nil)
+	util.OneTimeWarningError(err)
+	proj.reposAllowedRe, err = proj.createRegexpPatterns(reposAllowed)
 	util.OneTimeWarningError(err)
 
-	proj.reposIgnored = make([]string, 0)
-	proj.reposIgnored, err = yc.GetValStringSlice("project.repositories.ignored", nil)
+	reposIgnored, err = yc.GetValStringSlice("project.repositories.ignored", nil)
 	util.OneTimeWarningError(err)
-	proj.reposIgnored = append(proj.reposIgnored, newtutil.NewtIgnore...)
+	reposIgnored = append(reposIgnored, newtutil.NewtIgnore...)
+	proj.reposIgnoredRe, err = proj.createRegexpPatterns(reposIgnored)
+	util.OneTimeWarningError(err)
 
 	if !proj.isRepoAllowed("apache-mynewt-core") {
 		return util.NewNewtError("apache-mynewt-core repository must be allowed. " +
@@ -684,7 +731,7 @@ func (proj *Project) loadConfig(download bool) error {
 	// and try to load it.
 	for k, _ := range yc.AllSettings() {
 		repoName := strings.TrimPrefix(k, "repository.")
-		if repoName != k && !util.SliceContains(proj.reposIgnored, repoName) {
+		if repoName != k {
 			fields, err := yc.GetValStringMapString(k, nil)
 			util.OneTimeWarningError(err)
 
