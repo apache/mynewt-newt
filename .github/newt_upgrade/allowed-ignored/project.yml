@@ -17,9 +17,6 @@
 # under the License.
 #
 
-project.repositories:
-   - apache-mynewt-core
-
 repository.apache-mynewt-core:
    type: github
    vers: 0-dev
@@ -33,16 +30,12 @@ repository.tinyusb:
    repo: tinyusb
 
 project.repositories.allowed:
-   - apache-mynewt-core
-   - apache-mynewt-nimble
-   - apache-mynewt-mcumgr
+   - apache-*
+   - ~stm-.*g4
    - mcuboot
    - arm-CMSIS_5
    - nordic-nrfx
-   - mbedtls
-   - stm-cmsis_device_f3
-   - stm-stm32f3xx_hal_driver
 
 project.repositories.ignored:
-   - stm-cmsis_device_f3
-   - stm-stm32f3xx_hal_driver
+   - apache-mynewt-mcumgr
+   - stm-cmsis_device_g4
