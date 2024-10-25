@@ -22,6 +22,7 @@
 package repo
 
 import (
+	"mynewt.apache.org/newt/newt/downloader"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -117,6 +118,19 @@ func (r *Repo) CommitFromVer(ver newtutil.RepoVersion) (string, error) {
 	}
 
 	return commit, nil
+}
+
+func (r *Repo) IsHeadCommit(commit string) bool {
+	ct, _ := r.downloader.CommitType(r.Path(), commit)
+
+	if ct != downloader.COMMIT_TYPE_HASH {
+		return false
+	}
+
+	head := r.downloader.CurrentHead()
+	sha, _ := r.downloader.CommitSha(r.Path(), commit)
+
+	return head == sha
 }
 
 func (r *Repo) VersionIsValid(ver newtutil.RepoVersion) bool {
