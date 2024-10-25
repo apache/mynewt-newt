@@ -1,1 +1,0 @@
-Error: apache-mynewt-core repository must be allowed. Please add it to the allowed list and/or remove it from the ignored list.

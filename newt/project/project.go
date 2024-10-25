@@ -192,6 +192,10 @@ func (proj *Project) patternsMatch(patterns *[]*regexp.Regexp, repoName string) 
 	return false
 }
 
+func (proj *Project) isRepoIgnored(repoName string) bool {
+	return proj.patternsMatch(&proj.reposIgnoredRe, repoName)
+}
+
 func (proj *Project) isRepoAllowed(repoName string) bool {
 	if (len(proj.reposAllowedRe) == 0) || proj.patternsMatch(&proj.reposAllowedRe, repoName) {
 		return !proj.patternsMatch(&proj.reposIgnoredRe, repoName)
@@ -218,6 +222,10 @@ func (proj *Project) GetPkgRepos() error {
 					if repoName != k {
 						fields, err := pkg.PkgConfig().GetValStringMapString(k, nil)
 						util.OneTimeWarningError(err)
+
+						if !proj.isRepoAllowed(repoName) {
+							continue
+						}
 
 						r, err := proj.loadRepo(repoName, fields)
 						if err != nil {
@@ -437,10 +445,6 @@ func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 // @return error                Error on failure.
 func (proj *Project) loadRepo(name string, fields map[string]string) (
 	*repo.Repo, error) {
-
-	if !proj.isRepoAllowed(name) {
-		return nil, nil
-	}
 	// First, read the repo description from the supplied fields.
 	if fields["type"] == "" {
 		return nil,
@@ -523,6 +527,11 @@ func (proj *Project) loadRepoDeps(download bool) error {
 					depRepo := proj.repos[dep.Name]
 					if depRepo == nil {
 						var err error
+
+						if !proj.isRepoAllowed(dep.Name) {
+							continue
+						}
+
 						depRepo, err = proj.loadRepo(dep.Name, dep.Fields)
 						if err != nil {
 							// if `repository.yml` does not exist, it is not an
@@ -720,18 +729,17 @@ func (proj *Project) loadConfig(download bool) error {
 
 	reposAllowed, err = yc.GetValStringSlice("project.repositories.allowed", nil)
 	util.OneTimeWarningError(err)
-	proj.reposAllowedRe, err = proj.createRegexpPatterns(reposAllowed)
+	proj.reposAllowedRe, err = proj.createRegexpPatterns(util.UniqueStrings(reposAllowed))
 	util.OneTimeWarningError(err)
 
 	reposIgnored, err = yc.GetValStringSlice("project.repositories.ignored", nil)
 	util.OneTimeWarningError(err)
 	reposIgnored = append(reposIgnored, newtutil.NewtIgnore...)
-	proj.reposIgnoredRe, err = proj.createRegexpPatterns(reposIgnored)
+	proj.reposIgnoredRe, err = proj.createRegexpPatterns(util.UniqueStrings(reposIgnored))
 	util.OneTimeWarningError(err)
 
-	if !proj.isRepoAllowed("apache-mynewt-core") {
-		return util.NewNewtError("apache-mynewt-core repository must be allowed. " +
-			"Please add it to the allowed list and/or remove it from the ignored list.")
+	if proj.isRepoIgnored("apache-mynewt-core") {
+		return util.NewNewtError("apache-mynewt-core repository cannot be on ignored list.")
 	}
 
 	// Local repository always included in initialization
@@ -753,6 +761,10 @@ func (proj *Project) loadConfig(download bool) error {
 		if repoName != k {
 			fields, err := yc.GetValStringMapString(k, nil)
 			util.OneTimeWarningError(err)
+
+			if proj.isRepoIgnored(repoName) {
+				continue
+			}
 
 			r, err := proj.loadRepo(repoName, fields)
 			if err != nil {
