@@ -55,6 +55,10 @@ type Repo struct {
 	local      bool
 	ncMap      compat.NewtCompatMap
 
+	// Indicates if repo was checked for potential upgrade. This avoids checking
+	// the same repo multiple times in different phases
+	upgradeChecked bool
+
 	// If repo was added from package (not from project.yml), this variable stores name of this package
 	pkgName string
 
@@ -66,14 +70,6 @@ type Repo struct {
 
 	// version => commit
 	vers map[newtutil.RepoVersion]string
-
-	// Since we are calling upgrade twice - first time for repos from project.yml
-	// and second time for repos from packages, we need to keep track on status
-	// of each repo. If repo is defined in project.yml we want to upgrade it only
-	// once so the version from project.yml stays valid. These flags are used for
-	// this purpose.
-	isFromProjectYml         bool
-	isUpgradedFromProjectYml bool
 
 	hasSubmodules bool
 	submodules    []string
@@ -225,22 +221,6 @@ func (r *Repo) repoFilePath() string {
 func (r *Repo) patchesFilePath() string {
 	return interfaces.GetProject().Path() + "/" + REPOS_DIR +
 		"/.patches/"
-}
-
-func (r *Repo) IsUpgradedFromProjectYml() bool {
-	return r.isUpgradedFromProjectYml
-}
-
-func (r *Repo) SetIsUpgradedFromProjectYml() {
-	r.isUpgradedFromProjectYml = true
-}
-
-func (r *Repo) IsFromProjectYml() bool {
-	return r.isFromProjectYml
-}
-
-func (r *Repo) SetIsFromProjectYml() {
-	r.isFromProjectYml = true
 }
 
 // Checks for repository.yml file presence in specified repo folder.
@@ -411,19 +391,37 @@ func (r *Repo) UpdateDesc() (bool, error) {
 		return false, err
 	}
 
-	// Download `repository.yml`.
-	if err := r.DownloadDesc(); err != nil {
-		return false, err
-	}
+	if r.IsExternal(r.Path()) {
+		if err := r.downloader.Fetch(r.Path()); err != nil {
+			return false, err
+		}
+	} else {
+		// Download `repository.yml`.
+		if err := r.DownloadDesc(); err != nil {
+			return false, err
+		}
 
-	// Read `repository.yml` and populate this repo object.
-	if err := r.Read(); err != nil {
-		return false, err
+		// Read `repository.yml` and populate this repo object.
+		if err := r.Read(); err != nil {
+			return false, err
+		}
 	}
 
 	r.updated = true
 
 	return true, nil
+}
+
+func (r *Repo) IsUpdated() bool {
+	return r.updated
+}
+
+func (r *Repo) SetCheckedForUpgrade() {
+	r.upgradeChecked = true
+}
+
+func (r *Repo) IsCheckedForUpgrade() bool {
+	return r.upgradeChecked
 }
 
 func (r *Repo) EnsureExists() error {

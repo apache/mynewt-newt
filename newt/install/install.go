@@ -245,10 +245,6 @@ func (inst *Installer) shouldUpgradeRepo(
 		return true, nil
 	}
 
-	if r.IsUpgradedFromProjectYml() {
-		return false, nil
-	}
-
 	if !r.VersionsEqual(*curVer, destVer) {
 		return true, nil
 	}
@@ -269,6 +265,13 @@ func (inst *Installer) filterUpgradeList(
 	filtered := deprepo.VersionMap{}
 
 	for _, name := range vm.SortedNames() {
+		r := inst.repos[name]
+		if r.IsCheckedForUpgrade() {
+			continue
+		}
+
+		inst.repos[name].SetCheckedForUpgrade()
+
 		ver := vm[name]
 		doUpgrade, err := inst.shouldUpgradeRepo(name, ver)
 		if err != nil {
@@ -570,9 +573,7 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 		if err := r.Upgrade(destVer); err != nil {
 			return err
 		}
-		if r.IsFromProjectYml() {
-			r.SetIsUpgradedFromProjectYml()
-		}
+
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
 			"%s successfully upgraded to version %s\n",
 			r.Name(), destVer.String())
