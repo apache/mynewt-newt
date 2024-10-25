@@ -593,6 +593,11 @@ func (proj *Project) downloadRepositoryYmlFiles() error {
 					"External repository \"%s\" does not specify valid commit version (%s)",
 					r.Name(), ver.String())
 			}
+
+			// No need to fetch if requested commit is already checked out
+			if r.IsHeadCommit(ver.Commit) {
+				continue
+			}
 		}
 
 		if _, err := r.UpdateDesc(); err != nil {

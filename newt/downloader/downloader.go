@@ -88,6 +88,12 @@ type Downloader interface {
 	// the repo is in a "detached head" state.
 	CurrentBranch(path string) (string, error)
 
+	// Retrieves commit SHA for current HEAD
+	CurrentHead() string
+
+	// Retrieves full SHA for given commit
+	CommitSha(path string, commit string) (string, error)
+
 	// LatestRc finds the commit of the latest release candidate.  It looks
 	// for commits with names matching the base commit string, but with with
 	// "_rc#" inserted.  This is useful when a release candidate is being
@@ -588,6 +594,13 @@ func (gd *GenericDownloader) HashFor(path string,
 		return c.hash, nil
 	}
 
+	if len(commit) < 40 {
+		sha, err := gd.CommitSha(path, commit)
+		if err == nil {
+			commit = sha
+		}
+	}
+
 	return commit, nil
 }
 
@@ -662,6 +675,20 @@ func (gd *GenericDownloader) CurrentBranch(path string) (string, error) {
 	}
 
 	return branch, nil
+}
+
+func (gd *GenericDownloader) CurrentHead() string {
+	return gd.head
+}
+
+func (gd *GenericDownloader) CommitSha(path string, commit string) (string, error) {
+	cmd := []string{"rev-parse", commit}
+	o, err := executeGitCommand(path, cmd, true)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(o)), nil
 }
 
 // Fetches the downloader's origin remote if it hasn't been fetched yet during
