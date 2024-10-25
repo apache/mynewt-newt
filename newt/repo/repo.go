@@ -382,7 +382,7 @@ func (r *Repo) UpdateDesc() (bool, error) {
 		return false, nil
 	}
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "[%s]:\n", r.Name())
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Fetching %s\n", r.Name())
 
 	// Make sure the repo's "origin" remote points to the correct URL.  This is
 	// necessary in case the user changed his `project.yml` file to point to a
