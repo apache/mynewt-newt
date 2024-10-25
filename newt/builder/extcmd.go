@@ -176,7 +176,7 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	}
 	defer os.Chdir(pwd)
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing %s\n", sf.Name)
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing %s/%s\n", sf.Pkg.FullName(), sf.Name)
 	if err := util.ShellInteractiveCommand(toks, env, true); err != nil {
 		return err
 	}
