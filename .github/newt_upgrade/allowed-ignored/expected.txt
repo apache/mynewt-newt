@@ -4,3 +4,4 @@ arm-CMSIS_5
 mcuboot
 nordic-nrfx
 stm-stm32g4xx_hal_driver
+tinyusb
