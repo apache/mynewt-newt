@@ -438,6 +438,9 @@ func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 func (proj *Project) loadRepo(name string, fields map[string]string) (
 	*repo.Repo, error) {
 
+	if !proj.isRepoAllowed(name) {
+		return nil, nil
+	}
 	// First, read the repo description from the supplied fields.
 	if fields["type"] == "" {
 		return nil,
@@ -453,10 +456,6 @@ func (proj *Project) loadRepo(name string, fields map[string]string) (
 	r, err := repo.NewRepo(name, dl)
 	if err != nil {
 		return nil, err
-	}
-
-	if !proj.isRepoAllowed(r.Name()) {
-		return nil, nil
 	}
 
 	for _, ignDir := range ignoreSearchDirs {
@@ -576,13 +575,28 @@ func (proj *Project) downloadRepositoryYmlFiles() error {
 	// Download the `repository.yml` file for each root-level repo (those
 	// specified in the `project.yml` file).
 	for _, r := range proj.repos.Sorted() {
-		if !r.IsLocal() && !r.IsExternal(r.Path()) {
-			if _, err := r.UpdateDesc(); err != nil {
-				return err
+		if r.IsUpdated() {
+			continue
+		}
+
+		if r.IsLocal() {
+			continue
+		}
+
+		if r.IsExternal(r.Path()) {
+			ver := proj.rootRepoReqs[r.Name()]
+
+			// External repositories can only use commit stability since they do
+			// not have repository.yml
+			if len(ver.Commit) == 0 {
+				return util.FmtNewtError(
+					"External repository \"%s\" does not specify valid commit version (%s)",
+					r.Name(), ver.String())
 			}
 		}
-		if r.IsExternal(r.Path()) {
-			r.Downloader().Fetch(r.Path())
+
+		if _, err := r.UpdateDesc(); err != nil {
+			return err
 		}
 	}
 
@@ -754,7 +768,7 @@ func (proj *Project) loadConfig(download bool) error {
 						"%s (%s)",
 					repoName, fields["vers"], err.Error())
 			}
-			r.SetIsFromProjectYml()
+
 			if err := proj.addRepo(r, download); err != nil {
 				return err
 			}
