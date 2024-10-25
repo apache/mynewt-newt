@@ -289,8 +289,7 @@ func (inst *Installer) filterUpgradeList(
 			}
 			curVer.Commit = ver.Commit
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"Skipping \"%s\": already upgraded (%s)\n",
-				name, curVer.String())
+				"Skipping %s, already upgraded to version %s\n", name, curVer.String())
 		}
 	}
 
@@ -348,6 +347,9 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 		return true, nil
 	}
 
+	if !ask {
+		return true, nil
+	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Trying to make the following changes to the project:\n")
 
@@ -372,10 +374,6 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 
 			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", msg)
 		}
-	}
-
-	if !ask {
-		return true, nil
 	}
 
 	for {
@@ -570,13 +568,12 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 			}
 		}
 
+		util.StatusMessage(util.VERBOSITY_DEFAULT,
+			"Upgrading %s to version %s\n", r.Name(), destVer.String())
+
 		if err := r.Upgrade(destVer); err != nil {
 			return err
 		}
-
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"%s successfully upgraded to version %s\n",
-			r.Name(), destVer.String())
 	}
 
 	for _, r := range candidates {
