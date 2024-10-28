@@ -461,11 +461,11 @@ func (gd *GenericDownloader) Checkout(repoDir string, commit string) error {
 	return err
 }
 
-func (gd *GenericDownloader) ApplyPatches(repoDir string, patches []string) error {
+func ApplyPatch(repoDir string, patch string) error {
 	cmd := []string{
 		"am",
 	}
-	cmd = append(cmd, patches...)
+	cmd = append(cmd, patch)
 
 	_, err := executeGitCommand(repoDir, cmd, true)
 	if err != nil {
@@ -479,6 +479,77 @@ func (gd *GenericDownloader) ApplyPatches(repoDir string, patches []string) erro
 		return err
 	}
 	return nil
+}
+
+func spatchPath() (string, error) {
+	spatchPath, err := exec.LookPath("spatch")
+	if err != nil {
+		return "", util.NewNewtError(fmt.Sprintf("Can't find spatch binary: %s\n",
+			err.Error()))
+	}
+
+	return filepath.ToSlash(spatchPath), nil
+}
+
+func executeSpatchCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, util.NewNewtError(err.Error())
+	}
+
+	sp, err := spatchPath()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		return nil, util.ChildNewtError(err)
+	}
+
+	defer os.Chdir(wd)
+
+    spatchCmd := []string{sp}
+    spatchCmd = append(spatchCmd, cmd...)
+	output, err := util.ShellCommandLimitDbgOutput(spatchCmd, nil, logCmd, -1)
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
+}
+
+func ApplyCocci(repoDir string, cocci string) error {
+    cmd := []string{
+        "--sp-file",
+        cocci,
+        "--in-place",
+        "--include-headers",
+        repoDir,
+    }
+
+    _, err := executeSpatchCommand(repoDir, cmd, true)
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
+func (gd *GenericDownloader) ApplyPatches(repoDir string, patches []string) error {
+    for _, patch := range patches {
+        if strings.HasSuffix(patch, ".patch") {
+            err := ApplyPatch(repoDir, patch)
+            if err != nil {
+                return err
+            }
+        } else if strings.HasSuffix(patch, ".cocci") {
+            err := ApplyCocci(repoDir, patch)
+            if err != nil {
+                return err
+            }
+        }
+    }
+
+    return nil
 }
 
 // Update one submodule tree in a repo (under path)

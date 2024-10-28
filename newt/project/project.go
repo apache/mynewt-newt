@@ -256,7 +256,7 @@ func (proj *Project) GetPkgRepos() error {
 							}
 
 							for _, e := range dirEntries {
-								if strings.HasSuffix(e.Name(), ".patch") {
+								if strings.HasSuffix(e.Name(), ".patch") || strings.HasSuffix(e.Name(), ".cocci") {
 									r.AddPatch(pkg.BasePath() + "/" + PATCHES_DIR + "/" + r.Name() + "/" + e.Name())
 								}
 							}
