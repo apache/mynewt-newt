@@ -110,6 +110,12 @@ type Downloader interface {
 	// Returns the branch that contains the YAML control files; this option
 	// allows implementers to override "master" as the main branch.
 	MainBranch() string
+
+	// Returns formatted string with repo details
+	String() string
+
+	// Returns if repository was already fetched
+	IsFetched() bool
 }
 
 type Commit struct {
@@ -814,6 +820,10 @@ func (gd *GenericDownloader) LatestRc(path string,
 	return bestStr, nil
 }
 
+func (gd *GenericDownloader) IsFetched() bool {
+	return gd.fetched
+}
+
 func (gd *GithubDownloader) Fetch(repoDir string) error {
 	return gd.cachedFetch(func() error {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Fetching repo %s\n",
@@ -921,11 +931,7 @@ func (gd *GithubDownloader) setRemoteAuth(path string) error {
 func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 	branch := gd.MainBranch()
 
-	url, publicUrl := gd.remoteUrls()
-
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Downloading repository %s (commit: %s) from %s\n",
-		gd.Repo, commit, publicUrl)
+	url, _ := gd.remoteUrls()
 
 	gp, err := gitPath()
 	if err != nil {
@@ -960,6 +966,8 @@ func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 		return err
 	}
 
+	gd.fetched = true
+
 	return nil
 }
 
@@ -985,6 +993,12 @@ func (gd *GithubDownloader) MainBranch() string {
 	} else {
 		return "master"
 	}
+}
+
+func (gd *GithubDownloader) String() string {
+	_, publicUrl := gd.remoteUrls()
+
+	return publicUrl
 }
 
 func NewGithubDownloader() *GithubDownloader {
@@ -1024,9 +1038,6 @@ func (gd *GitDownloader) FetchFile(
 func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 	branch := gd.MainBranch()
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Downloading repository %s (commit: %s)\n", gd.Url, commit)
-
 	gp, err := gitPath()
 	if err != nil {
 		return err
@@ -1059,6 +1070,8 @@ func (gd *GitDownloader) Clone(commit string, dstPath string) error {
 		return err
 	}
 
+	gd.fetched = true
+
 	return nil
 }
 
@@ -1082,6 +1095,10 @@ func (gd *GitDownloader) MainBranch() string {
 	} else {
 		return "master"
 	}
+}
+
+func (gd *GitDownloader) String() string {
+	return gd.Url
 }
 
 func NewGitDownloader() *GitDownloader {
@@ -1118,9 +1135,6 @@ func (ld *LocalDownloader) Checkout(path string, commit string) error {
 }
 
 func (ld *LocalDownloader) Clone(commit string, dstPath string) error {
-	util.StatusMessage(util.VERBOSITY_DEFAULT,
-		"Downloading local repository %s\n", ld.Path)
-
 	if err := util.CopyDir(ld.Path, dstPath); err != nil {
 		return err
 	}
@@ -1138,6 +1152,10 @@ func (ld *LocalDownloader) FixupOrigin(path string) error {
 
 func (gd *LocalDownloader) MainBranch() string {
 	return "master"
+}
+
+func (ld *LocalDownloader) String() string {
+	return ld.Path
 }
 
 func NewLocalDownloader() *LocalDownloader {
