@@ -260,6 +260,9 @@ func (r *Repo) downloadRepo(commit string) error {
 	}
 	defer os.RemoveAll(tmpdir)
 
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Cloning %s (%s)\n", r.Name(), dl.String())
+
 	// Download the git repo, returns the git repo, checked out to that commit
 	if err := dl.Clone(commit, tmpdir); err != nil {
 		return util.FmtNewtError("Error downloading repository %s: %s",
@@ -382,7 +385,9 @@ func (r *Repo) UpdateDesc() (bool, error) {
 		return false, nil
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Fetching %s\n", r.Name())
+	if !r.downloader.IsFetched() {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "Fetching %s\n", r.Name())
+	}
 
 	// Make sure the repo's "origin" remote points to the correct URL.  This is
 	// necessary in case the user changed his `project.yml` file to point to a
