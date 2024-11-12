@@ -947,7 +947,7 @@ func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 	}
 
 	if util.ShallowCloneDepth > 0 {
-		cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
+		cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth), "--no-single-branch")
 	}
 
 	cmd = append(cmd, url, dstPath)
