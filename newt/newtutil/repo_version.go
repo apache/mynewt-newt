@@ -51,6 +51,7 @@ type RepoVersion struct {
 	Revision  int64
 	Stability string
 	Commit    string
+	Rc        bool
 }
 
 func (v *RepoVersion) IsNormalized() bool {
@@ -115,6 +116,10 @@ func (ver *RepoVersion) String() string {
 
 	if ver.Stability != VERSION_STABILITY_NONE {
 		s += fmt.Sprintf("-%s", ver.Stability)
+	}
+
+	if ver.Rc {
+		s += fmt.Sprintf(" (rc)")
 	}
 
 	return s
