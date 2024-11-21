@@ -412,10 +412,10 @@ func CmakeCompilerWrite(w io.Writer, c *toolchain.Compiler) {
 	fmt.Fprintln(w)
 }
 
-func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler, targetName string) {
+func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler, projectName string) {
 	fmt.Fprintln(w, "cmake_minimum_required(VERSION 3.7)\n")
 	CmakeCompilerWrite(w, c)
-	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C CXX ASM)\n\n", targetName)
+	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C CXX ASM)\n\n", projectName)
 	fmt.Fprintln(w, "SET(CMAKE_C_FLAGS_BACKUP  \"${CMAKE_C_FLAGS}\")")
 	fmt.Fprintln(w, "SET(CMAKE_CXX_FLAGS_BACKUP  \"${CMAKE_CXX_FLAGS}\")")
 	fmt.Fprintln(w, "SET(CMAKE_ASM_FLAGS_BACKUP  \"${CMAKE_ASM_FLAGS}\")")
@@ -442,7 +442,11 @@ func CMakeTargetGenerate(target *target.Target) error {
 		return err
 	}
 
-	CmakeHeaderWrite(w, targetCompiler, target.ShortName())
+	var proj *project.Project
+	if proj, err = project.TryGetProject(); err != nil {
+		return err
+	}
+	CmakeHeaderWrite(w, targetCompiler, fmt.Sprintf("\"%s (%s)\"", proj.Name(), target.ShortName()))
 
 	if err := targetBuilder.CMakeTargetBuilderWrite(w, targetCompiler); err != nil {
 		return err
