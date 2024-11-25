@@ -30,12 +30,12 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-var NewtVersion = Version{1, 13, 0}
-var NewtVersionStr = "1.13.0"
+var NewtVersion = Version{1, 13, 9900}
+var NewtVersionStr = "1.14.0-dev"
 var NewtGitHash = "unknown"
 var NewtDate = "unknown"
 
-var NewtBlinkyTag string = "mynewt_1_13_0_tag"
+var NewtBlinkyTag string = "master"
 var NewtNumJobs int
 var NewtForce bool
 var NewtAsk bool
