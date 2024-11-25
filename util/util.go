@@ -52,6 +52,7 @@ var ShallowCloneDepth int
 var logFile *os.File
 var SkipNewtCompat bool
 var SkipSyscfgRepoHash bool
+var HideLoadCmdOutput bool
 
 func ParseEqualsPair(v string) (string, string, error) {
 	s := strings.Split(v, "=")
@@ -352,37 +353,13 @@ func EnvironAsMap() (map[string]string, error) {
 	return m, nil
 }
 
-// Execute the specified process and block until it completes.  Additionally,
-// the amount of combined stdout+stderr output to be logged to the debug log
-// can be restricted to a maximum number of characters.
-//
-// @param cmdStrs               The "argv" strings of the command to execute.
-// @param env                   Additional key,value pairs to inject into the
-//                                  child process's environment.  Specify null
-//                                  to just inherit the parent environment.
-// @param logCmd                Whether to log the command being executed.
-// @param maxDbgOutputChrs      The maximum number of combined stdout+stderr
-//                                  characters to write to the debug log.
-//                                  Specify -1 for no limit; 0 for no output.
-//
-// @return []byte               Combined stdout and stderr output of process.
-// @return error                NewtError on failure.  Use IsExit() to
-//                                  determine if the command failed to execute
-//                                  or if it just returned a non-zero exit
-//                                  status.
-func ShellCommandLimitDbgOutput(
-	cmdStrs []string, env map[string]string, logCmd bool,
-	maxDbgOutputChrs int) ([]byte, error) {
+func ShellCommandInit(cmdStrs []string, env map[string]string) (*exec.Cmd, error) {
 
 	var name string
 	var args []string
 
 	// Escape special characters for Windows.
 	fixupCmdArgs(cmdStrs)
-
-	if logCmd {
-		LogShellCmd(cmdStrs, env)
-	}
 
 	if ExecuteShell && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
 		cmd := strings.Join(cmdStrs, " ")
@@ -416,6 +393,75 @@ func ShellCommandLimitDbgOutput(
 			m[k] = v
 		}
 		cmd.Env = EnvVarsToSlice(m)
+	}
+
+	return cmd, nil
+}
+
+// Execute the specified process and block until it completes. Process'
+// output will be redirected to the stdout and stderr if output log is enabled
+//
+// @param cmdStrs               The "argv" strings of the command to execute.
+// @param env                   Additional key,value pairs to inject into the
+//                                  child process's environment.  Specify null
+//                                  to just inherit the parent environment.
+// @param logCmd                Whether to log the command being executed.
+// @param maxDbgOutputChrs      Whether to log the output of the process
+//
+// @return error                NewtError on failure.  Use IsExit() to
+//                                  determine if the command failed to execute
+//                                  or if it just returned a non-zero exit
+//                                  status.
+func ShellCommandStreamOutput(
+	cmdStrs []string, env map[string]string, logCmd bool,
+	logOutput bool) error {
+
+	cmd, err := ShellCommandInit(cmdStrs, env)
+	if err != nil {
+		return err
+	}
+
+	if logCmd {
+		LogShellCmd(cmdStrs, env)
+	}
+
+	if logOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+
+	return cmd.Run()
+}
+
+// Execute the specified process and block until it completes.  Additionally,
+// the amount of combined stdout+stderr output to be logged to the debug log
+// can be restricted to a maximum number of characters.
+//
+// @param cmdStrs               The "argv" strings of the command to execute.
+// @param env                   Additional key,value pairs to inject into the
+//                                  child process's environment.  Specify null
+//                                  to just inherit the parent environment.
+// @param logCmd                Whether to log the command being executed.
+// @param maxDbgOutputChrs      The maximum number of combined stdout+stderr
+//                                  characters to write to the debug log.
+//                                  Specify -1 for no limit; 0 for no output.
+//
+// @return []byte               Combined stdout and stderr output of process.
+// @return error                NewtError on failure.  Use IsExit() to
+//                                  determine if the command failed to execute
+//                                  or if it just returned a non-zero exit
+//                                  status.
+func ShellCommandLimitDbgOutput(
+	cmdStrs []string, env map[string]string, logCmd bool,
+	maxDbgOutputChrs int) ([]byte, error) {
+
+	cmd, err := ShellCommandInit(cmdStrs, env)
+	if err != nil {
+		return nil, err
+	}
+
+	if logCmd {
+		LogShellCmd(cmdStrs, env)
 	}
 
 	o, err := cmd.CombinedOutput()
