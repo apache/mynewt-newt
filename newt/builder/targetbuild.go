@@ -95,6 +95,14 @@ func NewTargetTester(target *target.Target,
 		injectedSettings: cfgv.NewSettings(nil),
 	}
 
+	if err := t.ensureResolved(); err != nil {
+		return nil, err
+	}
+
+	if err := t.bspPkg.Reload(t.res.Cfg.SettingValues()); err != nil {
+		return nil, err
+	}
+
 	return t, nil
 }
 
