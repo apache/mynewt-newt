@@ -59,6 +59,7 @@ func processNewtrc(yc ycfg.YCfg) {
 
 	util.SkipNewtCompat, _ = yc.GetValBoolDflt("skip_newt_compat", nil, false)
 	util.SkipSyscfgRepoHash, _ = yc.GetValBoolDflt("skip_syscfg_repo_hash", nil, false)
+	util.EnableProjectCache, _ = yc.GetValBoolDflt("project_cache", nil, false)
 }
 
 func readNewtrc() ycfg.YCfg {
