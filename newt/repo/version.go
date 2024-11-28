@@ -23,6 +23,7 @@ package repo
 
 import (
 	"mynewt.apache.org/newt/newt/downloader"
+	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -196,9 +197,18 @@ func (r *Repo) HashFromVer(ver newtutil.RepoVersion) (string, error) {
 // commits exist, they are not considered here.
 func (r *Repo) VersFromCommit(commit string) []newtutil.RepoVersion {
 	var vers []newtutil.RepoVersion
+	var rc bool
+
+	restr := `rc\d+_tag`
+	re := regexp.MustCompile(restr)
+	if re.MatchString(commit) {
+		commit = re.ReplaceAllString(commit, "tag")
+		rc = true
+	}
 
 	for v, c := range r.vers {
 		if c == commit {
+			v.Rc = rc
 			vers = append(vers, v)
 		}
 	}
