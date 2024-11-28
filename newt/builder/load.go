@@ -158,16 +158,18 @@ func Load(binBasePath string, bspPkg *pkg.BspPackage,
 		binBasePath,
 	}
 
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Load command: %s\n",
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Load command: %s\n",
 		strings.Join(cmd, " "))
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Environment:\n")
 	for _, v := range env {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "* %s\n", v)
 	}
-	if _, err := util.ShellCommand(cmd, env); err != nil {
+
+	if err := util.ShellCommandStreamOutput(cmd, env, true, !util.HideLoadCmdOutput); err != nil {
 		return err
 	}
-	util.StatusMessage(util.VERBOSITY_VERBOSE, "Successfully loaded image.\n")
+
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Successfully loaded image.\n")
 
 	return nil
 }
