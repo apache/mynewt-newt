@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -235,8 +236,8 @@ func pkgnames(pkgs []*pkg.LocalPackage) string {
 	return s
 }
 
-func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell bool) {
-	if len(args) < 1 {
+func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell bool, list bool) {
+	if ((len(args) < 1) && !list) || ((len(args) > 0) && list) {
 		NewtUsage(cmd, nil)
 	}
 
@@ -247,6 +248,29 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 	// Verify and resolve each specified package.
 	testAll := false
 	packs := []*pkg.LocalPackage{}
+
+	if list {
+		packItfs := proj.PackagesOfType(pkg.PACKAGE_TYPE_UNITTEST)
+		testableNames := testablePkgList()
+		packs = make([]*pkg.LocalPackage, len(packItfs))
+		for i, p := range packItfs {
+			packs[i] = p.(*pkg.LocalPackage)
+		}
+
+		names := testableNames
+		for _, p := range packs {
+			names = append(names, p.FullName())
+		}
+
+		sort.Strings(names)
+
+		for _, name := range names {
+			util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", name)
+		}
+
+		return
+	}
+
 	for _, pkgName := range args {
 		if pkgName == "all" {
 			testAll = true
@@ -470,16 +494,21 @@ func AddBuildCommands(cmd *cobra.Command) {
 	})
 
 	var exclude string
+	var list bool
 	testCmd := &cobra.Command{
 		Use:   "test <package-name> [package-names...] | all",
 		Short: "Executes unit tests for one or more packages",
 		Run: func(cmd *cobra.Command, args []string) {
-			testRunCmd(cmd, args, exclude, executeShell)
+			testRunCmd(cmd, args, exclude, executeShell, list)
 		},
 	}
 	testCmd.Flags().StringVarP(&exclude, "exclude", "e", "", "Comma separated list of packages to exclude")
 	testCmd.Flags().BoolVar(&executeShell, "executeShell", false,
 		"Execute build command using /bin/sh (Linux and MacOS only)")
+	testCmd.Flags().BoolVar(&list,
+		"list", false,
+		"Show all available unit tests")
+
 	cmd.AddCommand(testCmd)
 	AddTabCompleteFn(testCmd, func() []string {
 		return append(testablePkgList(), "all", "allexcept")
