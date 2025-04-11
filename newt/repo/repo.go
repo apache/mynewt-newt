@@ -198,7 +198,11 @@ func (r *Repo) Name() string {
 }
 
 func (r *Repo) Path() string {
-	return r.localPath
+	if r != nil {
+		return r.localPath
+	} else {
+		return ""
+	}
 }
 
 func (r *Repo) IsLocal() bool {
