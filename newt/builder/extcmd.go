@@ -188,6 +188,7 @@ func getLinkTableEntry(name string) string {
 	indent := "        "
 
 	entry := indent + "__" + name + "_start__ = .;\n" +
+		indent + name + " = .;\n" +
 		indent + "KEEP(*(." + name + "))\n" +
 		indent + "KEEP(*(SORT(." + name + ".*)))\n" +
 		indent + "__" + name + "_end__ = .;\n\n"
