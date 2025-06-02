@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -410,8 +411,15 @@ func (b *Builder) createArchive(c *toolchain.Compiler,
 
 	// Create a static library ("archive").
 	c.SetSrcDir(bpkg.rpkg.Lpkg.RelativePath())
-	archiveFile := b.ArchivePath(bpkg)
-	if err := c.CompileArchive(archiveFile); err != nil {
+	outputFile := b.ArchivePath(bpkg)
+	ci, err := bpkg.CompilerInfo(b)
+	if err != nil {
+		return err
+	}
+	if ci.WholeArch {
+		outputFile = strings.TrimSuffix(outputFile, ".a") + ".list"
+	}
+	if err := c.CompileArchive(outputFile, ci.WholeArch); err != nil {
 		return err
 	}
 
@@ -454,6 +462,7 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 	// Calculate the list of directories containing source .a files.
 	var dirs []string
 	staticLibs := []util.StaticLib{}
+	var extension string
 
 	for _, bpkg := range b.sortedBuildPackages() {
 
@@ -466,8 +475,13 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		}
 
 		c.AddInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
-		fullANames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
-		for _, archiveName := range fullANames {
+		if ci.WholeArch {
+			extension = "/*.list"
+		} else {
+			extension = "/*.a"
+		}
+		fullNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + extension)
+		for _, archiveName := range fullNames {
 			s := util.NewStaticLib(archiveName, ci.WholeArch)
 			staticLibs = append(staticLibs, s)
 		}
