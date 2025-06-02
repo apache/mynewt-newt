@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -410,8 +411,11 @@ func (b *Builder) createArchive(c *toolchain.Compiler,
 
 	// Create a static library ("archive").
 	c.SetSrcDir(bpkg.rpkg.Lpkg.RelativePath())
-	archiveFile := b.ArchivePath(bpkg)
-	if err := c.CompileArchive(archiveFile); err != nil {
+	outputFile := b.ArchivePath(bpkg)
+	if c.GetCompilerInfo().WholeArch {
+		outputFile = strings.TrimSuffix(outputFile, ".a") + ".list"
+	}
+	if err := c.CompileArchive(outputFile, c.GetCompilerInfo().WholeArch); err != nil {
 		return err
 	}
 
@@ -468,7 +472,12 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		c.AddInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
 		fullANames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.a")
 		for _, archiveName := range fullANames {
-			s := util.NewStaticLib(archiveName, ci.WholeArch)
+			s := util.NewStaticLib(archiveName, false)
+			staticLibs = append(staticLibs, s)
+		}
+		fullListNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + "/*.list")
+		for _, listName := range fullListNames {
+			s := util.NewStaticLib(listName, true)
 			staticLibs = append(staticLibs, s)
 		}
 	}
