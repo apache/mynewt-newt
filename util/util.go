@@ -74,13 +74,13 @@ const (
 
 type StaticLib struct {
 	File      string
-	WholeArch bool
+	IsObjList bool
 }
 
-func NewStaticLib(file string, wholeArch bool) StaticLib {
+func NewStaticLib(file string, isObjList bool) StaticLib {
 	s := StaticLib{
 		File:      file,
-		WholeArch: wholeArch,
+		IsObjList: isObjList,
 	}
 	return s
 }

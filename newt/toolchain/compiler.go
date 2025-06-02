@@ -1034,12 +1034,10 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 	}
 
 	for _, lib := range libList {
-		if lib.WholeArch {
-			cmd = append(cmd, "-Wl,--whole-archive")
-		}
-		cmd = append(cmd, lib.File)
-		if lib.WholeArch {
-			cmd = append(cmd, "-Wl,--no-whole-archive")
+		if lib.IsObjList {
+			cmd = append(cmd, "@"+lib.File)
+		} else {
+			cmd = append(cmd, lib.File)
 		}
 	}
 	if c.ldResolveCircularDeps {
@@ -1387,17 +1385,21 @@ func (c *Compiler) BuildSplitArchiveCmd(archiveFile string) string {
 	return str
 }
 
-// Archives the specified static library.
+// Archives the specified static library or creates file with list of
+// object files.
 //
-// @param archiveFile           The filename of the library to archive.
-// @param objFiles              An array of the source .o filenames.
-func (c *Compiler) CompileArchive(archiveFile string) error {
+// @param outputFile            The filename of the library to archive.
+// @param createList            If true archive will not be compiled. Instead
+//                              the file with list of all paths to object files
+//                              from the library will be created, which later
+//                              can be passed with @ to the linker.
+func (c *Compiler) CompileArchive(outputFile string, createList bool) error {
 	objFiles := []string{}
 
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
 
-	arRequired, err := c.depTracker.ArchiveRequired(archiveFile, objFiles)
+	arRequired, err := c.depTracker.ArchiveRequired(outputFile, objFiles)
 	if err != nil {
 		return err
 	}
@@ -1405,7 +1407,7 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(archiveFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputFile), 0755); err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
@@ -1416,25 +1418,41 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 
 	if len(objList) == 0 {
 		util.StatusMessage(util.VERBOSITY_VERBOSE,
-			"Not archiving %s; no object files\n", archiveFile)
+			"Not archiving %s; no object files\n", outputFile)
 		return nil
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
-		path.Base(archiveFile))
+		path.Base(outputFile))
 	util.StatusMessage(util.VERBOSITY_VERBOSE, " with object files %s",
 		strings.Join(objList, " "))
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
 	// Delete the old archive, if it exists.
-	err = os.Remove(archiveFile)
+	err = os.Remove(outputFile)
 	if err != nil && !os.IsNotExist(err) {
 		return util.NewNewtError(err.Error())
 	}
 
-	fullCmd := c.CompileArchiveCmd(archiveFile, objFiles)
+	if createList {
+		file, err := os.Create(outputFile)
+		if err != nil {
+			return util.NewNewtError(err.Error())
+		}
 
-	cmdSafe := c.CompileArchiveCmdSafe(archiveFile, objFiles)
+		for _, objFilePath := range objList {
+			_, err = file.WriteString(objFilePath + "\n")
+			if err != nil {
+				return util.NewNewtError(err.Error())
+			}
+		}
+
+		return nil
+	}
+
+	fullCmd := c.CompileArchiveCmd(outputFile, objFiles)
+
+	cmdSafe := c.CompileArchiveCmdSafe(outputFile, objFiles)
 	for _, cmd := range cmdSafe {
 		o, err := util.ShellCommand(cmd, nil)
 		if err != nil {
@@ -1443,7 +1461,7 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 	}
 
-	err = writeCommandFile(archiveFile, fullCmd)
+	err = writeCommandFile(outputFile, fullCmd)
 	if err != nil {
 		return err
 	}
