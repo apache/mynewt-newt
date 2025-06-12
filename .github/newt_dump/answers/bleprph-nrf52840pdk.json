@@ -4206,7 +4206,7 @@
         "type": "raw",
         "history": [
           {
-            "value": "0xc0ffeeee",
+            "value": "3237998318",
             "package": "@apache-mynewt-core/sys/config"
           }
         ],
