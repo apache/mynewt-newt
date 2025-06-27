@@ -95,13 +95,15 @@ func NewTargetTester(target *target.Target,
 		injectedSettings: cfgv.NewSettings(nil),
 	}
 
-	if err := t.ensureResolved(); err != nil {
+	if err := t.ensureResolved(false); err != nil {
 		return nil, err
 	}
 
 	if err := t.bspPkg.Reload(t.res.Cfg.SettingValues()); err != nil {
 		return nil, err
 	}
+
+	t.res.Cfg.DetectErrors(bspPkg.FlashMap)
 
 	return t, nil
 }
@@ -174,7 +176,7 @@ func (t *TargetBuilder) resolveTransientPkgs(lps []*pkg.LocalPackage) {
 	}
 }
 
-func (t *TargetBuilder) ensureResolved() error {
+func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 	if t.res != nil {
 		return nil
 	}
@@ -238,7 +240,7 @@ func (t *TargetBuilder) ensureResolved() error {
 
 	var err error
 	t.res, err = resolve.ResolveFull(
-		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap)
+		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap, detectErr)
 	if err != nil {
 		return err
 	}
@@ -267,7 +269,7 @@ func (t *TargetBuilder) ensureResolved() error {
 }
 
 func (t *TargetBuilder) Resolve() (*resolve.Resolution, error) {
-	if err := t.ensureResolved(); err != nil {
+	if err := t.ensureResolved(true); err != nil {
 		return nil, err
 	}
 
@@ -275,7 +277,7 @@ func (t *TargetBuilder) Resolve() (*resolve.Resolution, error) {
 }
 
 func (t *TargetBuilder) validateAndWriteCfg() error {
-	if err := t.ensureResolved(); err != nil {
+	if err := t.ensureResolved(true); err != nil {
 		return err
 	}
 
@@ -384,7 +386,7 @@ func (t *TargetBuilder) extraADirs() []string {
 }
 
 func (t *TargetBuilder) PrepBuild() error {
-	if err := t.ensureResolved(); err != nil {
+	if err := t.ensureResolved(true); err != nil {
 		return err
 	}
 
@@ -836,7 +838,7 @@ func (t *TargetBuilder) MaxImgSizes() []int {
 }
 
 func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
-	if err := t.ensureResolved(); err != nil {
+	if err := t.ensureResolved(true); err != nil {
 		return nil, err
 	}
 
@@ -844,7 +846,7 @@ func (t *TargetBuilder) CreateDepGraph() (DepGraph, error) {
 }
 
 func (t *TargetBuilder) CreateRevdepGraph() (DepGraph, error) {
-	if err := t.ensureResolved(); err != nil {
+	if err := t.ensureResolved(true); err != nil {
 		return nil, err
 	}
 

@@ -1168,7 +1168,8 @@ func ResolveFull(
 	loaderSeeds []*pkg.LocalPackage,
 	appSeeds []*pkg.LocalPackage,
 	injectedSettings *cfgv.Settings,
-	flashMap flashmap.FlashMap) (*Resolution, error) {
+	flashMap flashmap.FlashMap,
+	detectErr bool) (*Resolution, error) {
 
 	// First, calculate syscfg and determine which package provides each
 	// required API.  Syscfg and APIs are project-wide; that is, they are
@@ -1239,7 +1240,9 @@ func ResolveFull(
 	if loaderSeeds == nil {
 		res.AppSet.Rpkgs = r.rpkgSlice()
 		res.LoaderSet = nil
-		res.Cfg.DetectErrors(flashMap)
+		if detectErr == true {
+			res.Cfg.DetectErrors(flashMap)
+		}
 		return res, nil
 	}
 
@@ -1290,7 +1293,9 @@ func ResolveFull(
 		return nil, err
 	}
 
-	res.Cfg.DetectErrors(flashMap)
+	if detectErr == true {
+		res.Cfg.DetectErrors(flashMap)
+	}
 
 	return res, nil
 }
