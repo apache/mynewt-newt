@@ -77,7 +77,7 @@ func (t *TargetBuilder) SelfTestCreateExe() error {
 	return nil
 }
 
-func (t *TargetBuilder) SelfTestExecute() error {
+func (t *TargetBuilder) SelfTestExecute(valgrind bool) error {
 	if err := t.SelfTestCreateExe(); err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (t *TargetBuilder) SelfTestExecute() error {
 		return err
 	}
 
-	if err := t.AppBuilder.SelfTestExecute(testRpkg); err != nil {
+	if err := t.AppBuilder.SelfTestExecute(testRpkg, valgrind); err != nil {
 		return err
 	}
 
@@ -140,7 +140,7 @@ func (b *Builder) testOwner(bpkg *BuildPackage) *BuildPackage {
 	}
 }
 
-func (b *Builder) SelfTestExecute(testRpkg *resolve.ResolvePackage) error {
+func (b *Builder) SelfTestExecute(testRpkg *resolve.ResolvePackage, valgrind bool) error {
 	testPath := b.TestExePath()
 	if err := os.Chdir(filepath.Dir(testPath)); err != nil {
 		return err
@@ -149,11 +149,16 @@ func (b *Builder) SelfTestExecute(testRpkg *resolve.ResolvePackage) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing test: %s\n",
 		testPath)
 	cmd := []string{testPath}
-	if _, err := util.ShellCommand(cmd, nil); err != nil {
+	if valgrind {
+		cmd = append([]string{"valgrind", "--error-exitcode=1"}, cmd...)
+	}
+	if output, err := util.ShellCommand(cmd, nil); err != nil {
 		newtError := err.(*util.NewtError)
 		newtError.Text = fmt.Sprintf("Test failure (%s):\n%s",
 			testRpkg.Lpkg.Name(), newtError.Text)
 		return newtError
+	} else if valgrind {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", output)
 	}
 
 	return nil
