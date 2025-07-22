@@ -13,7 +13,7 @@ This guide shows you how to perform the following:
 
 1. Install MSYS2/MinGW.
 2. Install Git.
-3. Install latest release (1.8.0) of newt from binary.
+3. Install latest release of newt from binary.
 4. Install go for building newt from source.
 5. Install latest release of newt from source.
 
@@ -93,7 +93,7 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
 1. Start a MinGW terminal.
 
-2. Download the newt binary tar file `apache-mynewt-newt-bin-windows-1.8.0.tgz <https://www.apache.org/dyn/closer.lua/mynewt/apache-mynewt-1.8.0/apache-mynewt-newt-bin-windows-1.8.0.tgz>`__.
+2. Download the latest newt binary tar file for Windows from https://mynewt.apache.org/download.
 
 3. Extract the file:
 
@@ -102,13 +102,13 @@ You can install the latest release of newt from binary. It has been tested on Wi
 
       .. code-block:: console
 
-        $ tar -xzf apache-mynewt-newt-bin-windows-1.8.0.tgz -C $GOPATH/bin --strip-components=1 apache-mynewt-newt-bin-windows-1.8.0/newt.exe
+        $ tar -xzf apache-mynewt-newt-bin-windows-x.x.x.tgz -C $GOPATH/bin --strip-components=1 apache-mynewt-newt-bin-windows-x.x.x/newt.exe
 
    -  If you are installing newt for the first time and do not have a Go workspace setup, you can extract into /usr/bin directory:
 
       .. code-block:: console
 
-        $ tar -xzf apache-mynewt-newt-bin-windows-1.8.0.tgz -C /usr/bin --strip-components=1 apache-mynewt-newt-bin-windows-1.8.0/newt.exe
+        $ tar -xzf apache-mynewt-newt-bin-windows-x.x.x.tgz -C /usr/bin --strip-components=1 apache-mynewt-newt-bin-windows-x.x.x/newt.exe
 
 4. Verify the installed version of newt. See `Checking the Installed Version`_.
 
@@ -136,20 +136,19 @@ source.
 
 1. Start a MinGw terminal.
 
-2. Download and unpack the newt source:
+2. Download and unpack the newt source (get version number from https://mynewt.apache.org/download):
 
    .. code-block:: console
 
-    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_1_8_0_tag.tar.gz
-    $ tar -xzf /tmp/mynewt_1_8_0_tag.tar.gz
+    $ wget -P /tmp https://github.com/apache/mynewt-newt/archive/mynewt_x_x_x_tag.tar.gz
+    $ tar -xzf /tmp/mynewt_x_x_x_tag.tar.gz
 
 3. Run the build.sh to build the newt tool.
 
    .. code-block:: console
 
-    $ cd mynewt-newt-mynewt_1_8_0_tag
+    $ cd mynewt-newt
     $ MSYS=winsymlinks:nativestrict ./build.sh
-    $ rm /tmp/mynewt_1_8_0_tag.tar.gz
 
 4. You should see the ``newt/newt.exe`` executable. Move the executable to a bin directory in your PATH:
 
@@ -173,14 +172,16 @@ Checking the Installed Version
 
    .. code-block:: console
 
+    $ which newt
+    /usr/bin/newt
     $ newt version
-    Apache Newt 1.8.0 / ab96a8a-dirty / 2020-03-18_23:25
+    Apache Newt 1.13.0 / c6bf556 / 2024-11-15_06:58
 
 2. Get information about newt:
 
    .. code-block:: console
 
-    $ newt help
+    $ newt
     Newt allows you to create your own embedded application based on the Mynewt
     operating system. Newt provides both build and package management in a single
     tool, which allows you to compose an embedded application, and set of
@@ -204,6 +205,7 @@ Checking the Installed Version
       apropos      Search manual page names and descriptions
       build        Build one or more targets
       clean        Delete build artifacts for one or more targets
+      completion   Generate the autocompletion script for the specified shell
       create-image Add image header to target binary
       debug        Open debugger session to target
       docs         Project documentation generation commands
@@ -225,12 +227,13 @@ Checking the Installed Version
       version      Display the Newt version number
 
     Flags:
-          --escape            Apply Windows escapes to shell commands (default true)
+          --escape            Apply Windows escapes to shell commands
       -h, --help              Help for newt commands
-      -j, --jobs int          Number of concurrent build jobs (default 8)
+      -j, --jobs int          Number of concurrent build jobs (default 4)
       -l, --loglevel string   Log level (default "WARN")
       -o, --outfile string    Filename to tee output to
       -q, --quiet             Be quiet; only display error output
+          --shallow int       Use shallow clone for git repositories up to specified number of commits
       -s, --silent            Be silent; don't output anything
       -v, --verbose           Enable verbose output when executing commands
 
