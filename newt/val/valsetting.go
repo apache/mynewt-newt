@@ -57,8 +57,7 @@ func (vs *ValSetting) IntVal() (int, error) {
 func ResolveValSetting(s string, cfg *syscfg.Cfg) (ValSetting, error) {
 	refName, val, err := cfg.ExpandRef(s)
 	if err != nil {
-		return ValSetting{},
-			util.FmtNewtError("value \"%s\" references undefined setting", s)
+		return ValSetting{}, err
 	}
 
 	return ValSetting{
