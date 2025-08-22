@@ -287,7 +287,7 @@ func (t *TargetBuilder) validateAndWriteCfg() error {
 
 	warningText := strings.TrimSpace(t.res.WarningText())
 	if warningText != "" {
-		log.Debug(warningText)
+		log.Warn(warningText)
 	}
 
 	for _, line := range t.res.DeprecatedWarning() {
