@@ -679,7 +679,6 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 		vmp = &vm
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
 	for _, r := range repos {
 		if r.IsLocal() {
 			inst.localRepoInfo(r)
