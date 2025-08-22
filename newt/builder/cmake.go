@@ -194,11 +194,16 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 	}
 
 	pkgName := bpkg.rpkg.Lpkg.NameWithRepo()
+	object_library := ""
+	if bpkg.ci.WholeArch {
+		object_library = "OBJECT "
+	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
 	fmt.Fprintf(w, "\n# Generating CMakeLists.txt for %s\n", pkgName)
-	fmt.Fprintf(w, "add_library(%s %s)\n",
+	fmt.Fprintf(w, "add_library(%s %s%s)\n",
 		EscapePkgName(pkgName),
+		object_library,
 		strings.Join(files, " "))
 	archivePath := trimProjectPath(filepath.Dir(b.ArchivePath(bpkg)))
 	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
