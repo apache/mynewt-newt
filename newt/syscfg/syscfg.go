@@ -242,6 +242,22 @@ func (cfg *Cfg) AddInjectedSettings() {
 	}
 }
 
+func (cfg *Cfg) AddPkgNamesSettings(pkgs []*pkg.LocalPackage) {
+	for _, pkg := range pkgs {
+		entry := CfgEntry{
+			Name:       "PKG_" + pkg.Name(),
+			PackageDef: pkg,
+			State:      CFG_SETTING_STATE_CONST,
+			Value:      "1",
+			History: []CfgPoint{{
+				Value:  "1",
+				Source: pkg,
+			}},
+		}
+		cfg.Settings[entry.Name] = entry
+	}
+}
+
 func (cfg *Cfg) ResolveValueRefs() {
 	for k, entry := range cfg.Settings {
 		refName, val, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
