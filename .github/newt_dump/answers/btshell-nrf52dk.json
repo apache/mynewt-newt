@@ -4322,6 +4322,416 @@
         ],
         "state": "good"
       },
+      "PKG_apps/btshell": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/apps/btshell"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_compiler/arm-none-eabi-m4": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/compiler/arm-none-eabi-m4"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_crypto/tinycrypt": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/bsp/nordic_pca10040": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/cmsis-core": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/cmsis-core"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/nimble/nrf52": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/nimble/nrf52"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/uart": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/uart"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/uart/uart_hal": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/uart/uart_hal"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/hal": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/mcu/nordic": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/mcu/nordic/nrf52xxx": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_kernel/os": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_libc/baselibc": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/libc/baselibc"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/controller": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/controller"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/drivers/nrf52": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/drivers/nrf52"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/host": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/host/services/ans": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host/services/ans"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/host/services/gap": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gap"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/host/services/gatt": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host/services/gatt"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/host/store/ram": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/host/store/ram"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/transport": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/transport"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_nimble/transport/ram": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/nimble/transport/ram"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_porting/npl/mynewt": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-nimble/porting/npl/mynewt"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/console/full": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/full"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/defs": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/defs"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/flash_map": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/common": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/common"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/full": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/full"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/modlog": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/mfg": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/shell": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/shell"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/stats/full": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/stats/full"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sys": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sys"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sysdown": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sysinit": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_targets/btshell-nrf52dk": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "targets/btshell-nrf52dk"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_time/datetime": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/time/datetime"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/cbmem": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/cbmem"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/mem": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/mem"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/rwlock": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/rwlock"
+          }
+        ],
+        "state": "const"
+      },
       "PWM_0": {
         "type": "raw",
         "history": [
