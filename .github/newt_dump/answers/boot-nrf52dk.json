@@ -2078,6 +2078,266 @@
         ],
         "state": "good"
       },
+      "PKG_apps/boot": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/apps/boot"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_boot/bootutil": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/boot/bootutil"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_compiler/arm-none-eabi-m4": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/compiler/arm-none-eabi-m4"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_crypto/mbedtls": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/mbedtls"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/bsp/nordic_pca10040": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/nordic_pca10040"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/cmsis-core": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/cmsis-core"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/uart": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/uart"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/uart/uart_hal": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/uart/uart_hal"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/hal": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/mcu/nordic": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/mcu/nordic/nrf52xxx": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/nordic/nrf52xxx"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_kernel/os": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_libc/baselibc": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/libc/baselibc"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/console/stub": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/defs": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/defs"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/flash_map": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/common": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/common"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/modlog": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/stub": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/stub"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/mfg": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sys": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sys"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sysdown": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sysinit": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_targets/boot-nrf52dk": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "targets/boot-nrf52dk"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/mem": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/mem"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/rwlock": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/rwlock"
+          }
+        ],
+        "state": "const"
+      },
       "PWM_0": {
         "type": "raw",
         "history": [

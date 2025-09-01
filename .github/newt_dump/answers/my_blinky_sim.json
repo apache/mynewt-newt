@@ -1322,6 +1322,256 @@
         ],
         "state": "good"
       },
+      "PKG_apps/blinky": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "apps/blinky"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_compiler/sim": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/compiler/sim"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_crypto/tinycrypt": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/crypto/tinycrypt"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/bsp/native": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/bsp/native"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/flash/enc_flash": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/flash/enc_flash"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/flash/enc_flash/ef_tinycrypt": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/flash/enc_flash/ef_tinycrypt"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/uart": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/uart"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/drivers/uart/uart_hal": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/drivers/uart/uart_hal"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/hal": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/hal"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_hw/mcu/native": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/hw/mcu/native"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_kernel/os": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/os"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_kernel/sim": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/kernel/sim"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_net/ip/mn_socket": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/net/ip/mn_socket"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_net/ip/native_sockets": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/net/ip/native_sockets"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/console/stub": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/console/stub"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/defs": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/defs"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/flash_map": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/flash_map"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/log/modlog": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/log/modlog"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/mfg": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/mfg"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sys": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sys"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sysdown": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysdown"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_sys/sysinit": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/sys/sysinit"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_targets/my_blinky_sim": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "targets/my_blinky_sim"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/mem": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/mem"
+          }
+        ],
+        "state": "const"
+      },
+      "PKG_util/rwlock": {
+        "type": "raw",
+        "history": [
+          {
+            "value": "1",
+            "package": "@apache-mynewt-core/util/rwlock"
+          }
+        ],
+        "state": "const"
+      },
       "RWLOCK_DEBUG": {
         "type": "raw",
         "history": [
