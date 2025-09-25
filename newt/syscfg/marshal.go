@@ -33,6 +33,7 @@ var cfgSettingNameTypeMap = map[string]CfgSettingType{
 
 var cfgSettingNameStateMap = map[string]CfgSettingState{
 	"good":         CFG_SETTING_STATE_GOOD,
+	"const":        CFG_SETTING_STATE_CONST,
 	"deprecated":   CFG_SETTING_STATE_DEPRECATED,
 	"defunct":      CFG_SETTING_STATE_DEFUNCT,
 	"experimental": CFG_SETTING_STATE_EXPERIMENTAL,

@@ -601,6 +601,7 @@ func (r *Resolver) reloadCfg() (bool, error) {
 
 	cfg.AddInjectedSettings()
 	cfg.ResolveValueRefs()
+	cfg.AddPkgNamesSettings(lpkgs)
 
 	// Determine if any new settings have been added or if any existing
 	// settings have changed.
