@@ -773,29 +773,37 @@ func (t *TargetBuilder) InjectSetting(key string, value string) {
 	t.injectedSettings.Set(key, value)
 }
 
-// Calculates the size of a single boot trailer.  This is the amount of flash
-// that must be reserved at the end of each image slot.
-func (t *TargetBuilder) bootTrailerSize() int {
-	var minWriteSz int
+// Retrieves an integer syscfg flag or returns the default value.
+func getSettingIntValue(settings map[string]syscfg.CfgEntry, settingName string, defaultValue int) int {
 
-	entry, ok := t.res.Cfg.Settings["MCU_FLASH_MIN_WRITE_SIZE"]
+	var intValue int
+	entry, ok := settings[settingName]
 	if !ok {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"* Warning: target does not define MCU_FLASH_MIN_WRITE_SIZE "+
-				"setting; assuming a value of 1.\n")
-		minWriteSz = 1
+			"* Warning: target does not define %s "+
+				"setting; assuming a value of %d.\n", settingName, defaultValue)
+		intValue = defaultValue
 	} else {
 		val, err := util.AtoiNoOct(entry.Value)
 		if err != nil {
 			util.StatusMessage(util.VERBOSITY_DEFAULT,
 				"* Warning: target specifies invalid non-integer "+
-					"MCU_FLASH_MIN_WRITE_SIZE setting; assuming a "+
-					"value of 1.\n")
-			minWriteSz = 1
+					"%s setting; assuming a "+
+					"value of %d.\n", settingName, defaultValue)
+			intValue = defaultValue
 		} else {
-			minWriteSz = val
+			intValue = val
 		}
 	}
+	return intValue
+}
+
+// Calculates the size of a single boot trailer.  This is the amount of flash
+// that must be reserved at the end of each image slot.
+func (t *TargetBuilder) bootTrailerSize() int {
+
+	minWriteSz := getSettingIntValue(t.res.Cfg.Settings, "MCU_FLASH_MIN_WRITE_SIZE", 1)
+	maxImgSectors := getSettingIntValue(t.res.Cfg.Settings, "BOOTUTIL_MAX_IMG_SECTORS", 128)
 
 	/* Mynewt boot trailer format:
 	 *
@@ -815,11 +823,11 @@ func (t *TargetBuilder) bootTrailerSize() int {
 	 */
 
 	tsize := 16 + // Magic.
-		128*minWriteSz*3 + // Swap status.
+		maxImgSectors*minWriteSz*3 + // Swap status.
 		minWriteSz + // Copy done.
 		minWriteSz // Image Ok.
 
-	log.Debugf("Min-write-size=%d; boot-trailer-size=%d", minWriteSz, tsize)
+	log.Debugf("Min-write-size=%d; max-img-sectors=%d; boot-trailer-size=%d", minWriteSz, maxImgSectors, tsize)
 
 	return tsize
 }
