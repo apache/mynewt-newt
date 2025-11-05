@@ -22,6 +22,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -235,9 +236,17 @@ func pkgnames(pkgs []*pkg.LocalPackage) string {
 	return s
 }
 
-func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell bool) {
+func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell bool, valgrind bool) {
 	if len(args) < 1 {
 		NewtUsage(cmd, nil)
+	}
+
+	if valgrind == true {
+		_, err := exec.LookPath("valgrind")
+		if err != nil {
+			NewtUsage(nil, util.FmtNewtError("Valgrind is not installed."+
+				"Please install it before running tests with --valgrind flag."))
+		}
 	}
 
 	util.ExecuteShell = executeShell
@@ -320,7 +329,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
 			pack.FullName())
 
-		err = b.SelfTestExecute()
+		err = b.SelfTestExecute(valgrind)
 		if err == nil {
 			passedPkgs = append(passedPkgs, pack)
 		} else {
@@ -435,6 +444,7 @@ func sizeRunCmd(cmd *cobra.Command, args []string, ram bool, flash bool, section
 func AddBuildCommands(cmd *cobra.Command) {
 	var printShellCmds bool
 	var executeShell bool
+	var valgrind bool
 
 	buildCmd := &cobra.Command{
 		Use:   "build <target-name> [target-names...]",
@@ -474,12 +484,14 @@ func AddBuildCommands(cmd *cobra.Command) {
 		Use:   "test <package-name> [package-names...] | all",
 		Short: "Executes unit tests for one or more packages",
 		Run: func(cmd *cobra.Command, args []string) {
-			testRunCmd(cmd, args, exclude, executeShell)
+			testRunCmd(cmd, args, exclude, executeShell, valgrind)
 		},
 	}
 	testCmd.Flags().StringVarP(&exclude, "exclude", "e", "", "Comma separated list of packages to exclude")
 	testCmd.Flags().BoolVar(&executeShell, "executeShell", false,
 		"Execute build command using /bin/sh (Linux and MacOS only)")
+	testCmd.Flags().BoolVar(&valgrind, "valgrind", false,
+		"Run test executables under Valgrind")
 	cmd.AddCommand(testCmd)
 	AddTabCompleteFn(testCmd, func() []string {
 		return append(testablePkgList(), "all", "allexcept")
