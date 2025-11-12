@@ -411,9 +411,7 @@ func (proj *Project) UpgradeIf(
 	return inst.Upgrade(specifiedRepoList, force, ask)
 }
 
-func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
-	remote bool) error {
-
+func (proj *Project) Info(remote bool, external bool) error {
 	if remote {
 		// Make sure we have an up to date copy of all `repository.yml` files.
 		if err := proj.downloadRepositoryYmlFiles(); err != nil {
@@ -422,13 +420,37 @@ func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 	}
 
 	// Determine which repos the user wants info about.
-	repoList := proj.SelectRepos(predicate)
+	predicate := func(r *repo.Repo) bool { return true }
+	internalRepos := proj.SelectRepos(predicate)
+
+	if !remote && external {
+		proj.GetPkgRepos()
+	}
+
+	predicate = func(r *repo.Repo) bool {
+		for _, intRepo := range internalRepos {
+			if intRepo.Name() == r.Name() {
+				return false
+			}
+		}
+		return true
+	}
+	// This should be empty slice if remote is true
+	externalRepos := proj.SelectRepos(predicate)
 
 	// Ignore errors.  We will deal with bad repos individually when we display
 	// info about them.
 	inst, _ := install.NewInstaller(proj.repos, proj.rootRepoReqs)
-	if err := inst.Info(repoList, remote); err != nil {
+	util.StatusMessage(util.VERBOSITY_DEFAULT, "Internal repository info:\n")
+	if err := inst.Info(internalRepos, remote); err != nil {
 		return err
+	}
+
+	if !remote && external {
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "External repository info:\n")
+		if err := inst.Info(externalRepos, remote); err != nil {
+			return err
+		}
 	}
 
 	return nil
