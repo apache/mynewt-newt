@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"mynewt.apache.org/newt/newt/builder"
@@ -250,6 +251,37 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+}
+
+func targetEnvCmd(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		NewtUsage(cmd, util.NewNewtError("Must specify target"))
+	}
+
+	TryGetProject()
+
+	t := ResolveTarget(args[0])
+	if t == nil {
+		NewtUsage(cmd, util.NewNewtError("Invalid target name: " + args[0]))
+	}
+
+	b, err := builder.NewTargetBuilder(t)
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	log.SetLevel(log.ErrorLevel)
+
+	if err := b.PrepBuild(); err != nil {
+		NewtUsage(nil, err)
+	}
+
+	fmt.Printf("APP_ELF_PATH=" + b.AppBuilder.AppElfPath() + "\n")
+	fmt.Printf("APP_IMG_PATH=" + b.AppBuilder.AppImgPath() + "\n")
+	fmt.Printf("APP_HEX_PATH=" + b.AppBuilder.AppHexPath() + "\n")
+	fmt.Printf("APP_BIN_PATH=" + b.AppBuilder.AppBinPath() + "\n")
+	fmt.Printf("BUILD_TARGET_DIR=" + builder.TargetBinDir(b.GetTarget().Name()) + "\n")
+	fmt.Printf("BUILD_APP_DIR=" + b.AppBuilder.AppBinBasePath() + "\n")
 }
 
 func printCflags(appCflags []ycfg.YCfgEntry) {
@@ -801,6 +833,21 @@ func AddTargetCommands(cmd *cobra.Command) {
 		"Show all targets (including from other repos)")
 	targetCmd.AddCommand(showCmd)
 	AddTabCompleteFn(showCmd, targetList)
+
+	envHelpText := "Show environment variables pointing to the binaries produced for the given " +
+		"<target-name>."
+	envHelpEx := "  newt target env <target-name>\n"
+	envHelpEx += "  newt target env my_target1"
+
+	envCmd := &cobra.Command{
+		Use:     "env",
+		Short:   "Print target environmental variables",
+		Long:    envHelpText,
+		Example: envHelpEx,
+		Run:     targetEnvCmd,
+	}
+	targetCmd.AddCommand(envCmd)
+	AddTabCompleteFn(envCmd, targetList)
 
 	listHelpText := "List all available targets."
 	listHelpEx := "  newt target list"
