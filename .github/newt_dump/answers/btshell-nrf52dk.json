@@ -3160,7 +3160,7 @@
         "type": "raw",
         "history": [
           {
-            "value": "0xB7",
+            "value": "183",
             "package": "@apache-mynewt-core/sys/shell"
           }
         ],

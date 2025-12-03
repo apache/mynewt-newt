@@ -16,4 +16,5 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

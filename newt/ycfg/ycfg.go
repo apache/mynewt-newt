@@ -29,7 +29,6 @@ import (
 
 	"mynewt.apache.org/newt/newt/parse"
 	"mynewt.apache.org/newt/util"
-	"mynewt.apache.org/newt/yaml"
 )
 
 // YAML configuration object.  This is a substitute for a viper configuration
@@ -745,5 +744,5 @@ func (yc *YCfg) String() string {
 
 // YAML converts the YCfg to a map and encodes the map as YAML.
 func (yc *YCfg) YAML() string {
-	return yaml.MapToYaml(yc.AllSettings())
+	return util.MapToYaml(yc.AllSettings())
 }
