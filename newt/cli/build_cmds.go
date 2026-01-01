@@ -371,6 +371,10 @@ func loadRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(cmd, util.NewNewtError("Must specify target"))
 	}
 
+	if util.InjectSyscfg != "" {
+		util.InjectSyscfg = "MYNEWT_DOWNLOADER=" + util.InjectSyscfg
+	}
+
 	TryGetProject()
 
 	t := ResolveTarget(args[0])
@@ -530,6 +534,8 @@ func AddBuildCommands(cmd *cobra.Command) {
 		"Extra commands to send to JTAG software")
 	loadCmd.PersistentFlags().StringVarP(&imgFileOverride, "imgfile", "", "",
 		"Path of .img file to load instead of target artifact")
+	loadCmd.Flags().StringVarP(&util.InjectSyscfg, "loader", "L", "",
+		"Override loader value from syscfg")
 
 	debugHelpText := "Open a debugger session for <target-name>"
 
