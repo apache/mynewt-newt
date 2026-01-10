@@ -369,6 +369,10 @@ func (r *Repo) Upgrade(ver newtutil.RepoVersion) error {
 		return err
 	}
 
+	if branch := r.downloader.MainBranch(); branch != "" {
+		commit = branch
+	}
+
 	if err := r.updateRepo(commit); err != nil {
 		return err
 	}
