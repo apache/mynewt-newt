@@ -21,9 +21,11 @@ package resolve
 
 import (
 	"fmt"
-	"mynewt.apache.org/newt/newt/cfgv"
 	"sort"
 	"strings"
+
+	"mynewt.apache.org/newt/newt/cfgv"
+	"mynewt.apache.org/newt/newt/ycfg"
 
 	log "github.com/sirupsen/logrus"
 
@@ -1026,7 +1028,7 @@ func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 // 1. Calculates the system configuration (syscfg).
 // 2. Determines which packages satisfy which API requirements.
 // 3. Resolves package dependencies by populating the resolver's package map.
-func (r *Resolver) resolveDepsAndCfg() error {
+func (r *Resolver) resolveDepsAndCfg(targetCfg ycfg.YCfg) error {
 	if err := r.resolveHardDeps(); err != nil {
 		return err
 	}
@@ -1071,7 +1073,7 @@ func (r *Resolver) resolveDepsAndCfg() error {
 
 	lpkgs := RpkgSliceToLpkgSlice(r.rpkgSlice())
 	r.lcfg = logcfg.Read(lpkgs, &r.cfg)
-	r.sysinitCfg = sysinit.Read(lpkgs, &r.cfg)
+	r.sysinitCfg = sysinit.Read(lpkgs, &r.cfg, targetCfg)
 	r.sysdownCfg = sysdown.Read(lpkgs, &r.cfg)
 
 	r.preBuildCmdCfg = extcmd.Read("pre_build_cmds", lpkgs, &r.cfg,
@@ -1169,6 +1171,7 @@ func ResolveFull(
 	appSeeds []*pkg.LocalPackage,
 	injectedSettings *cfgv.Settings,
 	flashMap flashmap.FlashMap,
+	targetCfg ycfg.YCfg,
 	detectErr bool) (*Resolution, error) {
 
 	// First, calculate syscfg and determine which package provides each
@@ -1180,7 +1183,7 @@ func ResolveFull(
 	allSeeds := append(loaderSeeds, appSeeds...)
 	r := newResolver(allSeeds, injectedSettings, flashMap)
 
-	if err := r.resolveDepsAndCfg(); err != nil {
+	if err := r.resolveDepsAndCfg(targetCfg); err != nil {
 		return nil, err
 	}
 
