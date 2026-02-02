@@ -1,0 +1,18 @@
+Brief sysinit config for targets/sysinit_override_success:
+ STAGE   | PACKAGE                                           | FUNCTION                | SETTING
+---------+---------------------------------------------------+-------------------------+------------------------
+ 10      | @apache-mynewt-nimble/nimble/transport            | ble_transport_ll_init   |
+ 11      | @apache-mynewt-nimble/nimble/host/services/gatt   | ble_svc_gatt_init       |
+ 12      | @apache-mynewt-core/sys/stats/full                | stats_module_init       |
+ 100     | @apache-mynewt-core/sys/log/modlog                | modlog_init             | MODLOG_SYSINIT_STAGE  
+ 101     | @apache-mynewt-nimble/nimble/host/store/config    | ble_store_config_init   |
+ 102     | @apache-mynewt-nimble/nimble/transport            | ble_transport_hs_init   |
+ 200     | @apache-mynewt-core/sys/shell                     | shell_init              |
+ 201     | @apache-mynewt-nimble/nimble/controller           | ble_ll_init             |
+ 202     | @apache-mynewt-nimble/nimble/transport            | ble_transport_init      |
+ 300     | @apache-mynewt-nimble/nimble/host/services/ans    | ble_svc_ans_init        |
+ 400     | @apache-mynewt-nimble/nimble/host/services/gap    | ble_svc_gap_init        |
+ 401     | @apache-mynewt-core/sys/flash_map                 | flash_map_init          |
+ 402     | @apache-mynewt-core/sys/log/full                  | log_init                |
+ 403     | @apache-mynewt-core/sys/console/full              | console_pkg_init        |
+ 404     | @apache-mynewt-core/kernel/os                     | os_pkg_init             |
