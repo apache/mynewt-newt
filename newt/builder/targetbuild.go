@@ -779,17 +779,14 @@ func getSettingIntValue(settings map[string]syscfg.CfgEntry, settingName string,
 	var intValue int
 	entry, ok := settings[settingName]
 	if !ok {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			"* Warning: target does not define %s "+
-				"setting; assuming a value of %d.\n", settingName, defaultValue)
+		log.Debugf("Target does not define %s "+
+				   "setting; assuming a value of %d.\n", settingName, defaultValue)
 		intValue = defaultValue
 	} else {
 		val, err := util.AtoiNoOct(entry.Value)
 		if err != nil {
-			util.StatusMessage(util.VERBOSITY_DEFAULT,
-				"* Warning: target specifies invalid non-integer "+
-					"%s setting; assuming a "+
-					"value of %d.\n", settingName, defaultValue)
+			log.Debugf("Target specifies invalid non-integer %s setting; assuming a "+
+					   "value of %d.\n", settingName, defaultValue)
 			intValue = defaultValue
 		} else {
 			intValue = val
