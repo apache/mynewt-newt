@@ -20,15 +20,15 @@
 package builder
 
 import (
-	"mynewt.apache.org/newt/newt/downloader"
-	"mynewt.apache.org/newt/newt/repo"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
+	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/syscfg"
 	"mynewt.apache.org/newt/newt/toolchain"
@@ -325,6 +325,7 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 
 func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 	srcDir := bpkg.rpkg.Lpkg.BasePath() + "/src/"
+	bp := bpkg.rpkg.Lpkg.BasePath()
 
 	incls := []string{}
 	if addIncludeDir(&incls, srcDir) {
@@ -339,6 +340,26 @@ func (bpkg *BuildPackage) privateIncludeDirs(b *Builder) []string {
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
+
+		settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
+
+		userIncls, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+			"pkg.private_include_dirs", settings)
+		util.OneTimeWarningError(err)
+
+		for _, dir := range userIncls {
+			r, path, err := newtutil.ParsePackageString(dir)
+
+			if err != nil {
+				util.OneTimeWarningError(err)
+			}
+
+			if r != "" {
+				incls = append(incls, "repos/"+r+"/"+path)
+			} else {
+				incls = append(incls, bp+"/"+dir)
+			}
+		}
 
 	case pkg.PACKAGE_TYPE_UNITTEST:
 		// A unittest package gets access to its parent package's private
