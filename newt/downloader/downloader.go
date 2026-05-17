@@ -834,6 +834,13 @@ func (gd *GithubDownloader) Fetch(repoDir string) error {
 			cmd = append(cmd, "--depth", strconv.Itoa(util.ShallowCloneDepth))
 		}
 		_, err := gd.authenticatedCommand(repoDir, cmd)
+
+		cmap, err := getCommits(repoDir)
+		if err != nil {
+			return err
+		}
+		gd.commits = cmap
+
 		return err
 	})
 }
