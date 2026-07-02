@@ -33,7 +33,7 @@ import (
 
 func (b *Builder) SelfTestLink(rpkg *resolve.ResolvePackage) error {
 	testPath := b.TestExePath()
-	if err := b.link(testPath, nil, nil, nil); err != nil {
+	if err := b.link(testPath, b.targetBuilder.bspPkg.LinkerScripts, nil, nil); err != nil {
 		return err
 	}
 
@@ -65,6 +65,8 @@ func (t *TargetBuilder) SelfTestCreateExe() error {
 		return util.FmtNewtError(
 			"builder in invalid state: missing test package")
 	}
+
+	t.generateLinkTables()
 
 	if err := t.AppBuilder.Build(); err != nil {
 		return err
