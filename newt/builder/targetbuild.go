@@ -23,11 +23,12 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
-	"mynewt.apache.org/newt/newt/cfgv"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"mynewt.apache.org/newt/newt/cfgv"
 
 	log "github.com/sirupsen/logrus"
 
@@ -240,7 +241,7 @@ func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 
 	var err error
 	t.res, err = resolve.ResolveFull(
-		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap, detectErr)
+		loaderSeeds, appSeeds, t.injectedSettings, t.bspPkg.FlashMap, t.target.TargetY, detectErr)
 	if err != nil {
 		return err
 	}
