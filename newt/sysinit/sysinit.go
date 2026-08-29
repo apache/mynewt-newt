@@ -163,7 +163,6 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 	sort.Slice(nodesQ, func(i int, j int) bool {
 		a := nodesQ[i]
 		b := nodesQ[j]
-
 		if strings.Compare(a.Name, b.Name) == -1 {
 			return false
 		}
@@ -181,6 +180,10 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 	// direct dependencies between each node of stage X to each node of
 	// stage Y to make sure they can be resolved properly and reordered
 	// if needed due to other dependencies.
+	if stages == nil {
+	  util.FmtNewtError("Cannot resolve sysinit order: no stages defined.")
+		return []stage.StageFunc{}, nil
+	}
 	sfsPrev := nodesByStage[stages[0]]
 	stages = stages[1:]
 	for _, stage := range stages {
