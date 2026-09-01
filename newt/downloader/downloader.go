@@ -697,6 +697,11 @@ func (gd *GenericDownloader) CommitSha(path string, commit string) (string, erro
 	return strings.TrimSpace(string(o)), nil
 }
 
+func (gd *GenericDownloader) invalidateCache() {
+	gd.commits = nil
+	gd.head = ""
+}
+
 // Fetches the downloader's origin remote if it hasn't been fetched yet during
 // this run.
 func (gd *GenericDownloader) cachedFetch(fn func() error) error {
@@ -709,6 +714,7 @@ func (gd *GenericDownloader) cachedFetch(fn func() error) error {
 	}
 
 	gd.fetched = true
+	gd.invalidateCache()
 	return nil
 }
 
