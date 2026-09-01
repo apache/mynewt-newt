@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
@@ -184,7 +185,7 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	return nil
 }
 
-func getLinkTableEntry(name string) string {
+func getLinkTableEntry(name string, alignment int) string {
 	indent := "        "
 
 	entry := indent + "__" + name + "_start__ = .;\n" +
@@ -192,6 +193,10 @@ func getLinkTableEntry(name string) string {
 		indent + "KEEP(*(." + name + "))\n" +
 		indent + "KEEP(*(SORT(." + name + ".*)))\n" +
 		indent + "__" + name + "_end__ = .;\n\n"
+
+	if alignment > 0 {
+		entry = indent + ". = ALIGN(" + strconv.Itoa(alignment) + ");\n" + entry
+	}
 
 	return entry
 }
@@ -221,7 +226,7 @@ func (t *TargetBuilder) generateLinkTables() {
 	}
 
 	for _, linkTable := range s {
-		linkHeader.WriteString(getLinkTableEntry(linkTable))
+		linkHeader.WriteString(getLinkTableEntry(linkTable, t.bspPkg.LinkTablesAlignment))
 	}
 
 }

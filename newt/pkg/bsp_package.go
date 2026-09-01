@@ -41,19 +41,20 @@ type BspYCfgOverride struct {
 
 type BspPackage struct {
 	*LocalPackage
-	yov                *BspYCfgOverride
-	CompilerName       string
-	CompilerNamePkg    *LocalPackage /* package which defines compiler name */
-	Arch               string
-	LinkerScripts      []string
-	Part2LinkerScripts []string /* scripts to link app to second partition */
-	DownloadScript     string
-	DebugScript        string
-	OptChkScript       string
-	ImageOffset        int
-	ImagePad           int
-	FlashMap           flashmap.FlashMap
-	BspV               ycfg.YCfg
+	yov                 *BspYCfgOverride
+	CompilerName        string
+	CompilerNamePkg     *LocalPackage /* package which defines compiler name */
+	Arch                string
+	LinkerScripts       []string
+	Part2LinkerScripts  []string /* scripts to link app to second partition */
+	DownloadScript      string
+	DebugScript         string
+	OptChkScript        string
+	ImageOffset         int
+	ImagePad            int
+	LinkTablesAlignment int
+	FlashMap            flashmap.FlashMap
+	BspV                ycfg.YCfg
 }
 
 func (bsp *BspPackage) BspYamlPath() string {
@@ -226,6 +227,8 @@ func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 	/* Optional Target Checker Script, not an err if not found */
 	bsp.OptChkScript, err = bsp.resolvePathSetting(
 		settings, "bsp.optionalcheckscript")
+
+	bsp.LinkTablesAlignment, _ = ycfg.GetValInt("bsp.link_tables_alignment", settings)
 
 	if bsp.CompilerName == "" {
 		return util.NewNewtError("BSP does not specify a compiler " +
