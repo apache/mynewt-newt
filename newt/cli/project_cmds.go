@@ -34,6 +34,7 @@ import (
 )
 
 var infoRemote bool
+var infoExternal bool
 
 func newRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
@@ -148,11 +149,9 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 
 	// If no arguments specified, print status of all installed repos.
 	if len(args) == 0 {
-		pred := func(r *repo.Repo) bool { return true }
-		if err := proj.InfoIf(pred, infoRemote); err != nil {
+		if err := proj.Info(infoRemote, infoExternal); err != nil {
 			NewtUsage(nil, err)
 		}
-
 		return
 	}
 
@@ -243,7 +242,10 @@ func AddProjectCommands(cmd *cobra.Command) {
 	}
 	infoCmd.PersistentFlags().BoolVarP(&infoRemote,
 		"remote", "r", false,
-		"Fetch latest repos to determine if upgrades are required")
+		"Fetch latest repos to determine if upgrades are required. Works only on internal repositories.")
+	infoCmd.PersistentFlags().BoolVarP(&infoExternal,
+		"external", "e", false,
+		"Include external repositories.")
 
 	cmd.AddCommand(infoCmd)
 }
