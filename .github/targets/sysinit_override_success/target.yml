@@ -1,0 +1,26 @@
+target.app: "@apache-mynewt-nimble/apps/btshell"
+target.bsp: "@apache-mynewt-core/hw/bsp/nordic_pca10056"
+target.build_profile: optimized
+
+pkg.init:
+  ble_transport_ll_init: 10
+  ble_svc_gatt_init: 11
+  stats_module_init: 12
+  modlog_init: MYNEWT_VAL(MODLOG_SYSINIT_STAGE)
+  ble_store_config_init: 101
+  ble_transport_hs_init: 102
+  shell_init: 200
+  ble_ll_init: 201
+  ble_transport_init: 202
+
+  ble_svc_ans_init: 300
+  ble_svc_gap_init: 400
+  flash_map_init: 401
+  log_init: 402
+  console_pkg_init: 403
+  os_pkg_init: 404
+
+  # Redundant init functions shall be ignored
+  dummy_1: 1
+  dummy_2: 205
+  dummy_3: 500
