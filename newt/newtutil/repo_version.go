@@ -211,7 +211,12 @@ func (v verSorter) Less(i, j int) bool {
 	a := v.vers[i]
 	b := v.vers[j]
 
-	return CompareRepoVersions(a, b) < 0
+	cmp := CompareRepoVersions(a, b)
+	if cmp != 0 {
+		return cmp < 0
+	}
+
+	return !a.Rc && b.Rc
 }
 
 func SortVersions(vers []RepoVersion) {
