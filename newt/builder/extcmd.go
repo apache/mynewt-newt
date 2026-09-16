@@ -23,12 +23,15 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
 	"mynewt.apache.org/newt/newt/stage"
 	"mynewt.apache.org/newt/util"
 )
+
+const LinkTablesAlignmentDflt = 4
 
 // replaceArtifactsIfChanged compares the artifacts just produced (temp
 // directory) to those from the previous build (user bin directory).  If they
@@ -184,7 +187,7 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	return nil
 }
 
-func getLinkTableEntry(name string) string {
+func getLinkTableEntry(name string, alignment int) string {
 	indent := "        "
 
 	entry := indent + "__" + name + "_start__ = .;\n" +
@@ -192,6 +195,10 @@ func getLinkTableEntry(name string) string {
 		indent + "KEEP(*(." + name + "))\n" +
 		indent + "KEEP(*(SORT(." + name + ".*)))\n" +
 		indent + "__" + name + "_end__ = .;\n\n"
+
+	if alignment > 0 {
+		entry = indent + ". = ALIGN(" + strconv.Itoa(alignment) + ");\n" + entry
+	}
 
 	return entry
 }
@@ -220,8 +227,14 @@ func (t *TargetBuilder) generateLinkTables() {
 		return
 	}
 
+	settings := t.res.Cfg.SettingValues()
+	linkTablesAlignment, err := strconv.Atoi(settings.Get("MCU_LINK_TABLES_ALIGNMENT"))
+	if err != nil {
+		linkTablesAlignment = LinkTablesAlignmentDflt
+	}
+
 	for _, linkTable := range s {
-		linkHeader.WriteString(getLinkTableEntry(linkTable))
+		linkHeader.WriteString(getLinkTableEntry(linkTable, linkTablesAlignment))
 	}
 
 }
