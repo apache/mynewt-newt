@@ -354,7 +354,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 			NewtUsage(nil, err)
 		}
 
-		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
+		util.StatusMessage(util.VERBOSITY_QUIET, "Testing package %s\n",
 			pack.FullName())
 
 		if err := b.SelfTestCreateExe(); err != nil {
