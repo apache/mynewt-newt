@@ -318,6 +318,8 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 	packLoop:
 		for _, pack := range orig {
 			for _, excl := range excls {
+				// Trim trailing slash, e.g. added by tab completion.
+				excl = strings.TrimSuffix(excl, "/")
 				if pack.Name() == excl ||
 					strings.HasPrefix(pack.Name(), excl+"/") ||
 					pack.NameWithRepo() == excl ||
