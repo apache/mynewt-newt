@@ -358,8 +358,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 		if err == nil {
 			passedPkgs = append(passedPkgs, pack)
 		} else {
-			newtError := err.(*util.NewtError)
-			util.StatusMessage(util.VERBOSITY_QUIET, newtError.Text)
+			util.StatusMessage(util.VERBOSITY_QUIET, "%s", err.Error())
 			failedPkgs = append(failedPkgs, pack)
 		}
 	}
