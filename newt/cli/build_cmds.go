@@ -99,7 +99,7 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 		}
 	}
 
-	return result
+	return pkg.SortLclPkgs(result)
 }
 
 var extraJtagCmd string
