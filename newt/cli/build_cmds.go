@@ -248,6 +248,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 	// Verify and resolve each specified package.
 	testAll := false
 	packs := []*pkg.LocalPackage{}
+	seen := map[*pkg.LocalPackage]struct{}{}
 
 	if list {
 		packItfs := proj.PackagesOfType(pkg.PACKAGE_TYPE_UNITTEST)
@@ -286,7 +287,12 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 					"unit tests", pack.FullName()))
 			}
 
-			packs = append(packs, testPkgs...)
+			for _, p := range testPkgs {
+				if _, ok := seen[p]; !ok {
+					seen[p] = struct{}{}
+					packs = append(packs, p)
+				}
+			}
 		}
 	}
 
