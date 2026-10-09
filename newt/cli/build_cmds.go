@@ -274,6 +274,10 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 
 	for _, pkgName := range args {
 		if pkgName == "all" {
+			if len(args) > 1 {
+				NewtUsage(cmd, util.NewNewtError(
+					"\"all\" cannot be combined with other packages"))
+			}
 			testAll = true
 		} else {
 			pack, err := proj.ResolvePackage(proj.LocalRepo(), pkgName)
