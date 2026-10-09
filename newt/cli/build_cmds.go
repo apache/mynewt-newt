@@ -93,7 +93,7 @@ func pkgToUnitTests(pack *pkg.LocalPackage) []*pkg.LocalPackage {
 	result := []*pkg.LocalPackage{}
 	for p, _ := range testablePkgs() {
 		if p.Type() == pkg.PACKAGE_TYPE_UNITTEST &&
-			strings.HasPrefix(p.FullName(), pack.FullName()) {
+			strings.HasPrefix(p.FullName(), pack.FullName()+"/") {
 
 			result = append(result, p)
 		}
