@@ -337,6 +337,7 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 
 	passedPkgs := []*pkg.LocalPackage{}
 	failedPkgs := []*pkg.LocalPackage{}
+	buildFailedPkgs := []*pkg.LocalPackage{}
 	for _, pack := range packs {
 		// Reset the global state for the next test.
 		if err := ResetGlobalState(); err != nil {
@@ -356,21 +357,30 @@ func testRunCmd(cmd *cobra.Command, args []string, exclude string, executeShell 
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Testing package %s\n",
 			pack.FullName())
 
-		err = b.SelfTestExecute()
-		if err == nil {
-			passedPkgs = append(passedPkgs, pack)
-		} else {
+		if err := b.SelfTestCreateExe(); err != nil {
+			util.StatusMessage(util.VERBOSITY_QUIET,
+				"Build failure (%s):\n%s", pack.Name(), err.Error())
+			buildFailedPkgs = append(buildFailedPkgs, pack)
+			continue
+		}
+
+		if err := b.SelfTestRun(); err != nil {
 			util.StatusMessage(util.VERBOSITY_QUIET, "%s", err.Error())
 			failedPkgs = append(failedPkgs, pack)
+			continue
 		}
+
+		passedPkgs = append(passedPkgs, pack)
 	}
 
 	passStr := fmt.Sprintf("Passed tests: [%s]", PackageNameList(passedPkgs))
 	failStr := fmt.Sprintf("Failed tests: [%s]", PackageNameList(failedPkgs))
+	buildFailStr := fmt.Sprintf("Build failures: [%s]",
+		PackageNameList(buildFailedPkgs))
 
-	if len(failedPkgs) > 0 {
-		NewtUsage(nil, util.FmtNewtError("Test failure(s):\n%s\n%s", passStr,
-			failStr))
+	if len(failedPkgs) > 0 || len(buildFailedPkgs) > 0 {
+		NewtUsage(nil, util.FmtNewtError("Test failure(s):\n%s\n%s\n%s",
+			passStr, failStr, buildFailStr))
 	} else {
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", passStr)
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "All tests passed\n")

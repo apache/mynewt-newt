@@ -84,6 +84,11 @@ func (t *TargetBuilder) SelfTestExecute() error {
 		return err
 	}
 
+	return t.SelfTestRun()
+}
+
+// SelfTestRun executes a test previously built with SelfTestCreateExe().
+func (t *TargetBuilder) SelfTestRun() error {
 	testRpkg, err := t.getTestRpkg()
 	if err != nil {
 		return err
