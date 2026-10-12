@@ -16,7 +16,7 @@ Global Flags:
 .. code-block:: console
 
         -h, --help              Help for newt commands
-        -j, --jobs int          Number of concurrent build jobs (default 8)
+        -j, --jobs int          Number of concurrent build jobs (0 = number of CPUs) (default 8)
         -l, --loglevel string   Log level (default "WARN")
         -o, --outfile string    Filename to tee output to
         -q, --quiet             Be quiet; only display error output
