@@ -24,7 +24,6 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/shirou/gopsutil/cpu"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
@@ -40,21 +39,25 @@ var newtLogFile string
 var newtNumJobs int
 var newtHelp bool
 
+// Returns the number of CPUs available to this process.  GOMAXPROCS honors
+// CPU affinity on all platforms and cgroup CPU limits on Linux.
 func newtDfltNumJobs() int {
-	maxProcs := runtime.GOMAXPROCS(0)
-	numCpu := runtime.NumCPU()
-	cpu, err := cpu.Counts(false)
-	if err == nil && cpu > 0 {
-		numCpu = cpu
-	}
-	var numJobs int
-	if maxProcs < numCpu {
-		numJobs = maxProcs
-	} else {
-		numJobs = numCpu
+	return max(runtime.GOMAXPROCS(0), 1)
+}
+
+// Returns the number of concurrent build jobs to use for the specified -j
+// value.  0 means one job per CPU available to this process.
+func newtResolveNumJobs(numJobs int) (int, error) {
+	if numJobs < 0 {
+		return 0, util.FmtNewtError(
+			"Invalid number of jobs: %d; must be 0 or greater", numJobs)
 	}
 
-	return numJobs
+	if numJobs == 0 {
+		numJobs = newtDfltNumJobs()
+	}
+
+	return numJobs, nil
 }
 
 func newtCmd() *cobra.Command {
@@ -100,7 +103,10 @@ func newtCmd() *cobra.Command {
 				cli.NewtUsage(nil, err)
 			}
 
-			newtutil.NewtNumJobs = newtNumJobs
+			newtutil.NewtNumJobs, err = newtResolveNumJobs(newtNumJobs)
+			if err != nil {
+				cli.NewtUsage(nil, err)
+			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -118,7 +124,7 @@ func newtCmd() *cobra.Command {
 	newtCmd.PersistentFlags().StringVarP(&newtLogFile, "outfile", "o",
 		"", "Filename to tee output to")
 	newtCmd.PersistentFlags().IntVarP(&newtNumJobs, "jobs", "j",
-		newtDfltNumJobs(), "Number of concurrent build jobs")
+		newtDfltNumJobs(), "Number of concurrent build jobs (0 = number of CPUs)")
 	newtCmd.PersistentFlags().BoolVarP(&newtHelp, "help", "h",
 		false, "Help for newt commands")
 	newtCmd.PersistentFlags().BoolVarP(&util.EscapeShellCmds, "escape", "",

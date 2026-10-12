@@ -165,7 +165,7 @@ Get information about newt:
 
     Flags:
       -h, --help              Help for newt commands
-      -j, --jobs int          Number of concurrent build jobs (default 4)
+      -j, --jobs int          Number of concurrent build jobs (0 = number of CPUs) (default 4)
       -l, --loglevel string   Log level (default "WARN")
       -o, --outfile string    Filename to tee output to
       -q, --quiet             Be quiet; only display error output
