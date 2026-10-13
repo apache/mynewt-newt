@@ -19,20 +19,39 @@
 
 package builder
 
+// The generated CMakeLists.txt builds a target the same way "newt build" does:
+//
+//   * Each package is compiled with exactly the flags and include directories
+//     newt uses.  Package archives are written to the same paths newt uses, so
+//     linker scripts, external scripts and other newt commands (load, debug,
+//     create-image) work with the output of either build system.
+//   * Pre-build, pre-link and post-link commands are executed at the same
+//     build stages as in newt, with the same environment.
+//   * The elf file is linked with the same command line newt uses.  The list
+//     of input libraries is calculated at build time, exactly as newt does it
+//     (all .a files in package bin directories, objects of whole-archive
+//     packages, .a files emitted by pre-link commands), and passed to the
+//     linker in a response file.
+//   * The .bin, .lst and .map files are generated after linking.
+//
+// Generated code, link tables and pre-build artifacts are produced when the
+// CMakeLists.txt file is generated, so "newt target cmake" must be rerun
+// whenever the target configuration changes.
+
 import (
 	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
-	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/stage"
 	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
@@ -40,8 +59,22 @@ import (
 
 const CMAKELISTS_FILENAME string = "CMakeLists.txt"
 
+const cmakeMinimumVersion = "3.13"
+
+const (
+	cmakePreBuildTarget = "newt_pre_build"
+	cmakePreLinkTarget  = "newt_pre_link"
+	cmakePostLinkTarget = "newt_post_link"
+)
+
 func CmakeListsPath() string {
 	return project.GetProject().BasePath + "/" + CMAKELISTS_FILENAME
+}
+
+// CmakeDir returns the directory where newt writes the helper scripts used by
+// the generated CMakeLists.txt.
+func CmakeDir(targetName string) string {
+	return TargetBinDir(targetName) + "/cmake"
 }
 
 func EscapePkgName(name string) string {
@@ -52,120 +85,370 @@ func EscapePkgName(name string) string {
 	return name
 }
 
-func ExtractLibraryName(filepath string) string {
-	_, name := path.Split(filepath)
-	name = strings.TrimPrefix(name, "lib")
-	name = strings.TrimSuffix(name, ".a")
-	return name
-}
-
 func replaceBackslashes(path string) string {
 	return strings.Replace(path, "\\", "/", -1)
 }
 
-func replaceBackslashesSlice(elements []string) {
-	for e := range elements {
-		elements[e] = replaceBackslashes(elements[e])
+// cmakeEscape escapes a string so that it can be used inside a quoted CMake
+// argument.
+func cmakeEscape(s string) string {
+	s = strings.Replace(s, "\\", "\\\\", -1)
+	s = strings.Replace(s, "\"", "\\\"", -1)
+	s = strings.Replace(s, "$", "\\$", -1)
+	return s
+}
+
+// cmakeQuote converts a string to a quoted CMake argument.
+func cmakeQuote(s string) string {
+	return "\"" + cmakeEscape(s) + "\""
+}
+
+// cmakeQuoteSlice converts each string to a quoted CMake argument.
+func cmakeQuoteSlice(elements []string) []string {
+	quoted := make([]string, len(elements))
+	for i, e := range elements {
+		quoted[i] = cmakeQuote(e)
 	}
+	return quoted
 }
 
-func escapeFlags(flag string) string {
-	flag = strings.Replace(flag, "\"", "\\\\\\\"", -1)
-	flag = strings.Replace(flag, "(", "\\\\(", -1)
-	flag = strings.Replace(flag, ")", "\\\\)", -1)
-	flag = strings.Replace(flag, "<", "\\\\<", -1)
-	flag = strings.Replace(flag, ">", "\\\\>", -1)
-	return flag
-}
+// cmakePath converts a path to a quoted CMake argument.  Paths inside the
+// project are expressed relative to ${CMAKE_SOURCE_DIR}, so that they don't
+// depend on the build directory.
+func cmakePath(path string) string {
+	path = replaceBackslashes(path)
+	projPath := replaceBackslashes(project.GetProject().Path())
 
-func escapeFlagsSlice(flags []string) []string {
-	for f := range flags {
-		flags[f] = escapeFlags(flags[f])
+	if path == projPath {
+		return "\"${CMAKE_SOURCE_DIR}\""
+	}
+	if strings.HasPrefix(path, projPath+"/") {
+		return "\"${CMAKE_SOURCE_DIR}/" +
+			cmakeEscape(strings.TrimPrefix(path, projPath+"/")) + "\""
+	}
+	if !filepath.IsAbs(path) {
+		return "\"${CMAKE_SOURCE_DIR}/" + cmakeEscape(path) + "\""
 	}
 
-	return flags
+	return cmakeQuote(path)
 }
 
-func trimProjectPath(path string) string {
-	proj := interfaces.GetProject()
-	if strings.HasPrefix(replaceBackslashes(path), proj.Path()) {
-		path, _ = filepath.Rel(proj.Path(), path)
+// isProjectRelPath indicates whether the specified string is a relative path
+// pointing inside the project, e.g., "repos/apache-mynewt-core/kernel/os" or
+// "bin/tfm_s_CMSE_lib.o".
+func isProjectRelPath(s string) bool {
+	if s == "" || filepath.IsAbs(s) || strings.HasPrefix(s, "$") {
+		return false
 	}
-	return replaceBackslashes(path)
-}
 
-func trimProjectPathSlice(elements []string) {
-	for e := range elements {
-		elements[e] = trimProjectPath(elements[e])
+	parts := strings.SplitN(replaceBackslashes(s), "/", 2)
+	if len(parts) < 2 || parts[0] == "" || parts[0] == "." ||
+		parts[0] == ".." {
+
+		return false
 	}
+
+	return util.NodeExist(project.GetProject().Path() + "/" + parts[0])
 }
 
-func extractIncludes(flags *[]string, includes *[]string, other *[]string) {
-	for _, f := range *flags {
-		if strings.HasPrefix(f, "-I") {
-			*includes = append(*includes, strings.TrimPrefix(f, "-I"))
+// cmakeFlagPathOpts lists the compiler and linker options whose path value
+// may be passed as a separate argument.
+var cmakeFlagPathOpts = map[string]bool{
+	"-I":         true,
+	"-L":         true,
+	"-T":         true,
+	"-Map":       true,
+	"--script":   true,
+	"-imacros":   true,
+	"-include":   true,
+	"-iquote":    true,
+	"-isystem":   true,
+	"-idirafter": true,
+}
+
+// cmakeFlagPath converts a path passed to the compiler or linker to an
+// escaped CMake string.
+func cmakeFlagPath(path string) string {
+	if strings.HasPrefix(path, "$") {
+		return cmakeEscape(path)
+	}
+
+	quoted := cmakePath(path)
+	return quoted[1 : len(quoted)-1]
+}
+
+// cmakeFlagArg converts a compiler or linker flag to an escaped CMake
+// string.  isPath indicates that the flag is the path value of the preceding
+// flag.
+//
+// newt executes the compiler and the linker from the project directory, while
+// CMake executes them from the build directory.  Paths inside the project are
+// made absolute, so that they point to the same files in both cases.
+func cmakeFlagArg(flag string, isPath bool) string {
+	if isPath {
+		return cmakeFlagPath(flag)
+	}
+
+	// Macro definitions are passed as is.
+	if strings.HasPrefix(flag, "-D") || strings.HasPrefix(flag, "-U") {
+		return cmakeEscape(flag)
+	}
+
+	// Each comma-separated option passed to the linker is converted
+	// separately, e.g., "-Wl,-T,ld/app.ld".
+	if strings.HasPrefix(flag, "-Wl,") {
+		opts := strings.Split(flag[len("-Wl,"):], ",")
+		args := make([]string, len(opts))
+		for i, opt := range opts {
+			args[i] = cmakeFlagArg(opt, i > 0 && cmakeFlagPathOpts[opts[i-1]])
+		}
+		return "-Wl," + strings.Join(args, ",")
+	}
+
+	projPath := replaceBackslashes(project.GetProject().Path())
+
+	// "-T" followed by a value containing "=" is a section address, e.g.,
+	// "-Ttext=0x8000", not a linker script.
+	if len(flag) > 2 && (strings.HasPrefix(flag, "-I") ||
+		strings.HasPrefix(flag, "-L") ||
+		(strings.HasPrefix(flag, "-T") && !strings.Contains(flag, "="))) {
+
+		return cmakeEscape(flag[:2]) + cmakeFlagPath(flag[2:])
+	}
+
+	prefix := ""
+	value := replaceBackslashes(flag)
+	if i := strings.LastIndex(flag, "="); i >= 0 &&
+		strings.HasPrefix(flag, "-") {
+
+		prefix = flag[:i+1]
+		value = replaceBackslashes(flag[i+1:])
+	}
+
+	if value == projPath || strings.HasPrefix(value, projPath+"/") ||
+		isProjectRelPath(value) {
+
+		return cmakeEscape(prefix) + cmakeFlagPath(value)
+	}
+
+	return cmakeEscape(flag)
+}
+
+// cmakeQuoteEscapedSlice converts each escaped CMake string to a quoted CMake
+// argument.
+func cmakeQuoteEscapedSlice(elements []string) []string {
+	quoted := make([]string, len(elements))
+	for i, e := range elements {
+		quoted[i] = "\"" + e + "\""
+	}
+	return quoted
+}
+
+// cmakeFlagArgs converts each flag to an escaped CMake string.
+func cmakeFlagArgs(flags []string) []string {
+	args := make([]string, len(flags))
+	for i, f := range flags {
+		if i > 0 {
+			args[i] = cmakeOptValueArg(flags[i-1], f)
 		} else {
-			*other = append(*other, f)
+			args[i] = cmakeFlagArg(f, false)
 		}
 	}
+	return args
 }
 
-func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
-	includeDirs *[]string, linkFlags *[]string) {
-	c := cj.Compiler
+// cmakeOptValueArg converts a flag, which follows the specified option, to an
+// escaped CMake string.
+func cmakeOptValueArg(opt string, value string) string {
+	// The compiler looks for a file included with -include or -imacros in
+	// the working directory first and then in the include search path.  A
+	// file that doesn't exist relative to the project directory is looked up
+	// in the include search path, so it is passed as is.
+	if (opt == "-include" || opt == "-imacros") && !filepath.IsAbs(value) &&
+		util.NodeNotExist(project.GetProject().Path()+"/"+value) {
 
-	flags := []string{}
-	otherFlags := []string{}
-
-	switch cj.CompilerType {
-	case toolchain.COMPILER_TYPE_C:
-		flags = append(flags, c.GetCompilerInfo().Cflags...)
-		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
-	case toolchain.COMPILER_TYPE_ASM:
-		flags = append(flags, c.GetCompilerInfo().Cflags...)
-		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
-		flags = append(flags, c.GetCompilerInfo().Aflags...)
-		flags = append(flags, c.GetLocalCompilerInfo().Aflags...)
-	case toolchain.COMPILER_TYPE_CPP:
-		flags = append(flags, c.GetCompilerInfo().Cflags...)
-		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
-		flags = append(flags, c.GetCompilerInfo().CXXflags...)
-		flags = append(flags, c.GetLocalCompilerInfo().CXXflags...)
+		return cmakeEscape(value)
 	}
 
-	*linkFlags = append(*linkFlags, c.GetCompilerInfo().Lflags...)
-	*linkFlags = append(*linkFlags, c.GetLocalCompilerInfo().Lflags...)
-
-	extractIncludes(&flags, includeDirs, &otherFlags)
-	cj.Filename = trimProjectPath(cj.Filename)
-
-	// Sort and remove duplicate flags
-	otherFlags = util.SortFields(otherFlags...)
-
-	fmt.Fprintf(w,
-		`set_property(SOURCE %s APPEND_STRING
-             PROPERTY COMPILE_FLAGS
-             "%s")`,
-		cj.Filename,
-		strings.Join(escapeFlagsSlice(otherFlags), " "))
-	fmt.Fprintln(w)
+	return cmakeFlagArg(value, cmakeFlagPathOpts[opt])
 }
 
+// cmakeFlagSlice converts each flag to a quoted CMake argument.
+func cmakeFlagSlice(flags []string) []string {
+	return cmakeQuoteEscapedSlice(cmakeFlagArgs(flags))
+}
+
+// cmakeFlagValueOpts lists the compiler and linker options whose value may be
+// passed as a separate argument.
+var cmakeFlagValueOpts = map[string]bool{
+	"-D":             true,
+	"-U":             true,
+	"-x":             true,
+	"-u":             true,
+	"-Xassembler":    true,
+	"-Xlinker":       true,
+	"-Xpreprocessor": true,
+}
+
+// groupFlags groups each option, whose value is passed as a separate argument,
+// with its value.
+func groupFlags(flags []string) [][]string {
+	groups := make([][]string, 0, len(flags))
+
+	for i := 0; i < len(flags); i++ {
+		f := flags[i]
+		if (cmakeFlagValueOpts[f] || cmakeFlagPathOpts[f]) && i+1 < len(flags) {
+			groups = append(groups, flags[i:i+2])
+			i++
+		} else {
+			groups = append(groups, flags[i:i+1])
+		}
+	}
+
+	return groups
+}
+
+// dedupKeepLast removes duplicate flags, keeping the last occurrence of each.
+// CMake removes duplicate link options, keeping the first occurrence.  The
+// compiler uses the last occurrence of a conflicting flag, so the duplicates
+// are removed here in a way that doesn't change the meaning of the command
+// line.
+func dedupKeepLast(groups [][]string) [][]string {
+	seen := map[string]bool{}
+	result := make([][]string, len(groups))
+	n := len(groups)
+
+	for i := len(groups) - 1; i >= 0; i-- {
+		key := strings.Join(groups[i], "\x00")
+		if !seen[key] {
+			seen[key] = true
+			n--
+			result[n] = groups[i]
+		}
+	}
+
+	return result[n:]
+}
+
+// cmakeLinkOptions converts link options to escaped CMake strings.
+// Duplicate options are removed.  An option passed with a separate value is
+// converted to a single "SHELL:" option, so that CMake doesn't remove the
+// option as a duplicate and leave the value alone.
+func cmakeLinkOptions(flags []string) []string {
+	groups := dedupKeepLast(groupFlags(flags))
+	opts := make([]string, len(groups))
+
+	for i, g := range groups {
+		if len(g) == 1 {
+			opts[i] = cmakeFlagArg(g[0], false)
+			continue
+		}
+
+		value := cmakeOptValueArg(g[0], g[1])
+		if strings.ContainsAny(g[1], " \t") {
+			value = "\\\"" + value + "\\\""
+		}
+		opts[i] = "SHELL:" + cmakeEscape(g[0]) + " " + value
+	}
+
+	return opts
+}
+
+// cmakeOptionList converts compile options to a quoted CMake list.  CMake
+// doesn't remove duplicate source file options, so the options are passed
+// exactly as newt passes them.
+func cmakeOptionList(flags []string) string {
+	opts := cmakeFlagArgs(flags)
+	for i, opt := range opts {
+		opts[i] = strings.Replace(opt, ";", "\\;", -1)
+	}
+	return "\"" + strings.Join(opts, ";") + "\""
+}
+
+// joinLinkerArgs joins linker arguments that take a separate value (e.g.,
+// "-T" "file") into a single argument, because CMake treats each link item
+// separately.
+func joinLinkerArgs(flags []string) []string {
+	result := []string{}
+
+	for i := 0; i < len(flags); i++ {
+		if (flags[i] == "-T" || flags[i] == "-L") && i+1 < len(flags) {
+			result = append(result, flags[i]+flags[i+1])
+			i++
+		} else {
+			result = append(result, flags[i])
+		}
+	}
+
+	return result
+}
+
+func cmakeLanguage(compilerType int) string {
+	switch compilerType {
+	case toolchain.COMPILER_TYPE_C:
+		return "C"
+	case toolchain.COMPILER_TYPE_ASM:
+		return "ASM"
+	case toolchain.COMPILER_TYPE_CPP:
+		return "CXX"
+	default:
+		return ""
+	}
+}
+
+// cmakeObjSortKey returns the key used to sort source files in the same order
+// as newt sorts the corresponding object files.
+func cmakeObjSortKey(filename string) string {
+	filename = trimProjectPath(filename)
+	return strings.TrimSuffix(filename, filepath.Ext(filename)) + ".o"
+}
+
+// cmakeLinkPkg holds the information about a package that is required to
+// calculate the list of the linker input files at build time.
+type cmakeLinkPkg struct {
+	name      string
+	wholeArch bool
+	hasTarget bool
+
+	// Pre-compiled archives found in package sources, mapped to the paths
+	// they are copied to.
+	archives map[string]string
+}
+
+// cmakePkgObjsPath returns the path of the file listing the objects of a
+// whole-archive package.
+func cmakePkgObjsPath(binaryDir string, name string) string {
+	return binaryDir + "/newt/" + name + ".objs"
+}
+
+// CMakeBuildPackageWrite writes the library target that builds the specified
+// package.
 func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
-	linkFlags *[]string, libraries *[]string) (*BuildPackage, error) {
+	hasPreBuild bool) (*cmakeLinkPkg, error) {
+
 	entries, err := b.collectCompileEntriesBpkg(bpkg)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(entries) <= 0 {
-		return nil, nil
+	ci, err := bpkg.CompilerInfo(b)
+	if err != nil {
+		return nil, err
 	}
 
-	otherIncludes := []string{}
-	files := []string{}
-	linkDirs := []string{}
+	pkgName := bpkg.rpkg.Lpkg.NameWithRepo()
+	lp := &cmakeLinkPkg{
+		name:      EscapePkgName(pkgName),
+		wholeArch: ci.WholeArch,
+		archives:  map[string]string{},
+	}
 
+	if len(entries) == 0 {
+		return lp, nil
+	}
+
+	files := []string{}
+	filesByType := map[int][]string{}
 	for _, s := range entries {
 		filename := filepath.ToSlash(s.Filename)
 		if s.Compiler.ShouldIgnoreFile(filename) {
@@ -174,291 +457,718 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 		}
 
 		if s.CompilerType == toolchain.COMPILER_TYPE_ARCHIVE {
-			arFile := trimProjectPath(s.Filename)
-			linkDirs = append(linkDirs, filepath.Dir(arFile))
-			*libraries = append(*libraries, arFile)
+			lp.archives[filename] = s.Compiler.ArchiveCopyPath(filename)
 		} else {
-			CmakeSourceObjectWrite(w, s, &otherIncludes, linkFlags)
-			s.Filename = trimProjectPath(s.Filename)
-			files = append(files, s.Filename)
+			files = append(files, filename)
+			filesByType[s.CompilerType] = append(
+				filesByType[s.CompilerType], filename)
 		}
 	}
 
-	if len(linkDirs) > 0 {
-		replaceBackslashesSlice(linkDirs)
-		fmt.Fprintf(w, "link_directories(%s)\n", strings.Join(util.SortFields(linkDirs...), " "))
+	if len(files) == 0 {
+		return lp, nil
 	}
 
-	if len(files) <= 0 {
-		return nil, nil
+	lp.hasTarget = true
+
+	// newt adds objects to the package archive sorted by name.  The order of
+	// archive members affects the layout of the linked image.
+	sort.SliceStable(files, func(i, j int) bool {
+		return cmakeObjSortKey(files[i]) < cmakeObjSortKey(files[j])
+	})
+
+	// All entries of a package are compiled by the same compiler.
+	c := entries[0].Compiler
+
+	libType := "STATIC"
+	if lp.wholeArch {
+		libType = "OBJECT"
 	}
 
-	pkgName := bpkg.rpkg.Lpkg.NameWithRepo()
-	object_library := ""
-	if bpkg.ci.WholeArch {
-		object_library = "OBJECT "
+	util.StatusMessage(util.VERBOSITY_DEFAULT,
+		"Generating CMakeLists.txt for %s\n", pkgName)
+	fmt.Fprintf(w, "# %s\n", pkgName)
+	fmt.Fprintf(w, "add_library(%s %s\n    %s)\n", lp.name, libType,
+		strings.Join(cmakeQuoteSlice(trimProjectPathSlice(files)), "\n    "))
+
+	types := []int{}
+	for t := range filesByType {
+		types = append(types, t)
+	}
+	sort.Ints(types)
+
+	// newt passes include directories after the other flags; CMake would
+	// pass target include directories before them.
+	includes := []string{}
+	for _, inc := range c.IncludeDirs() {
+		includes = append(includes, "-I"+inc)
 	}
 
-	util.StatusMessage(util.VERBOSITY_DEFAULT, "Generating CMakeLists.txt for %s\n", pkgName)
-	fmt.Fprintf(w, "\n# Generating CMakeLists.txt for %s\n", pkgName)
-	fmt.Fprintf(w, "add_library(%s %s%s)\n",
-		EscapePkgName(pkgName),
-		object_library,
-		strings.Join(files, " "))
-	archivePath := trimProjectPath(filepath.Dir(b.ArchivePath(bpkg)))
-	CmakeCompilerInfoWrite(w, archivePath, bpkg, entries[0], otherIncludes)
+	for _, t := range types {
+		flags, err := c.CompileFlags(t)
+		if err != nil {
+			return nil, err
+		}
+		flags = append(flags, includes...)
 
-	return bpkg, nil
+		fmt.Fprintf(w, "set_source_files_properties(\n    %s\n"+
+			"    PROPERTIES\n    LANGUAGE %s\n    COMPILE_OPTIONS %s)\n",
+			strings.Join(
+				cmakeQuoteSlice(trimProjectPathSlice(filesByType[t])),
+				"\n    "),
+			cmakeLanguage(t),
+			cmakeOptionList(flags))
+	}
+
+	if lp.wholeArch {
+		// newt links all objects of a whole-archive package; their list is
+		// read at link time.
+		fmt.Fprintf(w, "file(GENERATE OUTPUT \"%s\"\n"+
+			"     CONTENT \"$<JOIN:$<TARGET_OBJECTS:%s>,\\n>\\n\")\n",
+			cmakePkgObjsPath("${CMAKE_BINARY_DIR}", lp.name), lp.name)
+	} else {
+		archivePath := b.ArchivePath(bpkg)
+		fmt.Fprintf(w, "set_target_properties(%s PROPERTIES\n"+
+			"    ARCHIVE_OUTPUT_DIRECTORY %s\n"+
+			"    OUTPUT_NAME %s\n"+
+			"    PREFIX \"\"\n"+
+			"    SUFFIX \".a\")\n",
+			lp.name,
+			cmakePath(filepath.Dir(archivePath)),
+			cmakeQuote(strings.TrimSuffix(filepath.Base(archivePath), ".a")))
+	}
+
+	if hasPreBuild {
+		fmt.Fprintf(w, "add_dependencies(%s %s)\n", lp.name,
+			cmakePreBuildTarget)
+	}
+	fmt.Fprintln(w)
+
+	return lp, nil
 }
 
-func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
+// writeCmakeScript writes a CMake script executed during the build.
+func writeCmakeScript(path string, content string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	content = "# Generated by newt; do not edit.\n\n" +
+		"cmake_minimum_required(VERSION " + cmakeMinimumVersion + ")\n\n" +
+		content
+
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	return nil
+}
+
+// cmakeScriptHelpers contains functions used by the build-time scripts.
+const cmakeScriptHelpers = `# Replaces the contents of the "old" directory with the contents of the "new"
+# directory if they differ, so that unchanged artifacts don't trigger a
+# rebuild.
+function(newt_replace_if_changed new old)
+    file(GLOB_RECURSE new_files RELATIVE "${new}" "${new}/*")
+    file(GLOB_RECURSE old_files RELATIVE "${old}" "${old}/*")
+    list(SORT new_files)
+    list(SORT old_files)
+    set(equal TRUE)
+    if(NOT "${new_files}" STREQUAL "${old_files}")
+        set(equal FALSE)
+    else()
+        foreach(f IN LISTS new_files)
+            file(SHA1 "${new}/${f}" new_hash)
+            file(SHA1 "${old}/${f}" old_hash)
+            if(NOT new_hash STREQUAL old_hash)
+                set(equal FALSE)
+                break()
+            endif()
+        endforeach()
+    endif()
+    if(NOT equal)
+        get_filename_component(parent "${old}" DIRECTORY)
+        file(REMOVE_RECURSE "${old}")
+        file(MAKE_DIRECTORY "${parent}")
+        file(RENAME "${new}" "${old}")
+    endif()
+endfunction()
+
+# Writes the file only if its contents change.
+function(newt_write_if_changed path content)
+    if(EXISTS "${path}")
+        file(READ "${path}" old_content)
+        if(old_content STREQUAL content)
+            return()
+        endif()
+    endif()
+    file(WRITE "${path}" "${content}")
+endfunction()
+
+`
+
+// cmakeExtCmds generates the part of a build-time script which executes a set
+// of external commands.
+func (t *TargetBuilder) cmakeExtCmds(sfs []stage.StageFunc, userSrcDir string,
+	userIncDir string, workDir string) (string, error) {
+
+	var b bytes.Buffer
+
+	for _, sf := range sfs {
+		cmd, err := t.prepareExtCmd(sf, userSrcDir, userIncDir, workDir)
+		if err != nil {
+			return "", err
+		}
+
+		args, err := util.PrependScriptInterpreter(cmd.args)
+		if err != nil {
+			return "", util.ChildNewtError(err)
+		}
+
+		fmt.Fprintf(&b, "message(%s)\n",
+			cmakeQuote("Executing "+sf.Pkg.FullName()+"/"+sf.Name))
+
+		keys := make([]string, 0, len(cmd.env))
+		for k := range cmd.env {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(&b, "set(ENV{%s} %s)\n", k, cmakeQuote(cmd.env[k]))
+		}
+
+		fmt.Fprintf(&b, "execute_process(COMMAND %s\n"+
+			"    WORKING_DIRECTORY %s\n"+
+			"    RESULT_VARIABLE result)\n",
+			strings.Join(cmakeQuoteSlice(args), " "),
+			cmakeQuote(cmd.dir))
+		fmt.Fprintf(&b, "if(NOT result EQUAL 0)\n"+
+			"    message(FATAL_ERROR \"%s failed: ${result}\")\n"+
+			"endif()\n\n",
+			cmakeEscape(sf.Pkg.FullName()+"/"+sf.Name))
+	}
+
+	return b.String(), nil
+}
+
+// cmakeWorkDir returns the work directory of user scripts executed at build
+// time.  newt creates a new work directory for each build, so the directory is
+// recreated by the first build stage and removed after the last one.
+func (t *TargetBuilder) cmakeWorkDir() string {
+	return CmakeDir(t.target.FullName()) + "/work"
+}
+
+// writeCmakePreBuildScript writes the script which executes the pre-build
+// commands.
+func (t *TargetBuilder) writeCmakePreBuildScript(path string) error {
+	tmpDir := CmakeDir(t.target.FullName()) + "/pre_build"
+	tmpSrcDir := UserTempSrcDir(tmpDir)
+	tmpIncDir := UserTempIncludeDir(tmpDir)
+
+	cmds, err := t.cmakeExtCmds(t.res.PreBuildCmdCfg.StageFuncs,
+		tmpSrcDir, tmpIncDir, t.cmakeWorkDir())
+	if err != nil {
+		return err
+	}
+
+	content := cmakeScriptHelpers +
+		fmt.Sprintf("file(REMOVE_RECURSE %s %s)\n", cmakeQuote(tmpDir),
+			cmakeQuote(t.cmakeWorkDir())) +
+		fmt.Sprintf("file(MAKE_DIRECTORY %s %s %s)\n\n",
+			cmakeQuote(tmpSrcDir), cmakeQuote(tmpIncDir),
+			cmakeQuote(t.cmakeWorkDir())) +
+		cmds +
+		fmt.Sprintf("newt_replace_if_changed(%s %s)\n",
+			cmakeQuote(tmpSrcDir),
+			cmakeQuote(UserPreBuildSrcDir(t.target.FullName()))) +
+		fmt.Sprintf("newt_replace_if_changed(%s %s)\n",
+			cmakeQuote(tmpIncDir),
+			cmakeQuote(UserPreBuildIncludeDir(t.target.FullName())))
+
+	return writeCmakeScript(path, content)
+}
+
+// writeCmakePreLinkScript writes the script which executes the pre-link
+// commands and calculates the list of linker input files.  The list is
+// calculated the same way newt does it at link time.
+func (t *TargetBuilder) writeCmakePreLinkScript(path string,
+	bpkgs []*BuildPackage, lpkgs map[*BuildPackage]*cmakeLinkPkg,
+	linkScripts []string, hasPreBuild bool) error {
+
+	var b bytes.Buffer
+
+	b.WriteString(cmakeScriptHelpers)
+	b.WriteString("if(NOT NEWT_BINARY_DIR)\n" +
+		"    message(FATAL_ERROR \"NEWT_BINARY_DIR not set\")\n" +
+		"endif()\n\n")
+
+	if !hasPreBuild {
+		fmt.Fprintf(&b, "file(REMOVE_RECURSE %s)\n\n",
+			cmakeQuote(t.cmakeWorkDir()))
+	}
+
+	// newt copies pre-compiled archives to the package bin directory at
+	// compile time.
+	for _, bpkg := range bpkgs {
+		lp := lpkgs[bpkg]
+		srcs := make([]string, 0, len(lp.archives))
+		for src := range lp.archives {
+			srcs = append(srcs, src)
+		}
+		sort.Strings(srcs)
+		for _, src := range srcs {
+			// Scripts are executed from the build directory.
+			srcPath := src
+			if !filepath.IsAbs(srcPath) {
+				srcPath = project.GetProject().Path() + "/" + srcPath
+			}
+			fmt.Fprintf(&b, "execute_process(COMMAND \"${CMAKE_COMMAND}\" "+
+				"-E copy_if_different %s %s\n"+
+				"    RESULT_VARIABLE result)\n",
+				cmakeQuote(filepath.ToSlash(srcPath)),
+				cmakeQuote(lp.archives[src]))
+			fmt.Fprintf(&b, "if(NOT result EQUAL 0)\n"+
+				"    message(FATAL_ERROR \"Copying %s failed: ${result}\")\n"+
+				"endif()\n",
+				cmakeEscape(src))
+		}
+	}
+	b.WriteString("\n")
+
+	if len(t.res.PreLinkCmdCfg.StageFuncs) > 0 {
+		tmpDir := CmakeDir(t.target.FullName()) + "/pre_link"
+		tmpSrcDir := UserTempSrcDir(tmpDir)
+
+		cmds, err := t.cmakeExtCmds(t.res.PreLinkCmdCfg.StageFuncs,
+			tmpSrcDir, "", t.cmakeWorkDir())
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(&b, "file(REMOVE_RECURSE %s)\n", cmakeQuote(tmpDir))
+		fmt.Fprintf(&b, "file(MAKE_DIRECTORY %s %s)\n\n",
+			cmakeQuote(tmpSrcDir), cmakeQuote(t.cmakeWorkDir()))
+		b.WriteString(cmds)
+		fmt.Fprintf(&b, "newt_replace_if_changed(%s %s)\n\n",
+			cmakeQuote(tmpSrcDir),
+			cmakeQuote(UserPreLinkSrcDir(t.target.FullName())))
+	}
+
+	dirs, err := t.AppBuilder.linkInputDirs(t.extraADirs())
+	if err != nil {
+		return err
+	}
+
+	b.WriteString("set(inputs)\n")
+	for _, d := range dirs {
+		if d.wholeArch {
+			// newt passes the objects of a whole-archive package to the
+			// linker in a list file, sorted by name.  CMake doesn't create
+			// the list file; the objects are read from a file generated by
+			// CMake instead.
+			if lp := lpkgs[d.bpkg]; lp != nil && lp.hasTarget {
+				fmt.Fprintf(&b, "file(STRINGS \"%s\" files ENCODING UTF-8)\n",
+					cmakePkgObjsPath("${NEWT_BINARY_DIR}", lp.name))
+				b.WriteString("list(SORT files)\n")
+				b.WriteString("list(APPEND inputs ${files})\n")
+			}
+		} else {
+			fmt.Fprintf(&b, "file(GLOB files %s)\n", cmakeQuote(d.pattern()))
+			b.WriteString("list(APPEND inputs ${files})\n")
+		}
+	}
+
+	b.WriteString("list(REMOVE_DUPLICATES inputs)\n\n")
+
+	b.WriteString("set(scripts)\n")
+	for _, ls := range linkScripts {
+		// Scripts are executed from the build directory.
+		if !filepath.IsAbs(ls) {
+			ls = project.GetProject().Path() + "/" + ls
+		}
+		fmt.Fprintf(&b, "list(APPEND scripts %s)\n",
+			cmakeQuote(filepath.ToSlash(ls)))
+	}
+
+	b.WriteString(`
+# The response file lists the linker input files.  The stamp file changes
+# whenever any of the input files or linker scripts changes; it triggers
+# relinking.
+set(rsp "")
+set(stamp "")
+foreach(input IN LISTS inputs)
+    string(APPEND rsp "\"${input}\"\n")
+    file(SHA1 "${input}" hash)
+    string(APPEND stamp "${hash} ${input}\n")
+endforeach()
+foreach(script IN LISTS scripts)
+    if(EXISTS "${script}")
+        file(SHA1 "${script}" hash)
+        string(APPEND stamp "${hash} ${script}\n")
+    endif()
+endforeach()
+newt_write_if_changed("${NEWT_BINARY_DIR}/newt/link.rsp" "${rsp}")
+newt_write_if_changed("${NEWT_BINARY_DIR}/newt/link.stamp" "${stamp}")
+`)
+
+	return writeCmakeScript(path, b.String())
+}
+
+// writeCmakePostLinkScript writes the script which executes the post-link
+// commands.
+func (t *TargetBuilder) writeCmakePostLinkScript(path string) error {
+	cmds, err := t.cmakeExtCmds(t.res.PostLinkCmdCfg.StageFuncs,
+		"", "", t.cmakeWorkDir())
+	if err != nil {
+		return err
+	}
+
+	content := fmt.Sprintf("file(MAKE_DIRECTORY %s)\n\n",
+		cmakeQuote(t.cmakeWorkDir())) + cmds
+
+	return writeCmakeScript(path, content)
+}
+
+// writeCmakeListFileScript writes the script which generates the .lst file.
+func writeCmakeListFileScript(path string, c *toolchain.Compiler,
+	elfFile string) error {
+
+	listFile := elfFile + ".lst"
+	content := fmt.Sprintf(`execute_process(COMMAND %s -wxdS %s
+    OUTPUT_FILE %s
+    RESULT_VARIABLE result)
+if(result EQUAL 0)
+    execute_process(COMMAND %s %s OUTPUT_VARIABLE size)
+    file(APPEND %s "${size}")
+endif()
+`,
+		cmakeQuote(c.GetObjdumpPath()), cmakeQuote(elfFile),
+		cmakeQuote(listFile),
+		cmakeQuote(c.GetSizePath()), cmakeQuote(elfFile),
+		cmakeQuote(listFile))
+
+	return writeCmakeScript(path, content)
+}
+
+// cmakeRunScript returns the CMake arguments of a command which executes the
+// specified script.
+func cmakeRunScript(path string, defines ...string) string {
+	args := []string{"${CMAKE_COMMAND}"}
+	for _, d := range defines {
+		args = append(args, "\"-D"+d+"\"")
+	}
+	args = append(args, "-P", cmakePath(path))
+	return strings.Join(args, " ")
+}
+
+func (b *Builder) CMakeTargetWrite(w io.Writer) error {
+	t := b.targetBuilder
+	targetName := t.target.FullName()
+	cmakeDir := CmakeDir(targetName)
 	bpkgs := b.sortedBuildPackages()
-	var compileFlags []string
-	var linkFlags []string
-	var libraries []string
 
 	err := b.appendAppCflags(bpkgs)
 	if err != nil {
 		return err
 	}
 
-	c := targetCompiler
-	c.AddInfo(b.GetCompilerInfo())
+	hasPreBuild := len(t.res.PreBuildCmdCfg.StageFuncs) > 0
+	if hasPreBuild {
+		scriptPath := cmakeDir + "/pre_build.cmake"
+		if err := t.writeCmakePreBuildScript(scriptPath); err != nil {
+			return err
+		}
 
-	builtPackages := []*BuildPackage{}
+		// Declare the artifacts as byproducts, so that the build system
+		// notices when they change.
+		byproducts := []string{}
+		for _, dir := range []string{
+			UserPreBuildSrcDir(targetName),
+			UserPreBuildIncludeDir(targetName),
+		} {
+			filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+				if err == nil && !info.IsDir() {
+					byproducts = append(byproducts, cmakePath(p))
+				}
+				return nil
+			})
+		}
+
+		fmt.Fprintf(w, "add_custom_target(%s\n"+
+			"    COMMAND %s\n", cmakePreBuildTarget, cmakeRunScript(scriptPath))
+		if len(byproducts) > 0 {
+			fmt.Fprintf(w, "    BYPRODUCTS\n    %s\n",
+				strings.Join(byproducts, "\n    "))
+		}
+		fmt.Fprintf(w, "    COMMENT \"Executing pre-build commands\"\n"+
+			"    VERBATIM)\n\n")
+	}
+
+	lpkgs := map[*BuildPackage]*cmakeLinkPkg{}
+	libTargets := []string{}
 	for _, bpkg := range bpkgs {
-		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg,
-			&linkFlags, &libraries)
+		lp, err := b.CMakeBuildPackageWrite(w, bpkg, hasPreBuild)
 		if err != nil {
 			return err
 		}
 
-		if builtPackage != nil {
-			builtPackages = append(builtPackages, builtPackage)
+		lpkgs[bpkg] = lp
+		if lp.hasTarget {
+			libTargets = append(libTargets, lp.name)
 		}
 	}
 
-	elfName := "cmake_" + filepath.Base(b.AppElfPath())
-	fmt.Fprintf(w, "# Generating code for %s\n", elfName)
+	elfFile := b.AppElfPath()
+	elfName := filepath.Base(elfFile)
 
-	var targetObjectsBuffer bytes.Buffer
+	c, err := b.linkCompiler(elfFile, t.bspPkg.LinkerScripts)
+	if err != nil {
+		return err
+	}
+	options := c.LinkOptions()
+	preFlags, postFlags := c.LinkFlags(elfFile, options, nil, "")
 
-	for _, bpkg := range builtPackages {
-		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
-			EscapePkgName(bpkg.rpkg.Lpkg.NameWithRepo())))
+	preLinkScript := cmakeDir + "/pre_link.cmake"
+	// newt relinks also when a linker script changes.  Linker scripts may be
+	// generated by pre-link commands, so they are tracked by the pre-link
+	// script.
+	linkScripts := append([]string{}, c.LinkerScripts...)
+	linkScripts = append(linkScripts,
+		c.AutogeneratedLinkerIncludeDir+"/link_tables.ld.h")
+
+	if err := t.writeCmakePreLinkScript(preLinkScript, bpkgs, lpkgs,
+		linkScripts, hasPreBuild); err != nil {
+		return err
 	}
 
-	for _, filename := range libraries {
-		targetObjectsBuffer.WriteString(fmt.Sprintf("%s ",
-			ExtractLibraryName(filename)))
+	fmt.Fprintf(w, "# %s\n", elfName)
+	fmt.Fprintf(w, "add_custom_target(%s\n"+
+		"    COMMAND %s\n"+
+		"    BYPRODUCTS\n"+
+		"    \"${CMAKE_BINARY_DIR}/newt/link.rsp\"\n"+
+		"    \"${CMAKE_BINARY_DIR}/newt/link.stamp\"\n"+
+		"    COMMENT \"Preparing link of %s\"\n"+
+		"    VERBATIM)\n",
+		cmakePreLinkTarget,
+		cmakeRunScript(preLinkScript, "NEWT_BINARY_DIR=${CMAKE_BINARY_DIR}"),
+		elfName)
+	if len(libTargets) > 0 {
+		fmt.Fprintf(w, "add_dependencies(%s\n    %s)\n", cmakePreLinkTarget,
+			strings.Join(libTargets, "\n    "))
 	}
+	fmt.Fprintln(w)
 
-	elfOutputDir := trimProjectPath(filepath.Dir(b.AppElfPath()))
-	fmt.Fprintf(w, "file(WRITE %s \"\")\n", replaceBackslashes(filepath.Join(elfOutputDir, "null.c")))
-	fmt.Fprintf(w, "add_executable(%s %s)\n\n", elfName,
-		replaceBackslashes(filepath.Join(elfOutputDir, "null.c")))
+	// CMake requires at least one source file for an executable.  The file
+	// is not compiled, because any additional linker input changes the
+	// layout of the linked image.
+	fmt.Fprintf(w, "if(NOT EXISTS \"${CMAKE_BINARY_DIR}/newt/null.c\")\n"+
+		"    file(WRITE \"${CMAKE_BINARY_DIR}/newt/null.c\" \"\")\n"+
+		"endif()\n")
+	fmt.Fprintf(w, "set_source_files_properties(\"${CMAKE_BINARY_DIR}/newt/null.c\"\n"+
+		"    PROPERTIES HEADER_FILE_ONLY TRUE)\n")
+	fmt.Fprintf(w, "add_executable(%s \"${CMAKE_BINARY_DIR}/newt/null.c\")\n",
+		elfName)
+	fmt.Fprintf(w, "add_dependencies(%s %s)\n", elfName, cmakePreLinkTarget)
+	fmt.Fprintf(w, "set_target_properties(%s PROPERTIES\n"+
+		"    RUNTIME_OUTPUT_DIRECTORY %s\n"+
+		"    LINKER_LANGUAGE C\n"+
+		"    LINK_DEPENDS \"${CMAKE_BINARY_DIR}/newt/link.stamp\")\n",
+		elfName, cmakePath(filepath.Dir(elfFile)))
 
+	pre := cmakeQuoteEscapedSlice(cmakeLinkOptions(preFlags))
+	fmt.Fprintf(w, "target_link_options(%s PRIVATE\n    %s)\n", elfName,
+		strings.Join(pre, "\n    "))
+
+	linkItems := []string{}
 	if c.GetLdResolveCircularDeps() {
-		fmt.Fprintf(w, "target_link_libraries(%s -Wl,--start-group %s -Wl,--end-group)\n",
-			elfName, targetObjectsBuffer.String())
-	} else {
-		fmt.Fprintf(w, "target_link_libraries(%s %s)\n",
-			elfName, targetObjectsBuffer.String())
+		linkItems = append(linkItems, cmakeQuote("-Wl,--start-group"))
 	}
-
-	compileFlags = append(compileFlags, c.GetCompilerInfo().Cflags...)
-	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
-	compileFlags = append(compileFlags, c.GetCompilerInfo().CXXflags...)
-	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().CXXflags...)
-	compileFlags = util.SortFields(compileFlags...)
-
-	fmt.Fprintf(w,
-		`set_property(TARGET %s APPEND_STRING
-             PROPERTY
-             COMPILE_FLAGS
-             "%s")`,
-		elfName,
-		strings.Join(escapeFlagsSlice(compileFlags), " "))
-	fmt.Fprintln(w)
-
-	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
-	lFlags = append(lFlags, linkFlags...)
-	lFlags = util.SortFields(lFlags...)
-
-	for _, ld := range c.LinkerScripts {
-		lFlags = append(lFlags, "-T"+ld)
+	linkItems = append(linkItems, "\"-Wl,@${CMAKE_BINARY_DIR}/newt/link.rsp\"")
+	if c.GetLdResolveCircularDeps() {
+		linkItems = append(linkItems, cmakeQuote("-Wl,--end-group"))
 	}
+	linkItems = append(linkItems, cmakeFlagSlice(joinLinkerArgs(postFlags))...)
+	fmt.Fprintf(w, "target_link_libraries(%s PRIVATE\n    %s)\n", elfName,
+		strings.Join(linkItems, "\n    "))
 
-	lFlags = append(lFlags, "-L"+c.AutogeneratedLinkerIncludeDir)
+	// newt generates the artifacts and executes the post-link commands on
+	// every build, even if the elf file is up to date.
+	postBuild := []string{}
+	if options["binFile"] {
+		postBuild = append(postBuild, strings.Join(cmakeFlagSlice(
+			c.BinFileCmd(elfFile, elfFile+".bin")), " "))
+	}
+	if options["listFile"] {
+		listFileScript := cmakeDir + "/list_file.cmake"
+		if err := writeCmakeListFileScript(listFileScript, c,
+			elfFile); err != nil {
 
-	var cFlags []string
-	cFlags = append(cFlags, c.GetCompilerInfo().Cflags...)
-	cFlags = append(cFlags, c.GetLocalCompilerInfo().Cflags...)
-	cFlags = util.SortFields(cFlags...)
-	lFlags = append(lFlags, cFlags...)
-
-	var cxxFlags []string
-	cxxFlags = append(cxxFlags, c.GetCompilerInfo().CXXflags...)
-	cxxFlags = append(cxxFlags, c.GetLocalCompilerInfo().CXXflags...)
-	cxxFlags = util.SortFields(cxxFlags...)
-	lFlags = append(lFlags, cxxFlags...)
-
-	fmt.Fprintf(w,
-		`set_target_properties(%s
-                      PROPERTIES
-                      ARCHIVE_OUTPUT_DIRECTORY %s
-                      LIBRARY_OUTPUT_DIRECTORY %s
-                      RUNTIME_OUTPUT_DIRECTORY %s
-                      LINK_FLAGS "%s"
-                      LINKER_LANGUAGE C)`,
-		elfName,
-		elfOutputDir,
-		elfOutputDir,
-		elfOutputDir,
-		strings.Join(escapeFlagsSlice(lFlags), " "))
-
-	fmt.Fprintln(w)
-
-	libs := strings.Join(getLibsFromLinkerFlags(lFlags), " ")
-	fmt.Fprintf(w, "# Workaround for gcc linker woes\n")
-	fmt.Fprintf(w, "set(CMAKE_C_LINK_EXECUTABLE \"${CMAKE_C_LINK_EXECUTABLE} %s\")\n", libs)
-	fmt.Fprintln(w)
-
-	return nil
-}
-
-func getLibsFromLinkerFlags(lflags []string) []string {
-	libs := []string{}
-
-	for _, flag := range lflags {
-		if strings.HasPrefix(flag, "-l") {
-			libs = append(libs, flag)
+			return err
 		}
+		postBuild = append(postBuild, cmakeRunScript(listFileScript))
+	}
+	if len(t.res.PostLinkCmdCfg.StageFuncs) > 0 {
+		postLinkScript := cmakeDir + "/post_link.cmake"
+		if err := t.writeCmakePostLinkScript(postLinkScript); err != nil {
+			return err
+		}
+		postBuild = append(postBuild, cmakeRunScript(postLinkScript))
 	}
 
-	return libs
-}
+	postBuild = append(postBuild, "\"${CMAKE_COMMAND}\" -E remove_directory "+
+		cmakePath(t.cmakeWorkDir()))
 
-func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
-	cj toolchain.CompilerJob, otherIncludes []string) {
-	c := cj.Compiler
-
-	var includes []string
-
-	includes = append(includes, c.GetCompilerInfo().Includes...)
-	includes = append(includes, c.GetLocalCompilerInfo().Includes...)
-	includes = append(includes, otherIncludes...)
-
-	// Sort and remove duplicate flags
-	includes = util.SortFields(includes...)
-	trimProjectPathSlice(includes)
-	replaceBackslashesSlice(includes)
-
-	fmt.Fprintf(w,
-		`set_target_properties(%s
-                      PROPERTIES
-                      ARCHIVE_OUTPUT_DIRECTORY %s
-                      LIBRARY_OUTPUT_DIRECTORY %s
-                      RUNTIME_OUTPUT_DIRECTORY %s)`,
-		EscapePkgName(bpkg.rpkg.Lpkg.NameWithRepo()),
-		archiveFile,
-		archiveFile,
-		archiveFile,
-	)
+	fmt.Fprintf(w, "add_custom_target(%s ALL\n", cmakePostLinkTarget)
+	for _, cmd := range postBuild {
+		fmt.Fprintf(w, "    COMMAND %s\n", cmd)
+	}
+	fmt.Fprintf(w, "    COMMENT \"Executing post-link steps of %s\"\n"+
+		"    VERBATIM)\n", elfName)
+	fmt.Fprintf(w, "add_dependencies(%s %s)\n", cmakePostLinkTarget, elfName)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "target_include_directories(%s PUBLIC %s)\n\n",
-		EscapePkgName(bpkg.rpkg.Lpkg.NameWithRepo()),
-		strings.Join(includes, " "))
-}
-
-func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer, targetCompiler *toolchain.Compiler) error {
-	var err error
-	if err = t.PrepBuild(); err != nil {
-		return err
-	}
-
-	if len(t.res.PreBuildCmdCfg.StageFuncs) > 0 ||
-		len(t.res.PreLinkCmdCfg.StageFuncs) > 0 ||
-		len(t.res.PostLinkCmdCfg.StageFuncs) > 0 {
-
-		util.OneTimeWarning(
-			"custom commands not included in cmake output (unsupported)")
-	}
-
-	/* Build the Apps */
-	project.ResetDeps(t.AppList)
-
-	targetCompiler.LinkerScripts = t.bspPkg.LinkerScripts
-	if targetCompiler.AutogeneratedLinkerIncludeDir, err = t.bspPkg.GetAutogeneratedLinkerIncludePath(); err != nil {
-		return err
-	}
-
-	if err = t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
-		return err
-	}
-
-	if err = t.AppBuilder.CMakeTargetWrite(w, targetCompiler); err != nil {
-		return err
-	}
 
 	return nil
+}
+
+// cmakePrepare performs the steps of "newt build" which precede compilation
+// and generate the build inputs.
+func (t *TargetBuilder) cmakePrepare() error {
+	if err := t.PrepBuild(); err != nil {
+		return err
+	}
+
+	if t.res.LoaderSet != nil {
+		return util.NewNewtError(
+			"split images are not supported by cmake generator")
+	}
+	if t.appPkg == nil {
+		return util.NewNewtError("cmake generator requires a target with an app")
+	}
+
+	// Pre-build commands are executed now, so that the artifacts they emit
+	// are included in the generated CMakeLists.txt.  They are executed again
+	// at build time.
+	workDir, err := makeUserWorkDir()
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(workDir)
+
+	return t.prepareBuildInputs(workDir)
+}
+
+func (t *TargetBuilder) CMakeTargetBuilderWrite(w io.Writer,
+	projectName string) error {
+
+	if err := t.cmakePrepare(); err != nil {
+		return err
+	}
+
+	c, err := t.NewCompiler("", "")
+	if err != nil {
+		return err
+	}
+
+	CmakeHeaderWrite(w, c, projectName)
+
+	return t.AppBuilder.CMakeTargetWrite(w)
 }
 
 func CmakeCompilerWrite(w io.Writer, c *toolchain.Compiler) {
-	/* Since CMake 3 it is required to set a full path to the compiler */
-	/* TODO: get rid of the prefix to /usr/bin */
 	fmt.Fprintln(w, "set(CMAKE_SYSTEM_NAME Generic)")
 	fmt.Fprintln(w, "set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)")
-	fmt.Fprintf(w, "set(CMAKE_C_COMPILER %s)\n", c.GetCcPath())
-	fmt.Fprintf(w, "set(CMAKE_CXX_COMPILER %s)\n", c.GetCppPath())
-	fmt.Fprintf(w, "set(CMAKE_ASM_COMPILER %s)\n", c.GetAsPath())
-	/* TODO: cmake returns error on link */
-	//fmt.Fprintf(w, "set(CMAKE_AR %s)\n", c.GetArPath())
+	fmt.Fprintf(w, "set(CMAKE_C_COMPILER %s)\n", cmakeQuote(c.GetCcPath()))
+	fmt.Fprintf(w, "set(CMAKE_CXX_COMPILER %s)\n", cmakeQuote(c.GetCppPath()))
+	fmt.Fprintf(w, "set(CMAKE_ASM_COMPILER %s)\n", cmakeQuote(c.GetAsPath()))
+	fmt.Fprintf(w, "set(CMAKE_AR %s)\n", cmakeQuote(c.GetArPath()))
 	fmt.Fprintln(w)
 }
 
 func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler, projectName string) {
-	fmt.Fprint(w, "cmake_minimum_required(VERSION 3.7)\n\n")
+	fmt.Fprintf(w, "# Generated by newt; do not edit.\n\n")
+	fmt.Fprintf(w, "cmake_minimum_required(VERSION %s)\n\n", cmakeMinimumVersion)
 	CmakeCompilerWrite(w, c)
-	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C CXX ASM)\n\n", projectName)
-	fmt.Fprintln(w, "SET(CMAKE_C_FLAGS_BACKUP  \"${CMAKE_C_FLAGS}\")")
-	fmt.Fprintln(w, "SET(CMAKE_CXX_FLAGS_BACKUP  \"${CMAKE_CXX_FLAGS}\")")
-	fmt.Fprintln(w, "SET(CMAKE_ASM_FLAGS_BACKUP  \"${CMAKE_ASM_FLAGS}\")")
+	fmt.Fprintf(w, "project(%s VERSION 0.0.0 LANGUAGES C CXX ASM)\n\n",
+		cmakeQuote(projectName))
+
+	// Multi-config generators write libraries to per-configuration
+	// directories, while newt expects them at fixed paths.
+	fmt.Fprintln(w, "get_property(NEWT_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)")
+	fmt.Fprintln(w, "if(NEWT_MULTI_CONFIG)")
+	fmt.Fprintln(w, "    message(FATAL_ERROR \"Multi-config generators are not supported\")")
+	fmt.Fprintln(w, "endif()")
+	fmt.Fprintln(w)
+
+	// Only the flags newt uses are passed to the compiler and the linker;
+	// ignore flags from the environment (e.g., CFLAGS) and build types.
+	fmt.Fprintln(w, "string(TOUPPER \"${CMAKE_BUILD_TYPE}\" NEWT_CONFIG)")
+	fmt.Fprintln(w, "foreach(flags C_FLAGS CXX_FLAGS ASM_FLAGS EXE_LINKER_FLAGS)")
+	fmt.Fprintln(w, "    set(CMAKE_${flags} \"\")")
+	fmt.Fprintln(w, "    set(CMAKE_${flags}_${NEWT_CONFIG} \"\")")
+	fmt.Fprintln(w, "endforeach()")
+	fmt.Fprintln(w)
+
+	// newt passes source file paths relative to the project directory to the
+	// compiler, while CMake passes absolute paths.  Strip the project
+	// directory from paths expanded by macros (e.g., __FILE__), so that the
+	// generated code is the same.
+	fmt.Fprintln(w, "include(CheckCCompilerFlag)")
+	fmt.Fprintln(w, "set(NEWT_MACRO_PREFIX_MAP \"-fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=\")")
+	fmt.Fprintln(w, "check_c_compiler_flag(\"${NEWT_MACRO_PREFIX_MAP}\" NEWT_HAVE_MACRO_PREFIX_MAP)")
+	fmt.Fprintln(w, "if(NEWT_HAVE_MACRO_PREFIX_MAP)")
+	fmt.Fprintln(w, "    add_compile_options(")
+	fmt.Fprintln(w, "        \"$<$<COMPILE_LANGUAGE:C>:${NEWT_MACRO_PREFIX_MAP}>\"")
+	fmt.Fprintln(w, "        \"$<$<COMPILE_LANGUAGE:CXX>:${NEWT_MACRO_PREFIX_MAP}>\")")
+	fmt.Fprintln(w, "    # The assembler is usually the C compiler driver.")
+	fmt.Fprintln(w, "    if(CMAKE_ASM_COMPILER STREQUAL CMAKE_C_COMPILER)")
+	fmt.Fprintln(w, "        add_compile_options(\"$<$<COMPILE_LANGUAGE:ASM>:${NEWT_MACRO_PREFIX_MAP}>\")")
+	fmt.Fprintln(w, "    endif()")
+	fmt.Fprintln(w, "endif()")
 	fmt.Fprintln(w)
 }
 
 func CMakeTargetGenerate(target *target.Target) error {
-	CmakeFileHandle, err := os.Create(CmakeListsPath())
-	if err != nil {
-		return util.ChildNewtError(err)
-	}
-
-	var b = bytes.Buffer{}
-	w := bufio.NewWriter(&b)
-	defer CmakeFileHandle.Close()
-
 	targetBuilder, err := NewTargetBuilder(target)
 	if err != nil {
 		return err
 	}
 
-	targetCompiler, err := targetBuilder.NewCompiler("", "")
+	proj, err := project.TryGetProject()
 	if err != nil {
 		return err
 	}
 
-	var proj *project.Project
-	if proj, err = project.TryGetProject(); err != nil {
-		return err
-	}
-	CmakeHeaderWrite(w, targetCompiler, fmt.Sprintf("\"%s (%s)\"", proj.Name(), target.ShortName()))
+	var b = bytes.Buffer{}
+	w := bufio.NewWriter(&b)
 
-	if err := targetBuilder.CMakeTargetBuilderWrite(w, targetCompiler); err != nil {
+	if err := targetBuilder.CMakeTargetBuilderWrite(w,
+		fmt.Sprintf("%s (%s)", proj.Name(), target.ShortName())); err != nil {
+
 		return err
 	}
 
 	w.Flush()
 
-	CmakeFileHandle.Write(b.Bytes())
+	if err := os.WriteFile(CmakeListsPath(), b.Bytes(), 0644); err != nil {
+		return util.ChildNewtError(err)
+	}
+
 	return nil
+}
+
+func trimProjectPath(path string) string {
+	projPath := replaceBackslashes(project.GetProject().Path())
+	path = replaceBackslashes(path)
+	if strings.HasPrefix(path, projPath+"/") {
+		path = strings.TrimPrefix(path, projPath+"/")
+	}
+	return path
+}
+
+func trimProjectPathSlice(elements []string) []string {
+	trimmed := make([]string, len(elements))
+	for i, e := range elements {
+		trimmed[i] = trimProjectPath(e)
+	}
+	return trimmed
 }
