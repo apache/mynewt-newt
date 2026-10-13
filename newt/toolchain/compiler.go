@@ -65,9 +65,9 @@ type CompilerInfo struct {
 }
 
 type CompileCommand struct {
-	Directory string `json:"directory"`
-	Command   string `json:"command"`
-	File      string `json:"file"`
+	Directory string   `json:"directory"`
+	Arguments []string `json:"arguments"`
+	File      string   `json:"file"`
 }
 
 type Compiler struct {
@@ -727,8 +727,8 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 
 	c.compileCommands = append(c.compileCommands,
 		CompileCommand{
-			Command: strings.Join(cmd, " "),
-			File:    file,
+			Arguments: cmd,
+			File:      file,
 		})
 
 	err = writeCommandFile(objPath, cmd)
