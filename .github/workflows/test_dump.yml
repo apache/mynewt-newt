@@ -27,7 +27,7 @@ jobs:
     outputs:
       targets: ${{ steps.set-matrix.outputs.targets }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - id: set-matrix
         shell: bash
         run: |
@@ -43,8 +43,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
       - name: Build newt
