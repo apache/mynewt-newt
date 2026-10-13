@@ -568,11 +568,10 @@ func (t *TargetBuilder) autogenKeys() error {
 	return nil
 }
 
-func (t *TargetBuilder) Build() error {
-	if err := t.PrepBuild(); err != nil {
-		return err
-	}
-
+// prepareBuildInputs generates the build inputs which are produced before
+// compilation: the key file source, link tables and artifacts emitted by
+// pre-build user scripts.  It must be called after PrepBuild().
+func (t *TargetBuilder) prepareBuildInputs(workDir string) error {
 	project.ResetDeps(t.AppList)
 
 	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
@@ -586,6 +585,21 @@ func (t *TargetBuilder) Build() error {
 		}
 	}
 
+	t.generateLinkTables()
+
+	// Execute the set of pre-build user scripts.
+	if err := t.execPreBuildCmds(workDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *TargetBuilder) Build() error {
+	if err := t.PrepBuild(); err != nil {
+		return err
+	}
+
 	workDir, err := makeUserWorkDir()
 	if err != nil {
 		return err
@@ -595,10 +609,7 @@ func (t *TargetBuilder) Build() error {
 		os.RemoveAll(workDir)
 	}()
 
-	t.generateLinkTables()
-
-	// Execute the set of pre-build user scripts.
-	if err := t.execPreBuildCmds(workDir); err != nil {
+	if err := t.prepareBuildInputs(workDir); err != nil {
 		return err
 	}
 
