@@ -1,2 +1,2 @@
-    * mynewt-dummy-repo-02: 603212f5105432b0db36336931d8dcd85f9038ff, 2.0.1 (rc)
-    * mynewt-dummy-repo-03: 5df87b6ab70d2d6464f68e733b1d67c1652e0954, 2.0.1 (rc)
+    * mynewt-dummy-repo-02: 49ecae928798b33604922f912234c8d356efb1d4, 2.0.1 (rc)
+    * mynewt-dummy-repo-03: 704f878403c920cc0d303452d04c13b98632b829, 2.0.1 (rc)

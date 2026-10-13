@@ -20,9 +20,9 @@
 repository.mynewt-dummy-repo-01:
    type: git
    vers: 5.0.0  # Nonexistent version.
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-01.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-01.git'
 
 repository.mynewt-dummy-repo-05:
    type: git
    vers: 0.0.0
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-05.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-05.git'

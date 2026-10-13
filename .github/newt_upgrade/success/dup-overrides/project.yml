@@ -20,12 +20,12 @@
 repository.mynewt-dummy-repo-01:
    type: git
    vers: 1.0.2
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-01.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-01.git'
 
 repository.mynewt-dummy-repo-05:
    type: git
    vers: 1.0.0
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-05.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-05.git'
 
 ### Project overrides of repo-01 dependencies:
 
@@ -35,14 +35,14 @@ repository.mynewt-dummy-repo-05:
 repository.mynewt-dummy-repo-02:
    type: git
    vers: 1.0.2
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-02.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-02.git'
 
 repository.mynewt-dummy-repo-03:
    type: git
    vers: 1.0.2
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-03.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-03.git'
 
 repository.mynewt-dummy-repo-04:
    type: git
    vers: 1.0.2
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-04.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-04.git'

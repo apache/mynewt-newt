@@ -20,3 +20,6 @@ Gopkg.lock
 Gopkg.toml
 go.mod
 go.sum
+
+# git fast-export streams
+*.fi

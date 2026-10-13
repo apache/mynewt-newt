@@ -20,4 +20,4 @@
 repository.mynewt-dummy-repo-02:
    type: git
    vers: 2.0.1
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-02.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-02.git'
