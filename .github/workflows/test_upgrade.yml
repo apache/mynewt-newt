@@ -57,6 +57,9 @@ jobs:
              go build
              echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
              git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - name: Setup dummy repos
+        shell: bash
+        run: .github/newt_upgrade/dummy-repos/setup.sh "$RUNNER_TEMP/dummy-repos"
       - name: Test upgrade success
         shell: bash
         working-directory: .github/newt_upgrade/success/${{ matrix.projects }}
@@ -93,6 +96,9 @@ jobs:
              go build
              echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
              git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - name: Setup dummy repos
+        shell: bash
+        run: .github/newt_upgrade/dummy-repos/setup.sh "$RUNNER_TEMP/dummy-repos"
       - name: Test upgrade fail
         shell: bash
         working-directory: .github/newt_upgrade/fail/${{ matrix.projects }}
@@ -121,6 +127,9 @@ jobs:
           go build
           echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
           git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - name: Setup dummy repos
+        shell: bash
+        run: .github/newt_upgrade/dummy-repos/setup.sh "$RUNNER_TEMP/dummy-repos"
       - name: Test upgrade allowed-ignored
         shell: bash
         working-directory: .github/newt_upgrade/allowed-ignored

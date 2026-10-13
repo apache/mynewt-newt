@@ -26,9 +26,9 @@
 repository.mynewt-dummy-repo-01:
    type: git
    vers: mybranch-commit
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-01.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-01.git'
 
 repository.mynewt-dummy-repo-05:
    type: git
    vers: mybranch-commit
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-05.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-05.git'

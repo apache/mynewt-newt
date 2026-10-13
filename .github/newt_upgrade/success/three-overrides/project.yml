@@ -20,12 +20,12 @@
 repository.mynewt-dummy-repo-01:
    type: git
    vers: 1.0.2
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-01.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-01.git'
 
 repository.mynewt-dummy-repo-05:
    type: git
    vers: 1.0.0
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-05.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-05.git'
 
 ### Project overrides of repo-01 dependencies:
 
@@ -34,17 +34,17 @@ repository.mynewt-dummy-repo-05:
 
 repository.mynewt-dummy-repo-02:
    type: git
-   vers: ffd8b4f1f0dfb1ee823840b5bd8d62ecfc16a884-commit
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-02.git'
+   vers: 1b6404d9f56a0d0832a2d17f26b4c2eb4af152a7-commit
+   url: 'https://dummy.invalid/mynewt-dummy-repo-02.git'
 
 # This hash corresponds to a version number (1.1.0).
 repository.mynewt-dummy-repo-03:
    type: git
-   vers: bc92264a442925503121dad4e28bd365863e4b69-commit
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-03.git'
+   vers: 49c1b35b2e46a2ba8f8cdbc13fa30b7d94102545-commit
+   url: 'https://dummy.invalid/mynewt-dummy-repo-03.git'
 
 # This hash corresponds to a version number (1.0.2).
 repository.mynewt-dummy-repo-04:
    type: git
    vers: e727f88ca34fffba63a52bb8a0089f50d16f6259-commit
-   url: 'https://github.com/JuulLabs-OSS/mynewt-dummy-repo-04.git'
+   url: 'https://dummy.invalid/mynewt-dummy-repo-04.git'
