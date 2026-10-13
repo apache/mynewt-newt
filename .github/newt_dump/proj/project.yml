@@ -33,4 +33,4 @@ repository.apache-mynewt-nimble:
 repository.mcuboot:
     type: git
     vers: 0.0.0
-    url: 'git@github.com:JuulLabs-OSS/mcuboot.git'
+    url: 'git@github.com:mcu-tools/mcuboot.git'
