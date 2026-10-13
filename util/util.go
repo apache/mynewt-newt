@@ -499,6 +499,25 @@ func ShellCommand(cmdStrs []string, env map[string]string) ([]byte, error) {
 	return ShellCommandLimitDbgOutput(cmdStrs, env, true, -1)
 }
 
+// PrependScriptInterpreter prepends the interpreter required to execute the
+// specified command on the current platform, if any.  On Windows, shell
+// scripts are executed by $NEWT_SH or, if it is not set, by bash.
+func PrependScriptInterpreter(cmdStr []string) ([]string, error) {
+	if runtime.GOOS == "windows" && strings.HasSuffix(cmdStr[0], ".sh") {
+		newt_sh := os.Getenv("NEWT_SH")
+		if newt_sh == "" {
+			bash, err := exec.LookPath("bash")
+			if err != nil {
+				return nil, err
+			}
+			newt_sh = bash
+		}
+		cmdStr = append([]string{newt_sh}, cmdStr...)
+	}
+
+	return cmdStr, nil
+}
+
 // Run interactive shell command
 func ShellInteractiveCommand(cmdStr []string, env map[string]string,
 	flagBlock bool) error {
@@ -506,17 +525,9 @@ func ShellInteractiveCommand(cmdStr []string, env map[string]string,
 	// Escape special characters for Windows.
 	fixupCmdArgs(cmdStr)
 
-	var newt_sh string
-	if runtime.GOOS == "windows" && strings.HasSuffix(cmdStr[0], ".sh") {
-		newt_sh = os.Getenv("NEWT_SH")
-		if newt_sh == "" {
-			bash, err := exec.LookPath("bash")
-			if err != nil {
-				return err
-			}
-			newt_sh = bash
-		}
-		cmdStr = append([]string{newt_sh}, cmdStr...)
+	cmdStr, err := PrependScriptInterpreter(cmdStr)
+	if err != nil {
+		return err
 	}
 	log.Print("[VERBOSE] " + cmdStr[0])
 
