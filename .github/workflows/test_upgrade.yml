@@ -28,7 +28,7 @@ jobs:
       projects_success: ${{ steps.set-matrix.outputs.projects_success }}
       projects_fail: ${{ steps.set-matrix.outputs.projects_fail }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - id: set-matrix
         shell: bash
         run: |
@@ -45,8 +45,8 @@ jobs:
         projects: ${{ fromJson(needs.populate-projects.outputs.projects_success) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
       - name: Build newt
@@ -81,8 +81,8 @@ jobs:
         projects: ${{ fromJson(needs.populate-projects.outputs.projects_fail) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
       - name: Build newt
@@ -109,8 +109,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
       - name: Build newt
