@@ -486,6 +486,51 @@ func (b *Builder) linkCompiler(elfName string,
 	return c, nil
 }
 
+// linkInputDir describes a directory containing files passed to the linker.
+type linkInputDir struct {
+	// The package the directory belongs to; nil for extra directories.
+	bpkg *BuildPackage
+
+	dir string
+
+	// Indicates whether the directory contains lists of objects (*.list)
+	// of a whole-archive package instead of archives (*.a).
+	wholeArch bool
+}
+
+func (d *linkInputDir) pattern() string {
+	if d.wholeArch {
+		return d.dir + "/*.list"
+	} else {
+		return d.dir + "/*.a"
+	}
+}
+
+// linkInputDirs returns the directories containing files passed to the
+// linker, in the order they are passed on the command line.
+func (b *Builder) linkInputDirs(extraADirs []string) ([]linkInputDir, error) {
+	dirs := []linkInputDir{}
+
+	for _, bpkg := range b.sortedBuildPackages() {
+		ci, err := bpkg.CompilerInfo(b)
+		if err != nil {
+			return nil, err
+		}
+
+		dirs = append(dirs, linkInputDir{
+			bpkg:      bpkg,
+			dir:       b.PkgBinDir(bpkg),
+			wholeArch: ci.WholeArch,
+		})
+	}
+
+	for _, dir := range extraADirs {
+		dirs = append(dirs, linkInputDir{dir: dir})
+	}
+
+	return dirs, nil
+}
+
 func (b *Builder) link(elfName string, linkerScripts []string,
 	keepSymbols []string, extraADirs []string) error {
 
@@ -494,32 +539,16 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		return err
 	}
 
-	staticLibs := []util.StaticLib{}
-	var extension string
-
-	for _, bpkg := range b.sortedBuildPackages() {
-		ci, err := bpkg.CompilerInfo(b)
-		if err != nil {
-			return err
-		}
-
-		if ci.WholeArch {
-			extension = "/*.list"
-		} else {
-			extension = "/*.a"
-		}
-		fullNames, _ := filepath.Glob(b.PkgBinDir(bpkg) + extension)
-		for _, archiveName := range fullNames {
-			s := util.NewStaticLib(archiveName, ci.WholeArch)
-			staticLibs = append(staticLibs, s)
-		}
+	dirs, err := b.linkInputDirs(extraADirs)
+	if err != nil {
+		return err
 	}
 
-	// Find all .a files in the input directories.
-	for _, dir := range extraADirs {
-		fullANames, _ := filepath.Glob(dir + "/*.a")
-		for _, archiveName := range fullANames {
-			s := util.NewStaticLib(archiveName, false)
+	staticLibs := []util.StaticLib{}
+	for _, d := range dirs {
+		fullNames, _ := filepath.Glob(d.pattern())
+		for _, archiveName := range fullNames {
+			s := util.NewStaticLib(archiveName, d.wholeArch)
 			staticLibs = append(staticLibs, s)
 		}
 	}
