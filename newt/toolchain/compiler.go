@@ -35,6 +35,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
 
 	"mynewt.apache.org/newt/newt/config"
@@ -695,7 +696,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 
 	c.compileCommands = append(c.compileCommands,
 		CompileCommand{
-			Command: strings.Join(cmd, " "),
+			Command: shellquote.Join(cmd...),
 			File:    file,
 		})
 
