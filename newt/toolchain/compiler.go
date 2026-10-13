@@ -574,6 +574,23 @@ func (c *Compiler) SkipSourceFile(srcFile string) error {
 // Generates a string consisting of all the necessary include path (-I)
 // options.  The result is sorted and contains no duplicate paths.
 func (c *Compiler) includesStrings() []string {
+	includes := c.IncludeDirs()
+	if len(includes) == 0 {
+		return nil
+	}
+
+	tokens := make([]string, len(includes))
+	for i, s := range includes {
+		tokens[i] = "-I" + s
+	}
+
+	return tokens
+}
+
+// IncludeDirs returns the include directories passed to the compiler, in the
+// same order as on the compiler command line.  Paths inside the project are
+// relative to the project base directory.
+func (c *Compiler) IncludeDirs() []string {
 	if len(c.info.Includes) == 0 {
 		return nil
 	}
@@ -589,13 +606,12 @@ func (c *Compiler) includesStrings() []string {
 	includes = util.UniqueStrings(includes)
 	sort.Strings(includes)
 
-	tokens := make([]string, len(includes))
+	dirs := make([]string, len(includes))
 	for i, s := range includes {
-		s = strings.TrimPrefix(filepath.ToSlash(filepath.Clean(s)), c.baseDir+"/")
-		tokens[i] = "-I" + s
+		dirs[i] = strings.TrimPrefix(filepath.ToSlash(filepath.Clean(s)), c.baseDir+"/")
 	}
 
-	return tokens
+	return dirs
 }
 
 func (c *Compiler) cflagsStrings() []string {
@@ -671,6 +687,39 @@ func (c *Compiler) dstFilePath(srcPath string) string {
 	return dstPath
 }
 
+// compilerPath returns the path of the compiler used to compile a source file
+// of the specified type and its key in compiler.yml.
+func (c *Compiler) compilerPath(compilerType int) (string, string) {
+	switch compilerType {
+	case COMPILER_TYPE_ASM:
+		return c.asPath, "compiler.path.as"
+	case COMPILER_TYPE_CPP:
+		return c.cppPath, "compiler.path.cpp"
+	default:
+		return c.ccPath, "compiler.path.cc"
+	}
+}
+
+// CompileFlags returns the flags (excluding include directories) passed to the
+// compiler when compiling a source file of the specified type.
+//
+// @param compilerType          One of the COMPILER_TYPE_[...] constants.
+func (c *Compiler) CompileFlags(compilerType int) ([]string, error) {
+	switch compilerType {
+	case COMPILER_TYPE_C:
+		return c.ccflagsStrings(), nil
+	case COMPILER_TYPE_ASM:
+		// Include both the compiler flags and the assembler flags.
+		// XXX: This is not great.  We don't have a way of specifying compiler
+		// flags without also passing them to the assembler.
+		return append(c.cflagsStrings(), c.aflagsStrings()...), nil
+	case COMPILER_TYPE_CPP:
+		return append(c.cflagsStrings(), c.cxxflagsStrings()...), nil
+	default:
+		return nil, util.NewNewtError("Unknown compiler type")
+	}
+}
+
 // Calculates the command-line invocation necessary to compile the specified C
 // or assembly file.
 //
@@ -683,29 +732,12 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 
 	objPath := c.dstFilePath(file) + ".o"
 
-	var cmdName string
-	var toolKey string
-	var flags []string
-	switch compilerType {
-	case COMPILER_TYPE_C:
-		cmdName = c.ccPath
-		toolKey = "compiler.path.cc"
-		flags = c.ccflagsStrings()
-	case COMPILER_TYPE_ASM:
-		cmdName = c.asPath
-		toolKey = "compiler.path.as"
-
-		// Include both the compiler flags and the assembler flags.
-		// XXX: This is not great.  We don't have a way of specifying compiler
-		// flags without also passing them to the assembler.
-		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
-	case COMPILER_TYPE_CPP:
-		cmdName = c.cppPath
-		toolKey = "compiler.path.cpp"
-		flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
-	default:
-		return nil, util.NewNewtError("Unknown compiler type")
+	flags, err := c.CompileFlags(compilerType)
+	if err != nil {
+		return nil, err
 	}
+
+	cmdName, toolKey := c.compilerPath(compilerType)
 	if err := c.checkToolPath(cmdName, toolKey); err != nil {
 		return nil, err
 	}
@@ -1157,17 +1189,15 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 
 	libList := c.getStaticLibs(util.UniqueStaticLib(staticLib))
 
+	preFlags, postFlags := c.LinkFlags(dstFile, options, keepSymbols, elfLib)
+
 	linkerPath, _ := c.linkerPath()
 	cmd := []string{
 		linkerPath,
 		"-o",
 		dstFile,
 	}
-	cmd = append(cmd, c.cflagsStrings()...)
-
-	if elfLib != "" {
-		cmd = append(cmd, "-Wl,--just-symbols="+elfLib)
-	}
+	cmd = append(cmd, preFlags...)
 
 	if c.ldResolveCircularDeps {
 		cmd = append(cmd, "-Wl,--start-group")
@@ -1184,29 +1214,78 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 		cmd = append(cmd, "-Wl,--end-group")
 	}
 
+	cmd = append(cmd, postFlags...)
+
+	return cmd
+}
+
+// LinkFlags returns the flags passed to the linker when linking the specified
+// elf file.  The first slice contains the flags that precede the input
+// libraries on the command line, the second one the flags that follow them.
+func (c *Compiler) LinkFlags(dstFile string, options map[string]bool,
+	keepSymbols []string, elfLib string) ([]string, []string) {
+
+	// Make sure the compiler package info is added to the global set.
+	c.ensureLclInfoAdded()
+
+	preFlags := c.cflagsStrings()
+
+	if elfLib != "" {
+		preFlags = append(preFlags, "-Wl,--just-symbols="+elfLib)
+	}
+
+	postFlags := []string{}
+
 	if keepSymbols != nil {
 		for _, name := range keepSymbols {
-			cmd = append(cmd, "-Wl,--undefined="+name)
+			postFlags = append(postFlags, "-Wl,--undefined="+name)
 		}
 	}
 
-	cmd = append(cmd, c.lflagsStrings()...)
+	postFlags = append(postFlags, c.lflagsStrings()...)
 
 	/* so we don't get multiple global definitions of the same vartiable */
 	//cmd += " -Wl,--warn-common "
 
 	for _, ls := range c.LinkerScripts {
-		cmd = append(cmd, "-T")
-		cmd = append(cmd, ls)
+		postFlags = append(postFlags, "-T")
+		postFlags = append(postFlags, ls)
 	}
-	cmd = append(cmd, "-L")
-	cmd = append(cmd, c.AutogeneratedLinkerIncludeDir)
+	postFlags = append(postFlags, "-L")
+	postFlags = append(postFlags, c.AutogeneratedLinkerIncludeDir)
 
 	if options["mapFile"] {
-		cmd = append(cmd, "-Wl,-Map="+dstFile+".map")
+		postFlags = append(postFlags, "-Wl,-Map="+dstFile+".map")
 	}
 
-	return cmd
+	return preFlags, postFlags
+}
+
+// LinkOptions returns the options specifying which artifacts get generated
+// when linking an elf file.
+func (c *Compiler) LinkOptions() map[string]bool {
+	return map[string]bool{"mapFile": c.ldMapFile,
+		"listFile": true, "binFile": c.ldBinFile}
+}
+
+// BinFileCmd returns the command which converts the specified elf file to a
+// raw binary file.
+func (c *Compiler) BinFileCmd(elfFilename string, binFile string) []string {
+	return []string{
+		c.ocPath,
+		"-R",
+		".bss",
+		"-R",
+		".bss.core",
+		"-R",
+		".bss.core.nz",
+		"-R",
+		".image_header",
+		"-O",
+		"binary",
+		elfFilename,
+		binFile,
+	}
 }
 
 // Returns the compiler driver used for linking and its compiler.yml key.
@@ -1283,21 +1362,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 		}
 
 		binFile := elfFilename + ".bin"
-		cmd := []string{
-			c.ocPath,
-			"-R",
-			".bss",
-			"-R",
-			".bss.core",
-			"-R",
-			".bss.core.nz",
-			"-R",
-			".image_header",
-			"-O",
-			"binary",
-			elfFilename,
-			binFile,
-		}
+		cmd := c.BinFileCmd(elfFilename, binFile)
 		o, err := util.ShellCommand(cmd, nil)
 		if err != nil {
 			return err
@@ -1390,8 +1455,7 @@ func (c *Compiler) PrintSize(elfFilename string) (string, error) {
 // @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileElf(binFile string, staticLib []util.StaticLib,
 	keepSymbols []string, elfLib string) error {
-	options := map[string]bool{"mapFile": c.ldMapFile,
-		"listFile": true, "binFile": c.ldBinFile}
+	options := c.LinkOptions()
 
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
