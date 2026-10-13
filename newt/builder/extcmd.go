@@ -23,10 +23,12 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
+	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/stage"
 	"mynewt.apache.org/newt/util"
 )
@@ -218,9 +220,20 @@ func (t *TargetBuilder) generateLinkTables() {
 		log.Error("Generate link tables error:\n", err)
 		return
 	}
+	defer linkHeader.Close()
 
-	for _, pkg := range t.res.LpkgRpkgMap {
-		s = append(s, pkg.Lpkg.LinkTables()...)
+	// Sort the packages so that the order of link tables doesn't change
+	// between builds.
+	rpkgs := make([]*resolve.ResolvePackage, 0, len(t.res.LpkgRpkgMap))
+	for _, rpkg := range t.res.LpkgRpkgMap {
+		rpkgs = append(rpkgs, rpkg)
+	}
+	sort.Slice(rpkgs, func(i, j int) bool {
+		return rpkgs[i].Lpkg.FullName() < rpkgs[j].Lpkg.FullName()
+	})
+
+	for _, rpkg := range rpkgs {
+		s = append(s, rpkg.Lpkg.LinkTables()...)
 	}
 
 	if len(s) == 0 {
