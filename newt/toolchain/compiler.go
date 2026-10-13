@@ -868,6 +868,13 @@ func (c *Compiler) CompileAs(filename string) error {
 	return nil
 }
 
+// ArchiveCopyPath returns the path the specified pre-compiled archive is
+// copied to.  Archives are copied to the package's bin directory, which makes
+// them part of the link.
+func (c *Compiler) ArchiveCopyPath(filename string) string {
+	return c.dstDir + "/" + filepath.Base(filename)
+}
+
 // Copies all archive files matching the specified file glob.
 //
 // @param match                 The file glob specifying which assembly files
@@ -880,7 +887,7 @@ func (c *Compiler) CopyArchive(filename string) error {
 		return nil
 	}
 
-	tgtFile := c.dstDir + "/" + filepath.Base(filename)
+	tgtFile := c.ArchiveCopyPath(filename)
 	copyRequired, err := c.depTracker.CopyRequired(filename)
 	if err != nil {
 		return err
