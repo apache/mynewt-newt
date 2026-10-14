@@ -401,10 +401,15 @@ func (c *Compiler) load(compilerDir string, buildProfile string, cfg *cfgv.Setti
 		}
 	}
 
-	settings := cfgv.NewSettingsFromMap(map[string]string{
-		buildProfile:                  "1",
-		strings.ToUpper(runtime.GOOS): "1",
-	})
+	// Settings in compiler.yml can be conditional on syscfg values, the
+	// build profile and the host OS.
+	settingsMap := map[string]string{}
+	if cfg != nil {
+		settingsMap = cfg.ToMap()
+	}
+	settingsMap[buildProfile] = "1"
+	settingsMap[strings.ToUpper(runtime.GOOS)] = "1"
+	settings := cfgv.NewSettingsFromMap(settingsMap)
 
 	c.ccPath, err = yc.GetValString("compiler.path.cc", settings)
 	util.OneTimeWarningError(err)
