@@ -342,7 +342,7 @@ func (cfg *Cfg) restrictionMet(
 		return val
 
 	default:
-		panic("Invalid restriction code: " + string(r.Code))
+		panic(fmt.Sprintf("Invalid restriction code: %d", r.Code))
 	}
 }
 
