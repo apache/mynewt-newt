@@ -169,11 +169,15 @@ func BasicEnvVars(binBase string, bspPkg *pkg.BspPackage) map[string]string {
 	newtPath, _ := osext.Executable()
 
 	m := map[string]string{
-		"CORE_PATH":           coreRepo.Path(),
 		"BSP_PATH":            bspPath,
 		"BIN_ROOT":            BinRoot(),
 		"MYNEWT_PROJECT_ROOT": ProjectRoot(),
 		"MYNEWT_NEWT_PATH":    newtPath,
+	}
+
+	// Project is not required to depend on apache-mynewt-core.
+	if coreRepo != nil {
+		m["CORE_PATH"] = coreRepo.Path()
 	}
 
 	if binBase != "" {
