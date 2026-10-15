@@ -2,7 +2,7 @@
 
 print_usage() {
     echo "Generates known-answer json files for the newt dump tests." >&2
-    echo "Must be run from the 'newt_dump' directory." >&2
+    echo "Must be run from the 'newt/testdata/dump' directory." >&2
     echo >&2
     echo "usage: generate-answers.sh" >&2
 }
