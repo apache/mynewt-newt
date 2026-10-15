@@ -831,7 +831,7 @@ func targetDumpCmd(cmd *cobra.Command, args []string) {
 		if err != nil {
 			NewtUsage(nil, err)
 		}
-		util.StatusMessage(util.VERBOSITY_DEFAULT, s+"\n")
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 	}
 }
 

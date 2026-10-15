@@ -142,7 +142,7 @@ func (scfg *SysdownCfg) write(lpkgs []*pkg.LocalPackage, isLoader bool,
 		sfs = scfg.filter(lpkgs)
 	}
 
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	if isLoader {
 		fmt.Fprintf(w, "#if SPLIT_LOADER\n\n")

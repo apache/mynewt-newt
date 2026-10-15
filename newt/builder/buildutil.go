@@ -117,7 +117,7 @@ func logDepInfo(res *resolve.Resolution) {
 	log.Debugf("API set:")
 	for _, api := range apis {
 		rpkg := res.ApiMap[api]
-		log.Debugf("    * " + api + " (" + rpkg.Lpkg.FullName() + ")")
+		log.Debugf("    * %s (%s)", api, rpkg.Lpkg.FullName())
 	}
 
 	// Log dependency graph.

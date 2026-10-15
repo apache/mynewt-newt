@@ -1630,7 +1630,7 @@ func writeApis(apis []string, w io.Writer) {
 }
 
 func write(cfg Cfg, lpkgs []*pkg.LocalPackage, apis []string, w io.Writer) {
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_SYSCFG_\n")
 	fmt.Fprintf(w, "#define H_MYNEWT_SYSCFG_\n\n")
