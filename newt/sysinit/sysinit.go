@@ -181,8 +181,7 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 	// direct dependencies between each node of stage X to each node of
 	// stage Y to make sure they can be resolved properly and reordered
 	// if needed due to other dependencies.
-	sfsPrev := nodesByStage[stages[0]]
-	stages = stages[1:]
+	var sfsPrev []*stage.StageFunc
 	for _, stage := range stages {
 		sfsCurr := nodesByStage[stage]
 
