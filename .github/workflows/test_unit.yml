@@ -17,29 +17,16 @@
 # under the License.
 #
 
-name: Test dump
+name: Unit tests
 
 on: [push, pull_request]
 
 jobs:
-  populate-targets:
-    runs-on: ubuntu-latest
-    outputs:
-      targets: ${{ steps.set-matrix.outputs.targets }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: set-matrix
-        shell: bash
-        run: |
-             echo "::set-output name=targets::$(ls .github/newt_dump/proj/targets/ | jq -R -s -c 'split("\n")[:-1]')"
-
-  test_dump:
-    name: newt dump
-    needs: populate-targets
+  unit_tests:
+    name: go test
     strategy:
       fail-fast: false
       matrix:
-        targets: ${{ fromJson(needs.populate-targets.outputs.targets) }}
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -47,17 +34,8 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
-      - name: Build newt
-        working-directory: newt
+      - name: Run tests
         shell: bash
         run: |
              go version
-             go build
-             echo  ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
-      - name: Test dump
-        working-directory: .github/newt_dump/proj
-        shell: bash
-        run: |
-             echo "Checking target ${{ matrix.targets }}"
-             newt target dump ${{ matrix.targets }} | jq 'del(.sysinit)' > tmp.txt
-             diff -w ../answers/${{ matrix.targets }}.json tmp.txt
+             go test -v ./newt
