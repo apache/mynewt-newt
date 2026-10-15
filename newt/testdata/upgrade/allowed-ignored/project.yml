@@ -17,25 +17,29 @@
 # under the License.
 #
 
-repository.apache-mynewt-core:
-   type: github
-   vers: 0-dev
-   user: apache
-   repo: mynewt-core
 
-repository.tinyusb:
-   type: github
+# mynewt-dummy-repo-01 depends on mynewt-dummy-repo-02 and
+# mynewt-dummy-repo-03. Repos specified in project.yml are installed even
+# if not allowed, unless ignored.
+repository.mynewt-dummy-repo-01:
+   type: git
    vers: 0.0.0
-   user: hathach
-   repo: tinyusb
+   url: 'https://dummy.invalid/mynewt-dummy-repo-01.git'
+
+repository.mynewt-dummy-repo-04:
+   type: git
+   vers: 0.0.0
+   url: 'https://dummy.invalid/mynewt-dummy-repo-04.git'
+
+repository.mynewt-dummy-repo-05:
+   type: git
+   vers: 0.0.0
+   url: 'https://dummy.invalid/mynewt-dummy-repo-05.git'
 
 project.repositories.allowed:
-   - apache-*
-   - ~stm-.*g4
-   - mcuboot
-   - arm-CMSIS_5
-   - nordic-nrfx
+   - mynewt-dummy-repo-01
+   - ~mynewt-dummy-repo-0[23]
 
 project.repositories.ignored:
-   - apache-mynewt-mcumgr
-   - stm-cmsis_device_g4
+   - mynewt-dummy-repo-02
+   - mynewt-dummy-repo-05*
