@@ -25,14 +25,19 @@ The `*.fi` files are `git fast-export` streams of the repos used by the
 `newt upgrade` tests. The test projects refer to them with the
 placeholder URL `https://dummy.invalid/<repo>.git`.
 
-`setup.sh <dest-dir>` imports the streams as bare repos into `<dest-dir>`
-and sets a global git `insteadOf` rule that maps the placeholder URL to
-them. To run the tests locally without touching your git config, point
-`GIT_CONFIG_GLOBAL` at a scratch file first:
+The tests in `newt/upgrade_test.go` import the streams into a temporary
+directory and map the placeholder URL to it, so they need only `git`:
+
+    go test -run TestUpgrade ./newt
+
+`setup.sh <dest-dir>` does the same for running newt by hand. It imports
+the streams as bare repos into `<dest-dir>` and sets a global git
+`insteadOf` rule that maps the placeholder URL to them. To avoid touching
+your git config, point `GIT_CONFIG_GLOBAL` at a scratch file first:
 
     export GIT_CONFIG_GLOBAL=/tmp/dummy-gitconfig
-    .github/newt_upgrade/dummy-repos/setup.sh /tmp/dummy-repos
-    cd .github/newt_upgrade/success/basic01
+    newt/testdata/upgrade/dummy-repos/setup.sh /tmp/dummy-repos
+    cd newt/testdata/upgrade/success/basic01
     newt upgrade
 
 Commit hashes are deterministic, so `expected.txt` files and `-commit`
