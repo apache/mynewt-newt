@@ -511,49 +511,92 @@ func (proj *Project) checkNewtVer() error {
 	}
 }
 
-// Loads the `repository.yml` file for each depended-on repo.  This
+// Returns the dependencies of a repo that apply to the specified version
+// requirements.  If a requirement cannot be mapped to a `repository.yml`
+// commit (e.g., it is a commit hash or the version is unknown), all
+// dependencies are returned.
+func repoDepsForReqs(r *repo.Repo,
+	verReqs []newtutil.RepoVersion) []*repo.RepoDependency {
+
+	if len(verReqs) == 0 {
+		return r.AllDeps()
+	}
+
+	var deps []*repo.RepoDependency
+	for _, verReq := range verReqs {
+		if verReq.Commit != "" {
+			return r.AllDeps()
+		}
+
+		commit, err := r.CommitFromVer(verReq)
+		if err != nil {
+			return r.AllDeps()
+		}
+
+		deps = append(deps, r.CommitDepMap()[commit]...)
+	}
+
+	return deps
+}
+
+// Loads the `repository.yml` file for each depended-on repo.  Only the
+// dependencies of the required repo versions are followed, so repos that are
+// listed in `repo.deps` for other versions only are not loaded.
 func (proj *Project) loadRepoDeps(download bool) error {
-	seen := map[string]struct{}{}
+	verReqs := map[string][]newtutil.RepoVersion{}
+	for name, verReq := range proj.rootRepoReqs {
+		verReqs[name] = append(verReqs[name], verReq)
+	}
+
+	// Records a version requirement for a repo.  Returns true if the
+	// requirement was not known before.
+	addVerReq := func(name string, verReq newtutil.RepoVersion) bool {
+		for _, v := range verReqs[name] {
+			if v.String() == verReq.String() {
+				return false
+			}
+		}
+
+		verReqs[name] = append(verReqs[name], verReq)
+		return true
+	}
 
 	loadDeps := func(r *repo.Repo) ([]*repo.Repo, error) {
 		var newRepos []*repo.Repo
 
-		depMap := r.CommitDepMap()
-		for _, depSlice := range depMap {
-			for _, dep := range depSlice {
-				if _, ok := seen[dep.Name]; !ok {
-					seen[r.Name()] = struct{}{}
+		for _, dep := range repoDepsForReqs(r, verReqs[r.Name()]) {
+			if !addVerReq(dep.Name, dep.VerReqs) {
+				continue
+			}
 
-					depRepo := proj.repos[dep.Name]
-					if depRepo == nil {
-						var err error
+			depRepo := proj.repos[dep.Name]
+			if depRepo == nil {
+				var err error
 
-						if !proj.isRepoAllowed(dep.Name) {
-							continue
-						}
+				if !proj.isRepoAllowed(dep.Name) {
+					continue
+				}
 
-						depRepo, err = proj.loadRepo(dep.Name, dep.Fields)
-						if err != nil {
-							// if `repository.yml` does not exist, it is not an
-							// error; we will just download a new copy.
-							if !util.IsNotExist(err) {
-								return nil, err
-							}
-						}
-						if depRepo == nil {
-							continue
-						}
-						if err := proj.addRepo(depRepo, download); err != nil {
-							return nil, err
-						}
+				depRepo, err = proj.loadRepo(dep.Name, dep.Fields)
+				if err != nil {
+					// if `repository.yml` does not exist, it is not an
+					// error; we will just download a new copy.
+					if !util.IsNotExist(err) {
+						return nil, err
 					}
-					newRepos = append(newRepos, depRepo)
+				}
+				if depRepo == nil {
+					continue
+				}
+				if err := proj.addRepo(depRepo, download); err != nil {
+					return nil, err
+				}
+			}
+			newRepos = append(newRepos, depRepo)
 
-					if download {
-						if _, err := depRepo.UpdateDesc(); err != nil {
-							return nil, err
-						}
-					}
+			if download {
+				if _, err := depRepo.UpdateDesc(); err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -561,6 +604,8 @@ func (proj *Project) loadRepoDeps(download bool) error {
 		return newRepos, nil
 	}
 
+	// A repo is processed again whenever a new version requirement is added
+	// for it.  This terminates since the set of requirements only grows.
 	curRepos := proj.repos.Sorted()
 	for len(curRepos) > 0 {
 		var nextRepos []*repo.Repo
