@@ -165,7 +165,7 @@ func calcBsp(dm DecodedMfg,
 
 	bsp, err := pkg.NewBspPackage(bspLpkg, nil)
 	if err != nil {
-		return nil, util.FmtNewtError(err.Error())
+		return nil, util.NewNewtError(err.Error())
 	}
 
 	return bsp, nil

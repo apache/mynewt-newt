@@ -167,7 +167,7 @@ func sprintfSi(si *SymbolInfo) string {
 }
 
 func dumpSi(si *SymbolInfo) {
-	fmt.Printf(sprintfSi(si))
+	fmt.Print(sprintfSi(si))
 }
 
 func (si *SymbolInfo) Dump() {
