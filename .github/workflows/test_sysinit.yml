@@ -58,4 +58,23 @@ jobs:
              newt upgrade -v --escape=false apache-mynewt-core apache-mynewt-nimble
              newt info
              newt target sysinit brief nordic_pca10056_btshell > tmp.txt
-             diff -w tmp.txt ../.github/newt_sysinit/expected.txt
+             diff -w tmp.txt ../.github/newt_sysinit/brief/expected.txt
+      - name: Test_sysinit_override (success)
+        shell: bash
+        run: |
+             cp -r .github/targets/sysinit_override_success project/targets
+             cd project/
+             newt upgrade -v --escape=false apache-mynewt-core apache-mynewt-nimble
+             newt info
+             newt build sysinit_override_success
+             newt target sysinit brief sysinit_override_success > tmp.txt
+             diff -w tmp.txt ../.github/newt_sysinit/override_success/expected.txt
+      - name: Test_sysinit_override (fail)
+        shell: bash
+        run: |
+             cp -r .github/targets/sysinit_override_fail project/targets
+             cd project/
+             newt upgrade -v --escape=false apache-mynewt-core apache-mynewt-nimble
+             newt info
+             newt build sysinit_override_fail 2> tmp.txt || true
+             diff -w tmp.txt ../.github/newt_sysinit/override_fail/expected.txt

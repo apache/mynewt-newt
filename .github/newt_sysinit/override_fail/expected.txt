@@ -1,0 +1,5 @@
+Error: Invalid sysinit definitions detected:
+    Missing pkg.init functions in target.yml:
+        ble_store_config_init
+        ble_transport_hs_init
+
