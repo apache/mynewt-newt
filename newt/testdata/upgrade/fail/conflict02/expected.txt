@@ -1,0 +1,8 @@
+Error: Repository conflicts:
+    Installation of repo "mynewt-dummy-repo-02" is blocked:
+                       project.yml requires mynewt-dummy-repo-02/1.0.0
+    mynewt-dummy-repo-03/ff71469039b3d63cb0925e866c6a6dfb7d41a055 requires mynewt-dummy-repo-02/0.0.0
+
+    Installation of repo "mynewt-dummy-repo-04" is blocked:
+                       project.yml requires mynewt-dummy-repo-04/1.0.2
+        mynewt-dummy-repo-01/1.0.0 requires mynewt-dummy-repo-04/1.0.0

@@ -1,0 +1,131 @@
+blob
+mark :1
+data 102
+# mynewt-dummy-repo-06
+
+Dummy repo for newt upgrade tests.  Its dependencies differ between
+versions.
+
+reset refs/tags/mynewt_1_0_0_tag
+commit refs/tags/mynewt_1_0_0_tag
+mark :2
+author Szymon Janc <szymon.janc@codecoup.pl> 1792152000 +0000
+committer Szymon Janc <szymon.janc@codecoup.pl> 1792152000 +0000
+data 13
+first commit
+M 100644 :1 README.md
+
+blob
+mark :3
+data 1104
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+repo.name: mynewt-dummy-repo-06
+repo.versions:
+    "0.0.0": "master"
+    "1.0.0": "mynewt_1_0_0_tag"
+
+    "0-dev": "0.0.0"
+
+repo.deps:
+    mynewt-dummy-repo-04:
+        type: git
+        url: https://dummy.invalid/mynewt-dummy-repo-04.git
+        vers:
+            master: 0.0.0
+            mynewt_1_0_0_tag: 1.0.0
+
+commit refs/tags/mynewt_1_0_0_tag
+mark :4
+author Szymon Janc <szymon.janc@codecoup.pl> 1792152060 +0000
+committer Szymon Janc <szymon.janc@codecoup.pl> 1792152060 +0000
+data 6
+1.0.0
+from :2
+M 100644 :3 repository.yml
+
+blob
+mark :5
+data 1482
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+repo.name: mynewt-dummy-repo-06
+repo.versions:
+    "0.0.0": "master"
+    "1.0.0": "mynewt_1_0_0_tag"
+    "2.0.0": "mynewt_2_0_0_tag"
+
+    "0-dev": "0.0.0"
+
+# Version 2.0.0 replaced the dependency on repo 04 with repo 05.  master
+# requires a version of repo 05 other than its master, so that a skipped
+# dependency is not hidden by a fresh clone.
+repo.deps:
+    mynewt-dummy-repo-04:
+        type: git
+        url: https://dummy.invalid/mynewt-dummy-repo-04.git
+        vers:
+            mynewt_1_0_0_tag: 1.0.0
+
+    mynewt-dummy-repo-05:
+        type: git
+        url: https://dummy.invalid/mynewt-dummy-repo-05.git
+        vers:
+            master: 1.0.0
+            mynewt_2_0_0_tag: 2.0.0
+
+commit refs/heads/master
+mark :6
+author Szymon Janc <szymon.janc@codecoup.pl> 1792152120 +0000
+committer Szymon Janc <szymon.janc@codecoup.pl> 1792152120 +0000
+data 6
+2.0.0
+from :4
+M 100644 :5 repository.yml
+
+tag mynewt_2_0_0_tag
+from :6
+tagger Szymon Janc <szymon.janc@codecoup.pl> 1792152120 +0000
+data 17
+mynewt_2_0_0_tag
+
+tag mynewt_1_0_0_tag
+from :4
+tagger Szymon Janc <szymon.janc@codecoup.pl> 1792152060 +0000
+data 17
+mynewt_1_0_0_tag
+

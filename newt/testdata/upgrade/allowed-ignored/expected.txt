@@ -1,0 +1,3 @@
+mynewt-dummy-repo-01
+mynewt-dummy-repo-03
+mynewt-dummy-repo-04

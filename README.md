@@ -23,12 +23,8 @@
   <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_commands.yml/badge.svg">
 <a/>
 
-<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_dump.yml">
-  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_dump.yml/badge.svg">
-<a/>
-
-<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_upgrade.yml">
-  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_upgrade.yml/badge.svg">
+<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_unit.yml">
+  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_unit.yml/badge.svg">
 <a/>
 
 # Newt
@@ -110,8 +106,31 @@ with a description of the feature or submit a
 We love getting newt tests!  Apache Mynewt is a huge undertaking, and improving
 code coverage is a win for every Apache Mynewt user.
 
-Automated Newt tests are run in Travis.  The test code can be found
-[here](https://github.com/JuulLabs-OSS/mynewt-travis-ci).
+Newt tests are regular Go tests and run in GitHub Actions on every pull
+request.  They can also be run locally from the repository root:
+
+```no-highlight
+$ go test ./newt
+```
+
+Useful variants:
+
+```no-highlight
+$ go test -v ./newt                     # show each test and newt's output
+$ go test -v -run TestUpgrade ./newt    # run only matching tests
+$ go test -count=1 ./newt               # ignore cached test results
+```
+
+Only Go and `git` are needed; the tests do not need network access or a
+`newt` binary.  The test binary runs itself as newt, and each test works on
+a copy of a project from `newt/testdata` in a temporary directory.  Remote
+repositories used by the upgrade tests are local dummy repositories stored
+as `git fast-export` streams in `newt/testdata/upgrade/dummy-repos`; these
+tests ignore your global and system git configuration.
+
+New end-to-end tests can follow the same pattern: add a project under
+`newt/testdata` and a `*_test.go` file in `newt/` that runs newt commands
+against it.
 
 ## Writing Documentation
 
