@@ -34,14 +34,6 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
-      - uses: carlosperate/arm-none-eabi-gcc-action@v1.14.0
-        with:
-          release: '12.2.Rel1'
-      - name: Install Dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-             sudo apt-get update
-             sudo apt-get install -y gcc-multilib
       - name: Build newt
         working-directory: newt
         shell: bash
@@ -52,10 +44,10 @@ jobs:
       - name: Test_sysinit
         shell: bash
         run: |
-             newt new project
-             cp -r .github/targets/nordic_pca10056_btshell project/targets
+             cp -r .github/newt_sysinit project
+             cp -r .github/targets project/targets
              cd project/
-             newt upgrade -v --escape=false apache-mynewt-core apache-mynewt-nimble
+             newt upgrade -v --shallow=1
              newt info
              newt target sysinit brief nordic_pca10056_btshell > tmp.txt
-             diff -w tmp.txt ../.github/newt_sysinit/expected.txt
+             diff -w tmp.txt expected.txt
