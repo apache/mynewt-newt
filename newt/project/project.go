@@ -411,6 +411,42 @@ func (proj *Project) UpgradeIf(
 	return inst.Upgrade(specifiedRepoList, force, ask)
 }
 
+// Warns about directories in `repos/` that don't belong to any repository
+// used by this project.  These are usually left over from repositories that
+// were removed from the project or are now ignored.  This must be called only
+// after external repos have been added with GetPkgRepos(), otherwise they are
+// reported as unexpected.
+func (proj *Project) WarnUnexpectedRepos() {
+	reposDir := filepath.Join(proj.BasePath, repo.REPOS_DIR)
+
+	entries, err := os.ReadDir(reposDir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			util.OneTimeWarning("failed to read %s: %s", reposDir, err.Error())
+		}
+		return
+	}
+
+	var unexpected []string
+	for _, e := range entries {
+		name := e.Name()
+
+		// Skip hidden entries (e.g., `.configs`); newt uses them internally.
+		if !e.IsDir() || strings.HasPrefix(name, ".") {
+			continue
+		}
+
+		if _, ok := proj.repos[name]; !ok {
+			unexpected = append(unexpected, name)
+		}
+	}
+
+	if len(unexpected) > 0 {
+		util.OneTimeWarning("%s/ contains repositories not used by this "+
+			"project: %s", repo.REPOS_DIR, strings.Join(unexpected, ", "))
+	}
+}
+
 func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 	remote bool) error {
 
