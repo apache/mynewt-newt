@@ -548,9 +548,10 @@ func (proj *Project) checkNewtVer() error {
 }
 
 // Returns the dependencies of a repo that apply to the specified version
-// requirements.  If a requirement cannot be mapped to a `repository.yml`
-// commit (e.g., it is a commit hash or the version is unknown), all
-// dependencies are returned.
+// requirements.  A commit hash requirement is treated like its version
+// number, as during install (see Repo.DepsForVersion).  If a requirement
+// cannot be mapped to a `repository.yml` commit (e.g., the version is
+// unknown), all dependencies are returned.
 func repoDepsForReqs(r *repo.Repo,
 	verReqs []newtutil.RepoVersion) []*repo.RepoDependency {
 
@@ -560,9 +561,7 @@ func repoDepsForReqs(r *repo.Repo,
 
 	var deps []*repo.RepoDependency
 	for _, verReq := range verReqs {
-		if verReq.Commit != "" {
-			return r.AllDeps()
-		}
+		verReq.Commit = ""
 
 		commit, err := r.CommitFromVer(verReq)
 		if err != nil {
