@@ -29,7 +29,8 @@ repository.mynewt-dummy-repo-05:
 
 ### Project overrides of repo-01 dependencies:
 
-# This override is compatible with the repo-01 dependency.
+# This override is compatible with the repo-01 dependency, but conflicts
+# with the dependency of the pinned repo-03 (that of its version, 0.0.0).
 repository.mynewt-dummy-repo-02:
    type: git
    vers: 1.0.0

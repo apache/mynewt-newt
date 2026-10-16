@@ -288,7 +288,12 @@ func ResolveRepoDeps(dg DepGraph) (VersionMap, []Conflict) {
 	// Adds one entry to the working set (ws) for each of the given repo's
 	// dependencies.
 	visit := func(rvp RVPair) {
-		nodes := dg[rvp]
+		// The graph has no nodes for commits.  A repo pinned to a commit
+		// depends on what its version number does, as during install (see
+		// Repo.DepsForVersion).
+		key := rvp
+		key.Ver.Commit = ""
+		nodes := dg[key]
 		for _, node := range nodes {
 			addWsNode(rvp, node)
 		}
