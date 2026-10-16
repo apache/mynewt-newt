@@ -19,12 +19,8 @@
 #
 -->
 
-<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_commands.yml">
-  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_commands.yml/badge.svg">
-<a/>
-
-<a href="https://github.com/apache/mynewt-newt/actions/workflows/test_unit.yml">
-  <img src="https://github.com/apache/mynewt-newt/actions/workflows/test_unit.yml/badge.svg">
+<a href="https://github.com/apache/mynewt-newt/actions/workflows/ci.yml">
+  <img src="https://github.com/apache/mynewt-newt/actions/workflows/ci.yml/badge.svg">
 <a/>
 
 # Newt

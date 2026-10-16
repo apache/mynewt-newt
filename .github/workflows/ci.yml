@@ -1,0 +1,154 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  unit:
+    name: Unit tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 'stable'
+      - name: Run tests
+        run: |
+          go version
+          go test -v ./newt
+
+  integration:
+    name: Integration tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 'stable'
+      - uses: carlosperate/arm-none-eabi-gcc-action@v1.14.0
+        with:
+          release: '12.2.Rel1'
+      - name: Install dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+      - name: Build newt
+        working-directory: newt
+        run: |
+          go version
+          go build
+          echo ${GITHUB_WORKSPACE}/newt >> $GITHUB_PATH
+
+      - name: Sysinit configuration
+        run: |
+          cp -r .github/newt_sysinit sysinit
+          cp -r .github/targets sysinit/targets
+          cd sysinit
+          newt upgrade -v --shallow=1
+          newt info
+          newt target sysinit brief nordic_pca10056_btshell > tmp.txt
+          diff -w tmp.txt expected.txt
+
+      - name: Create project
+        run: |
+          newt
+          newt help
+          newt version
+          newt new project
+          cp .github/newt_commands/project.yml project/
+          cp -r .github/targets/nordic_pca10056_btshell project/targets
+      - name: Upgrade project
+        working-directory: project
+        run: |
+          newt upgrade -v --escape=false apache-mynewt-core apache-mynewt-nimble
+          newt info
+      - name: Build target
+        working-directory: project
+        run: |
+          newt build nordic_pca10056_btshell
+          newt create-image nordic_pca10056_btshell 1.0.0
+          newt size nordic_pca10056_btshell
+          newt size -F -R nordic_pca10056_btshell
+      - name: Package commands
+        working-directory: project
+        run: |
+          newt vals api app bsp build_profile compiler lib sdk target
+          newt pkg new --type=pkg sys/mylib
+          newt pkg copy apps/blinky apps/myapp
+          newt pkg move apps/myapp apps/newapp
+          newt pkg remove apps/newapp
+      - name: Target commands
+        working-directory: project
+        run: |
+          newt target show
+          newt target create my_target1
+          newt target set my_target1 bsp=@apache-mynewt-core/hw/bsp/nordic_pca10056
+          newt target set my_target1 app=apps/blinky
+          newt target set my_target1 build_profile=optimized cflags="-DNDEBUG"
+          newt target set my_target1 syscfg=LOG_NEWTMGR=1:CONFIG_NEWTMGR=0
+          newt target config init -f my_target1
+          newt target copy my_target1 my_target2
+          newt target amend my_target1 lflags="-Lmylib" syscfg=LOG_LEVEL=0:CONFIG_NEWTMGR=0
+          newt target delete -f my_target1
+          newt target delete -f my_target2
+          newt target cmake nordic_pca10056_btshell
+          newt target dep nordic_pca10056_btshell
+          newt target revdep nordic_pca10056_btshell
+      - name: Upgrade installed project
+        working-directory: project
+        run: |
+          newt upgrade -v
+          rm -rf repos/apache-mynewt-nimble
+          newt upgrade -v
+          test -d repos/apache-mynewt-nimble/nimble
+      - name: Unit test and simulator build
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: project
+        run: |
+          newt test @apache-mynewt-core/util/cbmem
+          newt build my_blinky_sim
+          newt clean my_blinky_sim
