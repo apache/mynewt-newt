@@ -219,7 +219,7 @@ func targetShowCmd(cmd *cobra.Command, args []string) {
 	for _, name := range targetNames {
 		kvPairs := map[string]string{}
 
-		util.StatusMessage(util.VERBOSITY_DEFAULT, name+"\n")
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", name)
 
 		target := target.GetTargets()[name]
 		settings := target.TargetY.AllSettingsAsStrings()
@@ -276,12 +276,12 @@ func targetEnvCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	fmt.Printf("APP_ELF_PATH=" + b.AppBuilder.AppElfPath() + "\n")
-	fmt.Printf("APP_IMG_PATH=" + b.AppBuilder.AppImgPath() + "\n")
-	fmt.Printf("APP_HEX_PATH=" + b.AppBuilder.AppHexPath() + "\n")
-	fmt.Printf("APP_BIN_PATH=" + b.AppBuilder.AppBinPath() + "\n")
-	fmt.Printf("BUILD_TARGET_DIR=" + builder.TargetBinDir(b.GetTarget().Name()) + "\n")
-	fmt.Printf("BUILD_APP_DIR=" + b.AppBuilder.AppBinBasePath() + "\n")
+	fmt.Printf("APP_ELF_PATH=%s\n", b.AppBuilder.AppElfPath())
+	fmt.Printf("APP_IMG_PATH=%s\n", b.AppBuilder.AppImgPath())
+	fmt.Printf("APP_HEX_PATH=%s\n", b.AppBuilder.AppHexPath())
+	fmt.Printf("APP_BIN_PATH=%s\n", b.AppBuilder.AppBinPath())
+	fmt.Printf("BUILD_TARGET_DIR=%s\n", builder.TargetBinDir(b.GetTarget().Name()))
+	fmt.Printf("BUILD_APP_DIR=%s\n", b.AppBuilder.AppBinBasePath())
 }
 
 func printCflags(appCflags []ycfg.YCfgEntry) {
@@ -357,7 +357,7 @@ func targetListCmd(cmd *cobra.Command, args []string) {
 	sort.Strings(targetNames)
 
 	for _, name := range targetNames {
-		util.StatusMessage(util.VERBOSITY_DEFAULT, name+"\n")
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", name)
 	}
 }
 
@@ -731,8 +731,8 @@ func targetDepCmd(cmd *cobra.Command, args []string) {
 	dg := targetDepCommonCmd(cmd, args)
 
 	if len(dg) > 0 {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			builder.DepGraphText(dg)+"\n")
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n",
+			builder.DepGraphText(dg))
 	}
 }
 
@@ -789,8 +789,8 @@ func targetRevdepCmd(cmd *cobra.Command, args []string) {
 	dg := targetRevdepCommonCmd(cmd, args)
 
 	if len(dg) > 0 {
-		util.StatusMessage(util.VERBOSITY_DEFAULT,
-			builder.RevdepGraphText(dg)+"\n")
+		util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n",
+			builder.RevdepGraphText(dg))
 	}
 }
 

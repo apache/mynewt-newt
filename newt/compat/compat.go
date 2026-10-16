@@ -111,8 +111,8 @@ func ReadNcMap(yc ycfg.YCfg) (NewtCompatMap, error) {
 	for k, v := range ncMap {
 		repoVer, err := newtutil.ParseVersion(k)
 		if err != nil {
-			return nil, util.FmtNewtError("Newt compatibility table contains " +
-				"invalid repo version \"%s\"")
+			return nil, util.FmtNewtError("Newt compatibility table contains "+
+				"invalid repo version \"%s\"", k)
 		}
 
 		if _, ok := mp[repoVer]; ok {

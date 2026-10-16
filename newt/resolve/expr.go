@@ -48,7 +48,7 @@ func getExprMapStringSlice(
 		if err != nil {
 			return nil, warning, util.FmtNewtError(
 				"ycfg node \"%s\" contains unexpected type; "+
-					"have=%T want=[]string", e.Value)
+					"have=%T want=[]string", key, e.Value)
 		}
 
 		m[e.Expr] = append(m[e.Expr], slice...)

@@ -131,7 +131,7 @@ func parseFlashArea(
 		case "size":
 			area.Size, err = parseSize(v)
 			if err != nil {
-				return area, flashAreaErr(name, err.Error())
+				return area, flashAreaErr(name, "%s", err.Error())
 			}
 			sizePresent = true
 
@@ -216,7 +216,7 @@ func Read(ymlFlashMap map[string]interface{}, pkgName string) (FlashMap, error) 
 		ymlArea := cast.ToStringMap(v)
 		area, err := parseFlashArea(k, ymlArea)
 		if err != nil {
-			return flashMap, flashAreaErr(k, err.Error())
+			return flashMap, flashAreaErr(k, "%s", err.Error())
 		}
 
 		flashMap.Areas[k] = area
@@ -240,7 +240,7 @@ func writeFlashAreaHeader(w io.Writer, area flash.FlashArea) {
 }
 
 func writeFlashMapHeader(w io.Writer, fm FlashMap) {
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_SYSFLASH_\n")
 	fmt.Fprintf(w, "#define H_MYNEWT_SYSFLASH_\n")
@@ -284,7 +284,7 @@ func writeFlashAreaSrc(w io.Writer, area flash.FlashArea) {
 }
 
 func writeFlashMapSrc(w io.Writer, fm FlashMap) {
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#include \"%s\"\n", HEADER_PATH)
 	fmt.Fprintf(w, "\n")

@@ -949,7 +949,7 @@ func (cfg *Cfg) flashConflictErrorText(conflict CfgFlashConflict) string {
 			entry.Value)
 
 	default:
-		panic("Invalid flash conflict code: " + string(conflict.Code))
+		panic(fmt.Sprintf("Invalid flash conflict code: %d", conflict.Code))
 	}
 }
 
@@ -1413,7 +1413,7 @@ func calcPriorities(cfg Cfg, settingType CfgSettingType, max int,
 		greatest++
 		if greatest > max {
 			return util.FmtNewtError("could not assign 'any' priority: "+
-				"value too great (> %d); setting=%s value=%s pkg=%s",
+				"value too great (> %d); setting=%s value=%d pkg=%s",
 				max, name, greatest,
 				mostRecentPoint(entry).Name())
 		}
@@ -1630,7 +1630,7 @@ func writeApis(apis []string, w io.Writer) {
 }
 
 func write(cfg Cfg, lpkgs []*pkg.LocalPackage, apis []string, w io.Writer) {
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_SYSCFG_\n")
 	fmt.Fprintf(w, "#define H_MYNEWT_SYSCFG_\n\n")

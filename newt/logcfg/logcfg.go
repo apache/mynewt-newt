@@ -316,7 +316,7 @@ func (lcfg *LCfg) writeLogModuleCases(w io.Writer) {
 
 // Writes a logcfg header file to the specified writer.
 func (lcfg *LCfg) writeHeader(w io.Writer) {
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#ifndef H_MYNEWT_LOGCFG_\n")
 	fmt.Fprintf(w, "#define H_MYNEWT_LOGCFG_\n\n")
@@ -336,7 +336,7 @@ func (lcfg *LCfg) writeHeader(w io.Writer) {
 
 // Writes a logcfg src file to the specified writer.
 func (lcfg *LCfg) writeSource(w io.Writer) {
-	fmt.Fprintf(w, newtutil.GeneratedPreamble())
+	fmt.Fprint(w, newtutil.GeneratedPreamble())
 
 	fmt.Fprintf(w, "#include <stdint.h>\n")
 	fmt.Fprintf(w, "#include <stdlib.h>\n")
