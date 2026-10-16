@@ -139,6 +139,8 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 
 		NewtUsage(nil, err)
 	}
+
+	proj.WarnUnexpectedRepos()
 }
 
 func infoRunCmd(cmd *cobra.Command, args []string) {
