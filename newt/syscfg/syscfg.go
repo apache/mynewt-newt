@@ -209,20 +209,33 @@ func ResolveValueRefName(val string) string {
 }
 
 func (cfg *Cfg) ExpandRef(val string) (string, string, error) {
+	var visited []string
+	var entry CfgEntry
+	var ok bool
+
 	refName := ResolveValueRefName(val)
 	if refName == "" {
 		// Not a reference.
 		return "", val, nil
 	}
 
-	entry, ok := cfg.Settings[refName]
-	if !ok {
-		return "", "", util.FmtNewtError(
-			"setting value \"%s\" references undefined setting", val)
+	for refName != "" {
+		entry, ok = cfg.Settings[refName]
+		if !ok {
+			return "", "", util.FmtNewtError(
+				"setting value \"%s\" references undefined setting", val)
+		}
+		for _, v := range visited {
+			if entry.Name == v {
+				return "", "", util.FmtNewtError(
+					"setting value \"%s\" creates a reference loop", entry.Name)
+			}
+		}
+		visited = append(visited, entry.Name)
+		refName = ResolveValueRefName(entry.Value)
 	}
 
 	return entry.Name, entry.Value, nil
-
 }
 
 func (cfg *Cfg) AddInjectedSettings() {
