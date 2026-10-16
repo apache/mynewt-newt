@@ -33,16 +33,21 @@ const dummyRepoURL = "https://dummy.invalid/"
 
 var upgradeDir = filepath.Join("testdata", "upgrade")
 
-func runGit(t *testing.T, env []string, stdin *os.File, args ...string) {
+func runGit(t *testing.T, env []string, stdin *os.File,
+	args ...string) string {
+
 	t.Helper()
 
 	cmd := exec.Command("git", args...)
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdin = stdin
 
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
 		t.Fatalf("git %s failed: %s\n%s", strings.Join(args, " "), err, out)
 	}
+
+	return strings.TrimSpace(string(out))
 }
 
 // dummyReposEnv imports dummy repos into a temporary directory and returns
@@ -187,4 +192,90 @@ func TestUpgradeAllowedIgnored(t *testing.T) {
 	checkOutput(t, "installed repos",
 		readFile(t, filepath.Join(projDir, "expected.txt")),
 		strings.Join(installedRepos(t, projDir), "\n"))
+}
+
+// commitToDummyRepo clones the master branch of a dummy repo, lets edit
+// change files in the clone and pushes them as a new commit, optionally
+// tagged, back to the dummy repo. Returns the commit hash.
+func commitToDummyRepo(t *testing.T, env []string, repo string,
+	edit func(dir string), tag string) string {
+
+	t.Helper()
+
+	env = append(env,
+		"GIT_AUTHOR_NAME=newt test", "GIT_AUTHOR_EMAIL=test@dummy.invalid",
+		"GIT_COMMITTER_NAME=newt test",
+		"GIT_COMMITTER_EMAIL=test@dummy.invalid")
+
+	dir := filepath.Join(t.TempDir(), repo)
+	runGit(t, env, nil, "clone", "-q", dummyRepoURL+repo+".git", dir)
+
+	edit(dir)
+
+	runGit(t, env, nil, "-C", dir, "commit", "-q", "-a", "-m", "test commit")
+	runGit(t, env, nil, "-C", dir, "push", "-q", "origin", "master")
+	if tag != "" {
+		runGit(t, env, nil, "-C", dir, "tag", "-a", "-m", tag, tag)
+		runGit(t, env, nil, "-C", dir, "push", "-q", "origin", tag)
+	}
+
+	return runGit(t, env, nil, "-C", dir, "rev-parse", "HEAD")
+}
+
+// replaceInFile replaces the first occurrence of old in a file with new.
+func replaceInFile(t *testing.T, path string, old string, new string) {
+	t.Helper()
+
+	data := readFile(t, path)
+	if !strings.Contains(data, old) {
+		t.Fatalf("%s does not contain %q", path, old)
+	}
+
+	data = strings.Replace(data, old, new, 1)
+	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Upgrade must fetch commits and versions added to repos after they were
+// installed.
+func TestUpgradeFetch(t *testing.T) {
+	env := dummyReposEnv(t)
+	projDir := copyToTemp(t, filepath.Join(upgradeDir, "fetch"))
+
+	newtOutput(t, projDir, env, "upgrade")
+	checkDummyRepoVersions(t, projDir, env)
+
+	// repo-04 is installed at its master branch, which gets a new commit.
+	commit04 := commitToDummyRepo(t, env, "mynewt-dummy-repo-04",
+		func(dir string) {
+			replaceInFile(t, filepath.Join(dir, "README.md"),
+				"# mynewt-dummy-repo-04", "# mynewt-dummy-repo-04 (updated)")
+		}, "")
+
+	// repo-05 gets a new release, which the project then requires.
+	commit05 := commitToDummyRepo(t, env, "mynewt-dummy-repo-05",
+		func(dir string) {
+			replaceInFile(t, filepath.Join(dir, "repository.yml"),
+				`"2.0.0": "mynewt_2_0_0_tag"`,
+				`"2.0.0": "mynewt_2_0_0_tag"`+"\n"+
+					`    "3.0.0": "mynewt_3_0_0_tag"`)
+		}, "mynewt_3_0_0_tag")
+	replaceInFile(t, filepath.Join(projDir, "project.yml"), "vers: 2.0.0",
+		"vers: 3.0.0")
+
+	newtOutput(t, projDir, env, "upgrade")
+
+	lines := []string{}
+	for _, line := range strings.Split(newtOutput(t, projDir, env, "info"),
+		"\n") {
+
+		if strings.Contains(line, "mynewt-dummy") {
+			lines = append(lines, line)
+		}
+	}
+	checkOutput(t, "repo versions",
+		fmt.Sprintf("* mynewt-dummy-repo-04: %s, 0.0.0\n"+
+			"* mynewt-dummy-repo-05: %s, 3.0.0", commit04, commit05),
+		strings.Join(lines, "\n"))
 }
