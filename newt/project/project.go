@@ -45,6 +45,7 @@ import (
 var globalProject *Project = nil
 
 const PROJECT_FILE_NAME = "project.yml"
+const PROJECT_LOCAL_FILE_NAME = "local.project.yml"
 const PATCHES_DIR = "patches"
 
 var ignoreSearchDirs []string = []string{
@@ -796,6 +797,16 @@ func (proj *Project) loadConfig(download bool) error {
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
+
+	localPath := proj.BasePath + "/" + PROJECT_LOCAL_FILE_NAME
+	if util.NodeExist(localPath) {
+		util.ErrorMessage(util.VERBOSITY_DEFAULT,
+			"Using local project overrides from %s\n", PROJECT_LOCAL_FILE_NAME)
+		if err := config.ApplyLocalFile(&yc, localPath); err != nil {
+			return util.NewNewtError(err.Error())
+		}
+	}
+
 	// Store configuration object for access to future values,
 	// this avoids keeping every string around as a project variable when
 	// we need to process it later.

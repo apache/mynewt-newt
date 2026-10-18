@@ -204,6 +204,69 @@ the build system to look in the base directory of repos/apache-mynewt-core for t
     - "@apache-mynewt-core/hw/hal"
     - "@apache-mynewt-core/sys/console/full"
 
+Local Project Overrides
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Settings from project.yml can be overridden locally, without modifying the file itself, by creating a
+``local.project.yml`` file next to it. The file is intended to be kept out of version control (e.g. added to
+``.gitignore``) and is always loaded after project.yml. When it is present, newt prints
+``Using local project overrides from local.project.yml``.
+
+The file uses the same syntax as project.yml. By default, each setting is merged into the corresponding setting from
+project.yml:
+
+* maps (e.g. ``repository.<name>``) are merged per key, so only the specified fields are added or replaced,
+* sequences (e.g. ``project.repositories.allowed``) are appended to,
+* other values are replaced.
+
+.. note::
+   The setting name suffixes described below are intended only for local.project.yml. They are used to modify
+   settings from project.yml and are not meant to be used in project.yml itself.
+
+A setting that does not exist in project.yml is simply added. To change this behavior, one of the following suffixes
+can be appended to a setting name:
+
+* ``<setting>.OVERWRITE`` - replaces the whole value instead of merging into it, the same way as in other YAML
+  files,
+* ``<setting>.REMOVE`` - removes the listed items from a sequence; items are compared as plain strings, not as
+  regular expressions,
+* ``<setting>.DELETE: true`` - deletes the setting.
+
+``REMOVE`` and a plain setting can be used together to remove items from a sequence and add new ones; items are
+always removed first. ``OVERWRITE`` and ``DELETE`` cannot be combined with any other operation on the same setting.
+Removing an item or deleting a setting that does not exist results in a warning. ``REMOVE`` and ``DELETE`` are only
+supported in local.project.yml itself, not in files it imports with ``$import``.
+
+.. code-block:: yaml
+
+  # Use a feature branch of apache-mynewt-core; other fields stay as in project.yml
+  repository.apache-mynewt-core:
+        vers: 0.0.0
+        branch: my-feature
+
+  # Fetch mcuboot from a different location; no fields are inherited from project.yml
+  repository.mcuboot.OVERWRITE:
+        type: git
+        vers: 0.0.0
+        url: https://example.com/mcuboot.git
+
+  # Do not use apache-mynewt-nffs
+  repository.apache-mynewt-nffs.DELETE: true
+
+  # Replace apache-mynewt-nimble with a private repository on the allowed list
+  project.repositories.allowed.REMOVE:
+        - apache-mynewt-nimble
+  project.repositories.allowed:
+        - my-private-repo
+
+  repository.my-private-repo:
+        type: git
+        vers: 0.0.0
+        url: git@github.com:me/private.git
+
+Note that deleting a repository only removes its definition from project.yml. If another repository depends on it,
+it is still added to the project; add it to ``project.repositories.ignored`` to exclude it completely.
+
 Newt has the ability to autocomplete within ``bash``. The following
 instructions allow MAC users to enable autocomplete within ``bash``.
 
