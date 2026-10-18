@@ -319,19 +319,30 @@ func OptsFromTgtBldr(b *builder.TargetBuilder, ver image.ImageVersion,
 	return opts, nil
 }
 
-func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
-	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
-	hdrPad int, imagePad int, sectionString string, useLegacyTLV bool) error {
+// Finds offsets and sizes of the specified comma-separated list of sections
+// relative to the start of the app image.
+func imageSections(t *builder.TargetBuilder,
+	sectionString string) ([]image.Section, error) {
+
+	var sections []image.Section
+
+	if sectionString == "" {
+		return sections, nil
+	}
 
 	elfPath := t.AppBuilder.AppElfPath()
 
-	cmdName := "arm-none-eabi-objdump"
-	cmdOut, err := exec.Command(cmdName, elfPath, "-hw").Output()
+	c, err := t.NewCompiler(t.AppBuilder.FileBinDir(elfPath), "")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var sections []image.Section
+	cmdOut, err := exec.Command(c.GetObjdumpPath(), elfPath, "-hw").Output()
+	if err != nil {
+		return nil, util.FmtNewtError("Failed to read sections of %s: %s",
+			elfPath, err.Error())
+	}
+
 	section_list := strings.Split(sectionString, ",")
 	lines := strings.Split(string(cmdOut), "\n")
 	var imgBase int
@@ -366,6 +377,18 @@ func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
 	// update sections offset by subtracting off start of app image
 	for s := range sections {
 		sections[s].Offset = sections[s].Offset - imgBase
+	}
+
+	return sections, nil
+}
+
+func ProduceAll(t *builder.TargetBuilder, ver image.ImageVersion,
+	sigKeys []sec.PrivSignKey, encKeyFilename string, encKeyIndex int,
+	hdrPad int, imagePad int, sectionString string, useLegacyTLV bool) error {
+
+	sections, err := imageSections(t, sectionString)
+	if err != nil {
+		return err
 	}
 
 	popts, err := OptsFromTgtBldr(t, ver, sigKeys, encKeyFilename, encKeyIndex,

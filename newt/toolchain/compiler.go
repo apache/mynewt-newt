@@ -87,6 +87,8 @@ type Compiler struct {
 	odPath                string
 	osPath                string
 	ocPath                string
+	nmPath                string
+	a2lPath               string
 	ldResolveCircularDeps bool
 	ldMapFile             bool
 	ldBinFile             bool
@@ -142,6 +144,24 @@ func (c *Compiler) GetObjdumpPath() string {
 
 func (c *Compiler) GetSizePath() string {
 	return c.osPath
+}
+
+func (c *Compiler) GetNmPath() string {
+	return c.nmPath
+}
+
+func (c *Compiler) GetAddr2linePath() string {
+	return c.a2lPath
+}
+
+// Returns path of binutils tool with given name that belongs to the same
+// toolchain as objdump, e.g. arm-none-eabi-objdump -> arm-none-eabi-nm.
+func siblingToolPath(odPath string, tool string) string {
+	if strings.HasSuffix(odPath, "objdump") {
+		return strings.TrimSuffix(odPath, "objdump") + tool
+	}
+
+	return "arm-none-eabi-" + tool
 }
 
 func (c *Compiler) GetLdResolveCircularDeps() bool {
@@ -388,6 +408,18 @@ func (c *Compiler) load(compilerDir string, buildProfile string, cfg *cfgv.Setti
 
 	c.ocPath, err = yc.GetValString("compiler.path.objcopy", settings)
 	util.OneTimeWarningError(err)
+
+	c.nmPath, err = yc.GetValString("compiler.path.nm", settings)
+	util.OneTimeWarningError(err)
+	if c.nmPath == "" {
+		c.nmPath = siblingToolPath(c.odPath, "nm")
+	}
+
+	c.a2lPath, err = yc.GetValString("compiler.path.addr2line", settings)
+	util.OneTimeWarningError(err)
+	if c.a2lPath == "" {
+		c.a2lPath = siblingToolPath(c.odPath, "addr2line")
+	}
 
 	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags", cfg)
 	c.lclInfo.CXXflags = loadFlags(yc, settings, "compiler.cxx.flags", cfg)
