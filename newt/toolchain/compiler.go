@@ -1439,6 +1439,7 @@ func (c *Compiler) CompileArchive(outputFile string, createList bool) error {
 		if err != nil {
 			return util.NewNewtError(err.Error())
 		}
+		defer file.Close()
 
 		for _, objFilePath := range objList {
 			_, err = file.WriteString(objFilePath + "\n")
