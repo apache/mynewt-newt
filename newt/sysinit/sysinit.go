@@ -22,11 +22,13 @@ package sysinit
 import (
 	"bytes"
 	"fmt"
-	"github.com/spf13/cast"
 	"io"
-	"mynewt.apache.org/newt/util"
 	"sort"
 	"strings"
+
+	"github.com/spf13/cast"
+	"mynewt.apache.org/newt/newt/ycfg"
+	"mynewt.apache.org/newt/util"
 
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/pkg"
@@ -169,7 +171,7 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 		}
 		return true
 	})
-    
+
 	// Put nodes without stages first, so they are resolved and put to
 	// stack first - we do not want them to precede all nodes with stages.
 	// While technically correct, it's better not to start sysinit with
@@ -233,13 +235,71 @@ func ResolveStageFuncsOrder(sfs []stage.StageFunc) ([]stage.StageFunc, error) {
 	return sfs, nil
 }
 
-func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysinitCfg {
+func getTargetStageFuncs(tCfg ycfg.YCfg, cfg *syscfg.Cfg) ([]stage.StageFunc, error) {
+	initMap, _ := tCfg.GetValStringMap("pkg.init", nil)
+	var sfs []stage.StageFunc
+
+	for name, stageDef := range initMap {
+		stageStr := cast.ToString(stageDef)
+		sf, err := stage.NewStageFunc(name, stageStr, nil, cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		sfs = append(sfs, sf)
+	}
+
+	return sfs, nil
+}
+
+func targetStageFuncsOverride(tStageFuncs []stage.StageFunc, pStageFuncs []stage.StageFunc) error {
+	indexByName := make(map[string]int, len(pStageFuncs))
+
+	for i := range pStageFuncs {
+		indexByName[pStageFuncs[i].Name] = i
+	}
+
+	for _, tSF := range tStageFuncs {
+		if idx, ok := indexByName[tSF.Name]; ok {
+			pStageFuncs[idx].Stage = tSF.Stage
+			delete(indexByName, tSF.Name)
+		}
+	}
+
+	missing := make([]string, 0, len(indexByName))
+	for name := range indexByName {
+		missing = append(missing, name)
+	}
+
+	if len(missing) != 0 {
+		sort.Strings(missing)
+		return util.NewNewtError("Missing pkg.init functions in target.yml:\n\t" + strings.Join(missing, "\n\t"))
+	}
+
+	return nil
+}
+
+func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg, tCfg ycfg.YCfg) SysinitCfg {
 	scfg := SysinitCfg{
 		Conflicts: map[string][]stage.StageFunc{},
 	}
 
 	for _, lpkg := range lpkgs {
 		scfg.readOnePkg(lpkg, cfg)
+	}
+
+	tStageFuncs, err := getTargetStageFuncs(tCfg, cfg)
+	if err != nil {
+		scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
+		return scfg
+	}
+
+	if tStageFuncs != nil {
+		err := targetStageFuncsOverride(tStageFuncs, scfg.StageFuncs)
+		if err != nil {
+			scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
+			return scfg
+		}
 	}
 
 	scfg.detectConflicts()
@@ -251,7 +311,6 @@ func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysinitCfg {
 		return scfg
 	}
 
-	var err error
 	scfg.StageFuncs, err = ResolveStageFuncsOrder(scfg.StageFuncs)
 	if err != nil {
 		scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
