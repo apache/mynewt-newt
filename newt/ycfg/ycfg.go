@@ -672,6 +672,67 @@ func (yc *YCfg) Delete(key string) {
 	delete(yc.tree, key)
 }
 
+// DeleteValue clears the value of the node with the specified key.  Child
+// nodes are left intact; the node itself (and any ancestors left without a
+// value or children) is removed from the tree.  The returned bool is false if
+// the node has no value.
+func (yc *YCfg) DeleteValue(key string) bool {
+	node := yc.find(key)
+	if node == nil || node.Value == nil {
+		return false
+	}
+
+	node.Value = nil
+	for node != nil && node.Value == nil && len(node.Children) == 0 {
+		if node.Parent == nil {
+			delete(yc.tree, node.Name)
+		} else {
+			delete(node.Parent.Children, node.Name)
+		}
+		node = node.Parent
+	}
+
+	return true
+}
+
+// RemoveFromSlice removes all items equal to any of the specified values from
+// the slice stored in the node with the specified key.  Items are compared by
+// their string representation.  The returned slice contains the values that
+// were not found.
+func (yc *YCfg) RemoveFromSlice(key string, vals []interface{}) (
+	[]interface{}, error) {
+
+	node := yc.find(key)
+	if node == nil || node.Value == nil {
+		return vals, nil
+	}
+
+	nodeVal, ok := node.Value.([]interface{})
+	if !ok {
+		return nil, util.FmtNewtError(
+			"can't remove items from cfg node \"%s\"; node type: %T",
+			key, node.Value)
+	}
+
+	notFound := []interface{}{}
+	for _, v := range vals {
+		s := cast.ToString(v)
+		filtered := make([]interface{}, 0, len(nodeVal))
+		for _, item := range nodeVal {
+			if cast.ToString(item) != s {
+				filtered = append(filtered, item)
+			}
+		}
+		if len(filtered) == len(nodeVal) {
+			notFound = append(notFound, v)
+		}
+		nodeVal = filtered
+	}
+	node.Value = nodeVal
+
+	return notFound, nil
+}
+
 // Clear removes all entries from the YCfg.
 func (yc *YCfg) Clear() {
 	yc.tree = YCfgTree{}
