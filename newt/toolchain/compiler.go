@@ -319,15 +319,19 @@ func NewCompiler(compilerDir string, dstDir string,
 	return c, nil
 }
 
+// Returns function that replaces $(NAME) pattern with value of syscfg
+// setting NAME. If setting does not exist or its value is empty, value of
+// environment variable NAME is used instead. This allows to provide
+// machine specific values (e.g. paths) without modifying any package.
 func replaceVal(cfg *cfgv.Settings) func(string) string {
 
 	return func(m string) string {
 		name := m[2 : len(m)-1]
-		if cfg.Exists(name) {
+		if cfg.Exists(name) && cfg.Get(name) != "" {
 			return cfg.Get(name)
-		} else {
-			return ""
 		}
+
+		return os.Getenv(name)
 	}
 }
 

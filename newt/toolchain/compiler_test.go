@@ -123,3 +123,31 @@ func TestCompilerSyscfgCond(t *testing.T) {
 		})
 	}
 }
+
+func TestReplaceVal(t *testing.T) {
+	cfg := cfgv.NewSettingsFromMap(map[string]string{
+		"SET_FLAG":   "-mset",
+		"EMPTY_FLAG": "",
+	})
+	replace := replaceVal(cfg)
+
+	t.Setenv("SET_FLAG", "-menv")
+	t.Setenv("EMPTY_FLAG", "-mdfp=/path/to/dfp")
+	t.Setenv("ENV_ONLY_FLAG", "-menv_only")
+
+	tests := []struct {
+		pattern string
+		want    string
+	}{
+		{"$(SET_FLAG)", "-mset"},
+		{"$(EMPTY_FLAG)", "-mdfp=/path/to/dfp"},
+		{"$(ENV_ONLY_FLAG)", "-menv_only"},
+		{"$(UNDEFINED_FLAG)", ""},
+	}
+
+	for _, tc := range tests {
+		if got := replace(tc.pattern); got != tc.want {
+			t.Errorf("replaceVal(%q) = %q, want %q", tc.pattern, got, tc.want)
+		}
+	}
+}
