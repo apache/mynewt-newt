@@ -22,6 +22,7 @@ package builder
 import (
 	"bufio"
 	"fmt"
+	"mynewt.apache.org/newt/newt/toolchain"
 	"mynewt.apache.org/newt/util"
 	"os"
 	"os/exec"
@@ -29,12 +30,12 @@ import (
 	"strings"
 )
 
-func runNmCommand(elfFilePath string) ([]byte, error) {
+func runNmCommand(nmPath string, elfFilePath string) ([]byte, error) {
 	var (
 		cmdOut []byte
 		err    error
 	)
-	cmdName := "arm-none-eabi-nm"
+	cmdName := nmPath
 	cmdArgs := []string{elfFilePath, "-S", "-l", "--size-sort"}
 
 	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
@@ -45,12 +46,13 @@ func runNmCommand(elfFilePath string) ([]byte, error) {
 	return cmdOut, err
 }
 
-func runObjdumpCommand(elfFilePath string, params string) ([]byte, error) {
+func runObjdumpCommand(odPath string, elfFilePath string,
+	params string) ([]byte, error) {
 	var (
 		cmdOut []byte
 		err    error
 	)
-	cmdName := "arm-none-eabi-objdump"
+	cmdName := odPath
 	cmdArgs := []string{params, elfFilePath}
 	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
 		fmt.Fprintln(os.Stderr, "There was an error running objdump command: ",
@@ -61,12 +63,13 @@ func runObjdumpCommand(elfFilePath string, params string) ([]byte, error) {
 	return cmdOut, err
 }
 
-func runAddr2lineCommand(elfFilePath string, address string) ([]byte, error) {
+func runAddr2lineCommand(a2lPath string, elfFilePath string,
+	address string) ([]byte, error) {
 	var (
 		cmdOut []byte
 		err    error
 	)
-	cmdName := "arm-none-eabi-addr2line"
+	cmdName := a2lPath
 	cmdArgs := []string{"-e", elfFilePath, address}
 
 	cmdOut, err = exec.Command(cmdName, cmdArgs...).Output()
@@ -76,11 +79,11 @@ func runAddr2lineCommand(elfFilePath string, address string) ([]byte, error) {
 	return cmdOut, err
 }
 
-func loadSymbolsAndPaths(elfFilePath, pathToStrip string) (map[string]string,
-	error) {
+func loadSymbolsAndPaths(c *toolchain.Compiler, elfFilePath,
+	pathToStrip string) (map[string]string, error) {
 	symbolsPath := make(map[string]string)
 
-	nmOut, err := runNmCommand(elfFilePath)
+	nmOut, err := runNmCommand(c.GetNmPath(), elfFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +98,8 @@ func loadSymbolsAndPaths(elfFilePath, pathToStrip string) (map[string]string,
 		var path string
 
 		if len(fields) < 5 {
-			addr2lineOut, err := runAddr2lineCommand(elfFilePath, fields[0])
+			addr2lineOut, err := runAddr2lineCommand(c.GetAddr2linePath(), elfFilePath,
+				fields[0])
 			if err != nil {
 				path = "(other)"
 			} else {
@@ -148,8 +152,9 @@ func (m *MemoryRegion) PartOf(addr uint64) bool {
 	return addr >= m.Offset && addr < m.EndOff
 }
 
-func loadSymbolsAndSections(elfFilePath string) (map[string]*Symbol, error) {
-	objdumpOut, err := runObjdumpCommand(elfFilePath, "-tw")
+func loadSymbolsAndSections(c *toolchain.Compiler,
+	elfFilePath string) (map[string]*Symbol, error) {
+	objdumpOut, err := runObjdumpCommand(c.GetObjdumpPath(), elfFilePath, "-tw")
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +183,8 @@ func loadSymbolsAndSections(elfFilePath string) (map[string]*Symbol, error) {
 	return symbols, nil
 }
 
-func getMemoryRegion(elfFilePath string, sectionName string) (*MemoryRegion,
+func getMemoryRegion(c *toolchain.Compiler, elfFilePath string,
+	sectionName string) (*MemoryRegion,
 	error) {
 
 	mapFile := elfFilePath + ".map"
@@ -187,7 +193,7 @@ func getMemoryRegion(elfFilePath string, sectionName string) (*MemoryRegion,
 		return nil, err
 	}
 
-	objdumpOut, err := runObjdumpCommand(elfFilePath, "-hw")
+	objdumpOut, err := runObjdumpCommand(c.GetObjdumpPath(), elfFilePath, "-hw")
 	if err != nil {
 		return nil, err
 	}
@@ -289,16 +295,17 @@ func logMemoryRegionStats(memRegion *MemoryRegion, sectionName string) {
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "\n")
 }
 
-func SizeReport(elfFilePath, srcBase string, sectionName string, diffFriendly bool) error {
-	symbolsPath, err := loadSymbolsAndPaths(elfFilePath, srcBase)
+func SizeReport(c *toolchain.Compiler, elfFilePath, srcBase string,
+	sectionName string, diffFriendly bool) error {
+	symbolsPath, err := loadSymbolsAndPaths(c, elfFilePath, srcBase)
 	if err != nil {
 		return err
 	}
-	loadedSectionSizes, err := loadSymbolsAndSections(elfFilePath)
+	loadedSectionSizes, err := loadSymbolsAndSections(c, elfFilePath)
 	if err != nil {
 		return err
 	}
-	sectionRegion, err := getMemoryRegion(elfFilePath, sectionName)
+	sectionRegion, err := getMemoryRegion(c, elfFilePath, sectionName)
 	if err != nil {
 		return err
 	}

@@ -482,7 +482,12 @@ func (t *TargetBuilder) SizeReport(sectionName string, diffFriendly bool) error 
 func (b *Builder) SizeReport(sectionName string, diffFriendly bool) error {
 	srcBase := interfaces.GetProject().Path() + "/"
 
-	err := SizeReport(b.AppElfPath(), srcBase, sectionName, diffFriendly)
+	c, err := b.newCompiler(b.appPkg, b.FileBinDir(b.AppElfPath()))
+	if err != nil {
+		return err
+	}
+
+	err = SizeReport(c, b.AppElfPath(), srcBase, sectionName, diffFriendly)
 	if err != nil {
 		return util.NewNewtError(err.Error())
 	}
