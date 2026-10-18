@@ -1,0 +1,1 @@
+Error: local.project.yml: "repository.mynewt-dummy-repo-01.DELETE" can't be combined with other operations on the same key
