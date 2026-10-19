@@ -264,11 +264,16 @@ func parseMapFileRegions(fileName string, sectionName string) (*MemoryRegion,
 				state = 2
 			}
 		case 2:
-			if strings.Contains(scanner.Text(), "*default*") {
+			if strings.Contains(scanner.Text(), "*default*") ||
+				strings.Contains(scanner.Text(),
+					"Linker script and memory map") {
 				state = 3
 				continue
 			}
 			array := strings.Fields(scanner.Text())
+			if len(array) < 3 {
+				continue
+			}
 			offset, err := strconv.ParseUint(array[1], 0, 64)
 			if err != nil {
 				continue
