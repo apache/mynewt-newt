@@ -298,7 +298,18 @@ func addFlags(flagType string, orig []string, new []string) []string {
 	origMap := flagsMap(orig)
 
 	combined := orig
-	for _, c := range new {
+	for i := 0; i < len(new); i++ {
+		c := new[i]
+
+		// An option taking a separate argument (e.g., "-include", "a.h") is
+		// added together with its argument; the option alone does not
+		// identify a conflict.
+		if flagTakesArg(new, i) {
+			combined = append(combined, c, new[i+1])
+			i++
+			continue
+		}
+
 		newBase := flagsBase(c)
 		origVal := origMap[newBase]
 		if origVal == "" {
@@ -575,9 +586,9 @@ func (c *Compiler) includesStrings() []string {
 }
 
 func (c *Compiler) cflagsStrings() []string {
-	cflags := util.SortFields(c.info.Cflags...)
+	cflags := SortFlags(c.info.Cflags...)
 
-	for _, lclinfo_flag := range util.SortFields(c.lclInfo.Cflags...) {
+	for _, lclinfo_flag := range SortFlags(c.lclInfo.Cflags...) {
 		for _, info_flag := range cflags {
 			if lclinfo_flag == info_flag {
 				continue
@@ -589,17 +600,17 @@ func (c *Compiler) cflagsStrings() []string {
 }
 
 func (c *Compiler) cxxflagsStrings() []string {
-	cxxflags := util.SortFields(c.info.CXXflags...)
+	cxxflags := SortFlags(c.info.CXXflags...)
 	return cxxflags
 }
 
 func (c *Compiler) aflagsStrings() []string {
-	aflags := util.SortFields(c.info.Aflags...)
+	aflags := SortFlags(c.info.Aflags...)
 	return aflags
 }
 
 func (c *Compiler) lflagsStrings() []string {
-	lflags := util.SortFields(c.info.Lflags...)
+	lflags := SortFlags(c.info.Lflags...)
 	return lflags
 }
 
