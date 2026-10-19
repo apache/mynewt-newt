@@ -82,3 +82,21 @@ func TestBuildEmptyExtCmd(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildCmakeErrorKeepsFile(t *testing.T) {
+	dir := buildErrProject(t)
+	path := filepath.Join(dir, "CMakeLists.txt")
+	content := "# user content\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := newtCombinedOutput(dir, nil, "target", "cmake", "fail")
+	if err == nil {
+		t.Fatalf("newt target cmake succeeded unexpectedly:\n%s", out)
+	}
+
+	if got := readFile(t, path); got != content {
+		t.Fatalf("CMakeLists.txt modified on error; got:\n%q", got)
+	}
+}

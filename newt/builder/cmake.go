@@ -428,14 +428,8 @@ func CmakeHeaderWrite(w io.Writer, c *toolchain.Compiler, projectName string) {
 }
 
 func CMakeTargetGenerate(target *target.Target) error {
-	CmakeFileHandle, err := os.Create(CmakeListsPath())
-	if err != nil {
-		return util.ChildNewtError(err)
-	}
-
 	var b = bytes.Buffer{}
 	w := bufio.NewWriter(&b)
-	defer CmakeFileHandle.Close()
 
 	targetBuilder, err := NewTargetBuilder(target)
 	if err != nil {
@@ -459,6 +453,11 @@ func CMakeTargetGenerate(target *target.Target) error {
 
 	w.Flush()
 
-	CmakeFileHandle.Write(b.Bytes())
+	// Only write the file once generation succeeded so that an error does
+	// not destroy an existing CMakeLists.txt.
+	if err := os.WriteFile(CmakeListsPath(), b.Bytes(), 0644); err != nil {
+		return util.ChildNewtError(err)
+	}
+
 	return nil
 }
