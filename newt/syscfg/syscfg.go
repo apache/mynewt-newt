@@ -113,6 +113,18 @@ type CfgPriority struct {
 	PackageSrc  *pkg.LocalPackage // package overriding setting value.
 }
 
+// Returns the name of the package that defines the setting, or "newt" if
+// the setting is injected by newt.
+func (p CfgPriority) DefName() string {
+	return lpkgNameOrNewt(p.PackageDef)
+}
+
+// Returns the name of the package that overrides the setting, or "newt" if
+// the value is injected by newt.
+func (p CfgPriority) SrcName() string {
+	return lpkgNameOrNewt(p.PackageSrc)
+}
+
 type CfgFlashConflict struct {
 	SettingNames []string
 	Code         CfgFlashConflictCode
@@ -308,12 +320,17 @@ func (cfg *Cfg) AllSettingsForLpkg(lpkg *pkg.LocalPackage) *cfgv.Settings {
 	return cfg.settingsForLpkg(lpkg, cfg.SettingValues())
 }
 
-func (point CfgPoint) Name() string {
-	if point.Source == nil {
+// Returns the full name of the package, or "newt" if the package is nil
+// (i.e., the setting or value is injected by newt).
+func lpkgNameOrNewt(lpkg *pkg.LocalPackage) string {
+	if lpkg == nil {
 		return "newt"
-	} else {
-		return point.Source.FullName()
 	}
+	return lpkg.FullName()
+}
+
+func (point CfgPoint) Name() string {
+	return lpkgNameOrNewt(point.Source)
 }
 
 func (point CfgPoint) IsInjected() bool {
@@ -1059,10 +1076,17 @@ func (cfg *Cfg) ErrorText() string {
 			entry := cfg.Settings[priority.SettingName]
 			historyMap[priority.SettingName] = entry.History
 
-			str += fmt.Sprintf(
-				"    Package: %s overriding setting: %s defined by %s\n",
-				priority.PackageSrc.FullName(), priority.SettingName,
-				priority.PackageDef.FullName())
+			if priority.PackageDef == nil {
+				str += fmt.Sprintf(
+					"    Package: %s overriding setting: %s which is set "+
+						"by newt and cannot be overridden\n",
+					priority.SrcName(), priority.SettingName)
+			} else {
+				str += fmt.Sprintf(
+					"    Package: %s overriding setting: %s defined by %s\n",
+					priority.SrcName(), priority.SettingName,
+					priority.DefName())
+			}
 		}
 	}
 
