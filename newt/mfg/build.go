@@ -372,6 +372,21 @@ func (mb *MfgBuilder) detectOverlaps() error {
 		return err
 	}
 
+	// The meta region is written over the image contents, so it must not
+	// overlap any other part either.
+	if mb.Meta != nil {
+		meta, err := mb.buildMeta()
+		if err != nil {
+			return err
+		}
+		parts = append(parts, Part{
+			Name:   fmt.Sprintf("meta (%s)", mb.Meta.Area.Name),
+			Offset: mb.metaOffset(meta),
+			Data:   make([]byte, meta.Size()),
+		})
+		parts = SortParts(parts)
+	}
+
 	for i, p1 := range parts[:len(parts)-1] {
 		p1end := p1.Offset + len(p1.Data)
 		for _, p2 := range parts[i+1:] {
@@ -588,6 +603,13 @@ func (mb *MfgBuilder) buildMeta() (mfg.Meta, error) {
 	return meta, nil
 }
 
+// Calculates the offset of the meta region within the manufacturing image.
+// The meta region is located at the end of its flash area.
+func (mb *MfgBuilder) metaOffset(meta mfg.Meta) int {
+	return mb.Meta.Area.Offset + mb.Meta.Area.Size - meta.Size() -
+		mb.BaseAddress
+}
+
 // Builds a manufacturing image.
 func (mb *MfgBuilder) Build() (mfg.Mfg, error) {
 	parts, err := mb.parts()
@@ -608,7 +630,7 @@ func (mb *MfgBuilder) Build() (mfg.Mfg, error) {
 			return mfg.Mfg{}, err
 		}
 		metap = &meta
-		metaOff = mb.Meta.Area.Offset + mb.Meta.Area.Size - meta.Size() - mb.BaseAddress
+		metaOff = mb.metaOffset(meta)
 	}
 
 	return mfg.Mfg{
