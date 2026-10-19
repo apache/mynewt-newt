@@ -140,6 +140,11 @@ func calcBsp(dm DecodedMfg,
 		}
 
 		bspLpkg = t.Bsp()
+		if bspLpkg == nil {
+			return nil, util.FmtNewtError(
+				"target \"%s\" has missing or unresolvable BSP \"%s\"",
+				dt.Name, t.BspName)
+		}
 		bspMap[bspLpkg] = struct{}{}
 	}
 
@@ -220,7 +225,14 @@ func newMfgBuildTarget(dt DecodedTarget,
 		return MfgBuildTarget{}, err
 	}
 
-	mpath := builder.ManifestPath(dt.Name, builder.BUILD_NAME_APP, t.App().FullName())
+	app := t.App()
+	if app == nil {
+		return MfgBuildTarget{}, util.FmtNewtError(
+			"target \"%s\" has missing or unresolvable app \"%s\"",
+			dt.Name, t.AppName)
+	}
+
+	mpath := builder.ManifestPath(dt.Name, builder.BUILD_NAME_APP, app.FullName())
 	man, err := manifest.ReadManifest(mpath)
 	if err != nil {
 		return MfgBuildTarget{}, util.FmtNewtError("%s", err.Error())
