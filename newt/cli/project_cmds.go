@@ -130,7 +130,9 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 	proj := TryGetOrDownloadProject()
 	interfaces.SetProject(proj)
 
-	proj.GetPkgRepos()
+	if err := proj.GetPkgRepos(); err != nil {
+		NewtUsage(nil, err)
+	}
 	proj.SetGitEnvVariables()
 
 	pred := makeRepoPredicate(args)
