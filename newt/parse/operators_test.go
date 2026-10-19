@@ -61,3 +61,22 @@ func TestOperatorsNoSpaces(t *testing.T) {
 		}
 	}
 }
+
+// Tokens following a parenthesized expression must be rejected.
+func TestOperatorsTrailingTokens(t *testing.T) {
+	for _, expr := range []string{"(A) B", "!(A) B", "(A) (B)",
+		"(A) B && X"} {
+
+		if _, err := LexAndParse(expr); err == nil {
+			t.Errorf("%s: parsed without error", expr)
+		}
+	}
+
+	for _, expr := range []string{"(A)", "!(A)", "((A))", "(A) && (B)",
+		"!(A) || B"} {
+
+		if _, err := LexAndParse(expr); err != nil {
+			t.Errorf("%s: unexpected error: %s", expr, err)
+		}
+	}
+}
