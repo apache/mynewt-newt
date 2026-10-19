@@ -30,37 +30,51 @@ import (
 	"strings"
 )
 
-func runNmCommand(nmPath string, elfFilePath string) ([]byte, error) {
-	var (
-		cmdOut []byte
-		err    error
-	)
-	cmdName := nmPath
-	cmdArgs := []string{elfFilePath, "-S", "-l", "--size-sort"}
+// toolCmdError creates an error describing failure of a binutils tool run by
+// the size report. Tool's standard error output is included if available.
+func toolCmdError(toolName string, toolKey string, toolPath string,
+	err error) error {
 
-	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
-		fmt.Fprintln(os.Stderr, "There was an error running nm command: ", err)
-		os.Exit(1)
+	if toolPath == "" {
+		return util.FmtNewtError(
+			"Cannot run %s: %s is not set in compiler.yml", toolName, toolKey)
 	}
 
-	return cmdOut, err
+	msg := err.Error()
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		stderr := strings.TrimSpace(string(exitErr.Stderr))
+		if stderr != "" {
+			msg += ": " + stderr
+		}
+	}
+
+	return util.FmtNewtError("Error running %s command \"%s\" "+
+		"(see %s in compiler.yml): %s", toolName, toolPath, toolKey, msg)
+}
+
+func runNmCommand(nmPath string, elfFilePath string) ([]byte, error) {
+	cmdArgs := []string{elfFilePath, "-S", "-l", "--size-sort"}
+
+	cmdOut, err := exec.Command(nmPath, cmdArgs...).Output()
+	if err != nil {
+		return nil, toolCmdError("nm", "compiler.path.nm", nmPath, err)
+	}
+
+	return cmdOut, nil
 }
 
 func runObjdumpCommand(odPath string, elfFilePath string,
 	params string) ([]byte, error) {
-	var (
-		cmdOut []byte
-		err    error
-	)
-	cmdName := odPath
+
 	cmdArgs := []string{params, elfFilePath}
-	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
-		fmt.Fprintln(os.Stderr, "There was an error running objdump command: ",
+
+	cmdOut, err := exec.Command(odPath, cmdArgs...).Output()
+	if err != nil {
+		return nil, toolCmdError("objdump", "compiler.path.objdump", odPath,
 			err)
-		os.Exit(1)
 	}
 
-	return cmdOut, err
+	return cmdOut, nil
 }
 
 func runAddr2lineCommand(a2lPath string, elfFilePath string,
