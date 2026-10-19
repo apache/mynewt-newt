@@ -100,6 +100,10 @@ func pkgCloneOrMoveCmd(cmd *cobra.Command, args []string, dirOpFn dirOperation, 
 	srcRepo := proj.LocalRepo()
 	if srcRepoName != "" {
 		srcRepo = proj.FindRepo(srcRepoName)
+		if srcRepo == nil {
+			NewtUsage(cmd, util.NewNewtError("Source repo "+
+				srcRepoName+" does not exist"))
+		}
 	}
 
 	srcPkg, err := proj.ResolvePackage(srcRepo, srcName)
