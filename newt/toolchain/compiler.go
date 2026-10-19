@@ -36,6 +36,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/project"
@@ -356,10 +357,8 @@ func getConfigMap(compilerDir string) (map[string]string, error) {
 				if ok {
 					for settingField, fieldValue := range aSettingFields {
 						if settingField == "value" {
-							aFieldValue, ok := fieldValue.(string)
-							if ok {
-								dstMap[aSettingName] = aFieldValue
-							}
+							dstMap[aSettingName] = strings.TrimSpace(
+								cast.ToString(fieldValue))
 						}
 					}
 				}
