@@ -62,3 +62,11 @@ func TestCliPkgUnknownSrcRepo(t *testing.T) {
 			"pkg", op, "@nosuch/foo", "apps/bar")
 	}
 }
+
+// Commands requiring a project must fail gracefully outside of one.
+func TestCliNoProject(t *testing.T) {
+	dir := t.TempDir()
+
+	cliErrorCheck(t, dir, nil, "No project file found", "pkg", "new", "foo")
+	cliErrorCheck(t, dir, nil, "No project file found", "docs", "build")
+}
