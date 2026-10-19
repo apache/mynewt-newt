@@ -70,3 +70,28 @@ func TestCliNoProject(t *testing.T) {
 	cliErrorCheck(t, dir, nil, "No project file found", "pkg", "new", "foo")
 	cliErrorCheck(t, dir, nil, "No project file found", "docs", "build")
 }
+
+// "newt complete" must handle command lines whose program name differs
+// from "newt", e.g., when newt is invoked through an alias.
+func TestCliCompleteAlias(t *testing.T) {
+	projDir := filepath.Join("testdata", "syscfg_collision")
+
+	for _, tc := range []struct {
+		line     string
+		expected string
+	}{
+		{"n ", "newt "},
+		{"n", "newt"},
+		{"n tar", "newt tar"},
+		{"n target cr", "newt target cr"},
+		{"/usr/bin/newt target cr", "newt target cr"},
+	} {
+		got := newtOutput(t, projDir, []string{"COMP_LINE=" + tc.line},
+			"complete")
+		exp := newtOutput(t, projDir, []string{"COMP_LINE=" + tc.expected},
+			"complete")
+		if got != exp {
+			t.Errorf("COMP_LINE=%q: expected %q, got %q", tc.line, exp, got)
+		}
+	}
+}
