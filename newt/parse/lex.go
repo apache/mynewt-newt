@@ -55,7 +55,7 @@ type Token struct {
 // Returns length of token on success; 0 if no match.
 type LexFn func(s string) (string, int, error)
 
-const delimChars = "!='\"&|^() \t\n"
+const delimChars = "!='\"&|^()<> \t\n"
 
 func lexString(s string, sought string) (string, int, error) {
 	if strings.HasPrefix(s, sought) {
