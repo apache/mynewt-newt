@@ -124,8 +124,8 @@ func convStringMapRestrictionSlice(
 func convPriority(p syscfg.CfgPriority) SyscfgPriority {
 	return SyscfgPriority{
 		Name:      p.SettingName,
-		Definer:   p.PackageDef.FullName(),
-		Overrider: p.PackageSrc.FullName(),
+		Definer:   p.DefName(),
+		Overrider: p.SrcName(),
 	}
 }
 
