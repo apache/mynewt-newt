@@ -157,8 +157,10 @@ func (c *Compiler) GetAddr2linePath() string {
 // Returns path of binutils tool with given name that belongs to the same
 // toolchain as objdump, e.g. arm-none-eabi-objdump -> arm-none-eabi-nm.
 func siblingToolPath(odPath string, tool string) string {
-	if strings.HasSuffix(odPath, "objdump") {
-		return strings.TrimSuffix(odPath, "objdump") + tool
+	for _, ext := range []string{"", ".exe"} {
+		if strings.HasSuffix(odPath, "objdump"+ext) {
+			return strings.TrimSuffix(odPath, "objdump"+ext) + tool + ext
+		}
 	}
 
 	return "arm-none-eabi-" + tool
