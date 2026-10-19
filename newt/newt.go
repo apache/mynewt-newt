@@ -187,5 +187,8 @@ func main() {
 		cmd.SilenceUsage = false
 	}
 
-	cmd.Execute()
+	// Cobra has already printed the error (e.g., unknown command or flag).
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
