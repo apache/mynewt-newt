@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
@@ -151,6 +152,23 @@ func ResolveNewTargetName(name string) (string, error) {
 			"must be local")
 	}
 
+	if pkgName == "" {
+		return "", util.NewNewtError("Target name cannot be empty")
+	}
+
+	// Reject names that are not clean relative paths; e.g., ".", "x/..",
+	// "../x" or "/x" would place the target outside of a dedicated
+	// directory inside the project.
+	if path.IsAbs(pkgName) || path.Clean(pkgName) != pkgName ||
+		strings.Contains(pkgName, "\\") {
+		return "", util.FmtNewtError("Invalid target name: %s", name)
+	}
+	for _, elem := range strings.Split(pkgName, "/") {
+		if elem == "." || elem == ".." {
+			return "", util.FmtNewtError("Invalid target name: %s", name)
+		}
+	}
+
 	if pkgName == TARGET_KEYWORD_ALL {
 		return "", util.NewNewtError("Target name " + TARGET_KEYWORD_ALL +
 			" is reserved")
@@ -163,6 +181,27 @@ func ResolveNewTargetName(name string) (string, error) {
 
 	if target.GetTargets()[pkgName] != nil {
 		return "", util.NewNewtError("Target already exists: " + pkgName)
+	}
+
+	// The destination directory must not contain anything yet; otherwise
+	// saving the target would overwrite an existing package or files.
+	dir := TryGetProject().LocalRepo().Path() + "/" + pkgName
+	if info, err := os.Stat(dir); err == nil {
+		if !info.IsDir() {
+			return "", util.FmtNewtError(
+				"Target destination exists and is not a directory: %s",
+				pkgName)
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return "", util.ChildNewtError(err)
+		}
+		if len(entries) > 0 {
+			return "", util.FmtNewtError(
+				"Target destination directory is not empty: %s", pkgName)
+		}
+	} else if !os.IsNotExist(err) {
+		return "", util.ChildNewtError(err)
 	}
 
 	return pkgName, nil
