@@ -362,6 +362,11 @@ func targetListCmd(cmd *cobra.Command, args []string) {
 }
 
 func targetCmakeCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		NewtUsage(cmd,
+			util.NewNewtError("Must specify exactly one target name"))
+	}
+
 	TryGetProject()
 
 	// Verify and resolve each specified package.
@@ -423,7 +428,9 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 
 		if len(kv) == 1 {
 			// User entered a variable name without a value.
-			NewtUsage(cmd, nil)
+			NewtUsage(cmd, util.FmtNewtError(
+				"Missing value for \"%s\"; expected %s=<value>",
+				args[i], args[i]))
 		}
 
 		// Trim trailing slash from value.  This is necessary when tab

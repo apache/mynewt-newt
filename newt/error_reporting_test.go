@@ -270,3 +270,19 @@ func TestErrorReportingDocsBuild(t *testing.T) {
 		t.Errorf("missing sphinx-build error\n%s", out)
 	}
 }
+
+// Commands with missing arguments must explain what is missing.
+func TestErrorReportingMissingArgs(t *testing.T) {
+	t.Run("target-set-no-value", func(t *testing.T) {
+		dir := copyToTemp(t, errorReportingProjDir)
+		errorReportingExpectFail(t, dir,
+			[]string{`Error: Missing value for "app"; expected app=<value>`},
+			"target", "set", "app", "app")
+	})
+
+	t.Run("target-cmake-no-target", func(t *testing.T) {
+		errorReportingExpectFail(t, errorReportingProjDir,
+			[]string{"Error: Must specify exactly one target name"},
+			"target", "cmake")
+	})
+}
