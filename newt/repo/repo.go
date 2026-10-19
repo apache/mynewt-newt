@@ -688,5 +688,8 @@ func NewLocalRepo(repoName string) (*Repo, error) {
 		return nil, err
 	}
 
+	// The project may be located inside a larger git repository.
+	downloader.AllowGitSubdir(r.Path())
+
 	return r, nil
 }
