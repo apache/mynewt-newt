@@ -193,7 +193,18 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 				state = 3
 				continue
 			}
+			if strings.Contains(scanner.Text(),
+				"Linker script and memory map") {
+				state = 4
+				continue
+			}
 			array := strings.Fields(scanner.Text())
+			if len(array) == 0 {
+				continue
+			}
+			if len(array) < 3 {
+				return nil, util.NewNewtError("Can't parse mem info")
+			}
 			offset, err := strconv.ParseUint(array[1], 0, 64)
 			if err != nil {
 				return nil, util.NewNewtError("Can't parse mem info")
