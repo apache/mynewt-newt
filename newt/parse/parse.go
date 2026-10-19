@@ -300,6 +300,10 @@ func Parse(tokens []Token) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(stripped)+2 < len(tokens) {
+			return nil, fmt.Errorf("unexpected %s after parenthesis",
+				tokens[len(stripped)+2].Text)
+		}
 
 		return Parse(stripped)
 	}
