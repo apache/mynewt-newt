@@ -50,6 +50,14 @@ func NewDepTracker(c *Compiler) DepTracker {
 }
 
 func (d *DepTracker) SetMostRecent(name string, t time.Time) {
+	d.compiler.mutex.Lock()
+	defer d.compiler.mutex.Unlock()
+
+	d.setMostRecent(name, t)
+}
+
+// setMostRecent must be called with the compiler mutex locked.
+func (d *DepTracker) setMostRecent(name string, t time.Time) {
 	d.MostRecentName = name
 
 	// Truncate sub-second part of timestamp.  Timestamps of generated files
@@ -128,8 +136,11 @@ func (tracker *DepTracker) ProcessFileTime(file string) error {
 		return err
 	}
 
+	tracker.compiler.mutex.Lock()
+	defer tracker.compiler.mutex.Unlock()
+
 	if modTime.After(tracker.MostRecentTime) {
-		tracker.SetMostRecent(file, modTime)
+		tracker.setMostRecent(file, modTime)
 	}
 
 	return nil
