@@ -218,3 +218,24 @@ func TestErrorReportingNonMapSyscfg(t *testing.T) {
 		})
 	}
 }
+
+// Nested "repository" map in project.yml is not supported and must be
+// reported instead of being silently ignored.
+func TestErrorReportingNestedRepository(t *testing.T) {
+	dir := t.TempDir()
+	errorReportingWriteFiles(t, dir, map[string]string{
+		"project.yml": "project.name: test\n" +
+			"repository:\n" +
+			"    apache-mynewt-core:\n" +
+			"        type: git\n" +
+			"        vers: 0.0.0\n" +
+			"        url: https://dummy.invalid/core.git\n",
+	})
+
+	out, _ := newtCombinedOutput(dir, nil, "info")
+	msg := `project.yml: ignoring "repository"; each repository must be ` +
+		"defined with a separate"
+	if !strings.Contains(out, "WARNING: "+msg) {
+		t.Errorf("missing warning\n%s", out)
+	}
+}
