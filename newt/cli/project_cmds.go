@@ -169,6 +169,13 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 	}
 	sort.Strings(repoNames)
 
+	if reqRepoName != "all" && proj.PackageList()[reqRepoName] == nil &&
+		proj.FindRepo(reqRepoName) == nil {
+
+		NewtUsage(nil, util.FmtNewtError("Unknown repository: @%s",
+			reqRepoName))
+	}
+
 	firstRepo := true
 	for _, repoName := range repoNames {
 		if reqRepoName == "all" || reqRepoName == repoName {

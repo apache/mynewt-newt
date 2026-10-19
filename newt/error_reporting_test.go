@@ -156,3 +156,18 @@ func TestErrorReportingMissingBspScript(t *testing.T) {
 			[]string{"does not specify bsp.debugscript"}, "debug", "app")
 	})
 }
+
+// "newt info" with an unknown repository must fail.
+func TestErrorReportingInfoUnknownRepo(t *testing.T) {
+	errorReportingExpectFail(t, errorReportingProjDir,
+		[]string{"Unknown repository: @nosuch"}, "info", "@nosuch")
+
+	for _, r := range []string{"@apache-mynewt-core", "error_reporting",
+		"all"} {
+
+		out := newtOutput(t, errorReportingProjDir, nil, "info", r)
+		if !strings.Contains(out, "Packages in @") {
+			t.Errorf("newt info %s: no packages listed\n%s", r, out)
+		}
+	}
+}
