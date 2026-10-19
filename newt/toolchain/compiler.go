@@ -20,6 +20,7 @@
 package toolchain
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"mynewt.apache.org/newt/newt/cfgv"
@@ -678,7 +679,7 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 	cmd = append(cmd, c.includesStrings()...)
 	cmd = append(cmd, []string{"-MM", "-MG", srcPath}...)
 
-	o, err := util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
+	o, err := depsCommandOutput(cmd)
 	if err != nil {
 		return err
 	}
@@ -701,6 +702,37 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 	}
 
 	return nil
+}
+
+// depsCommandOutput executes the specified dependency generation command and
+// returns its standard output.  Standard error (e.g., compiler warnings) is
+// not part of the dependency list; it is only displayed in verbose mode or
+// returned as the error text if the command fails.
+func depsCommandOutput(cmdStrs []string) ([]byte, error) {
+	cmd, err := util.ShellCommandInit(cmdStrs, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	util.LogShellCmd(cmdStrs, nil)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	o, err := cmd.Output()
+	if err != nil {
+		nerr := util.ChildNewtError(err)
+		if stderr.Len() > 0 {
+			nerr.Text = stderr.String()
+		}
+		return nil, nerr
+	}
+
+	if stderr.Len() > 0 {
+		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", stderr.String())
+	}
+
+	return o, nil
 }
 
 func serializeCommand(cmd []string) []byte {

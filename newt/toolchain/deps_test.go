@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -75,5 +77,41 @@ func TestCompilerConcurrentUpdates(t *testing.T) {
 
 	if got := len(c.GetCompileCommands()); got != n {
 		t.Errorf("expected %d compile commands, got %d", n, got)
+	}
+}
+
+// Compiler warnings on stderr must not end up in the dependency file.
+func TestGenDepsForFileIgnoresStderr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell script as a fake compiler")
+	}
+
+	dir := t.TempDir()
+	cc := filepath.Join(dir, "fake-cc")
+	script := "#!/bin/sh\n" +
+		"echo 'warning: something odd' >&2\n" +
+		"echo 'src/a.o: src/a.c src/a.h'\n"
+	if err := os.WriteFile(cc, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	c := newTestCompiler()
+	c.ccPath = cc
+	c.baseDir = dir
+	c.dstDir = dir + "/bin"
+	src := dir + "/src/a.c"
+
+	if err := c.GenDepsForFile(src, COMPILER_TYPE_C); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ParseDepsFile(c.dstFilePath(src) + ".d")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	exp := []string{"src/a.c", "src/a.h"}
+	if !slices.Equal(deps, exp) {
+		t.Errorf("unexpected dependencies: expected %q, got %q", exp, deps)
 	}
 }
