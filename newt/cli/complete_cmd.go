@@ -143,9 +143,17 @@ func completeRunCmd(cmd *cobra.Command, args []string) {
 	found_args := strings.Split(found_cmd.CommandPath(), " ")
 	last_arg := found_args[len(found_args)-1]
 
-	/* what is remaining after the last parsed argument */
-	ind := strings.Index(cmd_line, last_arg)
-	ind += len(last_arg)
+	/* what is remaining after the last parsed argument; the first word
+	 * is the program name, which may differ from the root command name
+	 * (e.g., an alias or a path) */
+	ind := len(args[0])
+	if found_cmd != root_cmd {
+		i := strings.Index(cmd_line[ind:], last_arg)
+		if i < 0 {
+			return
+		}
+		ind += i + len(last_arg)
+	}
 	extra_str := cmd_line[ind:]
 
 	if len(extra_str) == 0 {
