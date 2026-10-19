@@ -147,14 +147,24 @@ func readLineage(path string) ([]FileEntry, error) {
 	// Recursively process imports, accumulating file info in `entries`.
 	var iter func(path string, parent *util.FileInfo) error
 	iter = func(path string, parent *util.FileInfo) error {
-		// Relative paths are relative to the project base.
+		// Relative paths are relative to the project base.  If no project
+		// is loaded (e.g., when reading newtrc), imports are relative to
+		// the importing file.
 		if !filepath.IsAbs(path) {
 			proj := interfaces.GetProject()
-			newPath, err := proj.ResolvePath(proj.Path(), path)
-			if err != nil {
-				return err
+			if proj != nil {
+				newPath, err := proj.ResolvePath(proj.Path(), path)
+				if err != nil {
+					return err
+				}
+				path = newPath
+			} else if parent != nil {
+				if strings.HasPrefix(path, "@") {
+					return parent.ErrTree(util.FmtNewtError(
+						"cannot import %s: no project loaded", path))
+				}
+				path = filepath.Join(filepath.Dir(parent.Path), path)
 			}
-			path = newPath
 		}
 
 		// Only operate on absolute paths to ensure each file has a unique ID.
