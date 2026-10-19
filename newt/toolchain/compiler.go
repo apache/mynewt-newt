@@ -133,9 +133,32 @@ func (c *Compiler) addCompileCommand(cmd []string, file string) {
 
 	c.compileCommands = append(c.compileCommands,
 		CompileCommand{
-			Command: strings.Join(cmd, " "),
+			Command: commandString(cmd),
 			File:    file,
 		})
+}
+
+// quoteArg quotes a command argument containing white space, quotes or
+// backslashes, so that it is not split when the command line or a response
+// file (@file) is parsed.  Other arguments are returned unchanged.
+func quoteArg(arg string) string {
+	if !strings.ContainsAny(arg, " \t\n\"'\\") {
+		return arg
+	}
+
+	r := strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
+	return "\"" + r.Replace(arg) + "\""
+}
+
+// commandString joins command arguments into a single command line, quoting
+// arguments where necessary.
+func commandString(cmd []string) string {
+	args := make([]string, len(cmd))
+	for i, arg := range cmd {
+		args[i] = quoteArg(arg)
+	}
+
+	return strings.Join(args, " ")
 }
 
 func (c *Compiler) GetCcPath() string {
@@ -531,7 +554,16 @@ func (c *Compiler) includesStrings() []string {
 		return nil
 	}
 
-	includes := util.SortFields(c.info.Includes...)
+	// Include paths may contain spaces; do not split them.
+	includes := []string{}
+	for _, s := range c.info.Includes {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			includes = append(includes, s)
+		}
+	}
+	includes = util.UniqueStrings(includes)
+	sort.Strings(includes)
 
 	tokens := make([]string, len(includes))
 	for i, s := range includes {
@@ -1578,7 +1610,7 @@ func (c *Compiler) CompileArchive(outputFile string, createList bool) error {
 		defer file.Close()
 
 		for _, objFilePath := range objList {
-			_, err = file.WriteString(objFilePath + "\n")
+			_, err = file.WriteString(quoteArg(objFilePath) + "\n")
 			if err != nil {
 				return util.NewNewtError(err.Error())
 			}
