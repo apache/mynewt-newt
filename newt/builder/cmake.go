@@ -141,7 +141,7 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 	cj.Filename = trimProjectPath(cj.Filename)
 
 	// Sort and remove duplicate flags
-	otherFlags = util.SortFields(otherFlags...)
+	otherFlags = toolchain.SortFlags(otherFlags...)
 
 	fmt.Fprintf(w,
 		`set_property(SOURCE %s APPEND_STRING
@@ -271,7 +271,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().Cflags...)
 	compileFlags = append(compileFlags, c.GetCompilerInfo().CXXflags...)
 	compileFlags = append(compileFlags, c.GetLocalCompilerInfo().CXXflags...)
-	compileFlags = util.SortFields(compileFlags...)
+	compileFlags = toolchain.SortFlags(compileFlags...)
 
 	fmt.Fprintf(w,
 		`set_property(TARGET %s APPEND_STRING
@@ -284,7 +284,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 
 	lFlags := append(c.GetCompilerInfo().Lflags, c.GetLocalCompilerInfo().Lflags...)
 	lFlags = append(lFlags, linkFlags...)
-	lFlags = util.SortFields(lFlags...)
+	lFlags = toolchain.SortFlags(lFlags...)
 
 	for _, ld := range c.LinkerScripts {
 		lFlags = append(lFlags, "-T"+ld)
@@ -295,13 +295,13 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	var cFlags []string
 	cFlags = append(cFlags, c.GetCompilerInfo().Cflags...)
 	cFlags = append(cFlags, c.GetLocalCompilerInfo().Cflags...)
-	cFlags = util.SortFields(cFlags...)
+	cFlags = toolchain.SortFlags(cFlags...)
 	lFlags = append(lFlags, cFlags...)
 
 	var cxxFlags []string
 	cxxFlags = append(cxxFlags, c.GetCompilerInfo().CXXflags...)
 	cxxFlags = append(cxxFlags, c.GetLocalCompilerInfo().CXXflags...)
-	cxxFlags = util.SortFields(cxxFlags...)
+	cxxFlags = toolchain.SortFlags(cxxFlags...)
 	lFlags = append(lFlags, cxxFlags...)
 
 	fmt.Fprintf(w,

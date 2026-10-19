@@ -72,3 +72,40 @@ func TestCommandString(t *testing.T) {
 		t.Errorf("unexpected command string: %q", s)
 	}
 }
+
+func TestSortFlags(t *testing.T) {
+	got := SortFlags("-Wall -O2", "-include a.h", "-Wall",
+		"-include", "b.h", "-Xlinker -z -Xlinker relro",
+		"-Xlinker -z -Xlinker noexecstack", "-DFOO=1")
+
+	exp := []string{
+		"-DFOO=1", "-O2", "-Wall",
+		"-include", "a.h", "-include", "b.h",
+		"-Xlinker", "-z", "-Xlinker", "relro",
+		"-Xlinker", "-z", "-Xlinker", "noexecstack",
+	}
+	if !slices.Equal(got, exp) {
+		t.Errorf("unexpected flags:\nexpected %q\ngot      %q", exp, got)
+	}
+
+	// An option without argument at the end is kept.
+	got = SortFlags("-b", "-a", "-include")
+	exp = []string{"-a", "-b", "-include"}
+	if !slices.Equal(got, exp) {
+		t.Errorf("unexpected flags:\nexpected %q\ngot      %q", exp, got)
+	}
+}
+
+func TestCflagsStringsPairs(t *testing.T) {
+	c := newTestCompiler()
+
+	// Flags from two packages, both using forced includes as separate list
+	// elements.
+	c.AddInfo(&CompilerInfo{Cflags: []string{"-Wall", "-include", "a.h"}})
+	c.AddInfo(&CompilerInfo{Cflags: []string{"-include", "b.h", "-Wall"}})
+
+	exp := []string{"-Wall", "-include", "a.h", "-include", "b.h"}
+	if got := c.cflagsStrings(); !slices.Equal(got, exp) {
+		t.Errorf("unexpected flags:\nexpected %q\ngot      %q", exp, got)
+	}
+}
