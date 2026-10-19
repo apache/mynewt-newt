@@ -366,7 +366,7 @@ func decodeMfg(yc ycfg.YCfg) (DecodedMfg, error) {
 	yamlMeta, err := yc.GetValStringMap("mfg.meta", nil)
 	util.OneTimeWarningError(err)
 
-	if yamlMeta != nil {
+	if len(yamlMeta) > 0 {
 		meta, err := decodeMeta(yamlMeta)
 		if err != nil {
 			return dm, err
