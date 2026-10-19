@@ -453,8 +453,45 @@ func (yc *YCfg) GetValStringSliceNonempty(
 // values to type map[string]interface{}.  The returned map[string]YCfgEntry is
 // formed from the union of all these maps.  The returned error is a set of
 // warnings just as in `Get`.
+// warnNonMapValues warns about values of the specified key, and of its
+// conditional variants, that are not maps. Such values are ignored when a map
+// is expected. For example, "syscfg.vals.FOO: 1" is "syscfg.vals" conditional
+// on FOO, not a value of setting FOO, and "syscfg.vals: [FOO]" is a list.
+func (yc *YCfg) warnNonMapValues(key string) {
+	node := yc.find(key)
+	if node == nil {
+		return
+	}
+
+	isMapOrEmpty := func(val interface{}) bool {
+		if val == nil {
+			return true
+		}
+		if s, ok := val.(string); ok && s == "" {
+			return true
+		}
+		_, err := cast.ToStringMapE(val)
+		return err == nil
+	}
+
+	if !isMapOrEmpty(node.Value) {
+		util.OneTimeWarning("%s: ignoring \"%s\"; value must be a map, "+
+			"not %T", yc.name, key, node.Value)
+	}
+
+	for _, child := range node.Children {
+		if !isMapOrEmpty(child.Value) {
+			util.OneTimeWarning("%s: ignoring \"%s\"; \"%s\" is a condition "+
+				"and value must be a map, not %T", yc.name,
+				child.FullName(), child.Name, child.Value)
+		}
+	}
+}
+
 func (yc *YCfg) GetStringMap(
 	key string, settings *cfgv.Settings) (map[string]YCfgEntry, error) {
+
+	yc.warnNonMapValues(key)
 
 	mapEntries, getErr := yc.Get(key, settings)
 	if len(mapEntries) == 0 {

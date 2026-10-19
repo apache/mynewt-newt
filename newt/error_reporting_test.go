@@ -171,3 +171,50 @@ func TestErrorReportingInfoUnknownRepo(t *testing.T) {
 		}
 	}
 }
+
+// Values that must be maps but are not (e.g., a setting value written as a
+// flattened "syscfg.vals.FOO" key) are ignored; newt must warn about them.
+func TestErrorReportingNonMapSyscfg(t *testing.T) {
+	tests := []struct {
+		name   string
+		syscfg string
+		msg    string
+	}{
+		{
+			name:   "flattened-val",
+			syscfg: "syscfg.vals.FOO: 1\n",
+			msg: `ignoring "syscfg.vals.FOO"; "FOO" is a condition ` +
+				"and value must be a map",
+		},
+		{
+			name:   "vals-list",
+			syscfg: "syscfg.vals:\n    - FOO\n",
+			msg:    `ignoring "syscfg.vals"; value must be a map`,
+		},
+		{
+			name:   "defs-list",
+			syscfg: "syscfg.defs:\n    - BAR\n",
+			msg:    `ignoring "syscfg.defs"; value must be a map`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := copyToTemp(t, errorReportingProjDir)
+			errorReportingWriteFiles(t, dir, map[string]string{
+				"targets/app/syscfg.yml": tt.syscfg,
+			})
+
+			out, err := newtCombinedOutput(dir, nil, "target", "config",
+				"show", "app")
+			if err != nil {
+				t.Fatalf("newt target config show failed: %s\n%s", err, out)
+			}
+			if !strings.Contains(out, "WARNING: ") ||
+				!strings.Contains(out, tt.msg) {
+
+				t.Errorf("missing warning %q\n%s", tt.msg, out)
+			}
+		})
+	}
+}
