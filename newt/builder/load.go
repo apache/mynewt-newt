@@ -137,11 +137,21 @@ func RunOptionalCheck(checkScript string, env map[string]string) error {
 	return nil
 }
 
+// missingBspScriptError returns an error indicating that the BSP does not
+// specify a script required by an operation.
+func missingBspScriptError(bspPkg *pkg.BspPackage, op string,
+	key string) error {
+
+	return util.FmtNewtError("cannot %s: BSP \"%s\" does not specify %s",
+		op, bspPkg.FullName(), key)
+}
+
 func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	extraEnvSettings map[string]string) error {
 
 	if bspPkg.DownloadScript == "" {
-		return nil
+		return missingBspScriptError(bspPkg, "load image",
+			"bsp.downloadscript")
 	}
 
 	env := BasicEnvVars(binBasePath, bspPkg)
@@ -192,6 +202,11 @@ func (b *Builder) Load(imageSlot int, extraJtagCmd string, imgFilename string) e
 
 	if extraJtagCmd != "" {
 		env["EXTRA_JTAG_CMD"] = extraJtagCmd
+	}
+
+	if b.targetBuilder.bspPkg.DownloadScript == "" {
+		return missingBspScriptError(b.targetBuilder.bspPkg, "load image",
+			"bsp.downloadscript")
 	}
 
 	if _, ok := env["BOOT_LOADER"]; ok {
@@ -265,6 +280,10 @@ func (b *Builder) debugBin(binPath string, extraJtagCmd string, reset bool,
 	bspPath := b.bspPkg.rpkg.Lpkg.BasePath()
 	binBasePath := binPath
 	bspPkg := b.targetBuilder.bspPkg
+
+	if bspPkg.DebugScript == "" {
+		return missingBspScriptError(bspPkg, "debug", "bsp.debugscript")
+	}
 
 	env, err := b.EnvVars(0)
 	if err != nil {
