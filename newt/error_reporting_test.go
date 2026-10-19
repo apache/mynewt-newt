@@ -22,6 +22,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -237,5 +238,35 @@ func TestErrorReportingNestedRepository(t *testing.T) {
 		"defined with a separate"
 	if !strings.Contains(out, "WARNING: "+msg) {
 		t.Errorf("missing warning\n%s", out)
+	}
+}
+
+// Failure of sphinx-build must make "newt docs build" fail.
+func TestErrorReportingDocsBuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake sphinx-build is a shell script")
+	}
+
+	dir := copyToTemp(t, errorReportingProjDir)
+	binDir := t.TempDir()
+	errorReportingWriteFiles(t, dir, map[string]string{
+		"docs/index.rst": "Test\n",
+	})
+	errorReportingWriteFiles(t, binDir, map[string]string{
+		"sphinx-build": "#!/bin/sh\necho sphinx failed >&2\nexit 1\n",
+	})
+	if err := os.Chmod(filepath.Join(binDir, "sphinx-build"),
+		0755); err != nil {
+
+		t.Fatal(err)
+	}
+
+	cmd := newtExecCmd(dir, []string{"PATH=" + binDir}, "docs", "build")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Errorf("newt docs build succeeded\n%s", out)
+	}
+	if !strings.Contains(string(out), "sphinx failed") {
+		t.Errorf("missing sphinx-build error\n%s", out)
 	}
 }

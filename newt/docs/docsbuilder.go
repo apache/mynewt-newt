@@ -72,17 +72,19 @@ func (db *DocsBuilder) generateDoxygen(doc *DocDescriptor, tmpdir string) error 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Preparing docs, running doxygen in %s\n", doc.path)
 
-	util.CallInDir(doc.path, func() error {
+	err := util.CallInDir(doc.path, func() error {
 		// Run doxygen
 		doxygenGenerate := []string{
 			"doxygen",
 			"doxygen.xml",
 		}
 
-		util.ShellCommand(doxygenGenerate, nil)
-
-		return nil
+		_, err := util.ShellCommand(doxygenGenerate, nil)
+		return err
 	})
+	if err != nil {
+		return err
+	}
 
 	util.MoveDir(doc.path+"/_gen/_xml", tmpdir+"/"+doc.name+"-xml")
 	os.RemoveAll(doc.path + "/_gen")
@@ -105,7 +107,10 @@ func (db *DocsBuilder) Build(outdir string) error {
 		}
 
 		if util.NodeExist(doc.path + "/doxygen.xml") {
-			db.generateDoxygen(doc, tmpdir)
+			if err := db.generateDoxygen(doc, tmpdir); err != nil {
+				os.RemoveAll(tmpdir)
+				return err
+			}
 		}
 
 		tmpPath := tmpdir + "/"
@@ -124,7 +129,7 @@ func (db *DocsBuilder) Build(outdir string) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Generating documentation in %s placing results in %s\n", tmpdir, outdir)
 
-	util.CallInDir(tmpdir, func() error {
+	err := util.CallInDir(tmpdir, func() error {
 		// Time to run the build!
 		sphinxBuild := []string{
 			"sphinx-build",
@@ -133,13 +138,13 @@ func (db *DocsBuilder) Build(outdir string) error {
 			outdir,
 		}
 
-		util.ShellCommand(sphinxBuild, nil)
-		return nil
+		_, err := util.ShellCommand(sphinxBuild, nil)
+		return err
 	})
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT,
 		"Cleaning up result of generated documentation\n")
 	os.RemoveAll(tmpdir)
 
-	return nil
+	return err
 }
