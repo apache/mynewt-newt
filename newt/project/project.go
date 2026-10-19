@@ -601,6 +601,15 @@ func (proj *Project) loadRepoDeps(download bool) error {
 		var newRepos []*repo.Repo
 
 		for _, dep := range repoDepsForReqs(r, verReqs[r.Name()]) {
+			// A dependency with the same name as the project refers to
+			// the project itself (e.g., when the project is a checkout of
+			// that repo).  The local repo is never downloaded or updated.
+			if dep.Name == proj.localRepo.Name() {
+				log.Debugf("Repo \"%s\" depends on \"%s\"; using the "+
+					"local project", r.Name(), dep.Name)
+				continue
+			}
+
 			if !addVerReq(dep.Name, dep.VerReqs) {
 				continue
 			}

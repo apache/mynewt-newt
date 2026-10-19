@@ -200,8 +200,9 @@ func (inst *Installer) ensureDepsInList(repos []*repo.Repo,
 		}
 		for _, d := range deps {
 			depRepo := inst.repos[d.Name]
-			// This might be nil if d.Name is not on allowed repositories list
-			if depRepo == nil {
+			// This might be nil if d.Name is not on allowed repositories
+			// list.  The local project repo is never installed.
+			if depRepo == nil || depRepo.IsLocal() {
 				continue
 			}
 			result = append(result, recurse(depRepo)...)

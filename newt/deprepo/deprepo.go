@@ -136,8 +136,10 @@ func BuildDepGraph(repos RepoMap, rootReqs RequirementMap) (DepGraph, error) {
 			reqMap := RequirementMap{}
 			for _, d := range deps {
 				depRepo := repos[d.Name]
-				// This might be nil if d.Name is not on allowed repositories list
-				if depRepo == nil {
+				// This might be nil if d.Name is not on allowed repositories
+				// list.  A dependency on the local project repo (same name
+				// as the project) is satisfied by the project itself.
+				if depRepo == nil || depRepo.IsLocal() {
 					continue
 				}
 				verReqs, err := depRepo.NormalizeVerReq(d.VerReqs)
