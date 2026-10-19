@@ -848,6 +848,13 @@ func (proj *Project) loadConfig(download bool) error {
 	// Assume every item starting with "repository." is a repository descriptor
 	// and try to load it.
 	for k, _ := range yc.AllSettings() {
+		if k == "repository" {
+			util.OneTimeWarning("%s: ignoring \"repository\"; each "+
+				"repository must be defined with a separate "+
+				"\"repository.<name>\" key", PROJECT_FILE_NAME)
+			continue
+		}
+
 		repoName := strings.TrimPrefix(k, "repository.")
 		if repoName != k {
 			fields, err := yc.GetValStringMapString(k, nil)
