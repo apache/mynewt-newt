@@ -725,11 +725,13 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
+	c.mutex.Lock()
 	c.compileCommands = append(c.compileCommands,
 		CompileCommand{
 			Arguments: cmd,
 			File:      file,
 		})
+	c.mutex.Unlock()
 
 	err = writeCommandFile(objPath, cmd)
 	if err != nil {
