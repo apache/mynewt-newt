@@ -52,3 +52,13 @@ func TestCliManNoArgs(t *testing.T) {
 	cliErrorCheck(t, projDir, nil, "Exactly one argument required",
 		"apropos")
 }
+
+// "newt pkg copy" and "newt pkg move" with an unknown source repo.
+func TestCliPkgUnknownSrcRepo(t *testing.T) {
+	projDir := filepath.Join("testdata", "syscfg_collision")
+
+	for _, op := range []string{"copy", "move"} {
+		cliErrorCheck(t, projDir, nil, "Source repo nosuch does not exist",
+			"pkg", op, "@nosuch/foo", "apps/bar")
+	}
+}
