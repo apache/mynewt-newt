@@ -29,6 +29,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
@@ -176,6 +177,48 @@ func gitPath() (string, error) {
 	return filepath.ToSlash(gitPath), nil
 }
 
+// Directories verified to be the top-level directory of a git repository, or
+// allowed not to be one.
+var gitTopLevelDirs = struct {
+	sync.Mutex
+	m map[string]struct{}
+}{m: map[string]struct{}{}}
+
+// AllowGitSubdir allows running git commands in the specified directory even
+// if it is not the top-level directory of a git repository (e.g., a project
+// located inside a larger git repository).
+func AllowGitSubdir(dir string) {
+	gitTopLevelDirs.Lock()
+	defer gitTopLevelDirs.Unlock()
+
+	gitTopLevelDirs.m[filepath.Clean(dir)] = struct{}{}
+}
+
+// checkGitTopLevel verifies that dir is the top-level directory of a git
+// repository.  Otherwise git commands run in dir would operate on an
+// enclosing repository (e.g., the project) instead.  Each directory is checked
+// only once.  Must be called with dir as the current working directory.
+func checkGitTopLevel(gp string, dir string) error {
+	dir = filepath.Clean(dir)
+
+	gitTopLevelDirs.Lock()
+	defer gitTopLevelDirs.Unlock()
+
+	if _, ok := gitTopLevelDirs.m[dir]; ok {
+		return nil
+	}
+
+	out, err := exec.Command(gp, "rev-parse", "--show-cdup").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "" {
+		return util.FmtNewtError(
+			"\"%s\" is not a git repository; remove it so that newt can "+
+				"download the repository again", filepath.ToSlash(dir))
+	}
+
+	gitTopLevelDirs.m[dir] = struct{}{}
+	return nil
+}
+
 func executeGitCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -192,6 +235,10 @@ func executeGitCommand(dir string, cmd []string, logCmd bool) ([]byte, error) {
 	}
 
 	defer os.Chdir(wd)
+
+	if err := checkGitTopLevel(gp, dir); err != nil {
+		return nil, err
+	}
 
 	gitCmd := []string{gp}
 	gitCmd = append(gitCmd, cmd...)
