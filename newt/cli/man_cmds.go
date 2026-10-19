@@ -22,6 +22,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/man"
+	"mynewt.apache.org/newt/util"
 )
 
 func manBuildRunCmd(cmd *cobra.Command, args []string) {
@@ -33,6 +34,10 @@ func manBuildRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func manRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		NewtUsage(cmd, util.NewNewtError("Exactly one argument required"))
+	}
+
 	proj := TryGetProject()
 	err := man.RunMan(proj, args)
 	if err != nil {
@@ -41,6 +46,10 @@ func manRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func aproposRunCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		NewtUsage(cmd, util.NewNewtError("Exactly one argument required"))
+	}
+
 	proj := TryGetProject()
 	err := man.RunApropos(proj, args)
 	if err != nil {
