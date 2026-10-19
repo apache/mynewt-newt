@@ -37,6 +37,7 @@ import (
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
+	"mynewt.apache.org/newt/newt/repo"
 	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/newt/syscfg"
@@ -166,14 +167,26 @@ func (t *TargetBuilder) injectBuildSettings() {
 
 // resolveTransientPkgs replaces packages in a slice with the packages they
 // link to.  It has no effect on non-transient packages.
-func (t *TargetBuilder) resolveTransientPkgs(lps []*pkg.LocalPackage) {
+func (t *TargetBuilder) resolveTransientPkgs(lps []*pkg.LocalPackage) error {
 	for i, lp := range lps {
-		resolved := t.target.ResolvePackageName(lp.FullName())
-		if resolved != lp {
-			resolve.LogTransientWarning(lp)
-			lps[i] = resolved
+		if lp.Type() != pkg.PACKAGE_TYPE_TRANSIENT {
+			continue
 		}
+
+		// The link is relative to the transient package's own repo.
+		resolved := t.target.ResolvePackageRepoAndName(
+			lp.Repo().(*repo.Repo), lp.LinkedName())
+		if resolved == nil {
+			return util.FmtNewtError(
+				"transient package %s links to unknown package %s",
+				lp.FullName(), lp.LinkedName())
+		}
+
+		resolve.LogTransientWarning(lp)
+		lps[i] = resolved
 	}
+
+	return nil
 }
 
 func (t *TargetBuilder) ensureResolved(detectErr bool) error {
@@ -197,7 +210,9 @@ func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 			t.compilerPkg,
 			t.target.Package(),
 		}
-		t.resolveTransientPkgs(loaderSeeds)
+		if err := t.resolveTransientPkgs(loaderSeeds); err != nil {
+			return err
+		}
 
 		// For split images, inject the SPLIT_[...] settings into the
 		// corresponding app packages.  This ensures that:
@@ -220,7 +235,9 @@ func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 		t.compilerPkg,
 		t.target.Package(),
 	}
-	t.resolveTransientPkgs(appSeeds)
+	if err := t.resolveTransientPkgs(appSeeds); err != nil {
+		return err
+	}
 
 	if t.appPkg != nil {
 		appSeeds = append(appSeeds, t.target.AppYml())
