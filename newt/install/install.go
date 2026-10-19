@@ -66,6 +66,7 @@ package install
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -376,14 +377,20 @@ func (inst *Installer) installPrompt(vm deprepo.VersionMap, op installOp,
 		}
 	}
 
+	return askProceed(bufio.NewReader(os.Stdin))
+}
+
+// Asks the user whether to proceed and reads the answer from the specified
+// reader.  Returns true if the user wants to proceed.
+func askProceed(rd *bufio.Reader) (bool, error) {
 	for {
 		fmt.Printf("Proceed? [Y/n] ")
-		line, more, err := bufio.NewReader(os.Stdin).ReadLine()
-		if more || err != nil {
+		line, err := rd.ReadString('\n')
+		if err != nil && (err != io.EOF || len(line) == 0) {
 			return false, util.ChildNewtError(err)
 		}
 
-		trimmed := strings.ToLower(strings.TrimSpace(string(line)))
+		trimmed := strings.ToLower(strings.TrimSpace(line))
 		if len(trimmed) == 0 || strings.HasPrefix(trimmed, "y") {
 			// User wants to proceed.
 			return true, nil
