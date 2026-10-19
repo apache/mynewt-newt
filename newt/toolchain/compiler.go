@@ -572,7 +572,11 @@ func (c *Compiler) lflagsStrings() []string {
 }
 
 func (c *Compiler) depsString() string {
-	extraDeps := util.SortFields(c.extraDeps...)
+	extraDeps := util.UniqueStrings(c.extraDeps)
+	sort.Strings(extraDeps)
+	for i, d := range extraDeps {
+		extraDeps[i] = escapeDepsPath(d)
+	}
 	return strings.Join(extraDeps, " ") + "\n"
 }
 
@@ -697,7 +701,8 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 
 	// Append the extra dependencies (.yml files) to the .d file.
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	if _, err := f.WriteString(objFile + ": " + c.depsString()); err != nil {
+	if _, err := f.WriteString(escapeDepsPath(objFile) + ": " +
+		c.depsString()); err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
