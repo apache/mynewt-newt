@@ -49,6 +49,7 @@ func (scfg *SysdownCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg) {
 		sf, err := stage.NewStageFunc(name, stageStr, lpkg, cfg)
 		if err != nil {
 			scfg.InvalidSettings = append(scfg.InvalidSettings, err.Error())
+			continue
 		}
 		sf.ReturnType = "int"
 		sf.ArgList = "int reason"
@@ -74,7 +75,9 @@ func (scfg *SysdownCfg) detectConflicts() {
 }
 
 func Read(lpkgs []*pkg.LocalPackage, cfg *syscfg.Cfg) SysdownCfg {
-	scfg := SysdownCfg{}
+	scfg := SysdownCfg{
+		Conflicts: map[string][]stage.StageFunc{},
+	}
 
 	for _, lpkg := range lpkgs {
 		scfg.readOnePkg(lpkg, cfg)
