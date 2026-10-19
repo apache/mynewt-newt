@@ -28,8 +28,13 @@ import (
 
 func docsBuildRunCmd(cmd *cobra.Command, args []string) {
 	wd, _ := os.Getwd()
-	db, _ := docs.NewDocsBuilder()
-	db.Build(wd + "/_build")
+	db, err := docs.NewDocsBuilder()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+	if err := db.Build(wd + "/_build"); err != nil {
+		NewtUsage(nil, err)
+	}
 }
 
 func AddDocsCommands(cmd *cobra.Command) {
