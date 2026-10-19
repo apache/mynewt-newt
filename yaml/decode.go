@@ -296,6 +296,19 @@ func DecodeStream(b []byte, values map[string]interface{}) error {
 		case CTXT_STATE_DONE:
 			return nil
 
+		case CTXT_STATE_SEQUENCE:
+			return decodeError(&parser,
+				"top-level element must be a mapping, not a sequence")
+
+		case CTXT_STATE_SCALAR:
+			// An empty document is decoded as a null scalar.
+			switch stringValue(subCtxt.value) {
+			case "", "~", "null", "Null", "NULL":
+			default:
+				return decodeError(&parser,
+					"top-level element must be a mapping, not a scalar")
+			}
+
 		default:
 			// Unneeded metadata; proceed to next event.
 			break
