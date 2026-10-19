@@ -1181,7 +1181,7 @@ func (cfg *Cfg) DeprecatedWarning() []string {
 		point := mostRecentPoint(entry)
 		lines = append(lines,
 			fmt.Sprintf("Use of deprecated setting %s in %s: %s", k,
-				point.Source.FullName(), entry.Description))
+				point.Name(), entry.Description))
 	}
 
 	return lines
@@ -1200,7 +1200,7 @@ func (cfg *Cfg) ExperimentalWarning() []string {
 		point := mostRecentPoint(entry)
 		lines = append(lines,
 			fmt.Sprintf("Use of experimental setting %s in %s", k,
-				point.Source.FullName()))
+				point.Name()))
 	}
 
 	return lines

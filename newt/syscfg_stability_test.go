@@ -50,3 +50,22 @@ func TestSyscfgStabilityNewtSettingOverride(t *testing.T) {
 		t.Errorf("missing priority violation error\n%s", out)
 	}
 }
+
+// Deprecated and experimental settings overridden on the command line
+// produce warnings naming newt as the source.
+func TestSyscfgStabilityCmdlineDeprecated(t *testing.T) {
+	dir := copyToTemp(t, syscfgStabilityDir)
+
+	out, _ := newtCombinedOutput(dir, nil, "build", "deprecated",
+		"-S", "FOO_DEPRECATED=2:FOO_EXPERIMENTAL=2")
+	syscfgStabilityCheckNoPanic(t, out)
+
+	for _, msg := range []string{
+		"Use of deprecated setting FOO_DEPRECATED in newt",
+		"Use of experimental setting FOO_EXPERIMENTAL in newt",
+	} {
+		if !strings.Contains(out, msg) {
+			t.Errorf("missing warning \"%s\"\n%s", msg, out)
+		}
+	}
+}
