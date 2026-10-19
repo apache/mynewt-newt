@@ -137,3 +137,22 @@ func TestErrorReportingEmptyToolPath(t *testing.T) {
 	errorReportingExpectFail(t, dir,
 		[]string{"compiler.path.cc is not set in"}, "build", "app")
 }
+
+// Loading or debugging with a BSP that does not specify the required script
+// must fail with an explanation.
+func TestErrorReportingMissingBspScript(t *testing.T) {
+	t.Run("load", func(t *testing.T) {
+		dir := copyToTemp(t, errorReportingProjDir)
+		out := errorReportingExpectFail(t, dir,
+			[]string{"does not specify bsp.downloadscript"}, "load", "app")
+		if strings.Contains(out, "Loading app image") {
+			t.Errorf("load reported as started\n%s", out)
+		}
+	})
+
+	t.Run("debug", func(t *testing.T) {
+		dir := copyToTemp(t, errorReportingProjDir)
+		errorReportingExpectFail(t, dir,
+			[]string{"does not specify bsp.debugscript"}, "debug", "app")
+	})
+}
