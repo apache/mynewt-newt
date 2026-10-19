@@ -101,6 +101,14 @@ func ParseNcTable(strMap map[string]string) (NewtCompatTable, error) {
 
 	sortEntries(tbl)
 
+	for i := 1; i < len(tbl); i++ {
+		if newtutil.VerCmp(tbl[i-1].minNewtVer, tbl[i].minNewtVer) == 0 {
+			return nil, util.FmtNewtError("Newt compatibility table "+
+				"contains duplicate newt version: %s",
+				tbl[i].minNewtVer.String())
+		}
+	}
+
 	return tbl, nil
 }
 
