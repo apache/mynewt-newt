@@ -270,21 +270,60 @@ func (cfg *Cfg) AddPkgNamesSettings(pkgs []*pkg.LocalPackage) {
 	}
 }
 
+// Replaces values of the form `MYNEWT_VAL(<setting>)` with the value of the
+// referenced setting.  Chained references are followed.  References to
+// undefined settings and circular references are recorded as unresolved.
 func (cfg *Cfg) ResolveValueRefs() {
-	for k, entry := range cfg.Settings {
-		refName, val, err := cfg.ExpandRef(strings.TrimSpace(entry.Value))
-		if err != nil {
-			// Referenced setting doesn't exist.  Set unresolved setting value
-			// to 0, this way restrictions can be evaluated and won't create
-			// spurious warnings.
+	const (
+		refResolving = iota + 1
+		refDone
+	)
+
+	// setting-name => resolution state
+	states := map[string]int{}
+
+	// Resolves the specified setting; returns false if the setting contains
+	// an unresolvable reference.
+	var resolve func(k string) bool
+	resolve = func(k string) bool {
+		switch states[k] {
+		case refResolving:
+			// Circular reference.
+			return false
+		case refDone:
+			_, unresolved := cfg.UnresolvedValueRefs[k]
+			return !unresolved
+		}
+
+		states[k] = refResolving
+		defer func() { states[k] = refDone }()
+
+		entry := cfg.Settings[k]
+		refName := ResolveValueRefName(strings.TrimSpace(entry.Value))
+		if refName == "" {
+			// Not a reference.
+			return true
+		}
+
+		entry.ValueRefName = refName
+		_, ok := cfg.Settings[refName]
+		resolved := ok && resolve(refName)
+		if resolved {
+			entry.Value = cfg.Settings[refName].Value
+		} else {
+			// Referenced setting doesn't exist or can't be resolved.  Set
+			// unresolved setting value to 0, this way restrictions can be
+			// evaluated and won't create spurious warnings.
 			entry.Value = "0"
 			cfg.UnresolvedValueRefs[k] = struct{}{}
-			cfg.Settings[k] = entry
-		} else if refName != "" {
-			entry.ValueRefName = refName
-			entry.Value = val
-			cfg.Settings[k] = entry
 		}
+		cfg.Settings[k] = entry
+
+		return resolved
+	}
+
+	for k := range cfg.Settings {
+		resolve(k)
 	}
 }
 
