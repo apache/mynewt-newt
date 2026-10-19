@@ -69,3 +69,20 @@ func TestSyscfgStabilityCmdlineDeprecated(t *testing.T) {
 		}
 	}
 }
+
+// A target inside an external repo can use a BSP and compiler from the
+// local project.
+func TestSyscfgStabilityExtRepoTarget(t *testing.T) {
+	out, err := newtCombinedOutput(syscfgStabilityDir, nil, "target", "dep",
+		"@apache-mynewt-core/targets/ext")
+	syscfgStabilityCheckNoPanic(t, out)
+	if err != nil {
+		t.Fatalf("newt target dep failed: %s\n%s", err, out)
+	}
+
+	for _, p := range []string{"hw/bsp/loc", "compiler/loc"} {
+		if !strings.Contains(out, "* "+p+" -->") {
+			t.Errorf("missing package %s in dependency graph\n%s", p, out)
+		}
+	}
+}
