@@ -428,6 +428,9 @@ func (mb *MfgBuilder) calcDevice() (int, error) {
 	for _, r := range mb.Raws {
 		deviceMap[r.Area.Device] = struct{}{}
 	}
+	if mb.Meta != nil {
+		deviceMap[mb.Meta.Area.Device] = struct{}{}
+	}
 
 	devices := make([]int, 0, len(deviceMap))
 	for d, _ := range deviceMap {
@@ -631,6 +634,11 @@ func (mb *MfgBuilder) Build() (mfg.Mfg, error) {
 		}
 		metap = &meta
 		metaOff = mb.metaOffset(meta)
+		if metaOff < 0 {
+			return mfg.Mfg{}, util.FmtNewtError(
+				"meta region in flash area \"%s\" is located below "+
+					"base address 0x%x", mb.Meta.Area.Name, mb.BaseAddress)
+		}
 	}
 
 	return mfg.Mfg{
