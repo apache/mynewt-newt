@@ -274,13 +274,16 @@ func (pw *PackageWriter) WritePackage() error {
 /**
  * Create new PackageWriter structure, and return it
  */
-func NewPackageWriter() *PackageWriter {
-	proj := GetProject()
+func NewPackageWriter() (*PackageWriter, error) {
+	proj, err := TryGetProject()
+	if err != nil {
+		return nil, err
+	}
 
 	pw := &PackageWriter{
 		project:    proj,
 		downloader: downloader.NewGithubDownloader(),
 	}
 
-	return pw
+	return pw, nil
 }

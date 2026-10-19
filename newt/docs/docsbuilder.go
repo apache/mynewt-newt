@@ -39,8 +39,13 @@ type DocDescriptor struct {
 }
 
 func NewDocsBuilder() (*DocsBuilder, error) {
+	proj, err := project.TryGetProject()
+	if err != nil {
+		return nil, err
+	}
+
 	db := &DocsBuilder{}
-	db.project = project.GetProject()
+	db.project = proj
 
 	return db, nil
 }

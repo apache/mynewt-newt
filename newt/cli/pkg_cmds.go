@@ -48,7 +48,10 @@ func pkgNewCmd(cmd *cobra.Command, args []string) {
 
 	NewTypeStr = strings.ToUpper(NewTypeStr)
 
-	pw := project.NewPackageWriter()
+	pw, err := project.NewPackageWriter()
+	if err != nil {
+		NewtUsage(nil, err)
+	}
 	if err := pw.ConfigurePackage(NewTypeStr, args[0]); err != nil {
 		NewtUsage(cmd, err)
 	}
