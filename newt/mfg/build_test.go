@@ -121,3 +121,43 @@ func TestDetectOverlapsMeta(t *testing.T) {
 		t.Fatal("overlap of meta region not detected")
 	}
 }
+
+// The meta region must be on the same flash device as the rest of the
+// image.
+func TestCalcDeviceMeta(t *testing.T) {
+	area := testAreaBoot
+	area.Device = 1
+	meta := &MfgBuildMeta{
+		Area: area,
+		Hash: true,
+	}
+
+	mb := testBuilder(meta, testRaw(t, testAreaImage, 0, 0x100))
+	if _, err := mb.calcDevice(); err == nil {
+		t.Fatal("meta region on another device not detected")
+	}
+}
+
+// The meta region must not be located below the base address.
+func TestBuildMetaBelowBase(t *testing.T) {
+	area := testAreaImage
+	area.Offset = 0x08000000
+	meta := &MfgBuildMeta{
+		Area: testAreaBoot,
+		Hash: true,
+	}
+
+	mb := testBuilder(meta, testRaw(t, area, 0, 0x100))
+	mb.BaseAddress = 0x08000000
+
+	m, err := mb.Build()
+	if err == nil {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic: %v", r)
+			}
+		}()
+		m.Bytes(0xff)
+		t.Fatal("meta region below base address not detected")
+	}
+}
