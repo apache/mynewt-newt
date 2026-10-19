@@ -272,11 +272,20 @@ func (r *Repo) NormalizeVersion(
 	ver newtutil.RepoVersion) (newtutil.RepoVersion, error) {
 
 	origVer := ver
+	visited := map[newtutil.RepoVersion]struct{}{}
 	for {
 		if ver.Stability == "" ||
 			ver.Stability == newtutil.VERSION_STABILITY_NONE {
 			return ver, nil
 		}
+
+		if _, ok := visited[ver]; ok {
+			return origVer, util.FmtNewtError(
+				"cannot normalize version \"%s\" for repo \"%s\"; "+
+					"version alias loop at \"%s\"",
+				origVer.String(), r.Name(), ver.String())
+		}
+		visited[ver] = struct{}{}
 
 		verStr := r.vers[ver]
 		if verStr == "" {
