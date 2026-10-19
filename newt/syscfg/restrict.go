@@ -359,13 +359,18 @@ func createRangeRestriction(baseSetting string, expr string) (CfgRestriction, er
 		rtoken := CfgRestrictionRange{}
 
 		limits := strings.Split(token, "..")
-		if len(limits) == 1 {
+		for i := range limits {
+			limits[i] = strings.TrimSpace(limits[i])
+		}
+		if len(limits) == 1 && limits[0] != "" {
 			rtoken.LExpr = limits[0]
-		} else if len(limits) == 2 && len(strings.TrimSpace(limits[1])) > 0 {
+		} else if len(limits) == 2 && limits[0] != "" && limits[1] != "" {
 			rtoken.LExpr = limits[0]
 			rtoken.RExpr = limits[1]
 		} else {
-			return r, util.FmtNewtError("invalid token in range expression \"%s\"", token)
+			return r, util.FmtNewtError(
+				"invalid token \"%s\" in range expression \"%s\" "+
+					"for setting %s", token, expr, baseSetting)
 		}
 
 		r.Ranges = append(r.Ranges, rtoken)
