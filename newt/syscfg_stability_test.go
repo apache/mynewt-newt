@@ -20,9 +20,11 @@
 package main
 
 import (
+	"bytes"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 var syscfgStabilityDir = filepath.Join("testdata", "syscfg_stability")
@@ -84,5 +86,67 @@ func TestSyscfgStabilityExtRepoTarget(t *testing.T) {
 		if !strings.Contains(out, "* "+p+" -->") {
 			t.Errorf("missing package %s in dependency graph\n%s", p, out)
 		}
+	}
+}
+
+// syscfgStabilityRunTimeout runs newt and kills it if it does not finish
+// within the timeout. Returns combined output and whether newt timed out.
+func syscfgStabilityRunTimeout(t *testing.T, dir string,
+	timeout time.Duration, args ...string) (string, bool) {
+
+	t.Helper()
+
+	cmd := newtExecCmd(dir, nil, args...)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		cmd.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return out.String(), false
+	case <-time.After(timeout):
+		cmd.Process.Kill()
+		<-done
+		return out.String(), true
+	}
+}
+
+// Conditional overrides that contradict each other are reported as an
+// error instead of making newt loop forever.
+func TestSyscfgStabilityOscillation(t *testing.T) {
+	tests := []struct {
+		target string
+		msgs   []string
+	}{
+		{"osc_self", []string{"OSC_X: "}},
+		{"osc_dep", []string{"OSC_Y: ", "@apache-mynewt-core/sys/oscbar"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.target, func(t *testing.T) {
+			out, timedOut := syscfgStabilityRunTimeout(t, syscfgStabilityDir,
+				30*time.Second, "target", "config", "show", tc.target)
+			if timedOut {
+				t.Fatalf("newt target config show did not finish\n%s", out)
+			}
+			syscfgStabilityCheckNoPanic(t, out)
+
+			msgs := append([]string{"Syscfg does not converge"}, tc.msgs...)
+			for _, msg := range msgs {
+				if !strings.Contains(out, msg) {
+					t.Errorf("missing \"%s\" in output\n%s", msg, out)
+				}
+			}
+		})
 	}
 }

@@ -1023,6 +1023,98 @@ func (r *Resolver) resolveDeps() ([]*ResolvePackage, error) {
 	return rpkgs, nil
 }
 
+// A snapshot of the resolver state used to detect configurations that never
+// converge.
+type resolveState struct {
+	// Setting name => value.
+	settings map[string]string
+
+	// Full names of the resolved packages.
+	pkgs map[string]struct{}
+
+	// Unique textual representation of the state.
+	key string
+}
+
+func (r *Resolver) curState() resolveState {
+	st := resolveState{
+		settings: make(map[string]string, len(r.cfg.Settings)),
+		pkgs:     make(map[string]struct{}, len(r.pkgMap)),
+	}
+
+	lines := make([]string, 0, len(r.cfg.Settings)+len(r.pkgMap))
+	for k, entry := range r.cfg.Settings {
+		st.settings[k] = entry.Value
+		lines = append(lines, fmt.Sprintf("s:%s=%s:%d",
+			k, entry.Value, len(entry.History)))
+	}
+	for _, rpkg := range r.pkgMap {
+		name := rpkg.Lpkg.FullName()
+		st.pkgs[name] = struct{}{}
+		lines = append(lines, "p:"+name)
+	}
+	sort.Strings(lines)
+	st.key = strings.Join(lines, "\n")
+
+	return st
+}
+
+// Builds an error describing a resolution that oscillates between the
+// specified states without ever converging.
+func oscillationError(cycle []resolveState) error {
+	settingVals := map[string][]string{}
+	pkgSeen := map[string]int{}
+
+	for _, st := range cycle {
+		for k := range st.settings {
+			settingVals[k] = nil
+		}
+		for name := range st.pkgs {
+			pkgSeen[name]++
+		}
+	}
+
+	var settingLines []string
+	for k := range settingVals {
+		var vals []string
+		differ := false
+		for i, st := range cycle {
+			v, ok := st.settings[k]
+			if !ok {
+				v = "(undefined)"
+			}
+			if i > 0 && v != vals[0] {
+				differ = true
+			}
+			vals = append(vals, v)
+		}
+		if differ {
+			settingLines = append(settingLines,
+				fmt.Sprintf("    %s: %s", k, strings.Join(vals, " -> ")))
+		}
+	}
+	sort.Strings(settingLines)
+
+	var pkgLines []string
+	for name, count := range pkgSeen {
+		if count != len(cycle) {
+			pkgLines = append(pkgLines, "    "+name)
+		}
+	}
+	sort.Strings(pkgLines)
+
+	str := "Syscfg does not converge; conditional settings or " +
+		"dependencies contradict each other"
+	if len(settingLines) > 0 {
+		str += "\nOscillating settings:\n" + strings.Join(settingLines, "\n")
+	}
+	if len(pkgLines) > 0 {
+		str += "\nOscillating packages:\n" + strings.Join(pkgLines, "\n")
+	}
+
+	return util.NewNewtError(str)
+}
+
 // Performs a set of resolution actions:
 // 1. Calculates the system configuration (syscfg).
 // 2. Determines which packages satisfy which API requirements.
@@ -1031,6 +1123,12 @@ func (r *Resolver) resolveDepsAndCfg() error {
 	if err := r.resolveHardDeps(); err != nil {
 		return err
 	}
+
+	// States seen so far; used to detect a configuration that never
+	// converges (e.g., a setting whose override disables its own
+	// condition).
+	var states []resolveState
+	stateIdx := map[string]int{}
 
 	for {
 		cfgChanged, err := r.reloadCfg()
@@ -1054,6 +1152,13 @@ func (r *Resolver) resolveDepsAndCfg() error {
 		if !cfgChanged {
 			break
 		}
+
+		st := r.curState()
+		if i, ok := stateIdx[st.key]; ok {
+			return oscillationError(states[i:])
+		}
+		stateIdx[st.key] = len(states)
+		states = append(states, st)
 	}
 
 	// Now that the final set of packages is known, determine which ones
