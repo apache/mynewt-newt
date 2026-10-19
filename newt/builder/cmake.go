@@ -122,6 +122,8 @@ func CmakeSourceObjectWrite(w io.Writer, cj toolchain.CompilerJob,
 	case toolchain.COMPILER_TYPE_C:
 		flags = append(flags, c.GetCompilerInfo().Cflags...)
 		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)
+		flags = append(flags, c.GetCompilerInfo().CCflags...)
+		flags = append(flags, c.GetLocalCompilerInfo().CCflags...)
 	case toolchain.COMPILER_TYPE_ASM:
 		flags = append(flags, c.GetCompilerInfo().Cflags...)
 		flags = append(flags, c.GetLocalCompilerInfo().Cflags...)

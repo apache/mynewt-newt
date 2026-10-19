@@ -58,6 +58,7 @@ const (
 type CompilerInfo struct {
 	Includes    []string
 	Cflags      []string
+	CCflags     []string
 	CXXflags    []string
 	Lflags      []string
 	Aflags      []string
@@ -243,6 +244,7 @@ func NewCompilerInfo() *CompilerInfo {
 	ci := &CompilerInfo{}
 	ci.Includes = []string{}
 	ci.Cflags = []string{}
+	ci.CCflags = []string{}
 	ci.CXXflags = []string{}
 	ci.Lflags = []string{}
 	ci.Aflags = []string{}
@@ -335,6 +337,7 @@ func (ci *CompilerInfo) AddCflags(cflags []string) {
 func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Includes = append(ci.Includes, newCi.Includes...)
 	ci.Cflags = addFlags("cflag", ci.Cflags, newCi.Cflags)
+	ci.CCflags = addFlags("ccflag", ci.CCflags, newCi.CCflags)
 	ci.CXXflags = addFlags("cxxflag", ci.CXXflags, newCi.CXXflags)
 	ci.Lflags = addFlags("lflag", ci.Lflags, newCi.Lflags)
 	ci.Aflags = addFlags("aflag", ci.Aflags, newCi.Aflags)
@@ -498,6 +501,7 @@ func (c *Compiler) load(compilerDir string, buildProfile string, cfg *cfgv.Setti
 	}
 
 	c.lclInfo.Cflags = loadFlags(yc, settings, "compiler.flags", cfg)
+	c.lclInfo.CCflags = loadFlags(yc, settings, "compiler.c.flags", cfg)
 	c.lclInfo.CXXflags = loadFlags(yc, settings, "compiler.cxx.flags", cfg)
 	c.lclInfo.Lflags = loadFlags(yc, settings, "compiler.ld.flags", cfg)
 	c.lclInfo.Aflags = loadFlags(yc, settings, "compiler.as.flags", cfg)
@@ -603,6 +607,14 @@ func (c *Compiler) cflagsStrings() []string {
 	return cflags
 }
 
+// Returns flags for compiling C files: common flags followed by C-only flags.
+// A C-only flag is dropped if a common flag with the same base is already
+// present (e.g., -std from a package overrides -std from the compiler).
+func (c *Compiler) ccflagsStrings() []string {
+	return addFlags("ccflag", c.cflagsStrings(),
+		SortFlags(c.info.CCflags...))
+}
+
 func (c *Compiler) cxxflagsStrings() []string {
 	cxxflags := SortFlags(c.info.CXXflags...)
 	return cxxflags
@@ -653,7 +665,7 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 	case COMPILER_TYPE_C:
 		cmdName = c.ccPath
 		toolKey = "compiler.path.cc"
-		flags = c.cflagsStrings()
+		flags = c.ccflagsStrings()
 	case COMPILER_TYPE_ASM:
 		cmdName = c.asPath
 		toolKey = "compiler.path.as"
@@ -704,7 +716,7 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 	case COMPILER_TYPE_C:
 		cmdName = c.ccPath
 		toolKey = "compiler.path.cc"
-		flags = c.cflagsStrings()
+		flags = c.ccflagsStrings()
 	case COMPILER_TYPE_ASM:
 		cmdName = c.asPath
 		toolKey = "compiler.path.as"
