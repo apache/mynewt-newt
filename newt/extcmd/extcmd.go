@@ -21,6 +21,8 @@ package extcmd
 
 import (
 	"fmt"
+
+	"github.com/kballard/go-shellquote"
 	"mynewt.apache.org/newt/newt/cfgv"
 
 	"mynewt.apache.org/newt/newt/pkg"
@@ -54,6 +56,17 @@ func (ecfg *ExtCmdCfg) readOnePkg(lpkg *pkg.LocalPackage, cfg *syscfg.Cfg,
 	cmdMap := getMapCb(lpkg, settings)
 
 	for name, stageStr := range cmdMap {
+		toks, err := shellquote.Split(name)
+		if err != nil || len(toks) == 0 {
+			text := fmt.Sprintf("%s: invalid command \"%s\"",
+				lpkg.FullName(), name)
+			if err != nil {
+				text += ": " + err.Error()
+			}
+			ecfg.InvalidSettings = append(ecfg.InvalidSettings, text)
+			continue
+		}
+
 		sf, err := stage.NewStageFunc(name, stageStr, lpkg, cfg)
 		if err != nil {
 			text := fmt.Sprintf("%s: %s", lpkg.FullName(), err.Error())

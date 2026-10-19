@@ -157,6 +157,10 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 		return util.FmtNewtError(
 			"invalid command string: \"%s\": %s", sf.Name, err.Error())
 	}
+	if len(toks) == 0 {
+		return util.FmtNewtError("empty command string in package %s",
+			sf.Pkg.FullName())
+	}
 
 	// Replace environment variables in command string.
 	for i, tok := range toks {
