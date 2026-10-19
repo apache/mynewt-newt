@@ -27,6 +27,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -349,10 +350,17 @@ func CmakeCompilerInfoWrite(w io.Writer, archiveFile string, bpkg *BuildPackage,
 	includes = append(includes, c.GetLocalCompilerInfo().Includes...)
 	includes = append(includes, otherIncludes...)
 
-	// Sort and remove duplicate flags
-	includes = util.SortFields(includes...)
+	// Sort and remove duplicate paths; paths may contain spaces, so they
+	// must not be split.
+	includes = util.UniqueStrings(includes)
+	sort.Strings(includes)
 	trimProjectPathSlice(includes)
 	replaceBackslashesSlice(includes)
+	for i, inc := range includes {
+		if strings.ContainsAny(inc, " \t") {
+			includes[i] = "\"" + inc + "\""
+		}
+	}
 
 	fmt.Fprintf(w,
 		`set_target_properties(%s
