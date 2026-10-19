@@ -112,6 +112,9 @@ type Compiler struct {
 	compileCommands []CompileCommand
 
 	extraDeps []string
+
+	// Directory containing compiler.yml; used in error messages.
+	compilerDir string
 }
 
 func (c *Compiler) GetCompileCommands() []CompileCommand {
@@ -152,6 +155,18 @@ func (c *Compiler) GetNmPath() string {
 
 func (c *Compiler) GetAddr2linePath() string {
 	return c.a2lPath
+}
+
+// checkToolPath returns an error if the path of a tool, read from the
+// specified compiler.yml key, is empty. A path can be empty, e.g., if it is
+// only set for some host OSes.
+func (c *Compiler) checkToolPath(path string, key string) error {
+	if path == "" {
+		return util.FmtNewtError("%s is not set in %s/%s", key,
+			c.compilerDir, COMPILER_FILENAME)
+	}
+
+	return nil
 }
 
 // Returns path of binutils tool with given name that belongs to the same
@@ -287,6 +302,7 @@ func NewCompiler(compilerDir string, dstDir string,
 		dstDir:          dstDir,
 		extraDeps:       []string{},
 		compileCommands: []CompileCommand{},
+		compilerDir:     compilerDir,
 	}
 
 	c.depTracker = NewDepTracker(c)
@@ -560,13 +576,16 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 	objPath := c.dstFilePath(file) + ".o"
 
 	var cmdName string
+	var toolKey string
 	var flags []string
 	switch compilerType {
 	case COMPILER_TYPE_C:
 		cmdName = c.ccPath
+		toolKey = "compiler.path.cc"
 		flags = c.cflagsStrings()
 	case COMPILER_TYPE_ASM:
 		cmdName = c.asPath
+		toolKey = "compiler.path.as"
 
 		// Include both the compiler flags and the assembler flags.
 		// XXX: This is not great.  We don't have a way of specifying compiler
@@ -574,9 +593,13 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
 	case COMPILER_TYPE_CPP:
 		cmdName = c.cppPath
+		toolKey = "compiler.path.cpp"
 		flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
 	default:
 		return nil, util.NewNewtError("Unknown compiler type")
+	}
+	if err := c.checkToolPath(cmdName, toolKey); err != nil {
+		return nil, err
 	}
 
 	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
@@ -604,13 +627,16 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 	}
 
 	var cmdName string
+	var toolKey string
 	var flags []string
 	switch compilerType {
 	case COMPILER_TYPE_C:
 		cmdName = c.ccPath
+		toolKey = "compiler.path.cc"
 		flags = c.cflagsStrings()
 	case COMPILER_TYPE_ASM:
 		cmdName = c.asPath
+		toolKey = "compiler.path.as"
 
 		// Include both the compiler flags and the assembler flags.
 		// XXX: This is not great.  We don't have a way of specifying compiler
@@ -618,9 +644,13 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
 	case COMPILER_TYPE_CPP:
 		cmdName = c.cppPath
+		toolKey = "compiler.path.cpp"
 		flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
 	default:
 		return util.NewNewtError("Unknown compiler type")
+	}
+	if err := c.checkToolPath(cmdName, toolKey); err != nil {
+		return err
 	}
 
 	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
@@ -1116,6 +1146,10 @@ func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	// Make sure the compiler package info is added to the global set.
 	c.ensureLclInfoAdded()
 
+	if err := c.checkToolPath(c.ccPath, "compiler.path.cc"); err != nil {
+		return err
+	}
+
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Linking %s\n", dstFile)
 
 	libList := c.getStaticLibs(util.UniqueStaticLib(staticLib))
@@ -1157,6 +1191,12 @@ func (c *Compiler) generateExtras(elfFilename string,
 	options map[string]bool) error {
 
 	if options["binFile"] {
+		if err := c.checkToolPath(c.ocPath,
+			"compiler.path.objcopy"); err != nil {
+
+			return err
+		}
+
 		binFile := elfFilename + ".bin"
 		cmd := []string{
 			c.ocPath,
@@ -1181,6 +1221,12 @@ func (c *Compiler) generateExtras(elfFilename string,
 	}
 
 	if options["listFile"] {
+		if err := c.checkToolPath(c.osPath,
+			"compiler.path.objsize"); err != nil {
+
+			return err
+		}
+
 		listFile := elfFilename + ".lst"
 		f, err := os.OpenFile(listFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
 			0666)
@@ -1239,6 +1285,10 @@ func (c *Compiler) generateExtras(elfFilename string,
 }
 
 func (c *Compiler) PrintSize(elfFilename string) (string, error) {
+	if err := c.checkToolPath(c.osPath, "compiler.path.objsize"); err != nil {
+		return "", err
+	}
+
 	cmd := []string{
 		c.osPath,
 		elfFilename,
@@ -1485,6 +1535,10 @@ func (c *Compiler) CompileArchive(outputFile string, createList bool) error {
 		return nil
 	}
 
+	if err := c.checkToolPath(c.arPath, "compiler.path.archive"); err != nil {
+		return err
+	}
+
 	fullCmd := c.CompileArchiveCmd(outputFile, objFiles)
 
 	cmdSafe := c.CompileArchiveCmdSafe(outputFile, objFiles)
@@ -1575,6 +1629,9 @@ func ParseObjectLine(line string, r *regexp.Regexp) (error, *symbol.SymbolInfo) 
 }
 
 func (c *Compiler) RenameSymbols(sm *symbol.SymbolMap, libraryFile string, ext string) error {
+	if err := c.checkToolPath(c.ocPath, "compiler.path.objcopy"); err != nil {
+		return err
+	}
 
 	cmd := c.RenameSymbolsCmd(sm, libraryFile, ext)
 
@@ -1588,6 +1645,10 @@ func (c *Compiler) RenameSymbols(sm *symbol.SymbolMap, libraryFile string, ext s
 }
 
 func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
+	if err := c.checkToolPath(c.odPath, "compiler.path.objdump"); err != nil {
+		return err, nil
+	}
+
 	cmd := c.ParseLibraryCmd(libraryFile)
 
 	out, err := util.ShellCommand(cmd, nil)
@@ -1598,6 +1659,10 @@ func (c *Compiler) ParseLibrary(libraryFile string) (error, []byte) {
 }
 
 func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolMap) error {
+	if err := c.checkToolPath(c.ocPath, "compiler.path.objcopy"); err != nil {
+		return err
+	}
+
 	cmd := c.CopySymbolsCmd(infile, outfile, sm)
 
 	_, err := util.ShellCommand(cmd, nil)
@@ -1608,6 +1673,10 @@ func (c *Compiler) CopySymbols(infile string, outfile string, sm *symbol.SymbolM
 }
 
 func (c *Compiler) ConvertBinToHex(inFile string, outFile string, baseAddr int) error {
+	if err := c.checkToolPath(c.ocPath, "compiler.path.objcopy"); err != nil {
+		return err
+	}
+
 	cmd := []string{
 		c.ocPath,
 		"-I",

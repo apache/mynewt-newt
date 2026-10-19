@@ -119,3 +119,21 @@ func TestErrorReportingUpgradePkgRepos(t *testing.T) {
 		})
 	}
 }
+
+var errorReportingProjDir = filepath.Join("testdata", "error_reporting")
+
+// A compiler tool whose path is not set in compiler.yml for the host OS must
+// be reported with the name of the missing setting.
+func TestErrorReportingEmptyToolPath(t *testing.T) {
+	dir := copyToTemp(t, errorReportingProjDir)
+	errorReportingWriteFiles(t, dir, map[string]string{
+		"repos/apache-mynewt-core/compiler/sim/compiler.yml": "" +
+			"compiler.path.cc.NOSUCHOS: gcc\n" +
+			"compiler.path.archive: ar\n" +
+			"compiler.flags.default: -O1\n",
+		"apps/app/src/main.c": "int main(void) { return 0; }\n",
+	})
+
+	errorReportingExpectFail(t, dir,
+		[]string{"compiler.path.cc is not set in"}, "build", "app")
+}
