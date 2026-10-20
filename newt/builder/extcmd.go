@@ -23,10 +23,14 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
+	"mynewt.apache.org/newt/newt/resolve"
 	"mynewt.apache.org/newt/newt/stage"
 	"mynewt.apache.org/newt/util"
 )
@@ -143,18 +147,30 @@ func (t *TargetBuilder) envVarsForCmd(sf stage.StageFunc, userSrcDir string,
 	return env, nil
 }
 
-// execExtCmds executes a set of user scripts.
-func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
-	userIncDir string, workDir string) error {
+// extCmd describes how a user script is executed.
+type extCmd struct {
+	// Command and its arguments.
+	args []string
+
+	// Environment variables set in addition to the environment of newt.
+	env map[string]string
+
+	// Directory the command is executed from.
+	dir string
+}
+
+// prepareExtCmd calculates how the specified user script is executed.
+func (t *TargetBuilder) prepareExtCmd(sf stage.StageFunc, userSrcDir string,
+	userIncDir string, workDir string) (*extCmd, error) {
 
 	env, err := t.envVarsForCmd(sf, userSrcDir, userIncDir, workDir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	toks, err := shellquote.Split(sf.Name)
 	if err != nil {
-		return util.FmtNewtError(
+		return nil, util.FmtNewtError(
 			"invalid command string: \"%s\": %s", sf.Name, err.Error())
 	}
 
@@ -164,9 +180,30 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	}
 
 	// If the command is in the user's PATH, expand it to its real location.
+	// Otherwise, a command path is relative to the package's directory.
 	cmd, err := exec.LookPath(toks[0])
 	if err == nil {
 		toks[0] = cmd
+	} else if !filepath.IsAbs(toks[0]) &&
+		strings.ContainsAny(toks[0], "/\\") {
+
+		toks[0] = filepath.Join(sf.Pkg.BasePath(), toks[0])
+	}
+
+	return &extCmd{
+		args: toks,
+		env:  env,
+		dir:  sf.Pkg.BasePath(),
+	}, nil
+}
+
+// execExtCmds executes a set of user scripts.
+func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
+	userIncDir string, workDir string) error {
+
+	cmd, err := t.prepareExtCmd(sf, userSrcDir, userIncDir, workDir)
+	if err != nil {
+		return err
 	}
 
 	// Execute the commands from the package's directory.
@@ -174,13 +211,13 @@ func (t *TargetBuilder) execExtCmds(sf stage.StageFunc, userSrcDir string,
 	if err != nil {
 		return util.ChildNewtError(err)
 	}
-	if err := os.Chdir(sf.Pkg.BasePath()); err != nil {
+	if err := os.Chdir(cmd.dir); err != nil {
 		return util.ChildNewtError(err)
 	}
 	defer os.Chdir(pwd)
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Executing %s/%s\n", sf.Pkg.FullName(), sf.Name)
-	if err := util.ShellInteractiveCommand(toks, env, true); err != nil {
+	if err := util.ShellInteractiveCommand(cmd.args, cmd.env, true); err != nil {
 		return err
 	}
 
@@ -218,9 +255,20 @@ func (t *TargetBuilder) generateLinkTables() {
 		log.Error("Generate link tables error:\n", err)
 		return
 	}
+	defer linkHeader.Close()
 
-	for _, pkg := range t.res.LpkgRpkgMap {
-		s = append(s, pkg.Lpkg.LinkTables()...)
+	// Sort the packages so that the order of link tables doesn't change
+	// between builds.
+	rpkgs := make([]*resolve.ResolvePackage, 0, len(t.res.LpkgRpkgMap))
+	for _, rpkg := range t.res.LpkgRpkgMap {
+		rpkgs = append(rpkgs, rpkg)
+	}
+	sort.Slice(rpkgs, func(i, j int) bool {
+		return rpkgs[i].Lpkg.FullName() < rpkgs[j].Lpkg.FullName()
+	})
+
+	for _, rpkg := range rpkgs {
+		s = append(s, rpkg.Lpkg.LinkTables()...)
 	}
 
 	if len(s) == 0 {
