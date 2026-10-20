@@ -109,3 +109,30 @@ func TestCflagsStringsPairs(t *testing.T) {
 		t.Errorf("unexpected flags:\nexpected %q\ngot      %q", exp, got)
 	}
 }
+
+func TestCcflagsStrings(t *testing.T) {
+	tests := []struct {
+		cflags  []string
+		ccflags []string
+		exp     []string
+	}{
+		{[]string{"-Wall"}, []string{"-std=c11"},
+			[]string{"-Wall", "-std=c11"}},
+		{[]string{"-Wall", "-std=gnu99"}, []string{"-std=c11"},
+			[]string{"-Wall", "-std=gnu99"}},
+		{[]string{"-Wall"}, []string{}, []string{"-Wall"}},
+		{[]string{"-Wall"}, []string{"-include", "a.h", "-std=c11"},
+			[]string{"-Wall", "-std=c11", "-include", "a.h"}},
+	}
+
+	for _, tt := range tests {
+		c := &Compiler{}
+		c.info.Cflags = tt.cflags
+		c.info.CCflags = tt.ccflags
+		got := c.ccflagsStrings()
+		if !slices.Equal(got, tt.exp) {
+			t.Errorf("ccflagsStrings() with cflags %q ccflags %q = %q, "+
+				"expected %q", tt.cflags, tt.ccflags, got, tt.exp)
+		}
+	}
+}
