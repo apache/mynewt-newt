@@ -37,10 +37,18 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 'stable'
       - uses: github/codeql-action/init@v4
         with:
           languages: go
-          build-mode: autobuild
+          build-mode: manual
+          queries: security-and-quality
+          config: |
+            threat-models: local
+      - name: Build
+        run: go build ./...
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:go
