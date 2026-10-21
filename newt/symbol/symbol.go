@@ -35,8 +35,8 @@ type SymbolInfo struct {
 	Code    string
 	Section string
 	Ext     string
-	Size    int
-	Loc     int
+	Size    uint64
+	Loc     uint64
 }
 
 type SymbolMap map[string]SymbolInfo
