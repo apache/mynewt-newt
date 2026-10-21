@@ -816,6 +816,7 @@ func (b *Builder) KeepLink(linkerScripts []string, keepMap *symbol.SymbolMap,
 		for _, info := range *keepMap {
 			keepSymbols = append(keepSymbols, info.Name)
 		}
+		sort.Strings(keepSymbols)
 	}
 
 	if err := b.link(b.AppElfPath(), linkerScripts, keepSymbols,
