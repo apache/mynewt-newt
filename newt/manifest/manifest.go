@@ -227,7 +227,15 @@ func ManifestPkgSizes(b *builder.Builder) (ManifestSizeCollector, error) {
 		}
 		sort.Sort(symbols)
 		for _, sym := range symbols {
-			for area, areaSz := range sym.Sizes {
+			// Order areas by name.
+			areas := make([]string, 0, len(sym.Sizes))
+			for area := range sym.Sizes {
+				areas = append(areas, area)
+			}
+			sort.Strings(areas)
+
+			for _, area := range areas {
+				areaSz := sym.Sizes[area]
 				if areaSz != 0 {
 					AddSymbol(p, sym.ObjName, sym.Name, area, areaSz)
 				}
