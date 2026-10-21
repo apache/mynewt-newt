@@ -176,6 +176,10 @@ func (b *Builder) CMakeBuildPackageWrite(w io.Writer, bpkg *BuildPackage,
 			continue
 		}
 
+		if s.CompilerType == toolchain.COMPILER_TYPE_CPP {
+			b.hasCxx = true
+		}
+
 		if s.CompilerType == toolchain.COMPILER_TYPE_ARCHIVE {
 			arFile := trimProjectPath(s.Filename)
 			linkDirs = append(linkDirs, filepath.Dir(arFile))
@@ -229,6 +233,7 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	c.AddInfo(b.GetCompilerInfo())
 
 	builtPackages := []*BuildPackage{}
+	b.hasCxx = false
 	for _, bpkg := range bpkgs {
 		builtPackage, err := b.CMakeBuildPackageWrite(w, bpkg,
 			&linkFlags, &libraries)
@@ -306,6 +311,13 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
 	cxxFlags = toolchain.SortFlags(cxxFlags...)
 	lFlags = append(lFlags, cxxFlags...)
 
+	// Link with the C++ driver if there are C++ sources, so that the C++
+	// runtime libraries are linked in by default.
+	linkerLang := "C"
+	if b.hasCxx {
+		linkerLang = "CXX"
+	}
+
 	fmt.Fprintf(w,
 		`set_target_properties(%s
                       PROPERTIES
@@ -313,18 +325,20 @@ func (b *Builder) CMakeTargetWrite(w io.Writer, targetCompiler *toolchain.Compil
                       LIBRARY_OUTPUT_DIRECTORY %s
                       RUNTIME_OUTPUT_DIRECTORY %s
                       LINK_FLAGS "%s"
-                      LINKER_LANGUAGE C)`,
+                      LINKER_LANGUAGE %s)`,
 		elfName,
 		elfOutputDir,
 		elfOutputDir,
 		elfOutputDir,
-		strings.Join(escapeFlagsSlice(lFlags), " "))
+		strings.Join(escapeFlagsSlice(lFlags), " "),
+		linkerLang)
 
 	fmt.Fprintln(w)
 
 	libs := strings.Join(getLibsFromLinkerFlags(lFlags), " ")
 	fmt.Fprintf(w, "# Workaround for gcc linker woes\n")
-	fmt.Fprintf(w, "set(CMAKE_C_LINK_EXECUTABLE \"${CMAKE_C_LINK_EXECUTABLE} %s\")\n", libs)
+	fmt.Fprintf(w, "set(CMAKE_%s_LINK_EXECUTABLE \"${CMAKE_%s_LINK_EXECUTABLE} %s\")\n",
+		linkerLang, linkerLang, libs)
 	fmt.Fprintln(w)
 
 	return nil
