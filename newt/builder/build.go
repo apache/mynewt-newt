@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -768,6 +769,12 @@ func (b *Builder) Build() error {
 				c.GetCompileCommands()...)
 		}
 	}
+
+	// Commands are collected as parallel compile jobs complete; sort them so
+	// that file contents do not depend on job completion order.
+	sort.SliceStable(compileCommands, func(i, j int) bool {
+		return compileCommands[i].File < compileCommands[j].File
+	})
 
 	projectPath := interfaces.GetProject().Path() + "/"
 	for i := range compileCommands {
