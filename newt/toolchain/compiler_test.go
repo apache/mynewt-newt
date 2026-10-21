@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"mynewt.apache.org/newt/newt/cfgv"
@@ -149,5 +150,33 @@ func TestReplaceVal(t *testing.T) {
 		if got := replace(tc.pattern); got != tc.want {
 			t.Errorf("replaceVal(%q) = %q, want %q", tc.pattern, got, tc.want)
 		}
+	}
+}
+
+// Builds with C++ sources must be linked with the C++ compiler driver so
+// that the C++ runtime libraries are linked in.
+func TestCompileBinaryCmdLinker(t *testing.T) {
+	c := newTestCompiler()
+	c.ccPath = "arm-none-eabi-gcc"
+	c.cppPath = "arm-none-eabi-g++"
+
+	cmd := c.CompileBinaryCmd("app.elf", nil, nil, nil, "")
+	if cmd[0] != c.ccPath {
+		t.Errorf("C link uses %q, expected %q", cmd[0], c.ccPath)
+	}
+
+	c.LinkCxx = true
+	cmd = c.CompileBinaryCmd("app.elf", nil, nil, nil, "")
+	if cmd[0] != c.cppPath {
+		t.Errorf("C++ link uses %q, expected %q", cmd[0], c.cppPath)
+	}
+
+	c.cppPath = ""
+	err := c.CompileBinary("app.elf", nil, nil, nil, "")
+	if err == nil {
+		t.Fatal("C++ link without compiler.path.cpp did not fail")
+	}
+	if !strings.Contains(err.Error(), "compiler.path.cpp") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
