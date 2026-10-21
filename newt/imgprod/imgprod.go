@@ -83,7 +83,9 @@ func writeImageFiles(ri image.Image, imgFilename string, hexFilename string,
 	}
 
 	_, err = ri.Write(imgFile)
-	imgFile.Close()
+	if cerr := imgFile.Close(); err == nil && cerr != nil {
+		err = util.ChildNewtError(cerr)
+	}
 	if err != nil {
 		return err
 	}
@@ -261,9 +263,11 @@ func ProduceManifest(opts manifest.ManifestCreateOpts) error {
 		return util.FmtNewtError("Cannot create manifest file %s: %s",
 			opts.TgtBldr.AppBuilder.ManifestPath(), err.Error())
 	}
-	defer file.Close()
-
-	if _, err := m.Write(file); err != nil {
+	_, err = m.Write(file)
+	if cerr := file.Close(); err == nil && cerr != nil {
+		err = util.ChildNewtError(cerr)
+	}
+	if err != nil {
 		return err
 	}
 

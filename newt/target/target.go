@@ -291,14 +291,10 @@ func (t *Target) Save() error {
 		return err
 	}
 
-	file, err := os.Create(t.TargetYamlPath())
-	if err != nil {
+	s := t.TargetY.YAML()
+	if err := os.WriteFile(t.TargetYamlPath(), []byte(s), 0644); err != nil {
 		return util.NewNewtError(err.Error())
 	}
-	defer file.Close()
-
-	s := t.TargetY.YAML()
-	file.WriteString(s)
 
 	if err := t.basePkg.SaveSyscfg(); err != nil {
 		return err

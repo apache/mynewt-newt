@@ -77,9 +77,11 @@ func produceLoaderV1(opts ImageProdOpts) (ProducedImageV1, error) {
 			"Can't open target image %s: %s",
 			opts.LoaderDstFilename, err.Error())
 	}
-	defer imgFile.Close()
-
-	if _, err := img.Write(imgFile); err != nil {
+	_, err = img.Write(imgFile)
+	if cerr := imgFile.Close(); err == nil && cerr != nil {
+		err = util.ChildNewtError(cerr)
+	}
+	if err != nil {
 		return pi, err
 	}
 
@@ -129,9 +131,11 @@ func produceAppV1(opts ImageProdOpts,
 		return pi, util.FmtNewtError(
 			"Can't open target image %s: %s", opts.AppDstFilename, err.Error())
 	}
-	defer imgFile.Close()
-
-	if _, err := img.Write(imgFile); err != nil {
+	_, err = img.Write(imgFile)
+	if cerr := imgFile.Close(); err == nil && cerr != nil {
+		err = util.ChildNewtError(cerr)
+	}
+	if err != nil {
 		return pi, err
 	}
 

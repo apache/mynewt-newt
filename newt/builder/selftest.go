@@ -66,7 +66,9 @@ func (t *TargetBuilder) SelfTestCreateExe() error {
 			"builder in invalid state: missing test package")
 	}
 
-	t.generateLinkTables()
+	if err := t.generateLinkTables(); err != nil {
+		return err
+	}
 
 	if err := t.AppBuilder.Build(); err != nil {
 		return err

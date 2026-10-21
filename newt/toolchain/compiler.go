@@ -735,22 +735,13 @@ func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
 		return err
 	}
 
-	// Write the compiler output to a dependency file.
-	f, err := os.OpenFile(depPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
-	if err != nil {
-		return util.ChildNewtError(err)
-	}
-	defer f.Close()
-
-	if _, err := f.Write(o); err != nil {
-		return util.ChildNewtError(err)
-	}
-
-	// Append the extra dependencies (.yml files) to the .d file.
+	// Append the extra dependencies (.yml files) to the compiler output and
+	// write it to a dependency file.
 	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	if _, err := f.WriteString(escapeDepsPath(objFile) + ": " +
-		c.depsString()); err != nil {
-		return util.NewNewtError(err.Error())
+	o = append(o, escapeDepsPath(objFile)+": "+c.depsString()...)
+
+	if err := os.WriteFile(depPath, o, 0644); err != nil {
+		return util.ChildNewtError(err)
 	}
 
 	return nil
@@ -1334,12 +1325,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 		}
 
 		listFile := elfFilename + ".lst"
-		f, err := os.OpenFile(listFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
-			0666)
-		if err != nil {
-			return util.NewNewtError(err.Error())
-		}
-		defer f.Close()
+		var lst bytes.Buffer
 
 		cmd := []string{
 			c.odPath,
@@ -1350,12 +1336,12 @@ func (c *Compiler) generateExtras(elfFilename string,
 		if err != nil {
 			// XXX: gobjdump appears to always crash.  Until we get that sorted
 			// out, don't fail the link process if lst generation fails.
+			if err := os.WriteFile(listFile, nil, 0644); err != nil {
+				return util.ChildNewtError(err)
+			}
 			return nil
 		}
-
-		if _, err := f.Write(o); err != nil {
-			return util.ChildNewtError(err)
-		}
+		lst.Write(o)
 
 		sects := []string{".text", ".rodata", ".data"}
 		for _, sect := range sects {
@@ -1368,9 +1354,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 			}
 			o, err := util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
 			if err == nil {
-				if _, err := f.Write(o); err != nil {
-					return util.NewNewtError(err.Error())
-				}
+				lst.Write(o)
 			}
 		}
 
@@ -1382,8 +1366,10 @@ func (c *Compiler) generateExtras(elfFilename string,
 		if err != nil {
 			return err
 		}
-		if _, err := f.Write(o); err != nil {
-			return util.NewNewtError(err.Error())
+		lst.Write(o)
+
+		if err := os.WriteFile(listFile, lst.Bytes(), 0644); err != nil {
+			return util.ChildNewtError(err)
 		}
 	}
 
@@ -1538,29 +1524,18 @@ func createSplitArchiveLinkerFile(archiveFile string,
 	/* create a name for this script */
 	ar_script_name := linkerScriptFileName(archiveFile)
 
-	// open the file and write out the script
-	f, err := os.OpenFile(ar_script_name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
-		0666)
-	if err != nil {
-		return util.NewNewtError(err.Error())
-	}
-	defer f.Close()
-
-	if _, err := f.WriteString("CREATE " + archiveFile + "\n"); err != nil {
-		return util.NewNewtError(err.Error())
-	}
-
+	// write out the script
+	var script strings.Builder
+	script.WriteString("CREATE " + archiveFile + "\n")
 	for _, arch := range archFiles {
-		if _, err := f.WriteString("ADDLIB " + arch + "\n"); err != nil {
-			return util.NewNewtError(err.Error())
-		}
+		script.WriteString("ADDLIB " + arch + "\n")
 	}
+	script.WriteString("SAVE\n")
+	script.WriteString("END\n")
 
-	if _, err := f.WriteString("SAVE\n"); err != nil {
-		return util.NewNewtError(err.Error())
-	}
+	if err := os.WriteFile(ar_script_name, []byte(script.String()),
+		0644); err != nil {
 
-	if _, err := f.WriteString("END\n"); err != nil {
 		return util.NewNewtError(err.Error())
 	}
 
@@ -1625,17 +1600,15 @@ func (c *Compiler) CompileArchive(outputFile string, createList bool) error {
 	}
 
 	if createList {
-		file, err := os.Create(outputFile)
-		if err != nil {
-			return util.NewNewtError(err.Error())
-		}
-		defer file.Close()
-
+		var list strings.Builder
 		for _, objFilePath := range objList {
-			_, err = file.WriteString(quoteArg(objFilePath) + "\n")
-			if err != nil {
-				return util.NewNewtError(err.Error())
-			}
+			list.WriteString(quoteArg(objFilePath) + "\n")
+		}
+
+		if err := os.WriteFile(outputFile, []byte(list.String()),
+			0644); err != nil {
+
+			return util.NewNewtError(err.Error())
 		}
 
 		return nil

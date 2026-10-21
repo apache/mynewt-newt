@@ -234,14 +234,10 @@ func (lpkg *LocalPackage) SaveSyscfg() error {
 		return util.NewNewtError(err.Error())
 	}
 
-	file, err := os.Create(lpkg.SyscfgYamlPath())
-	if err != nil {
+	s := lpkg.SyscfgY.YAML()
+	if err := os.WriteFile(lpkg.SyscfgYamlPath(), []byte(s), 0644); err != nil {
 		return util.NewNewtError(err.Error())
 	}
-	defer file.Close()
-
-	s := lpkg.SyscfgY.YAML()
-	file.WriteString(s)
 
 	return nil
 }
@@ -255,31 +251,31 @@ func (pkg *LocalPackage) Save() error {
 		return util.NewNewtError(err.Error())
 	}
 
-	file, err := os.Create(pkg.PkgYamlPath())
-	if err != nil {
-		return util.NewNewtError(err.Error())
-	}
-	defer file.Close()
+	var buf bytes.Buffer
 
 	// XXX: Just iterate ycfg object's settings rather than calling out
 	// cached settings individually.
-	file.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
-	file.WriteString("pkg.type: " +
+	buf.WriteString("pkg.name: " + yaml.EscapeString(pkg.Name()) + "\n")
+	buf.WriteString("pkg.type: " +
 		yaml.EscapeString(PackageTypeNames[pkg.Type()]) + "\n")
-	file.WriteString("pkg.description: " +
+	buf.WriteString("pkg.description: " +
 		yaml.EscapeString(pkg.Desc().Description) + "\n")
-	file.WriteString("pkg.author: " +
+	buf.WriteString("pkg.author: " +
 		yaml.EscapeString(pkg.Desc().Author) + "\n")
-	file.WriteString("pkg.homepage: " +
+	buf.WriteString("pkg.homepage: " +
 		yaml.EscapeString(pkg.Desc().Homepage) + "\n")
 
-	file.WriteString("\n")
+	buf.WriteString("\n")
 
-	file.WriteString(pkg.sequenceString("pkg.deps"))
-	file.WriteString(pkg.sequenceString("pkg.aflags"))
-	file.WriteString(pkg.sequenceString("pkg.cflags"))
-	file.WriteString(pkg.sequenceString("pkg.cxxflags"))
-	file.WriteString(pkg.sequenceString("pkg.lflags"))
+	buf.WriteString(pkg.sequenceString("pkg.deps"))
+	buf.WriteString(pkg.sequenceString("pkg.aflags"))
+	buf.WriteString(pkg.sequenceString("pkg.cflags"))
+	buf.WriteString(pkg.sequenceString("pkg.cxxflags"))
+	buf.WriteString(pkg.sequenceString("pkg.lflags"))
+
+	if err := os.WriteFile(pkg.PkgYamlPath(), buf.Bytes(), 0644); err != nil {
+		return util.NewNewtError(err.Error())
+	}
 
 	return nil
 }
