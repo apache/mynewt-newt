@@ -595,9 +595,11 @@ func CopyFile(srcFile string, dstFile string) error {
 	if err != nil {
 		return ChildNewtError(err)
 	}
-	defer out.Close()
-
-	if _, err = io.Copy(out, in); err != nil {
+	_, err = io.Copy(out, in)
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
 		return ChildNewtError(err)
 	}
 

@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
@@ -207,40 +208,41 @@ func getLinkTableEntry(name string, alignment int) string {
 	return entry
 }
 
-func (t *TargetBuilder) generateLinkTables() {
+func (t *TargetBuilder) generateLinkTables() error {
 	var s []string
+	var linkHeader strings.Builder
 
 	dir := GeneratedBaseDir(t.target.FullName()) + "/link/include"
 	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
-		log.Error("Generate link tables error:\n", err)
-		return
-	}
-
-	linkHeader, err := os.Create(dir + "/link_tables.ld.h")
-	if err != nil {
-		log.Error("Generate link tables error:\n", err)
-		return
+		return util.ChildNewtError(err)
 	}
 
 	for _, pkg := range t.res.LpkgRpkgMap {
 		s = append(s, pkg.Lpkg.LinkTables()...)
 	}
 
-	if len(s) == 0 {
-		return
+	if len(s) > 0 {
+		settings := t.res.Cfg.SettingValues()
+		linkTablesAlignment, err := strconv.Atoi(settings.Get("MCU_LINK_TABLES_ALIGNMENT"))
+		if err != nil {
+			linkTablesAlignment = LinkTablesAlignmentDflt
+		}
+
+		for _, linkTable := range s {
+			linkHeader.WriteString(getLinkTableEntry(linkTable, linkTablesAlignment))
+		}
 	}
 
-	settings := t.res.Cfg.SettingValues()
-	linkTablesAlignment, err := strconv.Atoi(settings.Get("MCU_LINK_TABLES_ALIGNMENT"))
+	// The header is included by the linker script, so it has to exist even
+	// if there are no link tables.
+	err = os.WriteFile(dir+"/link_tables.ld.h", []byte(linkHeader.String()),
+		0644)
 	if err != nil {
-		linkTablesAlignment = LinkTablesAlignmentDflt
+		return util.ChildNewtError(err)
 	}
 
-	for _, linkTable := range s {
-		linkHeader.WriteString(getLinkTableEntry(linkTable, linkTablesAlignment))
-	}
-
+	return nil
 }
 
 //link tables
