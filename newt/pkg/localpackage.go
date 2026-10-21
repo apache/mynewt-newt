@@ -377,6 +377,9 @@ func (pkg *LocalPackage) Load() error {
 	}
 
 	pkg.linkTables, err = pkg.readLinkTables(pkg.PkgY)
+	if err != nil {
+		return err
+	}
 
 	// Load syscfg settings.
 	pkg.SyscfgY, err = config.ReadFile(pkg.SyscfgYamlPath())
