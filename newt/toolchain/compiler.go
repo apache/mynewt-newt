@@ -1360,7 +1360,7 @@ func (c *Compiler) generateExtras(elfFilename string,
 				elfFilename,
 			}
 			o, err := util.ShellCommandLimitDbgOutput(cmd, nil, true, 0)
-			if err != nil {
+			if err == nil {
 				if _, err := f.Write(o); err != nil {
 					return util.NewNewtError(err.Error())
 				}
