@@ -694,6 +694,9 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	/* create the set of matching and non-matching symbols */
 	err, smMatch, smNomatch := symbol.IdenticalUnion(appLibSym,
 		loaderLibSym, true, false)
+	if err != nil {
+		return err, nil, nil
+	}
 
 	/* which packages are shared between the two */
 	commonPkgs := smMatch.Packages()
