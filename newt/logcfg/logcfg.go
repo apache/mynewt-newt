@@ -376,6 +376,9 @@ func (lcfg *LCfg) EnsureWritten(includeDir string, srcDir string, targetName str
 
 	path = fmt.Sprintf("%s/%s-logcfg.c", srcDir, targetName)
 	writeReqd, err = util.FileContentsChanged(path, srcBuf.Bytes())
+	if err != nil {
+		return err
+	}
 
 	if writeReqd {
 		log.Debugf("logcfg changed; writing source file (%s).", path)
