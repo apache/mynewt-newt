@@ -145,31 +145,28 @@ func (f *Folder) sumSize() uint64 {
 func (f *Folder) getFolder(name string) *Folder {
 	if nextF, ok := f.Folders[name]; ok {
 		return nextF
-	} else {
-		f.Folders[name] = newFolder(name)
-		return f.Folders[name]
 	}
-	return &Folder{} // cannot happen
+
+	f.Folders[name] = newFolder(name)
+	return f.Folders[name]
 }
 
 func (f *Folder) getFile(name string) *File {
 	if nextF, ok := f.Files[name]; ok {
 		return nextF
-	} else {
-		f.Files[name] = newFile(name)
-		return f.Files[name]
 	}
-	return &File{} // cannot happen
+
+	f.Files[name] = newFile(name)
+	return f.Files[name]
 }
 
 func (f *File) getSymbol(name string) *Symbol {
 	if nextF, ok := f.Symbols[name]; ok {
 		return nextF
-	} else {
-		f.Symbols[name] = &Symbol{name, "", 0}
-		return f.Symbols[name]
 	}
-	return &Symbol{} // cannot happen
+
+	f.Symbols[name] = &Symbol{name, "", 0}
+	return f.Symbols[name]
 }
 
 func (f *Folder) addFolder(path []string) *Folder {

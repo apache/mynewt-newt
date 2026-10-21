@@ -124,11 +124,9 @@ func pkgCloneOrMoveCmd(cmd *cobra.Command, args []string, dirOpFn dirOperation, 
 	}
 
 	dstPath := proj.Path() + "/"
-	repo := proj.LocalRepo()
 	if repoName != "" {
 		dstPath += "repos/" + repoName + "/"
-		repo = proj.FindRepo(repoName)
-		if repo == nil {
+		if proj.FindRepo(repoName) == nil {
 			NewtUsage(cmd, util.NewNewtError("Destination repo "+
 				repoName+" does not exist"))
 		}

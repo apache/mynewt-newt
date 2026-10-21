@@ -460,8 +460,6 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 		return err
 	}
 
-	// Calculate the list of directories containing source .a files.
-	var dirs []string
 	staticLibs := []util.StaticLib{}
 	var extension string
 
@@ -487,7 +485,6 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 			staticLibs = append(staticLibs, s)
 		}
 	}
-	dirs = append(dirs, extraADirs...)
 
 	// Find all .a files in the input directories.
 	for _, dir := range extraADirs {

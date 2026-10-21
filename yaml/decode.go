@@ -222,8 +222,6 @@ func decodeMappingStart(parser *yaml_parser_t, event *yaml_event_t,
 		}
 		mappingAdd(&ctxt, key, subCtxt.value)
 	}
-
-	return ctxt, nil
 }
 
 func decodeMappingEnd(parser *yaml_parser_t, event *yaml_event_t,
