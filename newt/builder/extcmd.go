@@ -27,6 +27,7 @@ import (
 
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/stage"
 	"mynewt.apache.org/newt/util"
 )
@@ -223,8 +224,14 @@ func (t *TargetBuilder) generateLinkTables() {
 		return
 	}
 
-	for _, pkg := range t.res.LpkgRpkgMap {
-		s = append(s, pkg.Lpkg.LinkTables()...)
+	// Sort packages so that order of link tables (and so binary layout)
+	// does not depend on map iteration order.
+	lpkgs := make([]*pkg.LocalPackage, 0, len(t.res.LpkgRpkgMap))
+	for lpkg := range t.res.LpkgRpkgMap {
+		lpkgs = append(lpkgs, lpkg)
+	}
+	for _, lpkg := range pkg.SortLclPkgs(lpkgs) {
+		s = append(s, lpkg.LinkTables()...)
 	}
 
 	if len(s) == 0 {
