@@ -226,6 +226,9 @@ func (bsp *BspPackage) Reload(settings *cfgv.Settings) error {
 	/* Optional Target Checker Script, not an err if not found */
 	bsp.OptChkScript, err = bsp.resolvePathSetting(
 		settings, "bsp.optionalcheckscript")
+	if err != nil {
+		return err
+	}
 
 	if bsp.CompilerName == "" {
 		return util.NewNewtError("BSP does not specify a compiler " +
