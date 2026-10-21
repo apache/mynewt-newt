@@ -71,7 +71,7 @@ func parseObjectLine(line string, r *regexp.Regexp) (error, *symbol.SymbolInfo) 
 
 	si.Name = data[5]
 
-	v, err := strconv.ParseUint(data[1], 16, 32)
+	v, err := strconv.ParseUint(data[1], 16, 64)
 
 	if err != nil {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -79,9 +79,9 @@ func parseObjectLine(line string, r *regexp.Regexp) (error, *symbol.SymbolInfo) 
 		return nil, nil
 	}
 
-	si.Loc = int(v)
+	si.Loc = v
 
-	v, err = strconv.ParseUint(data[4], 16, 32)
+	v, err = strconv.ParseUint(data[4], 16, 64)
 
 	if err != nil {
 		util.StatusMessage(util.VERBOSITY_DEFAULT,
@@ -89,7 +89,7 @@ func parseObjectLine(line string, r *regexp.Regexp) (error, *symbol.SymbolInfo) 
 		return nil, nil
 	}
 
-	si.Size = int(v)
+	si.Size = v
 	si.Code = data[2]
 	si.Section = data[3]
 

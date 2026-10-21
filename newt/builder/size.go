@@ -313,7 +313,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 			if err != nil {
 				continue
 			}
-			size, err := strconv.ParseUint(sizeStr, 0, 64)
+			size, err := strconv.ParseUint(sizeStr, 0, 32)
 			if err != nil {
 				continue
 			}
