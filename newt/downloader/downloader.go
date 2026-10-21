@@ -951,14 +951,20 @@ func (gd *GithubDownloader) remoteUrls() (string, string) {
 	return url, publicUrl
 }
 
+// hidePassword replaces the password in s, e.g. a URL or a command, so that
+// it can be logged or shown in an error message.
+func (gd *GithubDownloader) hidePassword(s string) string {
+	pw := gd.password()
+	if pw == "" {
+		return s
+	}
+
+	return strings.Replace(s, pw, "<password-hidden>", -1)
+}
+
 func (gd *GithubDownloader) setOriginUrl(path string, url string) error {
 	// Hide password in logged command.
-	safeUrl := url
-	pw := gd.password()
-	if pw != "" {
-		safeUrl = strings.Replace(safeUrl, pw, "<password-hidden>", -1)
-	}
-	util.LogShellCmd(setRemoteUrlCmd("origin", safeUrl), nil)
+	util.LogShellCmd(setRemoteUrlCmd("origin", gd.hidePassword(url)), nil)
 
 	return setRemoteUrl(path, "origin", url, false)
 }
@@ -1005,12 +1011,23 @@ func (gd *GithubDownloader) Clone(commit string, dstPath string) error {
 
 	cmd = append(cmd, url, dstPath)
 
+	// The URL may contain the password.  Hide it in the logged command and
+	// in the error, which includes the command if it failed in verbose mode.
+	safeCmd := make([]string, len(cmd))
+	for i, arg := range cmd {
+		safeCmd[i] = gd.hidePassword(arg)
+	}
+	util.LogShellCmd(safeCmd, nil)
+
 	if util.Verbosity >= util.VERBOSITY_VERBOSE {
 		err = util.ShellInteractiveCommand(cmd, nil, false)
 	} else {
-		_, err = util.ShellCommand(cmd, nil)
+		_, err = util.ShellCommandLimitDbgOutput(cmd, nil, false, -1)
 	}
 	if err != nil {
+		if ne, ok := err.(*util.NewtError); ok {
+			ne.Text = gd.hidePassword(ne.Text)
+		}
 		return err
 	}
 	defer gd.clearRemoteAuth(dstPath)
