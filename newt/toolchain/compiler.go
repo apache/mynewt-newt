@@ -1158,11 +1158,18 @@ func (c *Compiler) getObjFiles(baseObjFiles []string) []string {
 }
 
 func (c *Compiler) getStaticLibs(baseStaticLib []util.StaticLib) []util.StaticLib {
+	objNames := []string{}
+
 	c.mutex.Lock()
 	for objName, _ := range c.objPathList {
-		baseStaticLib = append(baseStaticLib, util.NewStaticLib(objName, false))
+		objNames = append(objNames, objName)
 	}
 	c.mutex.Unlock()
+
+	sort.Strings(objNames)
+	for _, objName := range objNames {
+		baseStaticLib = append(baseStaticLib, util.NewStaticLib(objName, false))
+	}
 	return baseStaticLib
 }
 
