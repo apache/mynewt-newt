@@ -34,7 +34,6 @@ import (
 	"github.com/apache/mynewt-artifact/flash"
 	"github.com/apache/mynewt-artifact/sec"
 	"mynewt.apache.org/newt/newt/flashmap"
-	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
@@ -54,11 +53,8 @@ type TargetBuilder struct {
 	loaderPkg   *pkg.LocalPackage
 	testPkg     *pkg.LocalPackage
 
-	AppBuilder *Builder
-	AppList    interfaces.PackageList
-
+	AppBuilder    *Builder
 	LoaderBuilder *Builder
-	LoaderList    interfaces.PackageList
 
 	keyFile          string
 	injectedSettings *cfgv.Settings
@@ -445,8 +441,6 @@ func (t *TargetBuilder) PrepBuild() error {
 		loaderFlags := toolchain.NewCompilerInfo()
 		loaderFlags.Cflags = append(loaderFlags.Cflags, "-DSPLIT_LOADER")
 		t.LoaderBuilder.AddCompilerInfo(loaderFlags)
-
-		t.LoaderList = project.ResetDeps(nil)
 	}
 
 	t.AppBuilder, err = NewBuilder(t, BUILD_NAME_APP, t.res.AppSet.Rpkgs,
@@ -464,8 +458,6 @@ func (t *TargetBuilder) PrepBuild() error {
 		t.AppBuilder.AddCompilerInfo(appFlags)
 	}
 
-	t.AppList = project.ResetDeps(nil)
-
 	logDepInfo(t.res)
 
 	return nil
@@ -482,8 +474,6 @@ func (t *TargetBuilder) buildLoader() error {
 	}
 
 	/* rebuild the loader */
-	project.ResetDeps(t.LoaderList)
-
 	if err := t.bspPkg.Reload(t.LoaderBuilder.cfg.SettingValues()); err != nil {
 		return err
 	}
@@ -589,8 +579,6 @@ func (t *TargetBuilder) Build() error {
 	if err := t.PrepBuild(); err != nil {
 		return err
 	}
-
-	project.ResetDeps(t.AppList)
 
 	if err := t.bspPkg.Reload(t.AppBuilder.cfg.SettingValues()); err != nil {
 		return err
@@ -768,8 +756,6 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	}
 
 	/* re-link loader */
-	project.ResetDeps(t.LoaderList)
-
 	util.StatusMessage(util.VERBOSITY_VERBOSE,
 		"Migrating %d unused symbols into Loader\n", len(*preserveElf))
 
