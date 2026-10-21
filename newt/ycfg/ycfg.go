@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"mynewt.apache.org/newt/newt/cfgv"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cast"
@@ -292,8 +293,17 @@ func (yc *YCfg) Get(key string,
 		entries = append(entries, entry)
 	}
 
+	// Evaluate children in sorted order so that result does not depend on
+	// map iteration order.
+	names := make([]string, 0, len(node.Children))
+	for name := range node.Children {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	var errLines []string
-	for _, child := range node.Children {
+	for _, name := range names {
+		child := node.Children[name]
 		expr, err := parse.LexAndParse(child.Name)
 		if err != nil {
 			errLines = append(errLines,
