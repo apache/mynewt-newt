@@ -273,18 +273,14 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 
 	if commandHasChanged(objPath, cmd) {
 		logRebuildReqdCmdChanged(srcFile)
-		err := tracker.compiler.GenDepsForFile(srcFile, compilerType)
-		if err != nil {
-			return false, err
-		}
 		return true, nil
 	}
 
+	// The dependency file is generated during compilation.  Without it, it is
+	// not known which headers the object file depends on.
 	if util.NodeNotExist(depPath) {
-		err := tracker.compiler.GenDepsForFile(srcFile, compilerType)
-		if err != nil {
-			return false, err
-		}
+		logRebuildReqd(srcFile, "dependency file missing")
+		return true, nil
 	}
 
 	srcModTime, err := util.FileModificationTime(srcFile)
@@ -304,21 +300,6 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		return true, nil
 	}
 
-	// Determine if the dependency (.d) file needs to be generated.  If it
-	// doesn't exist or is older than the source file, it is out of date and
-	// needs to be created.
-	depModTime, err := util.FileModificationTime(depPath)
-	if err != nil {
-		return false, err
-	}
-
-	if srcModTime.After(depModTime) {
-		err := tracker.compiler.GenDepsForFile(srcFile, compilerType)
-		if err != nil {
-			return false, err
-		}
-	}
-
 	// Extract the dependency filenames from the dependency file.
 	deps, err := ParseDepsFile(depPath)
 	if err != nil {
@@ -334,16 +315,15 @@ func (tracker *DepTracker) CompileRequired(srcFile string,
 		if util.NodeNotExist(dep) {
 			// The dependency has been deleted; a rebuild is required.  Also,
 			// the dependency file is out of date, so it needs to be deleted.
-			// We cannot regenerate it now because the source file might be
-			// including a nonexistent header.
+			// It is generated again when the source file is compiled.
 			logRebuildReqdNoDep(srcFile, dep)
 			os.Remove(depPath)
 			return true, nil
-		} else {
-			depModTime, err = util.FileModificationTime(dep)
-			if err != nil {
-				return false, err
-			}
+		}
+
+		depModTime, err := util.FileModificationTime(dep)
+		if err != nil {
+			return false, err
 		}
 
 		if depModTime.After(objModTime) {
