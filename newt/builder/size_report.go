@@ -249,6 +249,7 @@ func parseMapFileRegions(fileName string, sectionName string) (*MemoryRegion,
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 
 	sectionRegion := MakeMemoryRegion()
 
