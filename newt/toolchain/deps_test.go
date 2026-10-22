@@ -311,7 +311,8 @@ func TestEscapeDepsPath(t *testing.T) {
 // A dependency file which cannot be parsed (e.g., written by an older newt)
 // must cause a rebuild rather than a permanent build failure.
 func TestCompileRequiredCorruptDepsFile(t *testing.T) {
-	dir := t.TempDir()
+	// Project base path always uses forward slashes.
+	dir := filepath.ToSlash(t.TempDir())
 	c := newTestCompiler()
 	c.ccPath = "cc"
 	c.baseDir = dir
