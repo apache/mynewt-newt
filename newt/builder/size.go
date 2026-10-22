@@ -172,6 +172,7 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 	if err != nil {
 		return nil, util.NewNewtError("Mapfile failed: " + err.Error())
 	}
+	defer file.Close()
 
 	var symName string = ""
 
@@ -351,7 +352,6 @@ func ParseMapFileSizes(fileName string) (map[string]*PkgSize, error) {
 		default:
 		}
 	}
-	file.Close()
 	for name, section := range globalMemSections {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "Mem %s: 0x%x-0x%x\n",
 			name, section.Offset, section.EndOff)
