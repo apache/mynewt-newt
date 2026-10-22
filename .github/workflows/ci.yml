@@ -53,7 +53,7 @@ jobs:
       - name: Run tests
         run: |
           go version
-          go test -v ./newt
+          go test -v ./...
 
   integration:
     name: Integration tests (${{ matrix.os }})
