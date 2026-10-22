@@ -644,6 +644,26 @@ func (c *Compiler) depsString() string {
 	return strings.Join(extraDeps, " ") + "\n"
 }
 
+// Appends the extra dependencies (.yml files) to the dependency file which
+// the compiler generated for the specified object file.
+func (c *Compiler) appendExtraDeps(objPath string) error {
+	depPath := strings.TrimSuffix(objPath, ".o") + ".d"
+	f, err := os.OpenFile(depPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	_, err = f.WriteString(escapeDepsPath(objPath) + ": " + c.depsString())
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return util.ChildNewtError(err)
+	}
+
+	return nil
+}
+
 func (c *Compiler) dstFilePath(srcPath string) string {
 	relSrcPath := strings.TrimPrefix(filepath.ToSlash(srcPath), c.baseDir+"/")
 	relDstPath := strings.TrimSuffix(relSrcPath, filepath.Ext(srcPath))
@@ -694,6 +714,7 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 	cmd := []string{cmdName}
 	cmd = append(cmd, flags...)
 	cmd = append(cmd, c.includesStrings()...)
+	cmd = append(cmd, depsFlags(objPath)...)
 	cmd = append(cmd, []string{
 		"-c",
 		"-o",
@@ -704,95 +725,28 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 	return cmd, nil
 }
 
-// Generates a dependency Makefile (.d) for the specified source file.
-//
-// @param file                  The name of the source file.
-func (c *Compiler) GenDepsForFile(file string, compilerType int) error {
-	depPath := c.dstFilePath(file) + ".d"
-	depDir := filepath.Dir(depPath)
-	if util.NodeNotExist(depDir) {
-		os.MkdirAll(depDir, 0755)
-	}
-
-	var cmdName string
-	var toolKey string
-	var flags []string
-	switch compilerType {
-	case COMPILER_TYPE_C:
-		cmdName = c.ccPath
-		toolKey = "compiler.path.cc"
-		flags = c.ccflagsStrings()
-	case COMPILER_TYPE_ASM:
-		cmdName = c.asPath
-		toolKey = "compiler.path.as"
-
-		// Include both the compiler flags and the assembler flags.
-		// XXX: This is not great.  We don't have a way of specifying compiler
-		// flags without also passing them to the assembler.
-		flags = append(c.cflagsStrings(), c.aflagsStrings()...)
-	case COMPILER_TYPE_CPP:
-		cmdName = c.cppPath
-		toolKey = "compiler.path.cpp"
-		flags = append(c.cflagsStrings(), c.cxxflagsStrings()...)
-	default:
-		return util.NewNewtError("Unknown compiler type")
-	}
-	if err := c.checkToolPath(cmdName, toolKey); err != nil {
-		return err
-	}
-
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
-	cmd := []string{cmdName}
-	cmd = append(cmd, flags...)
-	cmd = append(cmd, c.includesStrings()...)
-	cmd = append(cmd, []string{"-MM", "-MG", srcPath}...)
-
-	o, err := depsCommandOutput(cmd)
-	if err != nil {
-		return err
-	}
-
-	// Append the extra dependencies (.yml files) to the compiler output and
-	// write it to a dependency file.
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
-	o = append(o, escapeDepsPath(objFile)+": "+c.depsString()...)
-
-	if err := os.WriteFile(depPath, o, 0644); err != nil {
-		return util.ChildNewtError(err)
-	}
-
-	return nil
+// Returns the options which make the compiler generate a dependency Makefile
+// (.d) for the specified object file as a side effect of compilation.
+func depsFlags(objPath string) []string {
+	return []string{"-MMD", "-MF", strings.TrimSuffix(objPath, ".o") + ".d"}
 }
 
-// depsCommandOutput executes the specified dependency generation command and
-// returns its standard output.  Standard error (e.g., compiler warnings) is
-// not part of the dependency list; it is only displayed in verbose mode or
-// returned as the error text if the command fails.
-func depsCommandOutput(cmdStrs []string) ([]byte, error) {
-	cmd, err := util.ShellCommandInit(cmdStrs, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	util.LogShellCmd(cmdStrs, nil)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	o, err := cmd.Output()
-	if err != nil {
-		nerr := util.ChildNewtError(err)
-		if stderr.Len() > 0 {
-			nerr.Text = stderr.String()
+// Removes the dependency file options from a compiler command.  They are only
+// relevant to newt's own dependency tracking, not to tools reading the
+// compilation database.
+func stripDepsFlags(cmd []string) []string {
+	stripped := make([]string, 0, len(cmd))
+	for i := 0; i < len(cmd); i++ {
+		switch cmd[i] {
+		case "-MMD":
+		case "-MF":
+			i++
+		default:
+			stripped = append(stripped, cmd[i])
 		}
-		return nil, nerr
 	}
 
-	if stderr.Len() > 0 {
-		util.StatusMessage(util.VERBOSITY_VERBOSE, "%s", stderr.String())
-	}
-
-	return o, nil
+	return stripped
 }
 
 func serializeCommand(cmd []string) []byte {
@@ -868,7 +822,14 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s", string(o))
 
-	c.addCompileCommand(cmd, file)
+	if len(c.extraDeps) > 0 {
+		err = c.appendExtraDeps(objPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	c.addCompileCommand(stripDepsFlags(cmd), file)
 
 	err = writeCommandFile(objPath, cmd)
 	if err != nil {
