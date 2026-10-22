@@ -106,15 +106,16 @@ Newt tests are regular Go tests and run in GitHub Actions on every pull
 request.  They can also be run locally from the repository root:
 
 ```no-highlight
-$ go test ./newt
+$ go test ./...
 ```
 
 Useful variants:
 
 ```no-highlight
-$ go test -v ./newt                     # show each test and newt's output
+$ go test -v ./...                      # show each test and newt's output
+$ go test ./newt/toolchain              # run tests of a single package
 $ go test -v -run TestUpgrade ./newt    # run only matching tests
-$ go test -count=1 ./newt               # ignore cached test results
+$ go test -count=1 ./...                # ignore cached test results
 ```
 
 Only Go and `git` are needed; the tests do not need network access or a
