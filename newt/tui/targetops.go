@@ -42,6 +42,7 @@ type opDoneMsg struct {
 	label string
 	out   string
 	err   error
+	cmds  [][]string
 	// Target to select after the project is reloaded.
 	selectName string
 	// Whether to open the selected target's settings.
@@ -105,7 +106,7 @@ func (m *Model) runOps(label string, selectName string, fields bool,
 			}
 		}
 		return opDoneMsg{label: label, selectName: selectName,
-			fields: fields}
+			fields: fields, cmds: cmds}
 	}
 }
 
@@ -120,6 +121,13 @@ func (m *Model) opDone(msg opDoneMsg) {
 	}
 
 	m.setStatus(msg.label + ": done")
+	if createsImage(msg.cmds) {
+		for _, e := range m.cats[m.findKind(KindTarget)].Entries {
+			if e.FullName == msg.selectName {
+				m.imageCreated(e.Name)
+			}
+		}
+	}
 	ci := m.findKind(KindTarget)
 	if msg.selectName == "" || ci < 0 {
 		return

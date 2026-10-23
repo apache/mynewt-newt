@@ -441,5 +441,6 @@ func (m *Model) debugNote() []string {
 	return append(section("Note"), "newt debug attaches to the firmware "+
 		"already on the board; it does not load this build. If gdb shows "+
 		"\"?? ()\" instead of functions, the board runs something else: "+
-		"load it first (L), or use r, which builds, loads and debugs.")
+		"load it first (L, or F with the bootloader), or use r, which "+
+		"builds, loads and debugs.")
 }

@@ -50,6 +50,7 @@ type job struct {
 	end     time.Time
 	running bool
 	stopped bool
+	steps   [][]string
 	err     error
 	cancel  context.CancelFunc
 	// Closed when the commands have stopped.
@@ -181,7 +182,7 @@ func (m *Model) startJob(a Action, steps [][]string, env []string,
 	m.jobSeq++
 	j := &job{id: m.jobSeq, label: label, command: a.Args[0],
 		target: target, start: time.Now(), running: true, cancel: cancel,
-		finished: make(chan struct{})}
+		finished: make(chan struct{}), steps: steps}
 	m.job = j
 	m.dockShown = true
 	m.setStatus(label + "...")
@@ -247,6 +248,9 @@ func (m *Model) jobMsg(msg tea.Msg) tea.Cmd {
 		j.mu.Lock()
 		out := j.output.String()
 		j.mu.Unlock()
+		if ok && msg.err == nil && createsImage(j.steps) {
+			m.imageCreated(j.target)
+		}
 		if ok {
 			m.commandDone(execDoneMsg{label: label, err: msg.err,
 				command: j.command, target: j.target, output: out})

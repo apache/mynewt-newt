@@ -21,11 +21,13 @@ package tui
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -1409,6 +1411,24 @@ func TestBluetoothPage(t *testing.T) {
 	}
 }
 
+func TestImageVersion(t *testing.T) {
+	hdr := make([]byte, 32)
+	binary.LittleEndian.PutUint32(hdr[0:], imageMagic)
+	hdr[20], hdr[21] = 1, 2
+	binary.LittleEndian.PutUint16(hdr[22:], 3)
+	binary.LittleEndian.PutUint32(hdr[24:], 4)
+	path := t.TempDir() + "/app.img"
+	os.WriteFile(path, append(hdr, make([]byte, 64)...), 0644)
+
+	if v, err := readImageVersion(path); err != nil || v != "1.2.3.4" {
+		t.Errorf("readImageVersion = %q, %v", v, err)
+	}
+	os.WriteFile(path, make([]byte, 64), 0644)
+	if _, err := readImageVersion(path); err == nil {
+		t.Errorf("expected an error for a non-image")
+	}
+}
+
 type interactiveRecorder struct {
 	fakeCmd
 	interactive *bool
@@ -1568,5 +1588,114 @@ func TestJobOutputPane(t *testing.T) {
 	m = keys(t, m, "O")
 	if m.dockHeight() == 0 {
 		t.Errorf("O should show the pane")
+	}
+}
+
+func writeImage(t *testing.T, path string, major, minor byte, rev uint16) {
+	t.Helper()
+	hdr := make([]byte, 64)
+	binary.LittleEndian.PutUint32(hdr[0:], imageMagic)
+	hdr[20], hdr[21] = major, minor
+	binary.LittleEndian.PutUint16(hdr[22:], rev)
+	os.MkdirAll(filepath.Dir(path), 0755)
+	if err := os.WriteFile(path, hdr, 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestImageChooser(t *testing.T) {
+	dir := t.TempDir()
+	e := &Entry{Name: "blinky", FullName: "targets/blinky", Kind: KindTarget,
+		NeedsBoot: true, App: "apps/blinky",
+		ImagePath: dir + "/blinky.img", ElfPath: dir + "/blinky.elf",
+		ImagesDir: dir + "/images"}
+
+	// Two older images, a build, then the latest image.
+	old := time.Now().Add(-time.Hour)
+	writeImage(t, e.ImagesDir+"/blinky-1.0.0.0.img", 1, 0, 0)
+	writeImage(t, e.ImagesDir+"/blinky-1.0.1.0.img", 1, 0, 1)
+	os.Chtimes(e.ImagesDir+"/blinky-1.0.0.0.img", old, old)
+	os.Chtimes(e.ImagesDir+"/blinky-1.0.1.0.img", old.Add(time.Minute),
+		old.Add(time.Minute))
+	os.WriteFile(e.ElfPath, []byte("elf"), 0644)
+	writeImage(t, e.ImagePath, 1, 0, 2)
+	if err := saveImage(e); err != nil {
+		t.Fatal(err)
+	}
+
+	images := listImages(e)
+	vers := []string{}
+	for _, img := range images {
+		vers = append(vers, img.Version)
+	}
+	// The latest image is shown once, although it is saved too.
+	if !reflect.DeepEqual(vers, []string{"1.0.2.0", "1.0.1.0", "1.0.0.0"}) {
+		t.Fatalf("images = %v", vers)
+	}
+	if !images[0].Latest || !images[0].FromBuild || images[1].FromBuild {
+		t.Errorf("flags = %+v", images)
+	}
+	if v := nextVersion(images); v != "1.0.3" {
+		t.Errorf("nextVersion = %q", v)
+	}
+	if v := nextVersion(nil); v != "1.0.0" {
+		t.Errorf("nextVersion(nil) = %q", v)
+	}
+
+	load := func() ([]*Category, error) {
+		cats := testCats()
+		e.Actions = []Action{{Key: "L", Label: "load",
+			Args: []string{"load", "targets/blinky"}, PickDevice: true,
+			ChooseImage: true}}
+		cats[0].Entries[0] = e
+		return cats, nil
+	}
+	m := NewModel("proj", load)
+	ran := []string{}
+	m.runSteps = func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error {
+		for _, s := range steps {
+			ran = append(ran, strings.Join(s, " "))
+		}
+		return nil
+	}
+	m.findDevices = func() ([]Device, error) { return nil, nil }
+	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
+
+	// L lists the images, newest first, and offers a new one.
+	m = keys(t, m, "l", "L")
+	if m.panel == nil || m.panelLen() != 4 {
+		t.Fatalf("expected the image list, panel %v", m.panel)
+	}
+	if !strings.Contains(paneText(m), "load the selected image") {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+
+	// An older image is loaded with --imgfile on the chosen board.
+	m = step(t, m, "j")
+	m = step(t, m, "enter")
+	m = step(t, m, "enter")
+	want := "load --imgfile " + e.ImagesDir + "/blinky-1.0.1.0.img targets/blinky"
+	if len(ran) != 1 || ran[0] != want {
+		t.Fatalf("ran %q, want %q", ran, want)
+	}
+
+	// A new image is built, created and loaded, with the next version.
+	ran = nil
+	m = keys(t, m, "L", "G", "enter")
+	if m.prompt == nil || m.prompt.input != "1.0.3" {
+		t.Fatalf("expected the version prompt, got %+v", m.prompt)
+	}
+	m = step(t, m, "enter")
+	m = step(t, m, "enter")
+	if !reflect.DeepEqual(ran, []string{"build targets/blinky",
+		"create-image targets/blinky 1.0.3", "load targets/blinky"}) {
+		t.Fatalf("ran %q", ran)
+	}
+
+	// x deletes a saved image after asking.
+	m = keys(t, m, "L", "G", "k", "x", "y")
+	if _, err := os.Stat(e.ImagesDir + "/blinky-1.0.0.0.img"); err == nil {
+		t.Errorf("the image should be deleted")
 	}
 }

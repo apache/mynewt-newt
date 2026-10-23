@@ -28,8 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/mynewt-artifact/flash"
-
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/interfaces"
@@ -65,11 +63,15 @@ type Action struct {
 	Check func() error
 	// Ask which connected board to use first.
 	PickDevice bool
+	// Several newt commands to run one after another, instead of Args.
+	Steps [][]string
 	// Gives the command the terminal itself, e.g. for gdb; its output is
 	// then not read for build errors.
 	Interactive bool
 	// Question to confirm with y before running, if any.
 	Confirm string
+	// Choose the image to load first.
+	ChooseImage bool
 }
 
 // Link points from one entry to another one, e.g. from a target to its app.
@@ -146,6 +148,20 @@ type Entry struct {
 	Fields  []*Field
 	// Sets one of the Fields and saves the entry.
 	Set func(variable string, value string) error
+	// Bootloader support for targets: whether the app needs a bootloader,
+	// the bootloader target to use, and the version of the app's image.
+	NeedsBoot bool
+	Boot      string
+	BootName  string
+	Image     string
+	ImagePath string
+	// Where the browser keeps the target's images, and the app's build.
+	ImagesDir string
+	ElfPath   string
+	App       string
+	// For bootloader targets: the targets they boot.
+	IsBoot  bool
+	BootFor []string
 
 	// Resolves the target's syscfg and changes the target's syscfg.yml.
 	Syscfg    func() (*BuildInfo, error)
@@ -235,6 +251,7 @@ func relPath(proj *project.Project, path string) string {
 
 func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 	entries := []*Entry{}
+	targets := map[string]*target.Target{}
 
 	for name, t := range target.GetTargets() {
 		// The unittest target is used internally by "newt test".
@@ -335,10 +352,12 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 			return setTargetSyscfg(t, name, value, remove)
 		}
 
-		e.previewFn = func() []string { return targetPreview(proj, t) }
+		e.previewFn = func() []string { return targetPreview(proj, t, e) }
 		entries = append(entries, e)
+		targets[full] = t
 	}
 
+	addBootSupport(proj, entries, targets)
 	sortEntries(entries)
 	for _, list := range users {
 		sort.Strings(list)
@@ -394,7 +413,7 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
-func targetPreview(proj *project.Project, t *target.Target) []string {
+func targetPreview(proj *project.Project, t *target.Target, e *Entry) []string {
 	lines := []string{
 		field("Target", styleBold.Render(t.FullName())),
 		field("App", t.AppName),
@@ -418,6 +437,7 @@ func targetPreview(proj *project.Project, t *target.Target) []string {
 		}
 	}
 	lines = append(lines, field("Status", built))
+	lines = append(lines, bootPreview(e)...)
 
 	flags := []string{}
 	for _, f := range []string{"aflags", "cflags", "cxxflags", "lflags"} {
@@ -673,14 +693,4 @@ func overridesPreview(overrides map[string]string) []string {
 			"NimBLE apps, B there shows the Bluetooth essentials. Values "+
 			"are saved in the target's syscfg.yml, which overrides the "+
 			"app, the bsp and all packages."))
-}
-
-// bspFlashAreas returns the flash areas of a BSP, as newt's builder reads
-// them.
-func bspFlashAreas(lpkg *pkg.LocalPackage) map[string]flash.FlashArea {
-	bsp, err := pkg.NewBspPackage(lpkg, nil)
-	if err != nil {
-		return nil
-	}
-	return bsp.FlashMap.Areas
 }

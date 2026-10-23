@@ -857,11 +857,17 @@ func (m *Model) run(a Action) tea.Cmd {
 		}
 	}
 
+	if a.ChooseImage {
+		return m.openLoad(a)
+	}
 	if a.PickDevice {
 		return m.openDevicePicker(a)
 	}
 	if a.Args[0] == "size" {
 		return m.openSize()
+	}
+	if a.Args[0] == "create-image" {
+		return m.createImage(a)
 	}
 	return m.runWith(a, nil)
 }
@@ -875,7 +881,14 @@ func (m *Model) runWith(a Action, env []string) tea.Cmd {
 		target = e.Name
 	}
 
-	steps := [][]string{a.Args}
+	steps := a.Steps
+	if steps == nil {
+		steps = [][]string{a.Args}
+	}
+	if len(steps) > 1 {
+		label = strings.Join(append(append([]string{}, env...), "newt"), " ") +
+			" " + a.Label
+	}
 	// Interactive commands (gdb) need the terminal; the others run in the
 	// background with their output in a pane.
 	if !a.Interactive {
