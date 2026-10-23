@@ -69,6 +69,9 @@ func (m *Model) helpGroups() []helpGroup {
 		return []helpGroup{g}
 	}
 
+	if m.depth == depthDevice {
+		return m.devicePickerHelp()
+	}
 	if m.depth >= depthSyscfg {
 		return m.syscfgHelp()
 	}
@@ -94,6 +97,8 @@ func (m *Model) helpGroups() []helpGroup {
 		move.add("h", "back to targets")
 		if f != nil && f.Kind == KindSyscfg {
 			move.add("l", "see and change syscfg settings")
+		} else if f != nil && f.Help != "" {
+			move.add("l", f.Help)
 		} else if f != nil {
 			move.add("l", "choose "+f.Label)
 		}

@@ -44,6 +44,8 @@ const (
 	// The syscfg settings of a target, and the choices for one setting.
 	depthSyscfg = 4
 	depthChoice = 5
+	// Picking the board for "newt load" / "newt debug".
+	depthDevice = 6
 )
 
 // LoadFunc (re)loads the project and returns the browser contents.
@@ -84,6 +86,12 @@ type Model struct {
 	// Show only the Bluetooth page of the syscfg view.
 	bluetoothOnly bool
 
+	// Board picker.
+	picker devicePicker
+	// Find connected boards and read their chips; replaced in tests.
+	findDevices func() ([]Device, error)
+	readChip    func(serial string) (*ChipInfo, error)
+
 	// Per category: hide entries from foreign repos.
 	hideForeign []bool
 	history     []position
@@ -109,10 +117,12 @@ type Model struct {
 
 func NewModel(title string, load LoadFunc) Model {
 	m := Model{
-		title:   title,
-		load:    load,
-		newtCmd: newtExec,
-		newtRun: newtOutput,
+		title:       title,
+		load:        load,
+		newtCmd:     newtExec,
+		newtRun:     newtOutput,
+		findDevices: findDevices,
+		readChip:    readChipInfo,
 	}
 	m.reload()
 	return m
@@ -212,10 +222,11 @@ func (m *Model) Selected() *Entry {
 
 func (m *Model) field() *Field {
 	e := m.Selected()
-	if e == nil || m.depth < depthFields {
+	if e == nil || m.depth < depthFields || m.depth == depthDevice {
 		return nil
 	}
 	if c := m.fieldList.cursor; c >= 0 && c < len(e.Fields) {
+		e.Fields[c].ensure()
 		return e.Fields[c]
 	}
 	return nil
@@ -224,6 +235,10 @@ func (m *Model) field() *Field {
 // options returns the choices for a field, with the "none" choice first for
 // optional fields.
 func (m *Model) options(f *Field) []*Entry {
+	if f.OptionsFn != nil {
+		return f.OptionsFn()
+	}
+
 	opts := []*Entry{}
 	if f.Optional {
 		opts = append(opts, &Entry{Name: "none", Hint: "unset",
@@ -284,6 +299,8 @@ func (m *Model) current() (*list, int) {
 			return &m.choiceList, len(s.Choices)
 		}
 		return &m.choiceList, 0
+	case depthDevice:
+		return &m.picker.list, len(m.picker.devices) + 1
 	default:
 		return &m.entList[m.catList.cursor], len(m.visible(m.catList.cursor))
 	}
@@ -345,6 +362,10 @@ func (m *Model) fix() {
 	if s := m.setting(); s != nil {
 		clamp(&m.choiceList, len(s.Choices))
 	}
+	if m.depth == depthDevice && m.Selected() == nil {
+		m.depth = depthEntries
+	}
+	clamp(&m.picker.list, len(m.picker.devices)+1)
 }
 
 // parentDepth is the level "h" goes back to.
@@ -354,6 +375,8 @@ func (m *Model) parentDepth() int {
 		return depthFields
 	case depthChoice:
 		return depthSyscfg
+	case depthDevice:
+		return m.picker.returnDepth
 	default:
 		return max(m.depth-1, depthCategories)
 	}
@@ -490,6 +513,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case opDoneMsg:
 		m.opDone(msg)
 
+	case devicesMsg:
+		cmd = m.devicesFound(msg)
+
+	case chipMsg:
+		m.chipFound(msg)
+
 	case tea.KeyMsg:
 		if m.prompt != nil {
 			cmd = m.promptKey(msg)
@@ -563,6 +592,9 @@ func (m *Model) key(k string) tea.Cmd {
 		return cmd
 	}
 	if cmd, ok := m.syscfgKey(k); ok {
+		return cmd
+	}
+	if cmd, ok := m.deviceKey(k); ok {
 		return cmd
 	}
 
@@ -693,7 +725,13 @@ func (m *Model) enter(arrow bool) tea.Cmd {
 			// Viewing is fine for any target; changes are checked later.
 			m.openSyscfg()
 		} else if f != nil && m.localTarget() != nil {
+			f.ensure()
 			m.opts = m.options(f)
+			if len(m.opts) == 0 {
+				m.setStatus(fmt.Sprintf("%s: nothing to choose (%s)", f.Label,
+					f.Hint))
+				return nil
+			}
 			cur := max(indexOf(m.opts, f.Value), 0)
 			m.optList = list{cursor: cur, offset: cur - m.listHeight()/2}
 			m.depth = depthOptions
@@ -728,12 +766,20 @@ func (m *Model) choose() {
 		return
 	}
 
-	if err := e.Set(f.Var, o.FullName); err != nil {
+	set := func(value string) error { return e.Set(f.Var, value) }
+	if f.SetFn != nil {
+		set = f.SetFn
+	}
+	if err := set(o.FullName); err != nil {
 		m.setError(err.Error())
 		return
 	}
 	if m.reload() {
-		if o.FullName == "" {
+		if o.FullName == "" && f.SetFn != nil {
+			f := m.field()
+			m.setStatus(fmt.Sprintf("%s: %s back to the default (%s)",
+				e.Name, f.Label, f.Value))
+		} else if o.FullName == "" {
 			m.setStatus(fmt.Sprintf("%s: unset %s", e.Name, f.Var))
 		} else {
 			m.setStatus(fmt.Sprintf("%s: set %s to %s", e.Name, f.Var,
@@ -750,6 +796,16 @@ func (m *Model) run(a Action) tea.Cmd {
 				return m.run(a)
 			}}
 		return nil
+	}
+	if a.Check != nil {
+		if err := a.Check(); err != nil {
+			m.setError(err.Error())
+			return nil
+		}
+	}
+
+	if a.PickDevice {
+		return m.openDevicePicker(a)
 	}
 	return m.runWith(a, nil)
 }
@@ -893,12 +949,16 @@ func (m *Model) entryList(ci int, width int, height int,
 func (m *Model) fieldRows(e *Entry) []row {
 	rows := make([]row, len(e.Fields))
 	for i, f := range e.Fields {
+		f.ensure()
 		val, repo := splitName(f.Value)
 		if val == "" {
 			val = "-"
 		}
 		if repo != "" {
 			repo = "@" + repo
+		}
+		if f.Hint != "" {
+			repo = f.Hint
 		}
 		rows[i] = row{text: fmt.Sprintf("%-8s %s", f.Label, val), hint: repo,
 			style: kindStyle(f.Kind)}
@@ -913,6 +973,10 @@ func optionRows(opts []*Entry, current string) []row {
 		if o.FullName == current {
 			r.style = r.style.Bold(true)
 			r.hint = "current"
+			// Keep short notes such as "not installed".
+			if o.Hint != "" && !strings.HasPrefix(o.Hint, "@") {
+				r.hint += ", " + o.Hint
+			}
 		}
 		rows[i] = r
 	}
@@ -1010,6 +1074,12 @@ func (m Model) View() string {
 		if s := m.setting(); s != nil {
 			right = previewLines(settingPreview(s, m.syscfg.Errors), w3, h)
 		}
+	} else if m.depth == depthDevice {
+		ci := m.catList.cursor
+		left = m.entryList(ci, w1, h, true)
+		mid = renderList(m.deviceRows(), m.picker.list, w2, h,
+			!m.picker.scanning)
+		right = previewLines(m.devicePreviewLines(), w3, h)
 	} else if m.depth == depthChoice {
 		s := m.setting()
 		left = renderList(settingRows(m.visibleSettings()), m.setList, w1, h,
@@ -1062,6 +1132,9 @@ func (m *Model) titleBar() string {
 		}
 		if s := m.setting(); s != nil {
 			parts = append(parts, s.Name)
+		}
+		if m.depth == depthDevice {
+			parts = append(parts, "board for "+m.picker.action.Label)
 		}
 	}
 	return ansi.Truncate(strings.Join(parts, styleDim.Render(" › ")),

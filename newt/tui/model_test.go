@@ -20,8 +20,10 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -783,7 +785,409 @@ func TestSyscfgReadOnly(t *testing.T) {
 	}
 }
 
+func TestFlashTool(t *testing.T) {
+	installed := map[string]bool{"JLinkExe": true}
+	lookPath = func(prog string) (string, error) {
+		if installed[prog] {
+			return "/usr/bin/" + prog, nil
+		}
+		return "", io.EOF
+	}
+	defer func() { lookPath = exec.LookPath }()
+	defaultRunTool := runTool
+	runTool = func(stdin string, name string, args ...string) ([]byte,
+		error) {
+		if name == "/usr/bin/JLinkExe" && strings.Join(args, " ") ==
+			"-NoGui 1 -version" {
+			return []byte("SEGGER J-Link Commander V7.94e (Compiled Jan 1 " +
+				"2025)\nDLL version V7.94e\n\nUnknown command line " +
+				"option -version.\n"), errors.New("exit status 1")
+		}
+		return nil, errors.New("not here")
+	}
+	defer func() { runTool = defaultRunTool }()
+	toolVersions.Clear()
+	defer toolVersions.Clear()
+
+	saved := map[string]string{}
+	load := func() ([]*Category, error) {
+		cats := testCats()
+		e := cats[0].Entries[0]
+		e.Syscfg = func() (*BuildInfo, error) {
+			s := &Setting{Name: downloaderSetting, Value: "nrfutil",
+				Choices: []string{"jlink", "nrfutil", "bsp_downloader"},
+				History: []SettingPoint{{"default", ""},
+					{"bsp nordic_pca10056", "nrfutil"}}}
+			if v, ok := saved[downloaderSetting]; ok {
+				s.Value, s.Overridden = v, true
+				s.History = append(s.History, SettingPoint{"target", v})
+			}
+			return &BuildInfo{Settings: []*Setting{s,
+				{Name: "JLINK_TARGET", Value: "NRF52"}}}, nil
+		}
+		e.SetSyscfg = func(name string, value string, remove bool) error {
+			if remove {
+				delete(saved, name)
+			} else {
+				saved[name] = value
+			}
+			return nil
+		}
+		flash := downloaderField(e)
+		e.Fields = []*Field{flash}
+		e.Actions = []Action{{Key: "L", Label: "load",
+			Args:  []string{"load", e.FullName},
+			Check: func() error { return loadCheck(flash) }}}
+		return cats, nil
+	}
+
+	m := NewModel("proj", load)
+	m.newtCmd = func(steps [][]string, env []string) tea.ExecCommand { return fakeCmd{} }
+	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
+
+	// Loading with a missing tool explains what to do instead.
+	m = keys(t, m, "l", "L")
+	if !m.statusErr || !strings.Contains(m.status, "nrfutil is not installed") ||
+		!strings.Contains(m.status, "installed: jlink") {
+		t.Fatalf("status = %q", m.status)
+	}
+
+	m = keys(t, m, "l")
+	rows := m.fieldRows(m.Selected())
+	if !strings.Contains(rows[0].text, "nrfutil") ||
+		rows[0].hint != "not installed" {
+		t.Fatalf("flash row = %+v", rows[0])
+	}
+
+	// The choices start at the current tool and say what is installed.
+	m = keys(t, m, "l")
+	if o := m.option(); o == nil || o.FullName != "nrfutil" {
+		t.Fatalf("expected cursor on nrfutil, got %v", o)
+	}
+	// Only the Nordic tools are offered, in a fixed order.
+	names := []string{}
+	for _, o := range m.visibleOpts() {
+		names = append(names, o.Name)
+	}
+	if !reflect.DeepEqual(names, []string{"nrfutil", "jlink"}) {
+		t.Fatalf("choices = %v", names)
+	}
+	if o := m.visibleOpts()[1]; o.Hint != "7.94e" {
+		t.Errorf("jlink hint = %q", o.Hint)
+	}
+	if p := ansi.Strip(strings.Join(m.visibleOpts()[1].Preview(), "\n")); !strings.Contains(p, "JLINK_TARGET: NRF52") ||
+		!strings.Contains(p, "JLinkExe 7.94e (installed)") {
+		t.Errorf("jlink preview:\n%s", p)
+	}
+
+	m = keys(t, m, "j", "enter")
+	if saved[downloaderSetting] != "jlink" {
+		t.Fatalf("MYNEWT_DOWNLOADER = %q", saved[downloaderSetting])
+	}
+	if f := m.field(); f.Value != "jlink" || f.Hint != "7.94e" {
+		t.Fatalf("flash field = %q %q", f.Value, f.Hint)
+	}
+
+	// Now load runs.
+	m = keys(t, m, "h")
+	if cmd := m.run(m.Selected().Actions[0]); cmd == nil {
+		t.Fatalf("load should run with jlink installed: %q", m.status)
+	}
+
+	// "bsp default" removes the target's choice.
+	m = keys(t, m, "l", "l", "g", "g", "enter")
+	if _, ok := saved[downloaderSetting]; ok {
+		t.Fatalf("expected the override to be removed")
+	}
+	if !strings.Contains(m.status, "back to the default (nrfutil)") {
+		t.Errorf("status = %q", m.status)
+	}
+}
+
+func TestParseDevices(t *testing.T) {
+	out := `{"type":"task_begin","data":{"task":{"name":"list_devices"}}}
+{"type":"info","data":{"devices":[{"id":"1050099999","serialNumber":"001050099999","traits":{"jlink":true,"devkit":true},"devkit":{"boardVersion":"PCA10056","deviceFamily":"NRF52_FAMILY"},"jlink":{"deviceVersion":"NRF52840_xxAA_REV3"},"usb":{"device":{"product":"J-Link"}},"serialPorts":[{"comName":"/dev/ttyACM0"},{"path":"/dev/ttyACM1"}]},{"id":"683000001","serialNumber":"000683000001","traits":{"jlink":true}}]}}
+{"type":"task_end","data":{"devices":[]}}`
+
+	got := parseNrfutilDevices([]byte(out))
+	want := []Device{
+		{Serial: "000683000001", Source: "nrfutil"},
+		{Serial: "001050099999", Product: "J-Link", Board: "PCA10056",
+			Chip:  "NRF52840_xxAA_REV3",
+			Ports: []string{"/dev/ttyACM0", "/dev/ttyACM1"}, Source: "nrfutil"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseNrfutilDevices:\n%+v\nwant:\n%+v", got, want)
+	}
+
+	jl := "J-Link>ShowEmuList\n" +
+		"J-Link[0]: Connection: USB, Serial number: 1050099999, ProductName: J-Link OB-nRF5340-NordicSemi\n" +
+		"J-Link[1]: Connection: USB, Serial number: 683000001, ProductName: J-Link\n"
+	got = parseJLinkDevices([]byte(jl))
+	if len(got) != 2 || got[0].Serial != "1050099999" ||
+		got[0].Product != "J-Link OB-nRF5340-NordicSemi" {
+		t.Errorf("parseJLinkDevices: %+v", got)
+	}
+
+	// The serial format follows the tool.
+	if s := deviceSN("jlink", "001050099999"); s != "1050099999" {
+		t.Errorf("jlink SN = %q", s)
+	}
+	if s := deviceSN("nrfutil", "001050099999"); s != "001050099999" {
+		t.Errorf("nrfutil SN = %q", s)
+	}
+}
+
 // step sends a key and runs a returned command if it is a board scan.
+func step(t *testing.T, m Model, k string) Model {
+	t.Helper()
+	var msg tea.KeyMsg
+	switch k {
+	case "enter":
+		msg = tea.KeyMsg{Type: tea.KeyEnter}
+	case "esc":
+		msg = tea.KeyMsg{Type: tea.KeyEsc}
+	default:
+		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
+	}
+	next, cmd := m.Update(msg)
+	m = next.(Model)
+	if cmd != nil {
+		if found, ok := cmd().(devicesMsg); ok {
+			m = update(t, m, found)
+		}
+	}
+	return m
+}
+
+func TestDevicePicker(t *testing.T) {
+	saved := map[string]string{"MYNEWT_DEBUGGER_SN": "1050022222"}
+	boards := []Device{
+		{Serial: "001050011111", Board: "PCA10056", Source: "nrfutil"},
+		{Serial: "001050022222", Board: "PCA10040", Source: "nrfutil"},
+	}
+
+	load := func() ([]*Category, error) {
+		cats := testCats()
+		e := cats[0].Entries[0]
+		e.Actions = []Action{{Key: "L", Label: "load",
+			Args: []string{"load", e.FullName}, PickDevice: true}}
+		e.Syscfg = func() (*BuildInfo, error) {
+			return &BuildInfo{Settings: []*Setting{
+				{Name: downloaderSetting, Value: "jlink"},
+				{Name: deviceSetting, Value: saved[deviceSetting]},
+			}}, nil
+		}
+		e.SetSyscfg = func(name string, value string, remove bool) error {
+			saved[name] = value
+			return nil
+		}
+		flash := downloaderField(e)
+		e.Fields = []*Field{flash}
+		return cats, nil
+	}
+
+	ran := []string{}
+	m := NewModel("proj", load)
+	m.newtCmd = func(steps [][]string, env []string) tea.ExecCommand {
+		ran = append(ran, strings.Join(append(env, steps[0]...), " "))
+		return fakeCmd{}
+	}
+	m.findDevices = func() ([]Device, error) { return boards, nil }
+	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
+
+	// The picker starts on the target's default board.
+	m = step(t, m, "l")
+	m = step(t, m, "L")
+	if m.depth != depthDevice {
+		t.Fatalf("expected the board picker, depth %d", m.depth)
+	}
+	if d := m.pickedDevice(); d == nil || d.Board != "PCA10040" {
+		t.Fatalf("expected the default board, got %v", d)
+	}
+	if !strings.Contains(paneText(m), "load on this board") {
+		t.Errorf("help pane:\n%s", paneText(m))
+	}
+
+	// Enter runs on the chosen board; jlink gets the number without zeros.
+	m = step(t, m, "k")
+	m = step(t, m, "enter")
+	if len(ran) != 1 || ran[0] != "JLINK_SN=1050011111 load targets/blinky" {
+		t.Fatalf("ran %q", ran)
+	}
+	if m.depth != depthEntries {
+		t.Errorf("expected to return to the targets, depth %d", m.depth)
+	}
+
+	// s also makes it the default.
+	m = step(t, m, "L")
+	m = step(t, m, "k")
+	m = step(t, m, "s")
+	if saved[deviceSetting] != "1050011111" {
+		t.Errorf("default board = %q", saved[deviceSetting])
+	}
+
+	// "let the tool pick" runs without JLINK_SN.
+	m = step(t, m, "L")
+	m = step(t, m, "G")
+	m = step(t, m, "enter")
+	if last := ran[len(ran)-1]; last != "load targets/blinky" {
+		t.Errorf("ran %q", last)
+	}
+
+	// No boards: say so, and allow scanning again; Esc cancels.
+	boards = nil
+	m = step(t, m, "L")
+	if !m.statusErr || !strings.Contains(m.status, "no boards found") {
+		t.Errorf("status = %q", m.status)
+	}
+	boards = []Device{{Serial: "001050033333", Source: "nrfutil"}}
+	m = step(t, m, "r")
+	if len(m.picker.devices) != 1 {
+		t.Errorf("rescan found %d boards", len(m.picker.devices))
+	}
+	n := len(ran)
+	m = step(t, m, "esc")
+	if m.depth != depthEntries || len(ran) != n {
+		t.Errorf("Esc should cancel, depth %d", m.depth)
+	}
+}
+
+func TestParseChipInfo(t *testing.T) {
+	out := `{"type":"task_begin","data":{"task":{"name":"device_info"}}}
+{"type":"task_end","data":{"result":"success","data":{"devices":[{"serialNumber":"000683281753","deviceInfo":{"jlink":{"boardVersion":"PCA10056","deviceFamily":"NRF52_FAMILY","deviceVersion":"NRF52840_xxAA_REV2","jlinkObFirmwareVersion":"J-Link OB-SAM3U128-V2-NordicSemi compiled Nov  7 2022","serialNumber":"000683281753"},"hwInfo":{"romSize":1048576,"ramSize":262144,"romPageSize":4096}},"protectionStatus":"NRFDL_PROTECTION_STATUS_NONE"}]}}}`
+
+	got := parseChipInfo([]byte(out))
+	want := &ChipInfo{Version: "NRF52840_xxAA_REV2", Part: "NRF52840",
+		Variant: "xxAA", Revision: "2", Family: "NRF52", Board: "PCA10056",
+		ProbeFirmware: "J-Link OB-SAM3U128-V2-NordicSemi compiled Nov  7 2022",
+		Flash:         1 << 20, RAM: 256 << 10, Protection: "none"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseChipInfo:\n%+v\nwant:\n%+v", got, want)
+	}
+	if got.Protected() {
+		t.Errorf("chip should not be protected")
+	}
+
+	locked := parseChipInfo([]byte(
+		`{"type":"info","data":{"protectionStatus":"NRFDL_PROTECTION_STATUS_ALL"}}`))
+	if !locked.Protected() || locked.Protection != "readback protected" {
+		t.Errorf("protection = %q", locked.Protection)
+	}
+
+	for _, c := range []struct {
+		part, target string
+		ok           bool
+	}{
+		{"NRF52840", "nRF52840", true},
+		{"NRF52832", "nRF52840", false},
+		{"NRF5340", "nRF5340_app", true},
+		{"NRF52840", "", true},
+	} {
+		if got := chipMatches(c.part, c.target); got != c.ok {
+			t.Errorf("chipMatches(%q, %q) = %v", c.part, c.target, got)
+		}
+	}
+
+	errOut := `{"type":"task_end","data":{"result":"fail","error":{"code":4,"description":"Failed to open probe"}}}`
+	if msg := nrfutilError([]byte(errOut), io.EOF); msg != "Failed to open probe" {
+		t.Errorf("nrfutilError = %q", msg)
+	}
+}
+
+func TestDevicePickerChip(t *testing.T) {
+	boards := []Device{
+		{Serial: "000682222222", Board: "PCA10040", Source: "nrfutil"},
+		{Serial: "001050011111", Board: "PCA10056", Source: "nrfutil"},
+	}
+	chips := map[string]*ChipInfo{
+		"001050011111": {Part: "NRF52840", Revision: "3", Protection: "none"},
+		"000682222222": {Part: "NRF52832", Protection: "readback protected"},
+	}
+
+	load := func() ([]*Category, error) {
+		cats := testCats()
+		e := cats[0].Entries[0]
+		e.Actions = []Action{{Key: "L", Label: "load",
+			Args: []string{"load", e.FullName}, PickDevice: true}}
+		e.Syscfg = func() (*BuildInfo, error) {
+			return &BuildInfo{Settings: []*Setting{
+				{Name: downloaderSetting, Value: "nrfutil"},
+				{Name: "MCU_TARGET", Value: "nRF52840"},
+			}}, nil
+		}
+		e.Fields = []*Field{downloaderField(e)}
+		return cats, nil
+	}
+
+	ran := 0
+	m := NewModel("proj", load)
+	m.newtCmd = func(steps [][]string, env []string) tea.ExecCommand {
+		ran++
+		return fakeCmd{}
+	}
+	m.findDevices = func() ([]Device, error) { return boards, nil }
+	m.readChip = func(serial string) (*ChipInfo, error) {
+		return chips[serial], nil
+	}
+	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = step(t, m, "l")
+	m = step(t, m, "L")
+
+	// The chips are read after the scan.
+	for _, d := range boards {
+		info, _ := m.readChip(d.Serial)
+		m = update(t, m, chipMsg{d.Serial, info, nil})
+	}
+
+	// The first board has the wrong chip, and it is locked.
+	text := ansi.Strip(strings.Join(m.devicePreviewLines(), "\n"))
+	for _, want := range []string{"NRF52832", "built for nRF52840",
+		"will not run", "readback protected", "nrfutil device recover"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("preview missing %q:\n%s", want, text)
+		}
+	}
+
+	// Loading on the wrong chip asks first.
+	m = step(t, m, "enter")
+	if m.prompt == nil || !m.prompt.confirm || ran != 0 {
+		t.Fatalf("expected a confirmation, ran %d", ran)
+	}
+	m = step(t, m, "n")
+	if ran != 0 {
+		t.Fatalf("n should cancel")
+	}
+
+	// The matching board loads straight away.
+	m = step(t, m, "j")
+	text = ansi.Strip(strings.Join(m.devicePreviewLines(), "\n"))
+	if !strings.Contains(text, "matches this board") {
+		t.Errorf("preview:\n%s", text)
+	}
+	m = step(t, m, "enter")
+	if ran != 1 {
+		t.Fatalf("expected load to run, ran %d", ran)
+	}
+}
+
+func TestFlashToolOutsideList(t *testing.T) {
+	// A BSP that uses a tool outside the list still shows it.
+	e := &Entry{Name: "stm", FullName: "targets/stm"}
+	e.Syscfg = func() (*BuildInfo, error) {
+		return &BuildInfo{Settings: []*Setting{{Name: downloaderSetting,
+			Value:   "openocd",
+			Choices: []string{"jlink", "openocd", "nrfutil", "stflash"}}}}, nil
+	}
+	names := []string{}
+	for _, o := range downloaderField(e).OptionsFn() {
+		names = append(names, o.Name)
+	}
+	if !reflect.DeepEqual(names, []string{"nrfutil", "jlink", "openocd"}) {
+		t.Errorf("choices = %v", names)
+	}
+}
+
 func TestBluetoothPage(t *testing.T) {
 	m, _ := syscfgModel(t, false)
 	m = keys(t, m, "B")

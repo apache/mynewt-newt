@@ -60,6 +60,11 @@ type Action struct {
 	Key   string
 	Label string
 	Args  []string
+	// Optional check before running the command, e.g. that the flash tool
+	// is installed.
+	Check func() error
+	// Ask which connected board to use first.
+	PickDevice bool
 	// Question to confirm with y before running, if any.
 	Confirm string
 }
@@ -86,9 +91,29 @@ type Field struct {
 
 	// Preview of the field when it has no list of choices.
 	Preview func() []string
+	// Shown dimmed next to the value, e.g. "not installed".
+	Hint string
+	// Description of "l" on this field in the help pane.
+	Help string
+
+	// For fields that are not target.yml variables: the choices, and how a
+	// choice is saved.  An option with an empty FullName resets the field.
+	OptionsFn func() []*Entry
+	SetFn     func(value string) error
+
+	// Computes Value and Hint on first use, as that can be slow.
+	initFn func(f *Field)
+	inited bool
 
 	valuesFn func() []string
 	values   []string
+}
+
+func (f *Field) ensure() {
+	if !f.inited && f.initFn != nil {
+		f.inited = true
+		f.initFn(f)
+	}
 }
 
 // Values returns the choices of a KindValue field.
@@ -229,8 +254,10 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 			Actions: []Action{
 				{Key: "b", Label: "build", Args: []string{"build", full}},
 				{Key: "r", Label: "run", Args: []string{"run", full}},
-				{Key: "L", Label: "load", Args: []string{"load", full}},
-				{Key: "d", Label: "debug", Args: []string{"debug", full}},
+				{Key: "L", Label: "load", Args: []string{"load", full},
+					PickDevice: true},
+				{Key: "d", Label: "debug", Args: []string{"debug", full},
+					PickDevice: true},
 				{Key: "s", Label: "size", Args: []string{"size", full}},
 				{Key: "c", Label: "clean", Args: []string{"clean", full},
 					Confirm: "Delete the build output of " + short + "?"},
@@ -266,6 +293,14 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 				Value: t.BuildProfile, Kind: KindValue,
 				valuesFn: func() []string { return buildProfiles(proj, t) }},
 		}
+		flash := downloaderField(e)
+		e.Fields = append(e.Fields, flash)
+		for i := range e.Actions {
+			if e.Actions[i].Args[0] == "load" {
+				e.Actions[i].Check = func() error { return loadCheck(flash) }
+			}
+		}
+
 		// Loaders are only used for split images, which are rare; only
 		// offer the setting on targets that already use one.
 		if t.LoaderName != "" {
