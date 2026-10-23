@@ -21,12 +21,14 @@ package tui
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kballard/go-shellquote"
@@ -39,6 +41,10 @@ type execDoneMsg struct {
 	label  string
 	err    error
 	reload bool
+	// For newt commands: what ran on which target, and its output.
+	command string
+	target  string
+	output  string
 }
 
 // pausedCmd runs commands one after another on the normal terminal screen,
@@ -49,8 +55,17 @@ type pausedCmd struct {
 	cmds []*exec.Cmd
 	// Extra environment, shown in front of the command.
 	env []string
-	in  io.Reader
-	out io.Writer
+	// Copy of the command's output, for finding build errors.
+	output lockedBuffer
+	in     io.Reader
+	out    io.Writer
+	// Interactive commands, such as a gdb session, get the terminal itself:
+	// gdb's TUI mode, for one, refuses to start when its output is copied.
+	interactive bool
+}
+
+func (p *pausedCmd) setInteractive() {
+	p.interactive = true
 }
 
 func (p *pausedCmd) SetStdin(r io.Reader) {
@@ -63,14 +78,44 @@ func (p *pausedCmd) SetStdin(r io.Reader) {
 func (p *pausedCmd) SetStdout(w io.Writer) {
 	p.out = w
 	for _, c := range p.cmds {
-		c.Stdout = w
+		c.Stdout = p.writer(w)
 	}
 }
 
 func (p *pausedCmd) SetStderr(w io.Writer) {
 	for _, c := range p.cmds {
-		c.Stderr = w
+		c.Stderr = p.writer(w)
 	}
+}
+
+func (p *pausedCmd) writer(w io.Writer) io.Writer {
+	if p.interactive {
+		return w
+	}
+	return io.MultiWriter(w, &p.output)
+}
+
+// Output returns what the command printed.
+func (p *pausedCmd) Output() string {
+	return p.output.String()
+}
+
+// lockedBuffer collects output written from several goroutines.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func (p *pausedCmd) Run() error {
@@ -142,13 +187,13 @@ func userEditor() ([]string, error) {
 	return words, nil
 }
 
-// editorExec opens a file in the user's editor.
-func editorExec(path string) (*exec.Cmd, error) {
+// editorExec opens a file in the user's editor, at a line if line > 0.
+func editorExec(path string, line int) (*exec.Cmd, error) {
 	editor, err := userEditor()
 	if err != nil {
 		return nil, err
 	}
-	return exec.Command(editor[0], append(editor[1:], path)...), nil
+	return exec.Command(editor[0], editorArgs(editor, path, line)...), nil
 }
 
 // placeholderName is the project name that "newt new" writes to

@@ -65,6 +65,9 @@ type Action struct {
 	Check func() error
 	// Ask which connected board to use first.
 	PickDevice bool
+	// Gives the command the terminal itself, e.g. for gdb; its output is
+	// then not read for build errors.
+	Interactive bool
 	// Question to confirm with y before running, if any.
 	Confirm string
 }
@@ -253,11 +256,12 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 			Repo:     t.Package().Repo().Name(),
 			Actions: []Action{
 				{Key: "b", Label: "build", Args: []string{"build", full}},
-				{Key: "r", Label: "run", Args: []string{"run", full}},
+				{Key: "r", Label: "run", Args: []string{"run", full},
+					Interactive: true},
 				{Key: "L", Label: "load", Args: []string{"load", full},
 					PickDevice: true},
 				{Key: "d", Label: "debug", Args: []string{"debug", full},
-					PickDevice: true},
+					PickDevice: true, Interactive: true},
 				{Key: "s", Label: "size", Args: []string{"size", full}},
 				{Key: "c", Label: "clean", Args: []string{"clean", full},
 					Confirm: "Delete the build output of " + short + "?"},

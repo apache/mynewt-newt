@@ -69,6 +69,9 @@ func (m *Model) helpGroups() []helpGroup {
 		return []helpGroup{g}
 	}
 
+	if m.panel != nil {
+		return m.panelHelp()
+	}
 	if m.depth == depthDevice {
 		return m.devicePickerHelp()
 	}
@@ -140,6 +143,11 @@ func (m *Model) helpGroups() []helpGroup {
 		for _, a := range e.Actions {
 			run.add(a.Key, a.Label)
 		}
+		if issues, ok := m.issues[e.Name]; ok {
+			errs, warns := countIssues(issues)
+			run.add("E", fmt.Sprintf("last build: %s, %s",
+				plural(errs, "error"), plural(warns, "warning")))
+		}
 		groups = append(groups, run)
 	}
 
@@ -181,6 +189,7 @@ func (m *Model) helpGroups() []helpGroup {
 		}
 	}
 	other.add("R", "reload project")
+	other = m.jobHelp(other)
 	other.add("?", "hide this help")
 	other.add("q", "quit")
 	groups = append(groups, other)
@@ -407,7 +416,21 @@ func (m *Model) syscfgHelp() []helpGroup {
 func (m *Model) generalHelp() helpGroup {
 	g := helpGroup{title: "General", style: styleBold}
 	g.add("R", "reload project")
+	g = m.jobHelp(g)
 	g.add("?", "hide this help")
 	g.add("q", "quit")
+	return g
+}
+
+// jobHelp adds the keys of the output pane.
+func (m *Model) jobHelp(g helpGroup) helpGroup {
+	switch {
+	case m.jobRunning():
+		g.add("Ctrl-C", "stop "+m.job.label)
+	case m.job != nil && m.dockShown:
+		g.add("Esc", "hide the output")
+	case m.job != nil:
+		g.add("O", "show the last output")
+	}
 	return g
 }

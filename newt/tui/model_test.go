@@ -20,13 +20,16 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -58,12 +61,40 @@ func testCats() []*Category {
 	}
 }
 
+func init() {
+	// Never run real newt commands from the tests.
+	runSteps = func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error {
+		return nil
+	}
+}
+
+// settle finishes a background job, as the tea program would.
+func settle(t *testing.T, m Model) Model {
+	t.Helper()
+	for m.jobRunning() {
+		select {
+		case msg := <-m.jobCh:
+			next, _ := m.Update(msg)
+			m = next.(Model)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("job did not finish")
+		}
+	}
+	return m
+}
+
 func newTestModel(t *testing.T) (Model, *[][]string) {
 	ran := [][]string{}
 	m := NewModel("proj", func() ([]*Category, error) { return testCats(), nil })
 	m.newtCmd = func(steps [][]string, env []string) tea.ExecCommand {
 		ran = append(ran, steps[0])
 		return fakeCmd{}
+	}
+	m.runSteps = func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error {
+		ran = append(ran, steps[0])
+		return nil
 	}
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 	return m, &ran
@@ -72,9 +103,9 @@ func newTestModel(t *testing.T) (Model, *[][]string) {
 func update(t *testing.T, m Model, msg tea.Msg) Model {
 	t.Helper()
 	// Returned commands are run by the tea program, which these tests do not
-	// start; actions are recorded by the fake newtCmd instead.
+	// start; actions are recorded by the fake newtCmd and runSteps instead.
 	next, _ := m.Update(msg)
-	return next.(Model)
+	return settle(t, next.(Model))
 }
 
 func keys(t *testing.T, m Model, ks ...string) Model {
@@ -264,6 +295,11 @@ func TestFilter(t *testing.T) {
 		t.Errorf("selection after clearing the filter: %q", got)
 	}
 
+	// Ctrl-C does not quit.
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd != nil || !strings.Contains(next.(Model).status, "q quits") {
+		t.Errorf("Ctrl-C should not quit")
+	}
 }
 
 func TestFollowLinkAndBack(t *testing.T) {
@@ -437,6 +473,10 @@ func runOp(t *testing.T, m Model, ks ...string) Model {
 		}
 		next, cmd := m.Update(msg)
 		m = next.(Model)
+		if m.jobRunning() {
+			m = settle(t, m)
+			continue
+		}
 		if cmd != nil {
 			if done, ok := cmd().(opDoneMsg); ok {
 				m = update(t, m, done)
@@ -952,6 +992,9 @@ func step(t *testing.T, m Model, k string) Model {
 	}
 	next, cmd := m.Update(msg)
 	m = next.(Model)
+	if m.jobRunning() {
+		return settle(t, m)
+	}
 	if cmd != nil {
 		if found, ok := cmd().(devicesMsg); ok {
 			m = update(t, m, found)
@@ -992,6 +1035,11 @@ func TestDevicePicker(t *testing.T) {
 	m.newtCmd = func(steps [][]string, env []string) tea.ExecCommand {
 		ran = append(ran, strings.Join(append(env, steps[0]...), " "))
 		return fakeCmd{}
+	}
+	m.runSteps = func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error {
+		ran = append(ran, strings.Join(append(env, steps[0]...), " "))
+		return nil
 	}
 	m.findDevices = func() ([]Device, error) { return boards, nil }
 	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
@@ -1126,6 +1174,11 @@ func TestDevicePickerChip(t *testing.T) {
 		ran++
 		return fakeCmd{}
 	}
+	m.runSteps = func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error {
+		ran++
+		return nil
+	}
 	m.findDevices = func() ([]Device, error) { return boards, nil }
 	m.readChip = func(serial string) (*ChipInfo, error) {
 		return chips[serial], nil
@@ -1188,6 +1241,97 @@ func TestFlashToolOutsideList(t *testing.T) {
 	}
 }
 
+func TestParseBuildIssues(t *testing.T) {
+	out := `Warning: Following external repos are modified or missing, which might be causing build errors:
+[mbedtls]
+Compiling repos/apache-mynewt-nimble/apps/btshell/src/main.c
+Error: repos/apache-mynewt-nimble/apps/btshell/src/main.c: In function 'main':
+repos/apache-mynewt-nimble/apps/btshell/src/main.c:120:5: error: 'foo' undeclared (first use in this function)
+repos/apache-mynewt-nimble/apps/btshell/src/main.c:120:5: note: each undeclared identifier is reported only once
+apps/blinky/src/main.c:7:10: warning: unused variable 'x' [-Wunused-variable]
+apps/blinky/src/main.c:7:10: warning: unused variable 'x' [-Wunused-variable]
+/usr/lib/gcc/arm-none-eabi/14/../../../../arm-none-eabi/bin/ld: btshell.elf section ` + "`.text' will not fit in region `FLASH'" + `
+repos/x/src/a.c:33:(.text.f+0x6): undefined reference to ` + "`bar'" + `
+/usr/bin/arm-none-eabi-ld: warning: mynewt.elf has a LOAD segment with RWX permissions
+Error: Syscfg restriction violations detected`
+
+	got := parseBuildIssues(out)
+	want := []BuildIssue{
+		{Severity: "warning", Msg: "Following external repos are modified " +
+			"or missing, which might be causing build errors: mbedtls"},
+		{File: "repos/apache-mynewt-nimble/apps/btshell/src/main.c", Line: 120,
+			Col: 5, Severity: "error",
+			Msg: "'foo' undeclared (first use in this function)",
+			Notes: []string{"repos/apache-mynewt-nimble/apps/btshell/src/main.c:120: " +
+				"each undeclared identifier is reported only once"}},
+		{File: "apps/blinky/src/main.c", Line: 7, Col: 10, Severity: "warning",
+			Msg: "unused variable 'x' [-Wunused-variable]"},
+		{Severity: "error", Msg: "linker: btshell.elf section `.text' will " +
+			"not fit in region `FLASH'"},
+		{File: "repos/x/src/a.c", Line: 33, Severity: "error",
+			Msg: "undefined reference to `bar'"},
+		{Severity: "warning", Msg: "linker: mynewt.elf has a LOAD segment " +
+			"with RWX permissions"},
+		{Severity: "error", Msg: "Syscfg restriction violations detected"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseBuildIssues:\n%+v\nwant:\n%+v", got, want)
+	}
+
+	for _, c := range []struct {
+		editor []string
+		want   []string
+	}{
+		{[]string{"vim"}, []string{"+7", "a.c"}},
+		{[]string{"code", "--wait"}, []string{"--wait", "-g", "a.c:7"}},
+		{[]string{"/usr/bin/hx"}, []string{"a.c:7"}},
+	} {
+		if got := editorArgs(c.editor, "a.c", 7); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("editorArgs(%v) = %v", c.editor, got)
+		}
+	}
+}
+
+func TestBuildErrorsPanel(t *testing.T) {
+	m, _ := newTestModel(t)
+	out := "apps/blinky/src/main.c:3:1: error: expected ';' before '}' token\n" +
+		"apps/blinky/src/main.c:9:5: warning: unused variable 'y'\n"
+
+	// What runWith reports once the tea program has run the build.
+	m = keys(t, m, "l")
+	m = update(t, m, execDoneMsg{label: "newt build targets/blinky",
+		err: io.EOF, command: "build", target: "blinky", output: out})
+
+	if m.panel == nil || !strings.Contains(m.panel.title, "1 error, 1 warning") {
+		t.Fatalf("expected the errors panel, got %+v (%s)", m.panel, m.status)
+	}
+	if !strings.Contains(paneText(m), "open the file at this line") {
+		t.Errorf("help pane:\n%s", paneText(m))
+	}
+	if r := m.panelRow(); r != 0 {
+		t.Fatalf("cursor row = %d", r)
+	}
+
+	// h closes it; E reopens it from the target.
+	m = keys(t, m, "h")
+	if m.panel != nil {
+		t.Fatalf("h should close the panel")
+	}
+	m = keys(t, m, "E")
+	if m.panel == nil {
+		t.Fatalf("E should reopen the errors")
+	}
+	m = keys(t, m, "h")
+
+	// A successful build with warnings only reports them.
+	m = update(t, m, execDoneMsg{label: "newt build targets/blinky",
+		command: "build", target: "blinky",
+		output: "apps/blinky/src/main.c:9:5: warning: unused variable 'y'\n"})
+	if m.panel != nil || !strings.Contains(m.status, "1 warning (E to see them)") {
+		t.Errorf("status = %q", m.status)
+	}
+}
+
 func TestBluetoothPage(t *testing.T) {
 	m, _ := syscfgModel(t, false)
 	m = keys(t, m, "B")
@@ -1214,6 +1358,49 @@ func TestBluetoothPage(t *testing.T) {
 	p := ansi.Strip(strings.Join(settingPreview(m.setting(), nil), "\n"))
 	if !strings.Contains(p, "Bluetooth › Roles") {
 		t.Errorf("preview:\n%s", p)
+	}
+}
+
+type interactiveRecorder struct {
+	fakeCmd
+	interactive *bool
+}
+
+func (r interactiveRecorder) setInteractive() { *r.interactive = true }
+
+func TestInteractiveCommands(t *testing.T) {
+	// A copied output is not a terminal; gdb needs the terminal itself.
+	term := os.Stdout
+	p := newtExec([][]string{{"debug", "t"}}, nil).(*pausedCmd)
+	p.setInteractive()
+	p.SetStdout(term)
+	p.SetStderr(term)
+	if p.cmds[0].Stdout != term || p.cmds[0].Stderr != term {
+		t.Errorf("an interactive command should get the terminal")
+	}
+	p = newtExec([][]string{{"build", "t"}}, nil).(*pausedCmd)
+	p.SetStdout(term)
+	if p.cmds[0].Stdout == term {
+		t.Errorf("build output should be copied for finding errors")
+	}
+
+	// Debug and run are interactive, build is not.
+	m, _ := newTestModel(t)
+	for _, c := range []struct {
+		a    Action
+		want bool
+	}{
+		{Action{Args: []string{"debug", "t"}, Interactive: true}, true},
+		{Action{Args: []string{"build", "t"}}, false},
+	} {
+		got := false
+		m.newtCmd = func(steps [][]string, env []string) tea.ExecCommand {
+			return interactiveRecorder{interactive: &got}
+		}
+		m.runWith(c.a, nil)
+		if got != c.want {
+			t.Errorf("%v: interactive = %v", c.a.Args, got)
+		}
 	}
 }
 
@@ -1259,5 +1446,79 @@ func TestCleanAsksFirst(t *testing.T) {
 	m = keys(t, m, "c", "y")
 	if len(*ran) != 1 || (*ran)[0][0] != "clean" {
 		t.Fatalf("y should clean, ran %v", *ran)
+	}
+}
+
+func TestJobOutputPane(t *testing.T) {
+	m, _ := newTestModel(t)
+	m = keys(t, m, "l")
+
+	written := make(chan struct{})
+	m.runSteps = func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error {
+		io.WriteString(out, "$ newt build targets/blinky\nCompiling main.c\n")
+		io.WriteString(out, "progress 10%\rprogress 50%")
+		close(written)
+		<-ctx.Done()
+		return io.ErrUnexpectedEOF
+	}
+
+	full := m.listHeight()
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	m = next.(Model)
+	<-written
+	if !m.jobRunning() || m.listHeight() >= full {
+		t.Fatalf("expected a running job with its pane")
+	}
+	dock := ansi.Strip(strings.Join(m.dockView(m.width, m.dockHeight()), "\n"))
+	for _, want := range []string{"newt build targets/blinky", "Compiling main.c",
+		"progress 50%", "running", "Ctrl-C stops it"} {
+		if !strings.Contains(dock, want) {
+			t.Errorf("pane missing %q:\n%s", want, dock)
+		}
+	}
+	if strings.Contains(dock, "progress 10%") {
+		t.Errorf("a carriage return should replace the line:\n%s", dock)
+	}
+	if !strings.Contains(paneText(m), "stop newt build") {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+
+	// The browser stays usable, but another job has to wait.
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	m = next.(Model)
+	if !strings.Contains(m.status, "wait for newt build") {
+		t.Errorf("status = %q", m.status)
+	}
+
+	// q asks first while a job runs.
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	m = next.(Model)
+	if m.prompt == nil || !strings.Contains(m.prompt.label, "and quit?") {
+		t.Fatalf("q should ask, prompt %+v", m.prompt)
+	}
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m = next.(Model)
+
+	// Ctrl-C stops the job instead of quitting.
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = next.(Model)
+	if cmd != nil {
+		t.Fatalf("Ctrl-C should not quit while a job runs")
+	}
+	m = settle(t, m)
+	if !m.statusErr || !strings.Contains(ansi.Strip(strings.Join(m.dockView(m.width, m.dockHeight()),
+		"\n")), "stopped") {
+		t.Errorf("status %q", m.status)
+	}
+
+	// Esc hides the finished output, O shows it again.
+	m = keys(t, m, "esc")
+	if m.dockHeight() != 0 || len(m.bottomView()) != 0 {
+		t.Errorf("Esc should hide the pane")
+	}
+	m = keys(t, m, "O")
+	if m.dockHeight() == 0 {
+		t.Errorf("O should show the pane")
 	}
 }

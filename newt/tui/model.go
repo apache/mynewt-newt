@@ -28,7 +28,9 @@
 package tui
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -88,6 +90,10 @@ type Model struct {
 
 	// Board picker.
 	picker devicePicker
+	// Full screen list shown on top of the browser, if any.
+	panel *panel
+	// Errors and warnings of the last build of each target.
+	issues map[string][]BuildIssue
 	// Find connected boards and read their chips; replaced in tests.
 	findDevices func() ([]Device, error)
 	readChip    func(serial string) (*ChipInfo, error)
@@ -109,10 +115,19 @@ type Model struct {
 	width  int
 	height int
 
+	// The background job, if any, and its output pane.
+	job        *job
+	jobSeq     int
+	jobCh      chan tea.Msg
+	jobPartial func() string
+	dockShown  bool
+
 	// Run the newt binary in the foreground / background; replaced in
 	// tests.
-	newtCmd func(steps [][]string, env []string) tea.ExecCommand
-	newtRun func(args []string) (string, error)
+	newtCmd  func(steps [][]string, env []string) tea.ExecCommand
+	newtRun  func(args []string) (string, error)
+	runSteps func(ctx context.Context, steps [][]string, env []string,
+		out io.Writer) error
 }
 
 func NewModel(title string, load LoadFunc) Model {
@@ -121,6 +136,7 @@ func NewModel(title string, load LoadFunc) Model {
 		load:        load,
 		newtCmd:     newtExec,
 		newtRun:     newtOutput,
+		runSteps:    runSteps,
 		findDevices: findDevices,
 		readChip:    readChipInfo,
 	}
@@ -285,6 +301,9 @@ func indexOf(entries []*Entry, fullName string) int {
 }
 
 func (m *Model) current() (*list, int) {
+	if m.panel != nil {
+		return &m.panel.list, m.panelLen()
+	}
 	switch m.depth {
 	case depthCategories:
 		return &m.catList, len(m.cats)
@@ -308,6 +327,9 @@ func (m *Model) current() (*list, int) {
 
 // filterable returns the list that "/" filters at the current level.
 func (m *Model) filterable() *list {
+	if m.panel != nil {
+		return &m.panel.list
+	}
 	switch m.depth {
 	case depthEntries:
 		return &m.entList[m.catList.cursor]
@@ -321,7 +343,7 @@ func (m *Model) filterable() *list {
 }
 
 func (m *Model) listHeight() int {
-	return max(m.height-2-len(m.helpPane()), 1)
+	return max(m.height-2-len(m.helpPane())-m.dockHeight(), 1)
 }
 
 // fix clamps all cursors and scrolls the current column so that the cursor
@@ -366,6 +388,9 @@ func (m *Model) fix() {
 		m.depth = depthEntries
 	}
 	clamp(&m.picker.list, len(m.picker.devices)+1)
+	if m.panel != nil {
+		clamp(&m.panel.list, m.panelLen())
+	}
 }
 
 // parentDepth is the level "h" goes back to.
@@ -509,9 +534,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.reload {
 			m.reload()
 		}
+		m.commandDone(msg)
 
 	case opDoneMsg:
 		m.opDone(msg)
+
+	case jobOutputMsg, jobDoneMsg:
+		cmd = m.jobMsg(msg)
 
 	case devicesMsg:
 		cmd = m.devicesFound(msg)
@@ -588,6 +617,9 @@ func (m *Model) key(k string) tea.Cmd {
 		return m.prefixKey(prefix + k)
 	}
 
+	if cmd, ok := m.panelKeyPressed(k); ok {
+		return cmd
+	}
 	if cmd, ok := m.targetKey(k); ok {
 		return cmd
 	}
@@ -602,8 +634,20 @@ func (m *Model) key(k string) tea.Cmd {
 	half := max(m.listHeight()/2, 1)
 
 	switch k {
-	case "q", "ctrl+c":
-		return tea.Quit
+	case "q":
+		return m.quit()
+	case "ctrl+c":
+		// Ctrl-C stops a running job; it never quits, so that pressing it
+		// just after a build has finished does no harm.
+		if m.jobRunning() {
+			m.stopJob()
+		} else {
+			m.setStatus("nothing to stop; q quits")
+		}
+	case "O":
+		if m.job != nil {
+			m.dockShown = !m.dockShown
+		}
 	case "?":
 		m.helpHidden = !m.helpHidden
 	case "j", "down":
@@ -645,12 +689,18 @@ func (m *Model) key(k string) tea.Cmd {
 	case "esc":
 		if l := m.filterable(); l != nil && l.filter != "" {
 			m.clearFilter(l)
+		} else if m.dockShown && m.job != nil && !m.job.running {
+			m.dockShown = false
 		}
 		m.status = ""
 	case ".":
 		m.toggleForeign()
 	case "e":
 		return m.edit()
+	case "E":
+		if m.depth < depthOptions {
+			m.showIssues()
+		}
 	case "R":
 		if m.reload() {
 			m.setStatus("reloaded")
@@ -814,10 +864,83 @@ func (m *Model) run(a Action) tea.Cmd {
 func (m *Model) runWith(a Action, env []string) tea.Cmd {
 	label := strings.Join(append(append([]string{}, env...), "newt"), " ") +
 		" " + strings.Join(a.Args, " ")
-	return tea.Exec(m.newtCmd([][]string{a.Args}, env),
-		func(err error) tea.Msg {
-			return execDoneMsg{label: label, err: err}
-		})
+	target := ""
+	if e := m.Selected(); e != nil {
+		target = e.Name
+	}
+
+	steps := [][]string{a.Args}
+	// Interactive commands (gdb) need the terminal; the others run in the
+	// background with their output in a pane.
+	if !a.Interactive {
+		return m.startJob(a, steps, env, label)
+	}
+	ec := m.newtCmd(steps, env)
+	if i, ok := ec.(interface{ setInteractive() }); ok {
+		i.setInteractive()
+	}
+	return tea.Exec(ec, func(err error) tea.Msg {
+		out := ""
+		if o, ok := ec.(interface{ Output() string }); ok {
+			out = o.Output()
+		}
+		return execDoneMsg{label: label, err: err, command: a.Args[0],
+			target: target, output: out}
+	})
+}
+
+// commandDone looks for errors and warnings in the output of a newt
+// command.  A failed build opens the list of errors.
+func (m *Model) commandDone(msg execDoneMsg) {
+	if msg.command == "" {
+		return
+	}
+	issues := parseBuildIssues(msg.output)
+	errs, warns := countIssues(issues)
+
+	// The output of "run" is not read, as it ends in a gdb session.
+	if msg.command == "build" {
+		if m.issues == nil {
+			m.issues = map[string][]BuildIssue{}
+		}
+		m.issues[msg.target] = issues
+	}
+
+	switch {
+	case msg.err != nil && errs > 0:
+		first := issues[0]
+		for _, b := range issues {
+			if b.Severity == "error" {
+				first = b
+				break
+			}
+		}
+		if first.File != "" || errs > 1 || warns > 0 {
+			m.openPanel(m.issuesPanel(msg.target, issues))
+			m.setError(fmt.Sprintf("%s failed: %s", msg.label,
+				plural(errs, "error")))
+		} else {
+			m.setError(msg.label + ": " + first.Msg)
+		}
+	case msg.err == nil && warns > 0:
+		m.setStatus(fmt.Sprintf("%s: done, %s (E to see them)", msg.label,
+			plural(warns, "warning")))
+	}
+}
+
+// showIssues opens the errors and warnings of the target's last build.
+func (m *Model) showIssues() {
+	e := m.Selected()
+	if e == nil || e.Kind != KindTarget {
+		return
+	}
+	issues, ok := m.issues[e.Name]
+	if !ok {
+		m.setStatus("no build of " + e.Name + " in this session yet; " +
+			"press b to build")
+		return
+	}
+	m.openPanel(m.issuesPanel(e.Name, issues))
 }
 
 func (m *Model) edit() tea.Cmd {
@@ -825,7 +948,7 @@ func (m *Model) edit() tea.Cmd {
 	if e == nil || e.EditPath == "" {
 		return nil
 	}
-	c, err := editorExec(e.EditPath)
+	c, err := editorExec(e.EditPath, 0)
 	if err != nil {
 		m.setError(err.Error())
 		return nil
@@ -1103,8 +1226,14 @@ func (m Model) View() string {
 	sep = styleSep.Render(sep)
 	body := joinColumns(column(left, w1, h), sep, column(mid, w2, h), sep,
 		column(right, w3, h))
+	if m.panel != nil {
+		body = m.panelView(h)
+	}
 
 	out := m.titleBar() + "\n" + body + "\n"
+	if dock := m.bottomView(); dock != nil {
+		out += strings.Join(dock, "\n") + "\n"
+	}
 	if pane := m.helpPane(); pane != nil {
 		out += strings.Join(pane, "\n") + "\n"
 	}
@@ -1121,6 +1250,14 @@ func (m *Model) titleBar() string {
 		name += styleDim.Render(" (" + m.note + ")")
 	}
 	parts := []string{stylePath.Render("newt") + " " + name}
+	if m.panel != nil {
+		if e := m.Selected(); e != nil {
+			parts = append(parts, kindStyle(e.Kind).Bold(true).Render(e.Name))
+		}
+		parts = append(parts, m.panel.title)
+		return ansi.Truncate(strings.Join(parts, styleDim.Render(" › ")),
+			m.width, "…")
+	}
 	ci := m.catList.cursor
 	if ci < len(m.cats) {
 		parts = append(parts, m.cats[ci].Title)
@@ -1186,4 +1323,14 @@ func (m *Model) clearFilter(l *list) {
 	if sel != nil && m.depth == depthEntries {
 		m.selectEntry(m.catList.cursor, sel.FullName)
 	}
+}
+
+// bottomView draws the pane at the bottom of the screen: the output of the
+// last command.
+func (m *Model) bottomView() []string {
+	h := m.dockHeight()
+	if h == 0 {
+		return nil
+	}
+	return m.dockView(m.width, h)
 }
