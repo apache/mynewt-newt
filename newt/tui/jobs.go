@@ -271,6 +271,7 @@ func (m *Model) stopJob() {
 // quit leaves the browser, after asking to stop a running job.
 func (m *Model) quit() tea.Cmd {
 	if !m.jobRunning() {
+		m.closeConsole()
 		return tea.Quit
 	}
 	j := m.job
@@ -278,6 +279,7 @@ func (m *Model) quit() tea.Cmd {
 		label: "Stop " + j.label + " and quit? (y/N) ",
 		done: func(m *Model, _ string) tea.Cmd {
 			j.cancel()
+			m.closeConsole()
 			return func() tea.Msg {
 				select {
 				case <-j.finished:
@@ -289,13 +291,18 @@ func (m *Model) quit() tea.Cmd {
 	return nil
 }
 
-// dockHeight is the number of rows of the output pane at the bottom of the
-// screen, or 0.
+// dockHeight is the number of rows of the panes at the bottom of the
+// screen (the output pane and the console), or 0.
 func (m *Model) dockHeight() int {
-	if m.job == nil || !m.dockShown || m.height < 14 {
+	jobShown := m.job != nil && m.dockShown
+	switch {
+	case m.height < 14 || (!jobShown && m.console == nil):
 		return 0
+	case m.console != nil:
+		return max(min(m.height*2/5, 20), 6)
+	default:
+		return max(min(m.height/3, 16), 5)
 	}
-	return max(min(m.height/3, 16), 5)
 }
 
 // dockView draws the output pane: a title line and the last lines of

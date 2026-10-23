@@ -63,6 +63,8 @@ type Action struct {
 	Check func() error
 	// Ask which connected board to use first.
 	PickDevice bool
+	// Opens the board's console instead of running newt.
+	Console bool
 	// Several newt commands to run one after another, instead of Args.
 	Steps [][]string
 	// Gives the command the terminal itself, e.g. for gdb; its output is
@@ -279,6 +281,8 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 					PickDevice: true},
 				{Key: "d", Label: "debug", Args: []string{"debug", full},
 					PickDevice: true, Interactive: true},
+				{Key: "C", Label: "console", Args: []string{"console"},
+					PickDevice: true, Console: true},
 				{Key: "s", Label: "size", Args: []string{"size", full}},
 				{Key: "c", Label: "clean", Args: []string{"clean", full},
 					Confirm: "Delete the build output of " + short + "?"},

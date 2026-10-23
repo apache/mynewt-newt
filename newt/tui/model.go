@@ -97,6 +97,7 @@ type Model struct {
 	// Find connected boards and read their chips; replaced in tests.
 	findDevices func() ([]Device, error)
 	readChip    func(serial string) (*ChipInfo, error)
+	openPort    func(path string, baud int) (io.ReadWriteCloser, error)
 
 	// Per category: hide entries from foreign repos.
 	hideForeign []bool
@@ -114,6 +115,14 @@ type Model struct {
 
 	width  int
 	height int
+
+	// The board's console, if open, and what is being typed in it.
+	console        *consoleSession
+	consoleFocus   bool
+	consoleInput   string
+	consoleBack    int
+	consoleHistory []string
+	consoleHistIdx int
 
 	// The background job, if any, and its output pane.
 	job        *job
@@ -139,6 +148,7 @@ func NewModel(title string, load LoadFunc) Model {
 		runSteps:    runSteps,
 		findDevices: findDevices,
 		readChip:    readChipInfo,
+		openPort:    openSerialPort,
 	}
 	m.reload()
 	return m
@@ -542,6 +552,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case jobOutputMsg, jobDoneMsg:
 		cmd = m.jobMsg(msg)
 
+	case consoleTickMsg:
+		cmd = m.consoleTick(msg)
+
 	case devicesMsg:
 		cmd = m.devicesFound(msg)
 
@@ -552,7 +565,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sizeDone(msg)
 
 	case tea.KeyMsg:
-		if m.prompt != nil {
+		if m.consoleFocus && m.console != nil && m.prompt == nil {
+			cmd = m.consoleKey(msg)
+		} else if m.prompt != nil {
 			cmd = m.promptKey(msg)
 		} else if m.filtering {
 			m.filterKey(msg)
@@ -650,6 +665,10 @@ func (m *Model) key(k string) tea.Cmd {
 	case "O":
 		if m.job != nil {
 			m.dockShown = !m.dockShown
+		}
+	case "ctrl+]":
+		if m.console != nil {
+			m.closeConsole()
 		}
 	case "?":
 		m.helpHidden = !m.helpHidden
@@ -842,6 +861,11 @@ func (m *Model) choose() {
 }
 
 func (m *Model) run(a Action) tea.Cmd {
+	// An open console is focused instead of opening another one.
+	if a.Console && m.console != nil {
+		m.consoleFocus = true
+		return nil
+	}
 	if a.Confirm != "" {
 		m.prompt = &prompt{confirm: true, label: a.Confirm + " (y/N) ",
 			done: func(m *Model, _ string) tea.Cmd {
@@ -1344,12 +1368,25 @@ func (m *Model) clearFilter(l *list) {
 	}
 }
 
-// bottomView draws the pane at the bottom of the screen: the output of the
-// last command.
+// bottomView draws the panes at the bottom of the screen: the output of
+// the last command and the console, side by side when both are open.
 func (m *Model) bottomView() []string {
 	h := m.dockHeight()
 	if h == 0 {
 		return nil
 	}
-	return m.dockView(m.width, h)
+	jobShown := m.job != nil && m.dockShown
+	switch {
+	case jobShown && m.console != nil:
+		w1 := (m.width - 1) / 2
+		w2 := m.width - 1 - w1
+		sep := styleSep.Render(column(strings.Split(strings.Repeat("│\n", h),
+			"\n")[:h], 1, h))
+		return strings.Split(joinColumns(column(m.dockView(w1, h), w1, h), sep,
+			column(m.consoleView(w2, h), w2, h)), "\n")
+	case m.console != nil:
+		return m.consoleView(m.width, h)
+	default:
+		return m.dockView(m.width, h)
+	}
 }

@@ -50,6 +50,16 @@ func (m *Model) helpGroups() []helpGroup {
 		g.add("other", "no, cancel")
 		return []helpGroup{g}
 	}
+	if m.consoleFocus && m.console != nil && m.prompt == nil {
+		g := helpGroup{title: "Console " + m.console.name,
+			style: kindStyle(KindTarget).Bold(true)}
+		g.add("type", "a command for the board, Enter sends it")
+		g.add("↑/↓", "earlier commands")
+		g.add("PgUp/PgDn", "scroll the output")
+		g.add("Esc", "back to the browser (the console stays open)")
+		g.add("Ctrl-]", "close the console")
+		return []helpGroup{g}
+	}
 	if m.prompt != nil && m.prompt.help != nil {
 		return []helpGroup{{title: m.prompt.title, style: styleBold,
 			keys: m.prompt.help}}
@@ -422,8 +432,12 @@ func (m *Model) generalHelp() helpGroup {
 	return g
 }
 
-// jobHelp adds the keys of the output pane.
+// jobHelp adds the keys of the output pane and the console.
 func (m *Model) jobHelp(g helpGroup) helpGroup {
+	if m.console != nil {
+		g.add("C", "type in the console")
+		g.add("Ctrl-]", "close the console")
+	}
 	switch {
 	case m.jobRunning():
 		g.add("Ctrl-C", "stop "+m.job.label)

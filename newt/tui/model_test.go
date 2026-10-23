@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1382,6 +1383,47 @@ objsize
 	}
 }
 
+func TestConsoleTransport(t *testing.T) {
+	settings := map[string]string{}
+	load := func() ([]*Category, error) {
+		cats := testCats()
+		e := cats[0].Entries[0]
+		e.Syscfg = func() (*BuildInfo, error) {
+			info := &BuildInfo{}
+			for k, v := range settings {
+				info.Settings = append(info.Settings, &Setting{Name: k, Value: v})
+			}
+			return info, nil
+		}
+		return cats, nil
+	}
+	m := NewModel("proj", load)
+	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = keys(t, m, "l")
+
+	board := &Device{Serial: "1", Ports: []string{"/dev/ttyACM3"}}
+
+	settings["CONSOLE_UART"] = "1"
+	settings["CONSOLE_UART_BAUD"] = "1000000"
+	if got := m.consoleDescription(board); got !=
+		"serial console on /dev/ttyACM3 at 1000000 baud" {
+		t.Errorf("uart: %q", got)
+	}
+
+	settings["CONSOLE_UART"] = "0"
+	settings["CONSOLE_RTT"] = "1"
+	m.reload()
+	if got := m.consoleDescription(board); got != "RTT console through J-Link" {
+		t.Errorf("rtt: %q", got)
+	}
+
+	settings["CONSOLE_RTT"] = "0"
+	m.reload()
+	if got := m.consoleDescription(board); !strings.Contains(got, "no console") {
+		t.Errorf("none: %q", got)
+	}
+}
+
 func TestBluetoothPage(t *testing.T) {
 	m, _ := syscfgModel(t, false)
 	m = keys(t, m, "B")
@@ -1697,5 +1739,94 @@ func TestImageChooser(t *testing.T) {
 	m = keys(t, m, "L", "G", "k", "x", "y")
 	if _, err := os.Stat(e.ImagesDir + "/blinky-1.0.0.0.img"); err == nil {
 		t.Errorf("the image should be deleted")
+	}
+}
+
+func TestConsoleOutput(t *testing.T) {
+	s := &consoleSession{}
+	// Colors are dropped, CR LF ends a line, a lone CR starts it over and a
+	// backspace removes a character, as a terminal shows them.
+	s.write([]byte("\x1b[1;32mok\x1b[0m\r\nprogress 10%\rprogress 99%\r\n"))
+	s.write([]byte("btshell> scam\bn"))
+	got := s.view(10, 0)
+	want := []string{"ok", "progress 99%", "btshell> scan"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("view = %q, want %q", got, want)
+	}
+
+	// Scrolling back shows earlier lines.
+	for i := 0; i < 20; i++ {
+		s.write([]byte(fmt.Sprintf("line %d\n", i)))
+	}
+	if v := s.view(2, 5); !reflect.DeepEqual(v, []string{"line 14", "line 15"}) {
+		t.Errorf("scrolled view = %q", v)
+	}
+}
+
+type fakeConn struct {
+	mu   sync.Mutex
+	sent []string
+}
+
+func (c *fakeConn) Read(p []byte) (int, error) { select {} }
+func (c *fakeConn) Close() error               { return nil }
+func (c *fakeConn) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sent = append(c.sent, string(p))
+	return len(p), nil
+}
+
+func TestConsolePane(t *testing.T) {
+	m, _ := newTestModel(t)
+	m = keys(t, m, "l")
+	conn := &fakeConn{}
+	m.console = &consoleSession{conn: conn, name: "/dev/ttyACM0 at 115200 baud"}
+	m.consoleFocus = true
+	m.console.write([]byte("btshell> \n"))
+
+	full := m.height
+	if m.dockHeight() == 0 || m.listHeight() >= full-2 {
+		t.Fatalf("the console should take the bottom of the screen")
+	}
+	if !strings.Contains(paneText(m), "Enter sends it") {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+
+	// Typing goes to the console, including keys the browser would use.
+	m = keys(t, m, "scan j")
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m = keys(t, m, "help")
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	if !reflect.DeepEqual(conn.sent, []string{"scan j\r", "help\r"}) {
+		t.Fatalf("sent %q", conn.sent)
+	}
+	if got := selectedName(m); got != "targets/blinky" {
+		t.Errorf("j moved the browser: %q", got)
+	}
+
+	// Up recalls earlier commands.
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyUp})
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyUp})
+	if m.consoleInput != "scan j" {
+		t.Errorf("history: %q", m.consoleInput)
+	}
+
+	// Esc goes back to the browser and leaves the console open; C focuses
+	// it again; Ctrl-] closes it.
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+	m = keys(t, m, "j")
+	if m.consoleFocus || m.console == nil || selectedName(m) != "targets/boot" {
+		t.Fatalf("Esc should leave the console open and unfocused")
+	}
+	m.cats[0].Entries[1].Actions = []Action{{Key: "C", Label: "console",
+		Args: []string{"console"}, PickDevice: true, Console: true}}
+	m = keys(t, m, "C")
+	if !m.consoleFocus {
+		t.Errorf("C should focus the open console")
+	}
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
+	if m.console != nil || m.dockHeight() != 0 {
+		t.Errorf("Ctrl-] should close the console")
 	}
 }

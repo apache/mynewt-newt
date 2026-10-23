@@ -38,6 +38,8 @@ type devicePicker struct {
 	list        list
 	// Chip details by serial number, filled in after the scan.
 	chips map[string]*chipState
+	// For the console: which of a board's serial ports to use.
+	portIdx map[string]int
 }
 
 type chipState struct {
@@ -134,7 +136,7 @@ func (m *Model) scanDevices() tea.Cmd {
 
 func (m *Model) openDevicePicker(a Action) tea.Cmd {
 	m.picker = devicePicker{action: a, returnDepth: m.depth,
-		chips: map[string]*chipState{}}
+		chips: map[string]*chipState{}, portIdx: map[string]int{}}
 	m.depth = depthDevice
 	return m.scanDevices()
 }
@@ -225,7 +227,7 @@ func (m *Model) deviceEnv(d *Device) []string {
 // if the board's chip does not match the target.
 func (m *Model) pickDevice(save bool) tea.Cmd {
 	d := m.pickedDevice()
-	if why := m.chipMismatch(d); why != "" {
+	if why := m.chipMismatch(d); why != "" && !m.picker.action.Console {
 		m.prompt = &prompt{confirm: true,
 			label: why + "; " + m.picker.action.Label + " anyway? (y/N) ",
 			done: func(m *Model, _ string) tea.Cmd {
@@ -259,6 +261,9 @@ func (m *Model) runOnDevice(save bool) tea.Cmd {
 	}
 
 	m.depth = p.returnDepth
+	if p.action.Console {
+		return m.openConsole(d)
+	}
 	return m.runWith(p.action, env)
 }
 
@@ -283,6 +288,14 @@ func (m *Model) deviceKey(k string) (tea.Cmd, bool) {
 	case "r":
 		m.setStatus("looking for boards...")
 		return m.scanDevices(), true
+	case "p":
+		if d := m.pickedDevice(); d != nil && len(d.Ports) > 1 &&
+			m.picker.action.Console {
+			m.picker.portIdx[d.Serial]++
+			port, _ := m.consolePort(d)
+			m.setStatus("console port: " + port)
+		}
+		return nil, true
 	case "esc":
 		m.depth = m.picker.returnDepth
 		m.setStatus("cancelled")
@@ -324,8 +337,15 @@ func (m *Model) devicePreviewLines() []string {
 	if m.picker.scanning {
 		return []string{styleDim.Render("Looking for connected boards...")}
 	}
+	if m.picker.action.Console {
+		cmd = m.consoleDescription(m.pickedDevice())
+	}
 	if d := m.pickedDevice(); d != nil {
-		lines := devicePreview(*d, strings.Join(m.deviceEnv(d), " ")+" "+cmd)
+		runs := strings.Join(m.deviceEnv(d), " ") + " " + cmd
+		if m.picker.action.Console {
+			runs = cmd
+		}
+		lines := devicePreview(*d, runs)
 		lines = append(lines, m.chipPreview(d)...)
 		return append(lines, m.debugNote()...)
 	}
@@ -360,6 +380,11 @@ func (m *Model) devicePickerHelp() []helpGroup {
 		} else {
 			g.add("Enter", verb+" and let the tool pick the board")
 		}
+	}
+	if d := m.pickedDevice(); d != nil && len(d.Ports) > 1 &&
+		m.picker.action.Console {
+		g.add("p", fmt.Sprintf("use the board's next serial port (%d)",
+			len(d.Ports)))
 	}
 	g.add("r", "scan for boards again")
 	g.add("h/Esc", "cancel")
