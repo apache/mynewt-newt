@@ -200,6 +200,7 @@ func (m *Model) helpGroups() []helpGroup {
 	}
 	other.add("R", "reload project")
 	other = m.jobHelp(other)
+	other.add("V", "editor: "+m.editorName())
 	other.add("?", "hide this help")
 	other.add("q", "quit")
 	groups = append(groups, other)

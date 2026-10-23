@@ -171,9 +171,13 @@ func newtOutput(args []string) (string, error) {
 	return string(out), err
 }
 
-// userEditor returns the editor command: $VISUAL, $EDITOR or vi.
-func userEditor() ([]string, error) {
-	editor := os.Getenv("VISUAL")
+// userEditor returns the editor command: the chosen one, or $VISUAL,
+// $EDITOR and finally vi.
+func userEditor(chosen string) ([]string, error) {
+	editor := chosen
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
 	if editor == "" {
 		editor = os.Getenv("EDITOR")
 	}
@@ -187,9 +191,9 @@ func userEditor() ([]string, error) {
 	return words, nil
 }
 
-// editorExec opens a file in the user's editor, at a line if line > 0.
-func editorExec(path string, line int) (*exec.Cmd, error) {
-	editor, err := userEditor()
+// editorExec opens a file in the editor, at a line if line > 0.
+func editorExec(chosen string, path string, line int) (*exec.Cmd, error) {
+	editor, err := userEditor(chosen)
 	if err != nil {
 		return nil, err
 	}
@@ -226,6 +230,10 @@ func Run(title string, note string, load LoadFunc) error {
 
 	m := NewModel(title, load)
 	m.note = note
+	m.editor = savedEditor()
+	if m.editor == "" && len(installedEditors()) > 0 {
+		m.askEditor(true)
+	}
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()
 	if err != nil {

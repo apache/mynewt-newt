@@ -35,6 +35,8 @@ type prompt struct {
 	// Shown in the help pane instead of the default prompt help.
 	title string
 	help  [][2]string
+	// For a choice: the value for each key, e.g. "v" -> "vim".
+	choices map[string]string
 }
 
 // opDoneMsg reports the end of a background target operation.
@@ -60,6 +62,18 @@ func targetName(name string) string {
 
 func (m *Model) promptKey(msg tea.KeyMsg) tea.Cmd {
 	p := m.prompt
+
+	if p.choices != nil {
+		if v, ok := p.choices[msg.String()]; ok {
+			m.prompt = nil
+			return p.done(m, v)
+		}
+		if msg.Type == tea.KeyEsc || msg.Type == tea.KeyCtrlC {
+			m.prompt = nil
+			m.setStatus("files open in " + m.editorName())
+		}
+		return nil
+	}
 
 	if p.confirm {
 		m.prompt = nil

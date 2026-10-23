@@ -1471,6 +1471,58 @@ func TestImageVersion(t *testing.T) {
 	}
 }
 
+func TestEditorChoice(t *testing.T) {
+	cfg := t.TempDir() + "/newt/tui.yml"
+	defaultPath := tuiConfigPath
+	tuiConfigPath = func() string { return cfg }
+	defer func() { tuiConfigPath = defaultPath }()
+	lookPath = func(prog string) (string, error) {
+		if prog == "vim" || prog == "nano" {
+			return "/usr/bin/" + prog, nil
+		}
+		return "", io.EOF
+	}
+	defer func() { lookPath = exec.LookPath }()
+
+	if savedEditor() != "" {
+		t.Fatalf("no editor should be saved yet")
+	}
+
+	m, _ := newTestModel(t)
+	m.askEditor(true)
+	if !strings.Contains(paneText(m), "open files in nano") ||
+		!strings.Contains(paneText(m), "decide later") {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+
+	// Other keys do not answer the question.
+	m = keys(t, m, "j")
+	if m.prompt == nil {
+		t.Fatalf("j should not close the question")
+	}
+	m = keys(t, m, "n")
+	if m.prompt != nil || m.editor != "nano" || savedEditor() != "nano" {
+		t.Fatalf("editor = %q, saved %q", m.editor, savedEditor())
+	}
+	if c, _ := editorExec(m.editor, "pkg.yml", 3); !reflect.DeepEqual(c.Args,
+		[]string{"nano", "+3", "pkg.yml"}) {
+		t.Errorf("args = %v", c.Args)
+	}
+
+	// V asks again; Esc keeps the current editor.
+	m = keys(t, m, "V", "esc")
+	if m.editor != "nano" || !strings.Contains(m.status, "nano") {
+		t.Errorf("editor = %q, status %q", m.editor, m.status)
+	}
+	m = keys(t, m, "V", "v")
+	if savedEditor() != "vim" {
+		t.Errorf("saved %q", savedEditor())
+	}
+	if !strings.Contains(paneText(m), "editor: vim") {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+}
+
 type interactiveRecorder struct {
 	fakeCmd
 	interactive *bool

@@ -268,7 +268,7 @@ func (m *Model) issuesPanel(target string, issues []BuildIssue) *panel {
 				m.setStatus("this message has no source location")
 				return nil
 			}
-			c, err := editorExec(b.File, b.Line)
+			c, err := editorExec(m.editor, b.File, b.Line)
 			if err != nil {
 				m.setError(err.Error())
 				return nil

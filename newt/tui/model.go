@@ -109,6 +109,8 @@ type Model struct {
 	filtering  bool
 	helpHidden bool
 	prompt     *prompt
+	// Editor chosen by the user, e.g. "vim"; empty means $EDITOR.
+	editor string
 
 	status    string
 	statusErr bool
@@ -719,6 +721,8 @@ func (m *Model) key(k string) tea.Cmd {
 		m.toggleForeign()
 	case "e":
 		return m.edit()
+	case "V":
+		m.askEditor(false)
 	case "E":
 		if m.depth < depthOptions {
 			m.showIssues()
@@ -991,7 +995,7 @@ func (m *Model) edit() tea.Cmd {
 	if e == nil || e.EditPath == "" {
 		return nil
 	}
-	c, err := editorExec(e.EditPath, 0)
+	c, err := editorExec(m.editor, e.EditPath, 0)
 	if err != nil {
 		m.setError(err.Error())
 		return nil
@@ -1329,6 +1333,8 @@ func (m *Model) statusBar() string {
 	switch {
 	case m.prompt != nil && m.prompt.confirm:
 		left = styleErr.Render(m.prompt.label)
+	case m.prompt != nil && m.prompt.choices != nil:
+		left = styleKey.Render(m.prompt.label)
 	case m.prompt != nil:
 		left = styleKey.Render(m.prompt.label) + m.prompt.input +
 			styleSel.Render(" ")
