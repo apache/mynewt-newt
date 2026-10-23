@@ -1332,6 +1332,54 @@ func TestBuildErrorsPanel(t *testing.T) {
 	}
 }
 
+func TestSizeAndWhy(t *testing.T) {
+	out := `Size of Application Image: app
+   BOOT   FLASH     RAM STACK_RAM 
+      0      28       0       0 *fill*
+      0    5900     120       0 @mcuboot_boot_bootutil.a
+      0    1024       0       0 @apache-mynewt-core_crypto_mbedtls.a
+      0      72       0       0 nrf52_boot-sysinit-app.a
+
+objsize
+   text	   data	    bss	    dec	    hex	filename
+  12980	    580	   6704	  20264	   4f28	/p/bin/targets/nrf52_boot/app/@mcuboot/boot/mynewt/mynewt.elf
+`
+	size := parseSize(out)
+	if size.Flash != 13560 || size.RAM != 7284 || len(size.Pkgs) != 4 {
+		t.Fatalf("parseSize = %+v", size)
+	}
+
+	info := &BuildInfo{
+		Roots: []string{"targets/nrf52_boot", "@mcuboot/boot/mynewt"},
+		Revdeps: map[string][]DepReason{
+			"@mcuboot/boot/mynewt":   nil,
+			"@mcuboot/boot/bootutil": {{"@mcuboot/boot/mynewt", "provides API bootloader"}},
+			"@apache-mynewt-core/crypto/mbedtls": {
+				{"@mcuboot/boot/bootutil", "if BOOTUTIL_USE_MBED_TLS"}},
+		},
+	}
+	size.matchPackages(info)
+	names := []string{}
+	for _, p := range size.Pkgs {
+		names = append(names, p.displayName())
+	}
+	want := []string{"(alignment padding)", "boot/bootutil", "crypto/mbedtls",
+		"(generated sysinit)"}
+	if !reflect.DeepEqual(names, want) {
+		t.Errorf("names = %v", names)
+	}
+
+	chain := info.whyIncluded("@apache-mynewt-core/crypto/mbedtls")
+	wantChain := []DepReason{
+		{"@mcuboot/boot/mynewt", "provides API bootloader"},
+		{"@mcuboot/boot/bootutil", "if BOOTUTIL_USE_MBED_TLS"},
+		{"@apache-mynewt-core/crypto/mbedtls", ""},
+	}
+	if !reflect.DeepEqual(chain, wantChain) {
+		t.Errorf("whyIncluded = %+v", chain)
+	}
+}
+
 func TestBluetoothPage(t *testing.T) {
 	m, _ := syscfgModel(t, false)
 	m = keys(t, m, "B")

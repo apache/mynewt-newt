@@ -548,6 +548,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chipMsg:
 		m.chipFound(msg)
 
+	case sizeMsg:
+		m.sizeDone(msg)
+
 	case tea.KeyMsg:
 		if m.prompt != nil {
 			cmd = m.promptKey(msg)
@@ -856,6 +859,9 @@ func (m *Model) run(a Action) tea.Cmd {
 
 	if a.PickDevice {
 		return m.openDevicePicker(a)
+	}
+	if a.Args[0] == "size" {
+		return m.openSize()
 	}
 	return m.runWith(a, nil)
 }

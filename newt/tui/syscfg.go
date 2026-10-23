@@ -84,12 +84,29 @@ func (s *Setting) IsFlag() bool {
 	return len(s.Choices) == 0 && (s.Value == "0" || s.Value == "1")
 }
 
-// BuildInfo is what resolving a target tells about its build: its syscfg
-// settings.
+// DepReason is a package that depends on another one, and why.
+type DepReason struct {
+	Pkg string
+	// E.g. "if BLE_ROLE_CENTRAL" or "provides API console"; empty when the
+	// dependency is unconditional.
+	Why string
+}
+
+// BuildInfo is what resolving a target tells about its build: the syscfg
+// settings and the packages that make it up.
 type BuildInfo struct {
 	Settings []*Setting
 	// Problems that would make "newt build" fail, one per line.
 	Errors []string
+
+	// The packages that depend on each package of the build.
+	Revdeps map[string][]DepReason
+	// The packages the build starts from: app, bsp, target, ...
+	Roots []string
+	// Size of the flash area the image goes to, and of the MCU's RAM; 0 if
+	// unknown.
+	FlashSlot int64
+	RAMSize   int64
 }
 
 // sourceName describes where a setting value comes from, relative to the
@@ -168,6 +185,8 @@ func resolveSyscfg(t *target.Target) (*BuildInfo, error) {
 		"syscfg.vals", nil)
 
 	info := &BuildInfo{}
+	info.Revdeps, info.Roots = revdeps(b, t)
+	info.FlashSlot = flashSlot(b.BspPkg(), t)
 	for _, line := range strings.Split(res.ErrorText(), "\n") {
 		line = strings.TrimSpace(line)
 		// Newt follows the errors with the history of the settings
@@ -214,6 +233,10 @@ func resolveSyscfg(t *target.Target) (*BuildInfo, error) {
 			s.History = append(s.History, SettingPoint{src, p.Value})
 		}
 		info.Settings = append(info.Settings, s)
+	}
+
+	if s := findSetting(info, "MCU_RAM_SIZE"); s != nil {
+		info.RAMSize = numberOf(s.Value)
 	}
 
 	// The target's own settings first, then by name.
@@ -405,6 +428,105 @@ func clip(s string, w int) string {
 		return string(r[:w-1]) + "…"
 	}
 	return s
+}
+
+// revdeps returns the reverse dependency graph of a target's build.
+func revdeps(b *builder.TargetBuilder, t *target.Target) (
+	map[string][]DepReason, []string) {
+
+	graph, err := b.CreateRevdepGraph()
+	if err != nil {
+		return nil, nil
+	}
+
+	out := map[string][]DepReason{}
+	for pkgName, dependers := range graph {
+		out[pkgName] = nil
+		for _, d := range dependers {
+			whys := []string{}
+			for expr := range d.DepExprs {
+				if expr != "" {
+					whys = append(whys, "if "+expr)
+				}
+			}
+			for api := range d.ApiExprs {
+				whys = append(whys, "provides API "+api)
+			}
+			sort.Strings(whys)
+			out[pkgName] = append(out[pkgName], DepReason{d.PkgName,
+				strings.Join(whys, ", ")})
+		}
+	}
+
+	roots := []string{t.FullName()}
+	for _, p := range []*pkg.LocalPackage{t.App(), t.Bsp(), t.Loader()} {
+		if p != nil {
+			roots = append(roots, p.FullName())
+		}
+	}
+	return out, roots
+}
+
+// flashSlot is the size of the flash area the target's image goes to: the
+// bootloader area for bootloaders, the first image slot otherwise.
+func flashSlot(bsp *pkg.BspPackage, t *target.Target) int64 {
+	if bsp == nil {
+		return 0
+	}
+	name := "FLASH_AREA_IMAGE_0"
+	if isBootloaderApp(t.AppName) {
+		name = "FLASH_AREA_BOOTLOADER"
+	}
+	if area, ok := bsp.FlashMap.Areas[name]; ok {
+		return int64(area.Size)
+	}
+	return 0
+}
+
+// isBootloaderApp tells whether an app is a bootloader such as mcuboot.
+func isBootloaderApp(app string) bool {
+	name, _ := splitName(app)
+	return name == "boot/mynewt" || name == "apps/boot" ||
+		strings.HasSuffix(name, "/boot/mynewt")
+}
+
+// whyIncluded returns the shortest chain of dependencies from one of the
+// build's roots to a package, root first; each step says why it depends on
+// the next one.
+func (info *BuildInfo) whyIncluded(pkgName string) []DepReason {
+	if info == nil || info.Revdeps == nil {
+		return nil
+	}
+	isRoot := map[string]bool{}
+	for _, r := range info.Roots {
+		isRoot[r] = true
+	}
+
+	// Breadth first search up the reverse dependencies.
+	next := map[string]DepReason{}
+	seen := map[string]bool{pkgName: true}
+	queue := []string{pkgName}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if isRoot[cur] {
+			chain := []DepReason{}
+			for cur != pkgName {
+				step := next[cur]
+				chain = append(chain, DepReason{cur, step.Why})
+				cur = step.Pkg
+			}
+			return append(chain, DepReason{Pkg: pkgName})
+		}
+		for _, d := range info.Revdeps[cur] {
+			if !seen[d.Pkg] {
+				seen[d.Pkg] = true
+				next[d.Pkg] = DepReason{cur, d.Why}
+				queue = append(queue, d.Pkg)
+			}
+		}
+	}
+	return nil
 }
 
 func findSetting(info *BuildInfo, name string) *Setting {
