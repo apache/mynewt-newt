@@ -50,6 +50,8 @@ const (
 	KindUnittest
 	// A plain value rather than a package, e.g. a build profile.
 	KindValue
+	// The target's syscfg settings.
+	KindSyscfg
 )
 
 // Action is a newt command that can be run on an entry, e.g. "newt build
@@ -82,6 +84,9 @@ type Field struct {
 	// Whether the variable can be unset.
 	Optional bool
 
+	// Preview of the field when it has no list of choices.
+	Preview func() []string
+
 	valuesFn func() []string
 	values   []string
 }
@@ -113,6 +118,10 @@ type Entry struct {
 	Fields  []*Field
 	// Sets one of the Fields and saves the entry.
 	Set func(variable string, value string) error
+
+	// Resolves the target's syscfg and changes the target's syscfg.yml.
+	Syscfg    func() (*BuildInfo, error)
+	SetSyscfg func(name string, value string, remove bool) error
 
 	previewFn func() []string
 	preview   []string
@@ -266,6 +275,25 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 		}
 		e.Set = func(variable string, value string) error {
 			return setTargetVar(t, variable, value)
+		}
+
+		overrides, _ := t.Package().SyscfgY.GetValStringMapString(
+			"syscfg.vals", nil)
+		e.Fields = append(e.Fields, &Field{Label: "syscfg",
+			Value: overrideCount(len(overrides)), Kind: KindSyscfg,
+			Preview: func() []string { return overridesPreview(overrides) }})
+		// Resolved at most once per load of the project.
+		var info *BuildInfo
+		e.Syscfg = func() (*BuildInfo, error) {
+			if info != nil {
+				return info, nil
+			}
+			var err error
+			info, err = resolveSyscfg(t)
+			return info, err
+		}
+		e.SetSyscfg = func(name string, value string, remove bool) error {
+			return setTargetSyscfg(t, name, value, remove)
 		}
 
 		e.previewFn = func() []string { return targetPreview(proj, t) }
@@ -580,6 +608,32 @@ func buildProfiles(proj *project.Project, t *target.Target) []string {
 	}
 	sort.Strings(profiles)
 	return profiles
+}
+
+func overrideCount(n int) string {
+	switch n {
+	case 0:
+		return "no overrides"
+	case 1:
+		return "1 override"
+	default:
+		return fmt.Sprintf("%d overrides", n)
+	}
+}
+
+func overridesPreview(overrides map[string]string) []string {
+	lines := []string{styleBold.Render("Settings set by this target"), ""}
+	if len(overrides) == 0 {
+		lines = append(lines, styleDim.Render("none yet"))
+	}
+	for _, k := range sortedKeys(overrides) {
+		lines = append(lines, k+styleDim.Render(": ")+overrides[k])
+	}
+	return append(lines, "", styleDim.Render(
+		"Press l to see and change all settings of this build; for "+
+			"NimBLE apps, B there shows the Bluetooth essentials. Values "+
+			"are saved in the target's syscfg.yml, which overrides the "+
+			"app, the bsp and all packages."))
 }
 
 // bspFlashAreas returns the flash areas of a BSP, as newt's builder reads

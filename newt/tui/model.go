@@ -41,6 +41,9 @@ const (
 	depthEntries    = 1
 	depthFields     = 2
 	depthOptions    = 3
+	// The syscfg settings of a target, and the choices for one setting.
+	depthSyscfg = 4
+	depthChoice = 5
 )
 
 // LoadFunc (re)loads the project and returns the browser contents.
@@ -72,6 +75,14 @@ type Model struct {
 	optList   list
 	// Choices for the field being edited.
 	opts []*Entry
+
+	// Resolved syscfg of the target in the syscfg view.
+	syscfg      *BuildInfo
+	setList     list
+	choiceList  list
+	changedOnly bool
+	// Show only the Bluetooth page of the syscfg view.
+	bluetoothOnly bool
 
 	// Per category: hide entries from foreign repos.
 	hideForeign []bool
@@ -266,6 +277,13 @@ func (m *Model) current() (*list, int) {
 		return &m.fieldList, len(m.Selected().Fields)
 	case depthOptions:
 		return &m.optList, len(m.visibleOpts())
+	case depthSyscfg:
+		return &m.setList, len(m.visibleSettings())
+	case depthChoice:
+		if s := m.setting(); s != nil {
+			return &m.choiceList, len(s.Choices)
+		}
+		return &m.choiceList, 0
 	default:
 		return &m.entList[m.catList.cursor], len(m.visible(m.catList.cursor))
 	}
@@ -278,6 +296,8 @@ func (m *Model) filterable() *list {
 		return &m.entList[m.catList.cursor]
 	case depthOptions:
 		return &m.optList
+	case depthSyscfg:
+		return &m.setList
 	default:
 		return nil
 	}
@@ -317,6 +337,26 @@ func (m *Model) fix() {
 		clamp(&m.fieldList, len(e.Fields))
 	}
 	clamp(&m.optList, len(m.visibleOpts()))
+
+	if (m.depth == depthSyscfg || m.depth == depthChoice) && m.syscfg == nil {
+		m.depth = depthFields
+	}
+	clamp(&m.setList, len(m.visibleSettings()))
+	if s := m.setting(); s != nil {
+		clamp(&m.choiceList, len(s.Choices))
+	}
+}
+
+// parentDepth is the level "h" goes back to.
+func (m *Model) parentDepth() int {
+	switch m.depth {
+	case depthSyscfg:
+		return depthFields
+	case depthChoice:
+		return depthSyscfg
+	default:
+		return max(m.depth-1, depthCategories)
+	}
 }
 
 // fixEntries clamps the cursor of a category's entries and scrolls them.
@@ -522,6 +562,9 @@ func (m *Model) key(k string) tea.Cmd {
 	if cmd, ok := m.targetKey(k); ok {
 		return cmd
 	}
+	if cmd, ok := m.syscfgKey(k); ok {
+		return cmd
+	}
 
 	l, n := m.current()
 	half := max(m.listHeight()/2, 1)
@@ -550,7 +593,7 @@ func (m *Model) key(k string) tea.Cmd {
 	case "g", "z":
 		m.prefix = k
 	case "h", "left", "backspace":
-		m.depth = max(m.depth-1, depthCategories)
+		m.depth = m.parentDepth()
 	case "l", "right", "enter":
 		return m.enter(k == "right")
 	case "H":
@@ -646,7 +689,10 @@ func (m *Model) enter(arrow bool) tea.Cmd {
 			return m.edit()
 		}
 	case depthFields:
-		if f := m.field(); f != nil && m.localTarget() != nil {
+		if f := m.field(); f != nil && f.Kind == KindSyscfg {
+			// Viewing is fine for any target; changes are checked later.
+			m.openSyscfg()
+		} else if f != nil && m.localTarget() != nil {
 			m.opts = m.options(f)
 			cur := max(indexOf(m.opts, f.Value), 0)
 			m.optList = list{cursor: cur, offset: cur - m.listHeight()/2}
@@ -655,6 +701,14 @@ func (m *Model) enter(arrow bool) tea.Cmd {
 	case depthOptions:
 		if !arrow {
 			m.choose()
+		}
+	case depthSyscfg:
+		if !arrow {
+			return m.editSetting()
+		}
+	case depthChoice:
+		if !arrow {
+			m.chooseSetting()
 		}
 	}
 	return nil
@@ -903,10 +957,15 @@ func (m Model) View() string {
 	}
 	h := m.listHeight()
 
-	// Ranger's default column ratio is 1:3:4.
+	// Ranger's default column ratio is 1:3:4.  Setting names are long, so
+	// the syscfg view gives the middle column more room.
 	avail := m.width - 2
 	w1 := max(avail/8, 8)
 	w2 := max(avail*3/8, 10)
+	if m.depth >= depthSyscfg {
+		w1 = max(avail/10, 8)
+		w2 = max(avail/2, 10)
+	}
 	w3 := max(avail-w1-w2, 0)
 
 	var left, mid, right []string
@@ -932,13 +991,31 @@ func (m Model) View() string {
 	} else if e := m.Selected(); m.depth == depthFields {
 		left = m.entryList(ci, w1, h, true)
 		mid = renderList(m.fieldRows(e), m.fieldList, w2, h, true)
-		if f := m.field(); f != nil {
+		if f := m.field(); f != nil && f.Preview != nil {
+			right = previewLines(f.Preview(), w3, h)
+		} else if f != nil {
 			// Preview the choices with the current value highlighted.
 			opts := m.options(f)
 			idx := indexOf(opts, f.Value)
 			l := list{cursor: idx, offset: max(min(idx-h/2, len(opts)-h), 0)}
 			right = renderList(optionRows(opts, f.Value), l, w3, h, idx >= 0)
 		}
+	} else if m.depth == depthSyscfg {
+		left = renderList(m.fieldRows(e), m.fieldList, w1, h, true)
+		mid = renderList(settingRows(m.visibleSettings()), m.setList, w2, h,
+			true)
+		if len(mid) == 0 {
+			mid = []string{styleDim.Render(" no match")}
+		}
+		if s := m.setting(); s != nil {
+			right = previewLines(settingPreview(s, m.syscfg.Errors), w3, h)
+		}
+	} else if m.depth == depthChoice {
+		s := m.setting()
+		left = renderList(settingRows(m.visibleSettings()), m.setList, w1, h,
+			true)
+		mid = renderList(choiceRows(s), m.choiceList, w2, h, true)
+		right = previewLines(settingPreview(s, m.syscfg.Errors), w3, h)
 	} else {
 		f := m.field()
 		left = renderList(m.fieldRows(e), m.fieldList, w1, h, true)
@@ -982,6 +1059,9 @@ func (m *Model) titleBar() string {
 		}
 		if f := m.field(); f != nil {
 			parts = append(parts, f.Label)
+		}
+		if s := m.setting(); s != nil {
+			parts = append(parts, s.Name)
 		}
 	}
 	return ansi.Truncate(strings.Join(parts, styleDim.Render(" › ")),

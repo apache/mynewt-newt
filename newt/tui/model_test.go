@@ -578,7 +578,241 @@ func TestHelpPane(t *testing.T) {
 	}
 }
 
+func TestSetSyscfgVal(t *testing.T) {
+	yml := "# Target settings.\nsyscfg.vals:\n  # Radio\n  BLE_FOO: 1\n" +
+		"  BLE_BAR: 2\n\nsyscfg.defs:\n  X: {value: 0}\n"
+
+	for _, c := range []struct {
+		name, value string
+		remove      bool
+		in, want    string
+	}{
+		// Replace in place, keeping comments and indentation.
+		{"BLE_FOO", "4", false, yml, strings.Replace(yml, "BLE_FOO: 1",
+			"BLE_FOO: 4", 1)},
+		// Add at the end of the block, before the next key.
+		{"BLE_BAZ", "3", false, yml, strings.Replace(yml, "BLE_BAR: 2\n",
+			"BLE_BAR: 2\n  BLE_BAZ: 3\n", 1)},
+		{"BLE_BAR", "", true, yml, strings.Replace(yml, "  BLE_BAR: 2\n", "",
+			1)},
+		{"BLE_NONE", "", true, yml, yml},
+		// Empty and missing files.
+		{"BLE_FOO", "1", false, "", "syscfg.vals:\n    BLE_FOO: 1\n"},
+		{"BLE_FOO", "1", false, "# hello\n",
+			"# hello\n\nsyscfg.vals:\n    BLE_FOO: 1\n"},
+		// Removing the last value drops the emptied map.
+		{"BLE_FOO", "", true, "syscfg.vals:\n    BLE_FOO: 1\n", ""},
+	} {
+		got := setSyscfgVal(c.in, c.name, c.value, c.remove)
+		if got != c.want {
+			t.Errorf("setSyscfgVal(%s=%q, remove=%v):\n%s\nwant:\n%s",
+				c.name, c.value, c.remove, got, c.want)
+		}
+	}
+}
+
+func TestYmlValue(t *testing.T) {
+	for in, want := range map[string]string{
+		"4":              "4",
+		"-1":             "-1",
+		"0x20000":        "0x20000",
+		"ram":            "ram",
+		"MYNEWT_VAL(X)":  "MYNEWT_VAL(X)",
+		`"btshell"`:      `"\"btshell\""`,
+		"*alias":         `"*alias"`,
+		"":               `""`,
+		"a: b":           `"a: b"`,
+		" padded":        `" padded"`,
+		"(1 << 4) | 0x1": "(1 << 4) | 0x1",
+	} {
+		if got := ymlValue(in); got != want {
+			t.Errorf("ymlValue(%q) = %s, want %s", in, got, want)
+		}
+	}
+}
+
+func syscfgModel(t *testing.T, foreign bool) (Model, map[string]string) {
+	saved := map[string]string{"BLE_FOO": "4"}
+	settings := func() *BuildInfo {
+		mk := func(name, def string, choices ...string) *Setting {
+			s := &Setting{Name: name, Value: def, Choices: choices,
+				Description: "about " + name,
+				History:     []SettingPoint{{"default", def}}}
+			if v, ok := saved[name]; ok {
+				s.Value, s.Overridden = v, true
+				s.History = append(s.History, SettingPoint{"target", v})
+			}
+			return s
+		}
+		info := &BuildInfo{Settings: []*Setting{
+			mk("BLE_FOO", "1"),
+			mk("BLE_FLAG", "0"),
+			mk("CONSOLE_HISTORY", "none", "log", "none", "ram"),
+			{Name: "PKG_CONST", Value: "1", Const: true},
+		}}
+		if saved["BLE_FOO"] == "99" {
+			info.Errors = []string{"Syscfg restriction violations:",
+				"* BLE_FOO must be at most 8"}
+		}
+		return info
+	}
+
+	load := func() ([]*Category, error) {
+		cats := testCats()
+		e := cats[0].Entries[0]
+		e.Foreign = foreign
+		e.Fields = []*Field{{Label: "syscfg", Kind: KindSyscfg,
+			Preview: func() []string { return []string{"overrides"} }}}
+		e.Syscfg = func() (*BuildInfo, error) { return settings(), nil }
+		e.SetSyscfg = func(name string, value string, remove bool) error {
+			if remove {
+				delete(saved, name)
+			} else {
+				saved[name] = value
+			}
+			return nil
+		}
+		if foreign {
+			cats[0].Entries = cats[0].Entries[:1]
+		}
+		return cats, nil
+	}
+
+	m := NewModel("proj", load)
+	m = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	if foreign {
+		m = keys(t, m, "l", ".")
+	} else {
+		m = keys(t, m, "l")
+	}
+	m = keys(t, m, "l", "l")
+	if m.depth != depthSyscfg {
+		t.Fatalf("expected the syscfg view, depth %d (%s)", m.depth, m.status)
+	}
+	return m, saved
+}
+
+func TestSyscfgEdit(t *testing.T) {
+	m, saved := syscfgModel(t, false)
+
+	if s := m.setting(); s == nil || s.Name != "BLE_FOO" {
+		t.Fatalf("expected cursor on BLE_FOO, got %v", s)
+	}
+	if !strings.Contains(paneText(m), "remove this target's value") {
+		t.Errorf("help should offer removing the override:\n%s", paneText(m))
+	}
+
+	// Enter on a plain setting asks for the value, prefilled.
+	m = runOp(t, m, "enter")
+	if m.prompt == nil || m.prompt.input != "4" {
+		t.Fatalf("expected a prefilled prompt, got %+v", m.prompt)
+	}
+	if !strings.Contains(paneText(m), "save to the target's syscfg.yml") {
+		t.Errorf("prompt help missing:\n%s", paneText(m))
+	}
+	m = update(t, m, tea.KeyMsg{Type: tea.KeyBackspace})
+	m = runOp(t, m, "6", "enter")
+	if saved["BLE_FOO"] != "6" {
+		t.Fatalf("BLE_FOO = %q", saved["BLE_FOO"])
+	}
+	if s := m.setting(); s == nil || s.Name != "BLE_FOO" || s.Value != "6" {
+		t.Fatalf("cursor should stay on the saved setting, got %v", s)
+	}
+
+	// A value that breaks the build is saved, with a warning.
+	m = runOp(t, m, "enter")
+	for range "6" {
+		m = update(t, m, tea.KeyMsg{Type: tea.KeyBackspace})
+	}
+	m = runOp(t, m, "99", "enter")
+	if !m.statusErr || !strings.Contains(m.status, "must be at most 8") {
+		t.Errorf("expected a build warning, status %q", m.status)
+	}
+
+	// Space toggles flags.
+	m = keys(t, m, "/", "flag", "enter", " ")
+	if saved["BLE_FLAG"] != "1" {
+		t.Fatalf("BLE_FLAG = %q", saved["BLE_FLAG"])
+	}
+
+	// Choices are picked from a list starting at the current value.
+	m = keys(t, m, "esc", "/", "history", "enter", "enter")
+	if m.depth != depthChoice || m.choiceList.cursor != 1 {
+		t.Fatalf("expected choice list on current value, depth %d cursor %d",
+			m.depth, m.choiceList.cursor)
+	}
+	m = keys(t, m, "j", "enter")
+	if saved["CONSOLE_HISTORY"] != "ram" {
+		t.Fatalf("CONSOLE_HISTORY = %q", saved["CONSOLE_HISTORY"])
+	}
+
+	// x removes the target's value; "o" hides unchanged settings.
+	m = keys(t, m, "esc", "o")
+	if n := len(m.visibleSettings()); n != 3 {
+		t.Fatalf("expected 3 changed settings, got %d", n)
+	}
+	m = keys(t, m, "/", "flag", "enter", "x")
+	if _, ok := saved["BLE_FLAG"]; ok {
+		t.Fatalf("BLE_FLAG should be removed")
+	}
+	if !strings.Contains(m.status, "back to 0") {
+		t.Errorf("status = %q", m.status)
+	}
+
+	// Constants cannot be changed.
+	m = keys(t, m, "esc", "o", "G", "enter")
+	if m.prompt != nil || !m.statusErr {
+		t.Errorf("constant should not be editable")
+	}
+
+	m = keys(t, m, "h")
+	if m.depth != depthFields {
+		t.Errorf("h should go back to the target settings")
+	}
+}
+
+func TestSyscfgReadOnly(t *testing.T) {
+	m, saved := syscfgModel(t, true)
+
+	if !strings.Contains(paneText(m), "read-only") {
+		t.Errorf("help should say read-only:\n%s", paneText(m))
+	}
+	m = keys(t, m, "enter", "x", " ")
+	if m.prompt != nil || saved["BLE_FOO"] != "4" || !m.statusErr {
+		t.Errorf("foreign target must not be changed: %v %q", saved, m.status)
+	}
+}
+
 // step sends a key and runs a returned command if it is a board scan.
+func TestBluetoothPage(t *testing.T) {
+	m, _ := syscfgModel(t, false)
+	m = keys(t, m, "B")
+	if m.bluetoothOnly || !strings.Contains(m.status, "does not include NimBLE") {
+		t.Errorf("B without NimBLE: %q", m.status)
+	}
+
+	m.syscfg.Settings = append(m.syscfg.Settings,
+		&Setting{Name: "BLE_SM_SC", Value: "0"},
+		&Setting{Name: "BLE_ROLE_PERIPHERAL", Value: "1"},
+		&Setting{Name: "BLE_UNLISTED", Value: "1"})
+	if !strings.Contains(paneText(m), "Bluetooth essentials only") {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+	m = keys(t, m, "B")
+	names := []string{}
+	for _, s := range m.visibleSettings() {
+		names = append(names, s.Name)
+	}
+	// Roles come before security, unlisted settings are left out.
+	if !reflect.DeepEqual(names, []string{"BLE_ROLE_PERIPHERAL", "BLE_SM_SC"}) {
+		t.Errorf("Bluetooth page = %v", names)
+	}
+	p := ansi.Strip(strings.Join(settingPreview(m.setting(), nil), "\n"))
+	if !strings.Contains(p, "Bluetooth › Roles") {
+		t.Errorf("preview:\n%s", p)
+	}
+}
+
 func TestProjectTitle(t *testing.T) {
 	for _, c := range []struct {
 		dir, name, title, note string

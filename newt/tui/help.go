@@ -20,6 +20,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -68,6 +69,10 @@ func (m *Model) helpGroups() []helpGroup {
 		return []helpGroup{g}
 	}
 
+	if m.depth >= depthSyscfg {
+		return m.syscfgHelp()
+	}
+
 	e := m.Selected()
 	f := m.field()
 	_, n := m.current()
@@ -87,7 +92,9 @@ func (m *Model) helpGroups() []helpGroup {
 		}
 	case depthFields:
 		move.add("h", "back to targets")
-		if f != nil {
+		if f != nil && f.Kind == KindSyscfg {
+			move.add("l", "see and change syscfg settings")
+		} else if f != nil {
 			move.add("l", "choose "+f.Label)
 		}
 	case depthOptions:
@@ -322,4 +329,80 @@ func (m *Model) helpPane() []string {
 			" … more keys: enlarge the terminal"))
 	}
 	return out
+}
+
+func (m *Model) syscfgHelp() []helpGroup {
+	s := m.setting()
+	_, n := m.current()
+	readOnly := false
+	if e := m.Selected(); e != nil && e.Foreign {
+		readOnly = true
+	}
+
+	move := helpGroup{title: "Move", style: styleBold}
+	move.add("j/k", "down / up")
+	if m.depth == depthChoice {
+		move.add("h", "cancel")
+		if s != nil {
+			move.add("Enter", "set "+s.Name+" to this")
+		}
+		return []helpGroup{move, m.generalHelp()}
+	}
+
+	move.add("h", "back to target settings")
+	if n > m.height/2 {
+		move.add("gg/G", "first / last")
+		move.add("C-d/C-u", "half page down / up")
+	}
+	move.add("/", "search names and descriptions")
+	if m.setList.filter != "" {
+		move.add("Esc", "clear search")
+	}
+
+	change := helpGroup{title: "Change", style: styleOverride}
+	switch {
+	case readOnly:
+		change.add("", styleDim.Render("read-only: target from another repo"))
+	case s == nil:
+	case s.Const:
+		change.add("", styleDim.Render(s.Name+" is a constant"))
+	case len(s.Choices) > 0:
+		change.add("Enter", fmt.Sprintf("pick from %d choices",
+			len(s.Choices)))
+	default:
+		change.add("Enter", "type a new value")
+	}
+	if !readOnly && s != nil && s.IsFlag() && !s.Const {
+		change.add("space", "toggle 0 / 1")
+	}
+	if !readOnly && s != nil && s.Overridden {
+		change.add("x", "remove this target's value")
+	}
+	if m.changedOnly {
+		change.add("o", "show all settings")
+	} else {
+		change.add("o", "show only changed settings")
+	}
+	if m.hasBluetooth() {
+		if m.bluetoothOnly {
+			change.add("B", "show all settings, not just Bluetooth")
+		} else {
+			change.add("B", "Bluetooth essentials only")
+		}
+	}
+
+	legend := helpGroup{title: "Colors", style: styleBold}
+	legend.add(styleOverride.Render("●"), styleOverride.Render("set by this target"))
+	legend.add(" ", "changed by app, bsp or a package")
+	legend.add(" ", styleDim.Render("default value"))
+
+	return []helpGroup{move, change, legend, m.generalHelp()}
+}
+
+func (m *Model) generalHelp() helpGroup {
+	g := helpGroup{title: "General", style: styleBold}
+	g.add("R", "reload project")
+	g.add("?", "hide this help")
+	g.add("q", "quit")
+	return g
 }
