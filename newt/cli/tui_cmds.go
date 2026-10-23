@@ -51,9 +51,11 @@ func RunTui() {
 
 func AddTuiCommands(cmd *cobra.Command) {
 	tuiHelpText := FormatHelp(`Browse the targets, apps, BSPs and other
-packages of the project in a ranger-style terminal UI, and configure,
-build, load and debug targets from it. A help pane at the bottom lists the
-keys that work at the current position; press ? to hide or show it.`)
+packages of the project in a ranger-style terminal UI. Targets can be
+configured (app, bsp, build profile, flash tool and syscfg), built, loaded
+onto a chosen board and debugged from the browser, and the board's console
+opened next to it. A help pane at the bottom lists the keys that work at the
+current position; press ? to hide or show it.`)
 
 	tuiCmd := &cobra.Command{
 		Use:     "tui",

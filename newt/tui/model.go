@@ -118,6 +118,9 @@ type Model struct {
 	width  int
 	height int
 
+	// The README, when shown.
+	guide *guide
+
 	// The board's console, if open, and what is being typed in it.
 	console        *consoleSession
 	consoleFocus   bool
@@ -567,7 +570,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sizeDone(msg)
 
 	case tea.KeyMsg:
-		if m.consoleFocus && m.console != nil && m.prompt == nil {
+		if m.guide != nil && m.prompt == nil {
+			cmd = m.guideKey(msg)
+		} else if m.consoleFocus && m.console != nil && m.prompt == nil {
 			cmd = m.consoleKey(msg)
 		} else if m.prompt != nil {
 			cmd = m.promptKey(msg)
@@ -751,6 +756,8 @@ func (m *Model) prefixKey(seq string) tea.Cmd {
 		l.cursor = 0
 	case "zh":
 		m.toggleForeign()
+	case "g?":
+		m.openGuide()
 	default:
 		if e := m.Selected(); e != nil && strings.HasPrefix(seq, "g") {
 			for _, l := range e.Links {
@@ -1276,6 +1283,9 @@ func (m Model) View() string {
 	if m.panel != nil {
 		body = m.panelView(h)
 	}
+	if m.guide != nil {
+		body = m.guideView(h)
+	}
 
 	out := m.titleBar() + "\n" + body + "\n"
 	if dock := m.bottomView(); dock != nil {
@@ -1297,6 +1307,12 @@ func (m *Model) titleBar() string {
 		name += styleDim.Render(" (" + m.note + ")")
 	}
 	parts := []string{stylePath.Render("newt") + " " + name}
+	if g := m.guide; g != nil {
+		parts = append(parts, "guide", styleBold.Render(
+			g.sections[g.sectionAt(g.top)].title))
+		return ansi.Truncate(strings.Join(parts, styleDim.Render(" › ")),
+			m.width, "…")
+	}
 	if m.panel != nil {
 		if e := m.Selected(); e != nil {
 			parts = append(parts, kindStyle(e.Kind).Bold(true).Render(e.Name))
@@ -1330,7 +1346,14 @@ func (m *Model) statusBar() string {
 	pos := fmt.Sprintf("%d/%d", min(l.cursor+1, n), n)
 
 	var left string
+	if g := m.guide; g != nil {
+		pos = fmt.Sprintf("%d%%", min(100, (g.top+m.guideHeight())*100/
+			max(len(g.lines), 1)))
+	}
+
 	switch {
+	case m.guide != nil && m.guide.searching:
+		left = styleKey.Render("/") + m.guide.search + styleSel.Render(" ")
 	case m.prompt != nil && m.prompt.confirm:
 		left = styleErr.Render(m.prompt.label)
 	case m.prompt != nil && m.prompt.choices != nil:
@@ -1354,8 +1377,8 @@ func (m *Model) statusBar() string {
 	if l.filter != "" && !m.filtering {
 		right = styleDim.Render("filter: ") + l.filter + "  " + pos
 	}
-	if m.depth <= depthEntries && m.catList.cursor < len(m.cats) &&
-		m.hideForeign[m.catList.cursor] {
+	if m.guide == nil && m.depth <= depthEntries &&
+		m.catList.cursor < len(m.cats) && m.hideForeign[m.catList.cursor] {
 		right = styleDim.Render("local ") + right
 	}
 

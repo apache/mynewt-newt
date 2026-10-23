@@ -1882,3 +1882,68 @@ func TestConsolePane(t *testing.T) {
 		t.Errorf("Ctrl-] should close the console")
 	}
 }
+
+func TestGuide(t *testing.T) {
+	g := newGuide(readme)
+	if strings.Contains(strings.Join(g.lines[:5], "\n"), "Licensed to") {
+		t.Errorf("the license header should be dropped")
+	}
+	for _, title := range []string{"Quick start: your first session",
+		"Choosing a board", "Syscfg settings", "Build errors"} {
+		if g.find(title) == 0 {
+			t.Errorf("section %q not found", title)
+		}
+	}
+	for _, l := range g.lines {
+		if strings.Contains(l, "```") || strings.Contains(l, "](#") ||
+			strings.Contains(ansi.Strip(l), "*Targets*") {
+			t.Errorf("markdown left in %q", l)
+		}
+	}
+
+	m, _ := newTestModel(t)
+	m = keys(t, m, "l")
+
+	// g? opens the guide at the section about where we are.
+	m = keys(t, m, "g", "?")
+	if m.guide == nil {
+		t.Fatalf("g? should open the guide")
+	}
+	sec := func() string { return m.guide.sections[m.guide.sectionAt(m.guide.top)].title }
+	if sec() != "Targets" {
+		t.Errorf("opened at %q", sec())
+	}
+	if bar := ansi.Strip(m.titleBar()); !strings.Contains(bar, "guide › Targets") {
+		t.Errorf("title bar = %q", bar)
+	}
+
+	// Keys scroll the guide, not the browser.
+	m = keys(t, m, "]")
+	if sec() != "Target settings" {
+		t.Errorf("] went to %q", sec())
+	}
+	m = keys(t, m, "[")
+	if sec() != "Targets" {
+		t.Errorf("[ went to %q", sec())
+	}
+	m = keys(t, m, "/", "nrfjprog", "enter")
+	if !strings.Contains(strings.ToLower(ansi.Strip(m.guide.lines[m.guide.top])),
+		"nrfjprog") {
+		t.Errorf("search went to %q", m.guide.lines[m.guide.top])
+	}
+	if !strings.Contains(paneText(m), `next / previous "nrfjprog"`) {
+		t.Errorf("help:\n%s", paneText(m))
+	}
+	m = keys(t, m, "q")
+	if m.guide != nil || selectedName(m) != "targets/blinky" {
+		t.Errorf("q should close the guide and leave the browser as it was")
+	}
+
+	// In the board list it opens at "Choosing a board".
+	m.depth = depthDevice
+	m.picker = devicePicker{action: Action{Args: []string{"load", "t"}}}
+	m.openGuide()
+	if sec() != "Choosing a board" {
+		t.Errorf("board list: opened at %q", sec())
+	}
+}

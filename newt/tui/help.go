@@ -50,6 +50,9 @@ func (m *Model) helpGroups() []helpGroup {
 		g.add("other", "no, cancel")
 		return []helpGroup{g}
 	}
+	if m.guide != nil {
+		return m.guideHelp()
+	}
 	if m.consoleFocus && m.console != nil && m.prompt == nil {
 		g := helpGroup{title: "Console " + m.console.name,
 			style: kindStyle(KindTarget).Bold(true)}
@@ -200,6 +203,7 @@ func (m *Model) helpGroups() []helpGroup {
 	}
 	other.add("R", "reload project")
 	other = m.jobHelp(other)
+	other.add("g?", "guide")
 	other.add("V", "editor: "+m.editorName())
 	other.add("?", "hide this help")
 	other.add("q", "quit")
@@ -428,6 +432,7 @@ func (m *Model) generalHelp() helpGroup {
 	g := helpGroup{title: "General", style: styleBold}
 	g.add("R", "reload project")
 	g = m.jobHelp(g)
+	g.add("g?", "guide")
 	g.add("?", "hide this help")
 	g.add("q", "quit")
 	return g
