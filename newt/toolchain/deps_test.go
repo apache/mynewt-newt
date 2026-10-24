@@ -186,7 +186,8 @@ func TestCompileGeneratesDepsFile(t *testing.T) {
 // An object file without dependency file (e.g., built by an older newt) must
 // be rebuilt, as it is not known which headers it depends on.
 func TestCompileRequiredMissingDepsFile(t *testing.T) {
-	dir := t.TempDir()
+	// Project base path always uses forward slashes.
+	dir := filepath.ToSlash(t.TempDir())
 	c := newTestCompiler()
 	c.ccPath = "cc"
 	c.baseDir = dir
