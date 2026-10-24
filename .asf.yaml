@@ -27,6 +27,8 @@ github:
     squash: true
     merge: false
     rebase: true
+  dependabot_alerts: true
+  dependabot_updates: true
   rulesets:
     - name: "Default Branch Protection"
       type: branch
