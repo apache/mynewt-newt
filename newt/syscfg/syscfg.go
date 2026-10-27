@@ -81,6 +81,10 @@ const SYSCFG_TASK_PRIO_MAX = 0xef
 
 var cfgRefRe = regexp.MustCompile("MYNEWT_VAL\\((\\w+)\\)")
 var cfgChoiceValRe = regexp.MustCompile("^[A-Za-z0-9_]+$")
+
+// Decimal or hex number (with optional integer suffix) or identifier.
+var cfgSingleTokenRe = regexp.MustCompile(
+	"^([0-9]+|0[xX][0-9A-Fa-f]+)[uUlL]*$|^[A-Za-z_][A-Za-z0-9_]*$")
 var cfgPkgRepoName = regexp.MustCompile("^@([A-Za-z0-9-_]+)/")
 var cfgPkgIllegalChar = regexp.MustCompile("[^A-Za-z0-9_]")
 
@@ -1521,6 +1525,10 @@ func writeDefine(key string, value string, w io.Writer) {
 		fmt.Fprintf(w, "#ifndef %s\n", key)
 		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
 			fmt.Fprintf(w, "#define %s %s\n", key, value)
+		} else if cfgSingleTokenRe.MatchString(value) {
+			// Single number or identifier does not need parentheses; this
+			// allows value to be used for token pasting.
+			fmt.Fprintf(w, "#define %s %s\n", key, value)
 		} else {
 			fmt.Fprintf(w, "#define %s (%s)\n", key, value)
 		}
@@ -1539,7 +1547,7 @@ func writeChoiceDefine(key string, value string, choices []string, w io.Writer) 
 			parentVal = "1"
 		}
 		fmt.Fprintf(w, "#ifndef %s__%s\n", key, choice)
-		fmt.Fprintf(w, "#define %s__%s (%d)\n", key, choice, definedVal)
+		fmt.Fprintf(w, "#define %s__%s %d\n", key, choice, definedVal)
 		fmt.Fprintf(w, "#endif\n")
 	}
 
