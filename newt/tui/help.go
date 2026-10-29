@@ -106,6 +106,8 @@ func (m *Model) helpGroups() []helpGroup {
 		switch {
 		case e != nil && len(e.Fields) > 0:
 			move.add("l", "settings")
+		case e != nil && e.Open != nil:
+			move.add("l", e.OpenHelp)
 		case e != nil && e.EditPath != "":
 			move.add("l", "open "+fileName(e.EditPath)+" in $EDITOR")
 		}
@@ -132,6 +134,15 @@ func (m *Model) helpGroups() []helpGroup {
 	}
 	if m.depth == depthEntries && m.grouped(m.catList.cursor) {
 		move.add("]/[", "next / previous repo")
+	}
+	if (e != nil && e.Dir != "" && m.depth == depthEntries) ||
+		(m.depth == depthFields && m.fieldPackage() != nil) ||
+		m.choosingPackage() {
+		if m.gitPaneHidden {
+			move.add("zg", "show the git pane")
+		} else {
+			move.add("zg", "hide the git pane")
+		}
 	}
 	if l := m.filterable(); l != nil {
 		move.add("/", "filter")

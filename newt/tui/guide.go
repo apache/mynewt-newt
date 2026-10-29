@@ -157,6 +157,9 @@ func (m *Model) guideTopic() string {
 		return "Build errors"
 	case m.panel != nil && strings.HasPrefix(m.panel.title, "size of"):
 		return "Size and dependencies"
+	case m.panel != nil && (strings.HasPrefix(m.panel.title, "branches of") ||
+		strings.HasPrefix(m.panel.title, "history of")):
+		return "Repos"
 	case m.panel != nil && strings.HasPrefix(m.panel.title, "load "):
 		return "Choosing the image to load"
 	case m.console != nil && m.consoleFocus:
@@ -170,6 +173,8 @@ func (m *Model) guideTopic() string {
 		return "Syscfg settings"
 	case m.depth == depthFields || m.depth == depthOptions:
 		return "Target settings"
+	case m.depth == depthEntries && m.inRepos():
+		return "Repos"
 	case m.depth == depthEntries && m.inTargets():
 		return "Targets"
 	case m.depth == depthEntries:

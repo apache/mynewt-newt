@@ -171,10 +171,10 @@ func addBootSupport(proj *project.Project, entries []*Entry,
 		// "newt load" of such an app loads one of its images.
 		for i := range e.Actions {
 			a := &e.Actions[i]
-			if a.Args[0] == "load" && a.Steps == nil {
+			if a.runs("load") && a.Steps == nil {
 				a.ChooseImage = true
 			}
-			if a.Args[0] == "clean" && savedImages(e) > 0 {
+			if a.runs("clean") && savedImages(e) > 0 {
 				a.Confirm = fmt.Sprintf("Delete the build output of %s, "+
 					"including %s?", e.Name, plural(savedImages(e),
 					"saved image"))

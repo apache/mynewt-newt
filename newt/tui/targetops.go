@@ -178,6 +178,12 @@ func (m *Model) inTargets() bool {
 	return ci >= 0 && ci < len(m.cats) && m.cats[ci].Kind == KindTarget
 }
 
+// inRepos tells whether the cursor is in the Repos category.
+func (m *Model) inRepos() bool {
+	ci := m.catList.cursor
+	return ci >= 0 && ci < len(m.cats) && m.cats[ci].Kind == KindRepo
+}
+
 // localTarget returns the selected target if it can be modified.
 func (m *Model) localTarget() *Entry {
 	e := m.Selected()

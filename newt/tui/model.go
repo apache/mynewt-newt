@@ -108,7 +108,12 @@ type Model struct {
 
 	filtering  bool
 	helpHidden bool
-	prompt     *prompt
+	// The git pane of packages: hidden with zg, and what git said about
+	// each package directory (filled in the background).
+	gitPaneHidden bool
+	gitInfo       map[string]*gitPaneInfo
+	gitLoading    map[string]bool
+	prompt        *prompt
 	// Editor chosen by the user, e.g. "vim"; empty means $EDITOR.
 	editor string
 
@@ -154,6 +159,8 @@ func NewModel(title string, load LoadFunc) Model {
 		findDevices: findDevices,
 		readChip:    readChipInfo,
 		openPort:    openSerialPort,
+		gitInfo:     map[string]*gitPaneInfo{},
+		gitLoading:  map[string]bool{},
 	}
 	m.reload()
 	return m
@@ -167,6 +174,8 @@ func (m *Model) reload() bool {
 		m.setError(err.Error())
 		return false
 	}
+	// Commits or checkouts may have changed the history.
+	clear(m.gitInfo)
 
 	// Keep the cursor on the same entries where possible.
 	prev := map[int]string{}
@@ -569,6 +578,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sizeMsg:
 		m.sizeDone(msg)
 
+	case repoFetchedMsg:
+		cmd = m.repoFetched(msg)
+
+	case repoPinnedMsg:
+		m.repoPinned(msg)
+
+	case gitPaneMsg:
+		m.gitPaneDone(msg)
+
 	case tea.KeyMsg:
 		if m.guide != nil && m.prompt == nil {
 			cmd = m.guideKey(msg)
@@ -603,6 +621,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	m.fix()
+	if load := m.loadGitPane(); load != nil {
+		cmd = tea.Batch(cmd, load)
+	}
 	return m, cmd
 }
 
@@ -756,6 +777,8 @@ func (m *Model) prefixKey(seq string) tea.Cmd {
 		l.cursor = 0
 	case "zh":
 		m.toggleForeign()
+	case "zg":
+		m.gitPaneHidden = !m.gitPaneHidden
 	case "g?":
 		m.openGuide()
 	default:
@@ -800,6 +823,8 @@ func (m *Model) enter(arrow bool) tea.Cmd {
 		e := m.Selected()
 		if e != nil && len(e.Fields) > 0 {
 			m.depth = depthFields
+		} else if e != nil && e.Open != nil {
+			return e.Open(m)
 		} else if !arrow {
 			return m.edit()
 		}
@@ -890,6 +915,9 @@ func (m *Model) run(a Action) tea.Cmd {
 			m.setError(err.Error())
 			return nil
 		}
+	}
+	if a.Fn != nil {
+		return a.Fn(m)
 	}
 
 	if a.ChooseImage {
@@ -1207,6 +1235,13 @@ func (m Model) View() string {
 		w1 = max(avail/10, 8)
 		w2 = max(avail/2, 10)
 	}
+	// The git pane needs a wider left column.  In a target's settings it
+	// stays wide, so that the columns do not move from field to field.
+	git := m.gitPaneEntry() != nil
+	if git || (!m.gitPaneHidden && ((m.depth == depthFields &&
+		m.targetHasPackages()) || m.choosingPackage())) {
+		w1 = max(avail*3/10, 30)
+	}
 	w3 := max(avail-w1-w2, 0)
 
 	var left, mid, right []string
@@ -1222,6 +1257,10 @@ func (m Model) View() string {
 		}
 	} else if m.depth == depthEntries {
 		left = renderList(m.categoryRows(), m.catList, w1, h, true)
+		if git {
+			left = append(left, "")
+			left = append(left, m.gitPaneView(w1, h-len(left))...)
+		}
 		mid = m.entryList(ci, w2, h, true)
 		if len(mid) == 0 {
 			mid = []string{styleDim.Render(" empty")}
@@ -1231,6 +1270,10 @@ func (m Model) View() string {
 		}
 	} else if e := m.Selected(); m.depth == depthFields {
 		left = m.entryList(ci, w1, h, true)
+		if git {
+			left = append(left, "")
+			left = append(left, m.gitPaneView(w1, h-len(left))...)
+		}
 		mid = renderList(m.fieldRows(e), m.fieldList, w2, h, true)
 		if f := m.field(); f != nil && f.Preview != nil {
 			right = previewLines(f.Preview(), w3, h)
@@ -1266,6 +1309,10 @@ func (m Model) View() string {
 	} else {
 		f := m.field()
 		left = renderList(m.fieldRows(e), m.fieldList, w1, h, true)
+		if git {
+			left = append(left, "")
+			left = append(left, m.gitPaneView(w1, h-len(left))...)
+		}
 		mid = renderList(optionRows(m.visibleOpts(), f.Value), m.optList,
 			w2, h, true)
 		if len(mid) == 0 {

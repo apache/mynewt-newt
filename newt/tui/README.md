@@ -33,6 +33,8 @@ and lets you do the everyday work from one place:
 - flash an mcuboot bootloader and its app in one step
 - open a board's serial or RTT console
 - jump from build errors to the line in your editor
+- see the project's repos, their branches and history, and switch a repo
+  to another branch
 
 You do not need this document to get around: the help pane at the bottom of
 the screen always lists the keys that work where you are. The document is
@@ -54,6 +56,7 @@ it.
 - [The console](#the-console)
 - [Build errors](#build-errors)
 - [Size and dependencies](#size-and-dependencies)
+- [Repos](#repos)
 - [The editor](#the-editor)
 - [What the browser changes on disk](#what-the-browser-changes-on-disk)
 - [Requirements](#requirements)
@@ -171,6 +174,28 @@ browser reloads when you close it.
   The project is named after the directory that holds `project.yml`. If
   `project.yml` gives it a different name, that name follows dimmed in
   parentheses (the `my_project` placeholder of `newt new` is left out).
+- **The git pane** shows in the left column, in two parts. *This
+  package*: the repo of a package, the branch it has checked out, and the
+  latest commits that changed the package's directory. *Whole repo*: the
+  latest commits of the package's repo, whatever they changed. The package
+  gets up to half of the lines, the repo the rest; on a short terminal only
+  the package's part is shown. While you browse apps, BSPs, libraries and
+  unit tests it shows the selected package, under the categories; in a
+  target's settings it shows the app or BSP under the cursor, under the
+  targets, and while you choose a target's app or BSP, the one under the
+  cursor. On a package, `c` lists all of its commits. `zg` hides or shows
+  the pane.
+
+  ```
+   Repos                       3 │ apps/bleuart
+  ── git: this package ──────────│ apps/blues-wireless
+   apache-mynewt-core · master   │ apps/bsncent
+   0adba9d68 21-12-01 baselibc: …│ apps/bsnprph
+   10ad0ca74 19-10-07 apps/bleua…│ apps/bus_test
+  ── git: whole repo ────────────│ apps/buzzer
+   6710eb6b0 26-10-09 tools: Add…│ apps/coremark
+   c17a74e96 26-10-07 ci: Add in…│ apps/crypto_test
+  ```
 - **The help pane** lists the keys for the current position, grouped by
   what they do, and changes as you move. `?` hides or shows it. On a narrow
   terminal it uses one line per group, and under 16 rows it hides itself.
@@ -191,13 +216,14 @@ browser reloads when you close it.
 | `/` | filter the list: type, then `Enter` to keep the filter or `Esc` to clear it |
 | `.` or `zh` | show or hide entries from repos other than the project's own |
 | `ga` `gb` `gl` `gB` | from a target, go to its app, BSP, loader or bootloader target |
+| `zg` | hide or show the git pane |
 | `H` | go back to where you were before a `g` jump |
 | `R` | reload the project from disk, e.g. after `newt upgrade` |
 | `?` | hide or show the help pane |
 | `q` | quit (asks first while a command runs) |
 
-The categories are **Targets**, **Apps**, **BSPs**, **Libraries** and
-**Unit tests**. Names are shown without their repo
+The categories are **Targets**, **Apps**, **BSPs**, **Libraries**,
+**Unit tests** and **Repos**. Names are shown without their repo
 (`hw/bsp/nordic_pca10056`). When a list has entries from more than one
 repo, they are grouped under a header per repo, your own first, so that
 e.g. the apps of apache-mynewt-core and of NimBLE are kept apart:
@@ -221,7 +247,9 @@ Like `newt target show`, the Targets list shows only the project's own
 targets at first; `.` also shows the example targets that come with
 apache-mynewt-core, NimBLE and so on. The other categories show all repos.
 
-On a package, `l` or `e` opens its `pkg.yml` in your editor. On a target,
+On a package, `l` or `e` opens its `pkg.yml` in your editor, and `c`
+lists the commits that changed it, with each commit's message and changed
+files in the preview. On a target,
 `l` opens its settings and `e` opens `target.yml`. The `g` jumps are only
 offered for what the target has: `gl` when it uses a loader, `gB` when it
 has a bootloader target. The preview of an app or BSP lists the targets
@@ -588,6 +616,52 @@ reports):
 
 `newt size` does not support simulator targets.
 
+## Repos
+
+The **Repos** category lists the repos of the project, as `newt info`
+does. Next to each is the version that `project.yml` asks for, or
+*dependency* for a repo that comes with another repo's dependencies. The
+preview shows the checkout: commit, branch, tags, whether files are
+changed, the remote and the latest commits.
+
+| Key | Does |
+|---|---|
+| `l` | the repo's branches |
+| `c` | the commit history of what is checked out |
+| `f` | fetch the repo's branches from origin (`git fetch`) |
+| `e` | open `project.yml` in the editor |
+
+`l` lists the branches you can switch to, most recently changed first:
+origin's, and your local branches that origin does not have, marked
+*local*. The branch that is checked out, and the one `project.yml` pins,
+are marked:
+
+```
+ newt nimbleproj › apache-mynewt-nimble › branches of apache-mynewt-nimble
+ update-ports-syscfg                              2026-10-28 │ master
+ master                pinned · checked out · 2026-10-28 │
+ eatt_m_chan                              local · 2026-10-23 │ Updated   2026-10-28
+ 1_8_0_dev                                        2024-07-02 │ Commit    bf0d7a9b9f7c
+```
+
+The preview lists the branch's latest commits; `c` shows its whole
+history, with each commit's message and changed files in the preview. `f`
+fetches new branches, and `/` filters the list.
+
+`Enter` switches the repo to the branch, after asking: it checks the branch
+out in that repo only, then pins it in `project.yml` as
+`vers: <branch>-commit`, so that the next `newt upgrade` keeps it there.
+origin's branches are checked out the way newt does (a detached checkout
+of the branch's commit); a local branch is checked out itself, so you can
+go on working on it. A pin to a local branch only works in this checkout.
+If git refuses, e.g. because of changed files, nothing changes.
+
+A repo that is not in `project.yml` but comes with another repo's
+dependencies gets a `repository.<name>` block of its own, which overrides
+the version the other repos ask for. The browser does not run
+`newt upgrade`, as that also upgrades the repos that the repo depends on;
+run it from the command line when you want that.
+
 ## The editor
 
 On the first launch the browser asks which editor should open files:
@@ -618,6 +692,11 @@ Only what you ask it to:
   (`MYNEWT_DOWNLOADER`) and the default board (`MYNEWT_DEBUGGER_SN`) are
   lines in its `syscfg.vals` map; again only those lines change, and an
   emptied `syscfg.vals:` is removed.
+- **`project.yml`**: switching a repo to a branch changes the repo's
+  `vers:` line, or adds a `repository.<name>` block for a repo that is not
+  listed yet.
+- **The repos**: switching a branch checks it out (`git checkout`), and
+  `f` runs `git fetch`.
 - **Target create, copy, rename and delete** run the `newt target`
   commands, which write the files in newt's usual format.
 - **`bin/targets/<target>/images/`**: copies of the images the browser
@@ -637,6 +716,7 @@ installed, and explain what is missing when they are not:
 | `nrfutil` with its `device` command (`nrfutil install device`) | listing boards and reading their chips; flashing when it is the flash tool |
 | SEGGER J-Link software (`JLinkExe`, `JLinkRTTClient`) | flashing with `jlink`, listing boards without nrfutil, the RTT console |
 | `nrfjprog` | flashing when it is the flash tool |
+| `git` | the Repos category |
 | vim or nano | editing files (or anything in `$EDITOR`) |
 
 The serial console works on Linux and macOS.
@@ -696,12 +776,17 @@ In lists of targets and packages:
 | `i` `F` | create image, flash bootloader + app |
 | `C` `s` `E` | console, size, last build's errors |
 | `t` | run a unit test package |
+| `c` | on a package: the commits that changed it |
+| `zg` | hide or show the git pane |
 
 In the syscfg settings: `Enter` change, `space` toggle 0/1, `x` remove
 this target's value, `o` changed settings only, `B` Bluetooth essentials.
 
 In the board list: `Enter` run, `s` run and make default, `r` scan again,
 `p` next serial port, `h`/`Esc` cancel.
+
+In the Repos category: `l` branches, `c` history, `f` fetch. In the
+branch list: `Enter` check out and pin, `c` history, `f` fetch.
 
 In the errors list: `Enter` open in the editor. In the size view: `o`
 sort by RAM or flash. In the image list of `L`: `Enter` load, `x` delete.
@@ -733,6 +818,8 @@ directory:
 | `console.go`, `serial_*.go` | the console pane over a serial port or RTT; serial port setup per platform |
 | `errors.go` | reading build output, the errors list, opening the editor at a line |
 | `size.go` | `newt size` and the dependency chains |
+| `repos.go` | the Repos category: git state, branches, history, pinning in `project.yml` |
+| `gitpane.go` | the git pane under the lists of packages |
 | `editor.go` | choosing and remembering the editor |
 | `guide.go` | this README, built into newt and shown with `g?` |
 | `exec.go` | running newt and other programs, `Run()` |

@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"mynewt.apache.org/newt/newt/builder"
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/interfaces"
@@ -50,6 +52,7 @@ const (
 	KindValue
 	// The target's syscfg settings.
 	KindSyscfg
+	KindRepo
 )
 
 // Action is a newt command that can be run on an entry, e.g. "newt build
@@ -74,6 +77,13 @@ type Action struct {
 	Confirm string
 	// Choose the image to load first.
 	ChooseImage bool
+	// Runs instead of a newt command.
+	Fn func(m *Model) tea.Cmd
+}
+
+// runs tells whether the action runs the newt command.
+func (a Action) runs(command string) bool {
+	return len(a.Args) > 0 && a.Args[0] == command
 }
 
 // Link points from one entry to another one, e.g. from a target to its app.
@@ -141,10 +151,16 @@ type Entry struct {
 	Kind Kind
 	// File opened by the edit action.
 	EditPath string
+	// What l does instead of opening EditPath, and its help.
+	Open     func(m *Model) tea.Cmd
+	OpenHelp string
 	// Entries from foreign repos are hidden unless the user toggles them.
 	Foreign bool
 	// The repo the entry comes from; lists group their entries by it.
-	Repo    string
+	Repo string
+	// The package's directory, and its repo's; empty for other entries.
+	Dir     string
+	RepoDir string
 	Actions []Action
 	Links   []Link
 	Fields  []*Field
@@ -217,6 +233,8 @@ func Load(proj *project.Project) []*Category {
 		}
 		sortEntries(cat.Entries)
 	}
+	cats = append(cats, &Category{Title: "Repos", Kind: KindRepo,
+		Entries: repoEntries(proj)})
 
 	return cats
 }
@@ -321,7 +339,7 @@ func targetEntries(proj *project.Project, users map[string][]string) []*Entry {
 		flash := downloaderField(e)
 		e.Fields = append(e.Fields, flash)
 		for i := range e.Actions {
-			if e.Actions[i].Args[0] == "load" {
+			if e.Actions[i].runs("load") {
 				e.Actions[i].Check = func() error { return loadCheck(flash) }
 			}
 		}
@@ -383,6 +401,8 @@ func packageEntry(proj *project.Project, lpkg *pkg.LocalPackage, kind Kind,
 		EditPath: lpkg.PkgYamlPath(),
 		Foreign:  !lpkg.Repo().IsLocal(),
 		Repo:     lpkg.Repo().Name(),
+		Dir:      lpkg.BasePath(),
+		RepoDir:  lpkg.Repo().Path(),
 	}
 	if repo != "" {
 		e.Hint = "@" + repo
@@ -390,6 +410,11 @@ func packageEntry(proj *project.Project, lpkg *pkg.LocalPackage, kind Kind,
 	if kind == KindUnittest {
 		e.Actions = []Action{{Key: "t", Label: "test", Args: []string{"test", full}}}
 	}
+	e.Actions = append(e.Actions, Action{Key: "c", Label: "commit history",
+		Fn: func(m *Model) tea.Cmd {
+			return m.openHistory("history of "+short, e.RepoDir, "HEAD",
+				e.Dir)
+		}})
 
 	e.previewFn = func() []string {
 		return packagePreview(proj, lpkg, kind, users)
