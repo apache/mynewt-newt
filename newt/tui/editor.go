@@ -52,6 +52,15 @@ var tuiConfigPath = func() string {
 
 // savedEditor returns the editor chosen earlier, if any.
 func savedEditor() string {
+	return savedSetting("editor")
+}
+
+func saveEditor(editor string) error {
+	return saveSetting("editor", editor)
+}
+
+// savedSetting returns one of the browser's settings in tui.yml, or "".
+func savedSetting(name string) string {
 	path := tuiConfigPath()
 	if path == "" || !util.NodeExist(path) {
 		return ""
@@ -60,14 +69,15 @@ func savedEditor() string {
 	if err != nil {
 		return ""
 	}
-	editor, _ := yc.GetValString("editor", nil)
-	return editor
+	value, _ := yc.GetValString(name, nil)
+	return value
 }
 
-func saveEditor(editor string) error {
+// saveSetting changes one of the browser's settings in tui.yml.
+func saveSetting(name string, value string) error {
 	path := tuiConfigPath()
 	if path == "" {
-		return util.NewNewtError("no home directory to save the editor in")
+		return util.NewNewtError("no home directory to save settings in")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return util.ChildNewtError(err)
@@ -76,7 +86,7 @@ func saveEditor(editor string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return util.ChildNewtError(err)
 	}
-	data = []byte(setYmlVar(string(data), "editor", editor))
+	data = []byte(setYmlVar(string(data), name, value))
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return util.ChildNewtError(err)
 	}
@@ -124,6 +134,7 @@ func (m *Model) askEditor(first bool) {
 		choices: choices,
 		title:   "Choose your editor",
 		help:    help,
+		cancel:  "files open in " + m.editorName(),
 		done: func(m *Model, editor string) tea.Cmd {
 			m.editor = editor
 			if err := saveEditor(editor); err != nil {

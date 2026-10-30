@@ -37,6 +37,8 @@ type prompt struct {
 	help  [][2]string
 	// For a choice: the value for each key, e.g. "v" -> "vim".
 	choices map[string]string
+	// The status after Esc on a choice.
+	cancel string
 }
 
 // opDoneMsg reports the end of a background target operation.
@@ -70,7 +72,7 @@ func (m *Model) promptKey(msg tea.KeyMsg) tea.Cmd {
 		}
 		if msg.Type == tea.KeyEsc || msg.Type == tea.KeyCtrlC {
 			m.prompt = nil
-			m.setStatus("files open in " + m.editorName())
+			m.setStatus(p.cancel)
 		}
 		return nil
 	}

@@ -113,7 +113,9 @@ type Model struct {
 	gitPaneHidden bool
 	gitInfo       map[string]*gitPaneInfo
 	gitLoading    map[string]bool
-	prompt        *prompt
+	// The boards pane on the right.
+	boards boardPane
+	prompt *prompt
 	// Editor chosen by the user, e.g. "vim"; empty means $EDITOR.
 	editor string
 
@@ -214,6 +216,9 @@ func (m *Model) setError(s string) {
 }
 
 func (m Model) Init() tea.Cmd {
+	if m.boards.shown {
+		return m.boardsScan()
+	}
 	return nil
 }
 
@@ -587,6 +592,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case gitPaneMsg:
 		m.gitPaneDone(msg)
 
+	case boardsMsg:
+		cmd = m.boardsFound(msg)
+
+	case boardsTickMsg:
+		cmd = m.boardsTicked(msg)
+
+	case boardChipMsg:
+		cmd = m.boardChipRead(msg)
+
+	case boardActionMsg:
+		cmd = m.boardActionDone(msg)
+
 	case tea.KeyMsg:
 		if m.guide != nil && m.prompt == nil {
 			cmd = m.guideKey(msg)
@@ -663,6 +680,9 @@ func (m *Model) key(k string) tea.Cmd {
 		return m.prefixKey(prefix + k)
 	}
 
+	if cmd, ok := m.boardsKey(k); ok {
+		return cmd
+	}
 	if cmd, ok := m.panelKeyPressed(k); ok {
 		return cmd
 	}
@@ -777,6 +797,8 @@ func (m *Model) prefixKey(seq string) tea.Cmd {
 		l.cursor = 0
 	case "zh":
 		m.toggleForeign()
+	case "zb":
+		return m.toggleBoards()
 	case "zg":
 		m.gitPaneHidden = !m.gitPaneHidden
 	case "g?":
@@ -1220,12 +1242,9 @@ func column(lines []string, width int, height int) string {
 	return style.Render(strings.Join(lines, "\n"))
 }
 
-func (m Model) View() string {
-	if m.width == 0 || m.height == 0 {
-		return ""
-	}
-	h := m.listHeight()
-
+// bodyView draws the columns, or the panel or guide that replaces them, in
+// m.width columns.
+func (m Model) bodyView(h int) string {
 	// Ranger's default column ratio is 1:3:4.  Setting names are long, so
 	// the syscfg view gives the middle column more room.
 	avail := m.width - 2
@@ -1332,6 +1351,27 @@ func (m Model) View() string {
 	}
 	if m.guide != nil {
 		body = m.guideView(h)
+	}
+	return body
+}
+
+func (m Model) View() string {
+	if m.width == 0 || m.height == 0 {
+		return ""
+	}
+	h := m.listHeight()
+
+	var body string
+	if m.boardsVisible() {
+		inner := m
+		inner.width = m.width - boardsWidth - 1
+		sep := styleSep.Render(column(strings.Split(strings.Repeat("│\n", h),
+			"\n")[:h], 1, h))
+		body = joinColumns(column(strings.Split(inner.bodyView(h), "\n"),
+			inner.width, h), sep, column(m.boardsView(boardsWidth, h),
+			boardsWidth, h))
+	} else {
+		body = m.bodyView(h)
 	}
 
 	out := m.titleBar() + "\n" + body + "\n"

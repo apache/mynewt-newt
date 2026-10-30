@@ -46,7 +46,7 @@ var randomKeys = []tea.KeyMsg{
 	{Type: tea.KeyCtrlB}, {Type: tea.KeyCtrlC}, {Type: tea.KeyCtrlCloseBracket},
 }
 
-const randomRunes = "hjklggGHLzz/.?[]=abcdefinoprstuvxyBCDEFMORV0123456789 "
+const randomRunes = "hjklggGHLzz/.?[]=abcdefinoprstuvxyBCDEFMORVX0123456789 "
 
 // randomWorld is a fake project with a target that has settings, syscfg
 // and a bootloader, and fake boards, tools and files.

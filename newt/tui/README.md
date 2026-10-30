@@ -32,6 +32,7 @@ and lets you do the everyday work from one place:
 - build, run, load, debug and size them, on the board you choose
 - flash an mcuboot bootloader and its app in one step
 - open a board's serial or RTT console
+- see the connected boards, and reset, erase or recover them
 - jump from build errors to the line in your editor
 - see the project's repos, their branches and history, and switch a repo
   to another branch
@@ -52,6 +53,7 @@ it.
 - [Syscfg settings](#syscfg-settings)
 - [Running newt commands](#running-newt-commands)
 - [Choosing a board](#choosing-a-board)
+- [The boards pane](#the-boards-pane)
 - [Bootloader and images](#bootloader-and-images)
 - [The console](#the-console)
 - [Build errors](#build-errors)
@@ -456,7 +458,8 @@ the chip is readback-protected, and compares the part with the chip the
 target is built for (`MCU_TARGET`). A board with a different chip is marked
 `⚠`, and running on it asks *anyway? (y/N)* first. For a protected chip
 the preview shows the command that unlocks it (`nrfutil device recover`,
-which erases the chip); the browser never runs it for you.
+which erases the chip). Loading never runs it for you; the
+[boards pane](#the-boards-pane) does, after asking.
 
 **How the board is picked.** All flash and debug scripts of
 apache-mynewt-core pick the board from the `JLINK_SN` environment variable,
@@ -471,6 +474,60 @@ flash.
 `newt debug` attaches to the firmware already on the board; it does not
 load the build. If gdb shows `?? ()` instead of function names, load the
 build first, or use `r`. The board list reminds you of this for `d`.
+
+## The boards pane
+
+A pane on the right lists the boards connected to the computer. It is open
+from the start; `zb` moves the cursor into it. It looks for boards every 5
+seconds, so boards you plug in or out show up without a key press, and
+reads the chip of each new board once, as the board list does. Under the list are the
+details of the selected board: serial number, probe, chip, flash size,
+readback protection and serial ports.
+
+```
+ nrf52_btshell     │── boards ────────────────────────
+ ycm_btshell       │ PCA10056 · J-Link · NRF52840
+                   │ ⚠ PCA10095 · J-Link · NRF5340
+                   │
+                   │ Serial    000683220560
+                   │ Probe     J-Link
+                   │ Chip      NRF52840
+                   │ Access    not protected
+                   │ Ports     /dev/ttyACM0
+```
+
+| Key | Does |
+|---|---|
+| `j` / `k` | move between the boards |
+| `r` | reset the board |
+| `E` | erase all of its flash, after asking |
+| `X` | recover it, after asking: erase the whole chip and remove its readback protection |
+| `s` | look for boards now |
+| `h` / `Esc` | back to the lists; the pane stays open |
+| `zb` | hide the pane (from the lists: move into it again) |
+
+A hidden pane stays hidden the next time you start the browser, until `zb`
+shows it again; the choice is saved in `~/.newt/tui.yml`.
+
+The actions run `nrfutil device reset`, `erase --all` or `recover` with the
+board's serial number, or `nrfjprog --reset`, `--eraseall` or `--recover`
+when nrfutil is not installed. A board with a protected chip is marked
+`⚠`; after an erase or a recover its chip is read again.
+
+**Chips with two cores.** On an nRF53, erase and recover work on one core
+at a time, so `E` and `X` ask which: `a` the application core, `n` the
+network core (e.g. the Bluetooth controller), or `b` both, the network
+core first. Picking a core answers the question; `Esc` cancels. They run
+with `--core application` / `--core network`, or nrfjprog's
+`--coprocessor CP_APPLICATION` / `CP_NETWORK`. The board's details list
+its cores. The question needs the chip to have been read; on a board found
+only by J-Link, erase and recover use the tool's default, the application
+core. Reset does not ask: it resets through the application core, the
+tool's default.
+
+The pane leaves the probes alone while a newt command runs, so it never
+gets in the way of a load or a debug session, and no chips are read while
+the RTT console is open. It needs a terminal at least 100 columns wide.
 
 ## Bootloader and images
 
@@ -701,7 +758,8 @@ Only what you ask it to:
   commands, which write the files in newt's usual format.
 - **`bin/targets/<target>/images/`**: copies of the images the browser
   creates.
-- **`~/.newt/tui.yml`**: the chosen editor.
+- **`~/.newt/tui.yml`**: the chosen editor, and whether the boards pane is
+  hidden.
 
 Build, load and the other newt commands do what they do on the command
 line.
@@ -715,7 +773,7 @@ installed, and explain what is missing when they are not:
 |---|---|
 | `nrfutil` with its `device` command (`nrfutil install device`) | listing boards and reading their chips; flashing when it is the flash tool |
 | SEGGER J-Link software (`JLinkExe`, `JLinkRTTClient`) | flashing with `jlink`, listing boards without nrfutil, the RTT console |
-| `nrfjprog` | flashing when it is the flash tool |
+| `nrfjprog` | flashing when it is the flash tool; resetting, erasing and recovering boards without nrfutil |
 | `git` | the Repos category |
 | vim or nano | editing files (or anything in `$EDITOR`) |
 
@@ -758,6 +816,7 @@ Everywhere:
 | `R` | reload the project |
 | `Ctrl-C` | stop the running command |
 | `O`, `Esc` | show or hide the last command's output |
+| `zb` | move into the boards pane, hide it, show it again |
 | `V` | choose the editor |
 | `g?` | open this guide |
 | `?` | hide or show the help pane |
@@ -784,6 +843,9 @@ this target's value, `o` changed settings only, `B` Bluetooth essentials.
 
 In the board list: `Enter` run, `s` run and make default, `r` scan again,
 `p` next serial port, `h`/`Esc` cancel.
+
+In the boards pane: `r` reset, `E` erase, `X` recover, `s` scan now,
+`h`/`Esc` back to the lists, `zb` hide.
 
 In the Repos category: `l` branches, `c` history, `f` fetch. In the
 branch list: `Enter` check out and pin, `c` history, `f` fetch.
@@ -812,6 +874,7 @@ directory:
 | `syscfg.go`, `syscfgview.go` | resolving a target's configuration, saving syscfg values, the syscfg view and the Bluetooth page |
 | `downloader.go` | the flash tool setting and the check before loading |
 | `devices.go`, `picker.go` | finding boards and reading their chips; the board list |
+| `boards.go` | the boards pane: watching the connected boards, reset, erase and recover |
 | `jobs.go`, `jobs_*.go` | running newt commands in the background and the output pane; process groups per platform |
 | `boot.go` | bootloader targets, `create-image` and flash bootloader + app |
 | `images.go` | the images of an app, choosing the image to load, keeping copies |

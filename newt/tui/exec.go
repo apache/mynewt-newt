@@ -234,6 +234,10 @@ func Run(title string, note string, load LoadFunc) error {
 	if m.editor == "" && len(installedEditors()) > 0 {
 		m.askEditor(true)
 	}
+	if savedSetting("boards") != "hidden" {
+		m.showBoards()
+		m.boards.scanning = true
+	}
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()
 	if err != nil {

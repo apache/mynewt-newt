@@ -164,6 +164,8 @@ func (m *Model) guideTopic() string {
 		return "Choosing the image to load"
 	case m.console != nil && m.consoleFocus:
 		return "The console"
+	case m.boards.focus && m.boardsVisible():
+		return "The boards pane"
 	case m.depth == depthDevice:
 		return "Choosing a board"
 	case m.depth == depthSyscfg || m.depth == depthChoice:

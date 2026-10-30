@@ -82,6 +82,9 @@ func (m *Model) helpGroups() []helpGroup {
 		return []helpGroup{g}
 	}
 
+	if m.boards.focus && m.boardsVisible() {
+		return m.boardsHelp()
+	}
 	if m.panel != nil {
 		return m.panelHelp()
 	}
@@ -213,6 +216,7 @@ func (m *Model) helpGroups() []helpGroup {
 		}
 	}
 	other.add("R", "reload project")
+	other = m.boardsKeyHelp(other)
 	other = m.jobHelp(other)
 	other.add("g?", "guide")
 	other.add("V", "editor: "+m.editorName())
@@ -442,10 +446,23 @@ func (m *Model) syscfgHelp() []helpGroup {
 func (m *Model) generalHelp() helpGroup {
 	g := helpGroup{title: "General", style: styleBold}
 	g.add("R", "reload project")
+	g = m.boardsKeyHelp(g)
 	g = m.jobHelp(g)
 	g.add("g?", "guide")
 	g.add("?", "hide this help")
 	g.add("q", "quit")
+	return g
+}
+
+// boardsKeyHelp adds the key that switches to the boards pane, or shows
+// it.
+func (m *Model) boardsKeyHelp(g helpGroup) helpGroup {
+	switch {
+	case !m.boards.shown:
+		g.add("zb", "show the boards pane")
+	case m.boardsVisible() && !m.boards.focus:
+		g.add("zb", "go to the boards pane")
+	}
 	return g
 }
 
