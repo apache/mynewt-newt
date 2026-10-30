@@ -38,6 +38,7 @@ var newtVerbose bool
 var newtLogFile string
 var newtNumJobs int
 var newtHelp bool
+var newtTui bool
 
 // Returns the number of CPUs available to this process.  GOMAXPROCS honors
 // CPU affinity on all platforms and cgroup CPU limits on Linux.
@@ -72,6 +73,9 @@ func newtCmd() *cobra.Command {
 		and specify the name of the command you want help for, for help on 
 		how to use a specific command`)
 	newtHelpEx := "  newt\n"
+	newtHelpEx += "  newt tui (or newt --tui)\n"
+	newtHelpEx += "    Browse targets, apps and BSPs interactively; " +
+		"press ? for key bindings.\n"
 	newtHelpEx += "  newt help [<command-name>]\n"
 	newtHelpEx += "    For help on <command-name>.  If not specified, " +
 		"print this message."
@@ -109,6 +113,10 @@ func newtCmd() *cobra.Command {
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			if newtTui {
+				cli.RunTui()
+				return
+			}
 			cmd.Help()
 		},
 	}
@@ -131,6 +139,9 @@ func newtCmd() *cobra.Command {
 		util.EscapeShellCmds, "Apply Windows escapes to shell commands")
 	newtCmd.PersistentFlags().IntVarP(&util.ShallowCloneDepth, "shallow", "",
 		util.ShallowCloneDepth, "Use shallow clone for git repositories up to specified number of commits")
+
+	newtCmd.Flags().BoolVarP(&newtTui, "tui", "t", false,
+		"Browse project targets and packages in a ranger-style terminal UI")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
@@ -168,6 +179,7 @@ func main() {
 	cli.AddMfgCommands(cmd)
 	cli.AddDocsCommands(cmd)
 	cli.AddManCommands(cmd)
+	cli.AddTuiCommands(cmd)
 
 	/* only pass the first two args to check for complete command */
 	if len(os.Args) > 2 {
