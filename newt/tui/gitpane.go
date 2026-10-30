@@ -200,7 +200,7 @@ func (m *Model) gitPaneView(width int, height int) []string {
 	}
 	header := func(title string) string {
 		title = "── " + title + " "
-		return styleSep.Render(ansi.Truncate(title, width, "…") +
+		return styleGitSep.Render(ansi.Truncate(title, width, "…") +
 			strings.Repeat("─", max(width-ansi.StringWidth(title), 0)))
 	}
 

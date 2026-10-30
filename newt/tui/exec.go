@@ -228,8 +228,13 @@ func Run(title string, note string, load LoadFunc) error {
 		log.SetOutput(logOut)
 	}()
 
+	t, themeErr := loadTheme(savedSetting("theme"))
+	setTheme(t)
 	m := NewModel(title, load)
 	m.note = note
+	if themeErr != nil {
+		m.setError(themeErr.Error() + "; using the terminal's colors")
+	}
 	m.editor = savedEditor()
 	if m.editor == "" && len(installedEditors()) > 0 {
 		m.askEditor(true)

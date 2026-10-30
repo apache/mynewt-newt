@@ -1105,7 +1105,7 @@ func renderList(rows []row, l list, width int, height int,
 		text += strings.Repeat(" ", max(pad, 0))
 
 		if sel {
-			out = append(out, r.style.Inherit(styleSel).Render(text)+
+			out = append(out, styleSel.Inherit(r.style).Render(text)+
 				styleSelDim.Render(hint))
 		} else {
 			out = append(out, r.style.Render(text)+styleDim.Render(hint))
@@ -1365,7 +1365,7 @@ func (m Model) View() string {
 	if m.boardsVisible() {
 		inner := m
 		inner.width = m.width - boardsWidth - 1
-		sep := styleSep.Render(column(strings.Split(strings.Repeat("│\n", h),
+		sep := styleBoardsSep.Render(column(strings.Split(strings.Repeat("│\n", h),
 			"\n")[:h], 1, h))
 		body = joinColumns(column(strings.Split(inner.bodyView(h), "\n"),
 			inner.width, h), sep, column(m.boardsView(boardsWidth, h),
@@ -1389,7 +1389,7 @@ func joinColumns(cols ...string) string {
 }
 
 func (m *Model) titleBar() string {
-	name := styleBold.Render(m.title)
+	name := styleTitle.Render(m.title)
 	if m.note != "" {
 		name += styleDim.Render(" (" + m.note + ")")
 	}
@@ -1496,7 +1496,7 @@ func (m *Model) bottomView() []string {
 	case jobShown && m.console != nil:
 		w1 := (m.width - 1) / 2
 		w2 := m.width - 1 - w1
-		sep := styleSep.Render(column(strings.Split(strings.Repeat("│\n", h),
+		sep := styleDockSep.Render(column(strings.Split(strings.Repeat("│\n", h),
 			"\n")[:h], 1, h))
 		return strings.Split(joinColumns(column(m.dockView(w1, h), w1, h), sep,
 			column(m.consoleView(w2, h), w2, h)), "\n")

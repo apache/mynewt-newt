@@ -60,6 +60,7 @@ it.
 - [Size and dependencies](#size-and-dependencies)
 - [Repos](#repos)
 - [The editor](#the-editor)
+- [Colors](#colors)
 - [What the browser changes on disk](#what-the-browser-changes-on-disk)
 - [Requirements](#requirements)
 - [Troubleshooting](#troubleshooting)
@@ -738,6 +739,23 @@ browser does not ask.
 When you close the editor after changing a target's files, the browser
 reloads the project.
 
+## Colors
+
+By default the browser uses the 16 colors of your terminal's theme, as
+ranger does. For the *hal* theme, a dark theme of muted greens, golds and
+blues, set `theme` in `~/.newt/tui.yml`:
+
+```yaml
+theme: "hal"
+```
+
+It colors the borders of each pane on its own (blue around the columns,
+yellow for the git pane, red for the boards pane), so they stand out more
+than the terminal's dim grey, and shows the selected row on a dark green
+background. `theme: "terminal"` goes back to the terminal's colors. The
+theme is read when the browser starts; an unknown name is reported in the
+status bar and the terminal's colors are used.
+
 ## What the browser changes on disk
 
 Only what you ask it to:
@@ -759,7 +777,7 @@ Only what you ask it to:
 - **`bin/targets/<target>/images/`**: copies of the images the browser
   creates.
 - **`~/.newt/tui.yml`**: the chosen editor, and whether the boards pane is
-  hidden.
+  hidden. The browser never writes `theme`; you set it yourself.
 
 Build, load and the other newt commands do what they do on the command
 line.
@@ -886,7 +904,7 @@ directory:
 | `editor.go` | choosing and remembering the editor |
 | `guide.go` | this README, built into newt and shown with `g?` |
 | `exec.go` | running newt and other programs, `Run()` |
-| `styles.go` | colors (the 16 ANSI colors, so the browser follows the terminal's theme) |
+| `styles.go` | colors: the 16 ANSI colors, so the browser follows the terminal's theme, or the hal theme |
 
 Design points:
 

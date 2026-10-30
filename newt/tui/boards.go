@@ -473,7 +473,7 @@ func (m *Model) boardActionDone(msg boardActionMsg) tea.Cmd {
 func (m *Model) boardsView(width int, h int) []string {
 	b := &m.boards
 	title := "── boards "
-	lines := []string{styleSep.Render(title + strings.Repeat("─",
+	lines := []string{styleBoardsSep.Render(title + strings.Repeat("─",
 		max(width-ansi.StringWidth(title), 0)))}
 
 	switch {

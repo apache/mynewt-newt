@@ -461,7 +461,7 @@ func (m *Model) consoleView(width int, h int) []string {
 		title += strings.Repeat("─", pad)
 	}
 
-	lines := []string{styleSep.Render(title)}
+	lines := []string{styleDockSep.Render(title)}
 	for _, l := range s.view(h-2, m.consoleBack) {
 		lines = append(lines, " "+ansi.Truncate(l, width-1, "…"))
 	}

@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // The syscfg view lists the resolved settings of the selected target, i.e.
@@ -299,11 +298,6 @@ func (m *Model) syscfgKey(k string) (tea.Cmd, bool) {
 
 	return nil, true
 }
-
-var (
-	styleOverride = kindStyle(KindTarget).Bold(true)
-	styleChanged  = lipgloss.NewStyle()
-)
 
 func settingRows(settings []*Setting) []row {
 	rows := make([]row, len(settings))

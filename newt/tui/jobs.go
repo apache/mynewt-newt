@@ -324,14 +324,14 @@ func (m *Model) dockView(width int, h int) []string {
 	title := fmt.Sprintf("── %s · %s · %s ", j.label, j.elapsed(), state)
 	title = ansi.Truncate(title, width, "…")
 	if pad := width - ansi.StringWidth(title); pad > 0 {
-		title += styleSep.Render(strings.Repeat("─", pad))
+		title += styleDockSep.Render(strings.Repeat("─", pad))
 	}
 
 	partial := ""
 	if m.jobPartial != nil {
 		partial = m.jobPartial()
 	}
-	lines := []string{styleSep.Render(title)}
+	lines := []string{styleDockSep.Render(title)}
 	for _, l := range j.tail(h-1, partial) {
 		l = strings.ReplaceAll(ansi.Strip(l), "\t", "    ")
 		lines = append(lines, " "+ansi.Truncate(l, width-1, "…"))
