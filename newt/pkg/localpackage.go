@@ -25,6 +25,7 @@ import (
 	"mynewt.apache.org/newt/newt/cfgv"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"mynewt.apache.org/newt/newt/config"
@@ -212,19 +213,37 @@ func (pkg *LocalPackage) readLinkTables(yc ycfg.YCfg) ([]string, error) {
 	return sections, nil
 }
 
-func (pkg *LocalPackage) sequenceString(key string) string {
+// settingString converts a single pkg.yml setting to a YAML string.
+// Sequences are written one element per line; other values are passed to
+// the generic YAML encoder.
+func settingString(key string, val interface{}) string {
+	var elems []interface{}
+	switch v := val.(type) {
+	case []string:
+		for _, s := range v {
+			elems = append(elems, s)
+		}
+	case []interface{}:
+		elems = v
+	default:
+		return yaml.KvToYaml(key, val, 0)
+	}
+
 	var buffer bytes.Buffer
 
-	vals, err := pkg.PkgY.GetValStringSlice(key, nil)
-	util.OneTimeWarningError(err)
-	for _, f := range vals {
-		buffer.WriteString("    - " + yaml.EscapeString(f) + "\n")
+	for _, e := range elems {
+		switch e.(type) {
+		case []interface{}, map[interface{}]interface{}:
+			return yaml.KvToYaml(key, val, 0)
+		}
+		buffer.WriteString("    - " +
+			yaml.EscapeString(fmt.Sprintf("%v", e)) + "\n")
 	}
 
 	if buffer.Len() == 0 {
 		return ""
 	} else {
-		return key + ":\n" + buffer.String()
+		return yaml.EscapeString(key) + ":\n" + buffer.String()
 	}
 }
 
@@ -267,11 +286,44 @@ func (pkg *LocalPackage) Save() error {
 
 	buf.WriteString("\n")
 
-	buf.WriteString(pkg.sequenceString("pkg.deps"))
-	buf.WriteString(pkg.sequenceString("pkg.aflags"))
-	buf.WriteString(pkg.sequenceString("pkg.cflags"))
-	buf.WriteString(pkg.sequenceString("pkg.cxxflags"))
-	buf.WriteString(pkg.sequenceString("pkg.lflags"))
+	// Write all remaining settings, including conditional ones.  Settings
+	// pulled in via $import are written inline, so the import directive
+	// itself is dropped.
+	settings := pkg.PkgY.AllSettings()
+	for _, key := range []string{
+		"pkg.name",
+		"pkg.type",
+		"pkg.description",
+		"pkg.author",
+		"pkg.homepage",
+		config.KEYWORD_IMPORT,
+	} {
+		delete(settings, key)
+	}
+
+	// Commonly used settings come first; the rest are sorted by name.
+	for _, key := range []string{
+		"pkg.deps",
+		"pkg.aflags",
+		"pkg.cflags",
+		"pkg.cxxflags",
+		"pkg.lflags",
+	} {
+		if val, ok := settings[key]; ok {
+			buf.WriteString(settingString(key, val))
+			delete(settings, key)
+		}
+	}
+
+	keys := make([]string, 0, len(settings))
+	for key := range settings {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		buf.WriteString(settingString(key, settings[key]))
+	}
 
 	if err := os.WriteFile(pkg.PkgYamlPath(), buf.Bytes(), 0644); err != nil {
 		return util.NewNewtError(err.Error())
