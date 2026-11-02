@@ -293,31 +293,31 @@ func (bpkg *BuildPackage) publicIncludeDirs(b *Builder) []string {
 		addIncludeDir(&incls, bp+"/include/"+pkgBase+"/arch/"+bspPkg.Arch)
 	}
 
+	settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
+
+	inclDirs, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+		"pkg.include_dirs", settings)
+	util.OneTimeWarningError(err)
+
+	for _, dir := range inclDirs {
+		repo, path, err := newtutil.ParsePackageString(dir)
+
+		if err != nil {
+			util.OneTimeWarningError(err)
+		}
+
+		if repo != "" {
+			incls = append(incls, "repos/"+repo+"/"+path)
+		} else {
+			incls = append(incls, bp+"/"+dir)
+		}
+	}
+
 	if bpkg.rpkg.Lpkg.Type() == pkg.PACKAGE_TYPE_SDK {
 		incls = append(incls, bspPkg.BasePath()+"/include/bsp/")
 
 		sdkIncls := bpkg.findSdkIncludes()
 		incls = append(incls, sdkIncls...)
-
-		settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
-
-		inclDirs, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
-			"pkg.include_dirs", settings)
-		util.OneTimeWarningError(err)
-
-		for _, dir := range inclDirs {
-			repo, path, err := newtutil.ParsePackageString(dir)
-
-			if err != nil {
-				util.OneTimeWarningError(err)
-			}
-
-			if repo != "" {
-				incls = append(incls, "repos/"+repo+"/"+path)
-			} else {
-				incls = append(incls, bp+"/"+dir)
-			}
-		}
 	}
 
 	return incls
