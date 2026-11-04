@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"mynewt.apache.org/newt/newt/symbol"
 	"mynewt.apache.org/newt/util"
@@ -116,7 +117,18 @@ func getParseRexeg() (error, *regexp.Regexp) {
 func (b *Builder) ParseObjectLibrary(bp *BuildPackage) (
 	error, *symbol.SymbolMap) {
 
+	ci, err := bp.CompilerInfo(b)
+	if err != nil {
+		return err, nil
+	}
+
 	file := b.ArchivePath(bp)
+	if ci.WholeArch {
+		// Whole-archive packages are built into a list of object files, which
+		// is passed to the tools as a response file.
+		file = "@" + strings.TrimSuffix(file, ".a") + ".list"
+	}
+
 	return b.ParseObjectLibraryFile(bp, file, true)
 }
 
