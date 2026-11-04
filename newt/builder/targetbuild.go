@@ -639,6 +639,13 @@ func (t *TargetBuilder) Build() error {
 		return err
 	}
 
+	// Execute the set of pre-link user scripts.  This has to happen before the
+	// loader is built because split image tentative links need their output,
+	// e.g., a generated linker script.
+	if err := t.execPreLinkCmds(workDir); err != nil {
+		return err
+	}
+
 	var linkerScripts []string
 	if t.LoaderBuilder == nil {
 		linkerScripts = t.bspPkg.LinkerScripts
@@ -647,11 +654,6 @@ func (t *TargetBuilder) Build() error {
 			return err
 		}
 		linkerScripts = t.bspPkg.Part2LinkerScripts
-	}
-
-	// Execute the set of pre-link user scripts.
-	if err := t.execPreLinkCmds(workDir); err != nil {
-		return err
 	}
 
 	/* Link the app. */
