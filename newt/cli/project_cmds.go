@@ -28,12 +28,16 @@ import (
 	"mynewt.apache.org/newt/newt/downloader"
 	"mynewt.apache.org/newt/newt/interfaces"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/porcelain"
 	"mynewt.apache.org/newt/newt/project"
 	"mynewt.apache.org/newt/newt/repo"
+	"mynewt.apache.org/newt/newt/target"
 	"mynewt.apache.org/newt/util"
 )
 
 var infoRemote bool
+var infoJson bool
+var infoBrief bool
 
 func newRunCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
@@ -146,6 +150,15 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func infoRunCmd(cmd *cobra.Command, args []string) {
+	if infoJson {
+		infoMachineRunCmd(cmd, args)
+		return
+	}
+	if infoBrief {
+		NewtUsage(cmd, util.NewNewtError(
+			"--brief needs --json"))
+	}
+
 	newtutil.PrintNewtVersion()
 
 	proj := TryGetProject()
@@ -207,6 +220,38 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+// infoMachineRunCmd prints the project info in a format meant for scripts.
+func infoMachineRunCmd(cmd *cobra.Command, args []string) {
+	// Only the requested format goes to stdout.
+	util.Verbosity = util.VERBOSITY_SILENT
+
+	proj := TryGetProject()
+
+	opts := porcelain.Options{Remote: infoRemote, Brief: infoBrief}
+	seen := map[*target.Target]bool{}
+	for _, name := range args {
+		t := ResolveTarget(name)
+		if t == nil {
+			NewtUsage(nil, util.NewNewtError(
+				"Could not resolve target name: "+name))
+		}
+		if !seen[t] {
+			seen[t] = true
+			opts.Targets = append(opts.Targets, t)
+		}
+	}
+
+	info, err := porcelain.Gather(proj, opts)
+	if err != nil {
+		NewtUsage(nil, err)
+	}
+
+	err = porcelain.WriteJSON(os.Stdout, info)
+	if err != nil {
+		NewtUsage(nil, util.ChildNewtError(err))
+	}
+}
+
 func AddProjectCommands(cmd *cobra.Command) {
 	upgradeHelpText := ""
 	upgradeHelpEx := "  newt upgrade\n"
@@ -242,8 +287,18 @@ func AddProjectCommands(cmd *cobra.Command) {
 
 	cmd.AddCommand(newCmd)
 
-	infoHelpText := "Show information about the current project."
-	infoHelpEx := "  newt info\n"
+	infoHelpText := "Show information about the current project.\n\n" +
+		"With --json, describe the whole project in a " +
+		"stable format meant for scripts: the repos, all targets with " +
+		"their complete syscfg and the packages of their builds, and all " +
+		"packages.  Target names limit the targets to those, and --brief " +
+		"leaves out what takes long to compute: the syscfg and the " +
+		"packages of each target's build.  See the newt info " +
+		"documentation for all fields."
+	infoHelpEx := "  newt info\n" +
+		"  newt info --json\n" +
+		"  newt info --json --brief\n" +
+		"  newt info --json blinky\n"
 
 	infoCmd := &cobra.Command{
 		Use:     "info",
@@ -255,6 +310,11 @@ func AddProjectCommands(cmd *cobra.Command) {
 	infoCmd.PersistentFlags().BoolVarP(&infoRemote,
 		"remote", "r", false,
 		"Fetch latest repos to determine if upgrades are required")
+	infoCmd.Flags().BoolVar(&infoJson, "json", false,
+		"Print the project info as JSON")
+	infoCmd.Flags().BoolVar(&infoBrief, "brief", false,
+		"With --json, don't resolve the targets' builds "+
+			"(no syscfg or dependencies); much faster")
 
 	cmd.AddCommand(infoCmd)
 }
