@@ -36,6 +36,7 @@ import (
 )
 
 var infoRemote bool
+var infoPorcelain bool
 var infoJson bool
 var infoBrief bool
 
@@ -150,13 +151,13 @@ func upgradeRunCmd(cmd *cobra.Command, args []string) {
 }
 
 func infoRunCmd(cmd *cobra.Command, args []string) {
-	if infoJson {
+	if infoPorcelain || infoJson {
 		infoMachineRunCmd(cmd, args)
 		return
 	}
 	if infoBrief {
 		NewtUsage(cmd, util.NewNewtError(
-			"--brief needs --json"))
+			"--brief needs --porcelain or --json"))
 	}
 
 	newtutil.PrintNewtVersion()
@@ -222,6 +223,11 @@ func infoRunCmd(cmd *cobra.Command, args []string) {
 
 // infoMachineRunCmd prints the project info in a format meant for scripts.
 func infoMachineRunCmd(cmd *cobra.Command, args []string) {
+	if infoPorcelain && infoJson {
+		NewtUsage(nil, util.NewNewtError(
+			"--porcelain and --json cannot be used together"))
+	}
+
 	// Only the requested format goes to stdout.
 	util.Verbosity = util.VERBOSITY_SILENT
 
@@ -246,7 +252,11 @@ func infoMachineRunCmd(cmd *cobra.Command, args []string) {
 		NewtUsage(nil, err)
 	}
 
-	err = porcelain.WriteJSON(os.Stdout, info)
+	if infoJson {
+		err = porcelain.WriteJSON(os.Stdout, info)
+	} else {
+		err = porcelain.WritePorcelain(os.Stdout, info)
+	}
 	if err != nil {
 		NewtUsage(nil, util.ChildNewtError(err))
 	}
@@ -288,7 +298,7 @@ func AddProjectCommands(cmd *cobra.Command) {
 	cmd.AddCommand(newCmd)
 
 	infoHelpText := "Show information about the current project.\n\n" +
-		"With --json, describe the whole project in a " +
+		"With --porcelain or --json, describe the whole project in a " +
 		"stable format meant for scripts: the repos, all targets with " +
 		"their complete syscfg and the packages of their builds, and all " +
 		"packages.  Target names limit the targets to those, and --brief " +
@@ -298,7 +308,8 @@ func AddProjectCommands(cmd *cobra.Command) {
 	infoHelpEx := "  newt info\n" +
 		"  newt info --json\n" +
 		"  newt info --json --brief\n" +
-		"  newt info --json blinky\n"
+		"  newt info --json blinky\n" +
+		"  newt info --porcelain\n"
 
 	infoCmd := &cobra.Command{
 		Use:     "info",
@@ -310,10 +321,12 @@ func AddProjectCommands(cmd *cobra.Command) {
 	infoCmd.PersistentFlags().BoolVarP(&infoRemote,
 		"remote", "r", false,
 		"Fetch latest repos to determine if upgrades are required")
+	infoCmd.Flags().BoolVar(&infoPorcelain, "porcelain", false,
+		"Print the project info as stable, line-based text for scripts")
 	infoCmd.Flags().BoolVar(&infoJson, "json", false,
 		"Print the project info as JSON")
 	infoCmd.Flags().BoolVar(&infoBrief, "brief", false,
-		"With --json, don't resolve the targets' builds "+
+		"With --porcelain or --json, don't resolve the targets' builds "+
 			"(no syscfg or dependencies); much faster")
 
 	cmd.AddCommand(infoCmd)
