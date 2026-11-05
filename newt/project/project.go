@@ -457,6 +457,31 @@ func (proj *Project) InfoIf(predicate func(r *repo.Repo) bool,
 	return nil
 }
 
+// RepoInfos collects the state of each installed repo that satisfies the
+// predicate, as InfoIf displays it, keyed by repo name.
+func (proj *Project) RepoInfos(predicate func(r *repo.Repo) bool,
+	remote bool) (map[string]install.RepoInfo, error) {
+
+	if remote {
+		if err := proj.downloadRepositoryYmlFiles(); err != nil {
+			return nil, err
+		}
+	}
+
+	inst, _ := install.NewInstaller(proj.repos, proj.rootRepoReqs)
+	return inst.RepoInfos(proj.SelectRepos(predicate), remote)
+}
+
+// RepoRequirement returns the version of the repo that `project.yml` asks
+// for, or nil if `project.yml` does not mention the repo.
+func (proj *Project) RepoRequirement(rname string) *newtutil.RepoVersion {
+	ver, ok := proj.rootRepoReqs[rname]
+	if !ok {
+		return nil
+	}
+	return &ver
+}
+
 // Loads a complete repo definition from the appropriate `repository.yml` file.
 // The supplied fields form a basic repo description as read from `project.yml`
 // or from another repo's dependency list.
