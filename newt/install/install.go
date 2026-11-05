@@ -597,21 +597,22 @@ func (inst *Installer) Upgrade(candidates []*repo.Repo, force bool,
 	return nil
 }
 
-type repoInfo struct {
-	installedVer *newtutil.RepoVersion // nil if not installed.
-	commitHash   string
-	errorText    string
-	dirtyState   string
-	needsUpgrade bool
+// RepoInfo is the state of an installed repo.
+type RepoInfo struct {
+	InstalledVer *newtutil.RepoVersion // nil if not installed.
+	CommitHash   string
+	ErrorText    string
+	DirtyState   string
+	NeedsUpgrade bool
 }
 
 // Collects information about the specified repo.  If a version map is provided
 // (i.e., vm is not nil), this function also queries the repo's remote to
 // determine if the repo can be upgraded.
 func (inst *Installer) gatherInfo(r *repo.Repo,
-	vm *deprepo.VersionMap) repoInfo {
+	vm *deprepo.VersionMap) RepoInfo {
 
-	ri := repoInfo{}
+	ri := RepoInfo{}
 
 	if !r.CheckExists() {
 		return ri
@@ -622,7 +623,7 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 		// `repository.yml` file.
 		if !r.IsExternal(r.Path()) {
 			if err := r.DownloadDesc(); err != nil {
-				ri.errorText = strings.TrimSpace(err.Error())
+				ri.ErrorText = strings.TrimSpace(err.Error())
 				return ri
 			}
 		}
@@ -630,28 +631,28 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 
 	commitHash, err := r.CurrentHash()
 	if err != nil {
-		ri.errorText = strings.TrimSpace(err.Error())
+		ri.ErrorText = strings.TrimSpace(err.Error())
 		return ri
 	}
-	ri.commitHash = commitHash
+	ri.CommitHash = commitHash
 
 	ver, err := detectVersion(r)
 	if err != nil {
-		ri.errorText = strings.TrimSpace(err.Error())
+		ri.ErrorText = strings.TrimSpace(err.Error())
 		return ri
 	}
-	ri.installedVer = &ver
+	ri.InstalledVer = &ver
 
 	dirty, err := r.DirtyState()
 	if err != nil {
-		ri.errorText = strings.TrimSpace(err.Error())
+		ri.ErrorText = strings.TrimSpace(err.Error())
 		return ri
 	}
-	ri.dirtyState = dirty
+	ri.DirtyState = dirty
 
 	if vm != nil {
 		if ver != (*vm)[r.Name()] {
-			ri.needsUpgrade = true
+			ri.NeedsUpgrade = true
 		}
 	}
 
@@ -667,24 +668,9 @@ func (inst *Installer) gatherInfo(r *repo.Repo,
 // @param remote                Whether to perform any remote queries to
 //                                  determine if upgrades are needed.
 func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
-	var vmp *deprepo.VersionMap
-
-	if remote {
-		// Fetch the latest for all repos.
-		for _, r := range repos {
-			if !r.IsLocal() && !r.IsExternal(r.Path()) {
-				if err := r.DownloadDesc(); err != nil {
-					return err
-				}
-			}
-		}
-
-		vm, err := inst.calcVersionMap(repos)
-		if err != nil {
-			return err
-		}
-
-		vmp = &vm
+	vmp, err := inst.remoteVersionMap(repos, remote)
+	if err != nil {
+		return err
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Repository info:\n")
@@ -699,25 +685,70 @@ func (inst *Installer) Info(repos []*repo.Repo, remote bool) error {
 	return nil
 }
 
+// RepoInfos collects the same information about the specified repos as Info
+// displays, keyed by repo name.
+func (inst *Installer) RepoInfos(repos []*repo.Repo, remote bool) (
+	map[string]RepoInfo, error) {
+
+	vmp, err := inst.remoteVersionMap(repos, remote)
+	if err != nil {
+		return nil, err
+	}
+
+	infos := make(map[string]RepoInfo, len(repos))
+	for _, r := range repos {
+		infos[r.Name()] = inst.gatherInfo(r, vmp)
+	}
+
+	return infos, nil
+}
+
+// remoteVersionMap fetches the latest `repository.yml` of each repo and
+// calculates the versions they would be upgraded to.  It returns nil if
+// `remote` is false.
+func (inst *Installer) remoteVersionMap(repos []*repo.Repo, remote bool) (
+	*deprepo.VersionMap, error) {
+
+	if !remote {
+		return nil, nil
+	}
+
+	// Fetch the latest for all repos.
+	for _, r := range repos {
+		if !r.IsLocal() && !r.IsExternal(r.Path()) {
+			if err := r.DownloadDesc(); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	vm, err := inst.calcVersionMap(repos)
+	if err != nil {
+		return nil, err
+	}
+
+	return &vm, nil
+}
+
 // remoteRepoInfo prints information about the specified repo.  If `vm` is
 // non-nil, the output indicates whether a remote update is available.
 func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 	ri := inst.gatherInfo(r, vm)
 	s := fmt.Sprintf("    * %s:", r.Name())
 
-	s += fmt.Sprintf(" %s", ri.commitHash)
-	if ri.installedVer == nil {
+	s += fmt.Sprintf(" %s", ri.CommitHash)
+	if ri.InstalledVer == nil {
 		s += ", (not installed)"
-	} else if ri.errorText != "" {
-		s += fmt.Sprintf(", (unknown: %s)", ri.errorText)
+	} else if ri.ErrorText != "" {
+		s += fmt.Sprintf(", (unknown: %s)", ri.ErrorText)
 	} else {
-		if ri.installedVer.Commit == "" {
-			s += fmt.Sprintf(", %s", ri.installedVer.String())
+		if ri.InstalledVer.Commit == "" {
+			s += fmt.Sprintf(", %s", ri.InstalledVer.String())
 		}
-		if ri.dirtyState != "" {
-			s += fmt.Sprintf(", (dirty: %s)", ri.dirtyState)
+		if ri.DirtyState != "" {
+			s += fmt.Sprintf(", (dirty: %s)", ri.DirtyState)
 		}
-		if ri.needsUpgrade {
+		if ri.NeedsUpgrade {
 			s += ", (needs upgrade)"
 		}
 	}
@@ -728,16 +759,16 @@ func (inst *Installer) remoteRepoInfo(r *repo.Repo, vm *deprepo.VersionMap) {
 // project itself).  It does nothing if the project is not a git repo.
 func (inst *Installer) localRepoInfo(r *repo.Repo) {
 	ri := inst.gatherInfo(r, nil)
-	if ri.commitHash == "" {
+	if ri.CommitHash == "" {
 		// The project is not a git repo.
 		return
 	}
 
 	s := fmt.Sprintf("    * %s (project):", r.Name())
 
-	s += fmt.Sprintf(" %s", ri.commitHash)
-	if ri.dirtyState != "" {
-		s += fmt.Sprintf(" (dirty: %s)", ri.dirtyState)
+	s += fmt.Sprintf(" %s", ri.CommitHash)
+	if ri.DirtyState != "" {
+		s += fmt.Sprintf(" (dirty: %s)", ri.DirtyState)
 	}
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "%s\n", s)
 }
