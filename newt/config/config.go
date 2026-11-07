@@ -347,10 +347,79 @@ func applyLocalOps(yc *ycfg.YCfg, key string, lo *localOps,
 	return nil
 }
 
-// ApplyLocalFile reads a local overrides file (e.g., `local.project.yml`) and
-// applies it on top of an already populated YCfg tree.  Files imported by the
-// local file are merged as by ReadFile.  Keys in the local file itself can
-// have one of the following operation suffixes:
+// LocalFile is a local overrides file (e.g., `local.project.yml`) together
+// with all files it imports.  It can be applied on top of one or more already
+// populated YCfg trees.
+type LocalFile struct {
+	// Imported files followed by the local file itself.
+	entries []FileEntry
+}
+
+// ReadLocalFile reads a local overrides file and all files it imports.  See
+// LocalFile.Apply for a description of the supported operations.
+func ReadLocalFile(path string) (*LocalFile, error) {
+	entries, err := readLineage(path)
+	if err != nil {
+		return nil, err
+	}
+
+	lf := &LocalFile{entries: entries}
+
+	// Removal and deletion are only supported in the local file itself.
+	for _, e := range lf.imports() {
+		for k, _ := range e.Settings {
+			if _, op := splitOpKey(k); op == OP_REMOVE || op == OP_DELETE {
+				return nil, e.FileInfo.ErrTree(util.FmtNewtError(
+					"\"%s\": %s and %s are only supported in %s",
+					k, OP_REMOVE, OP_DELETE,
+					newtutil.ProjRelPath(lf.local().FileInfo.Path)))
+			}
+		}
+	}
+
+	return lf, nil
+}
+
+func (lf *LocalFile) local() FileEntry {
+	return lf.entries[len(lf.entries)-1]
+}
+
+func (lf *LocalFile) imports() []FileEntry {
+	return lf.entries[:len(lf.entries)-1]
+}
+
+// Path returns the absolute path of the local file.
+func (lf *LocalFile) Path() string {
+	return lf.local().FileInfo.Path
+}
+
+// Keys returns the sorted, unique keys specified in the local file and the
+// files it imports, without operation suffixes.  Keywords (e.g., "$import")
+// are not included.
+func (lf *LocalFile) Keys() []string {
+	m := map[string]struct{}{}
+	for _, e := range lf.entries {
+		for k, _ := range e.Settings {
+			if strings.HasPrefix(k, "$") {
+				continue
+			}
+			key, _ := splitOpKey(k)
+			m[key] = struct{}{}
+		}
+	}
+
+	keys := make([]string, 0, len(m))
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	return keys
+}
+
+// Apply applies the local file on top of an already populated YCfg tree.
+// Files imported by the local file are merged as by ReadFile.  Keys in the
+// local file itself can have one of the following operation suffixes:
 //
 //	<key>.OVERWRITE  Overwrite the value instead of merging into it.
 //	<key>.REMOVE     Remove the listed items from a sequence.
@@ -358,22 +427,22 @@ func applyLocalOps(yc *ycfg.YCfg, key string, lo *localOps,
 //
 // A key without a suffix is merged into the existing value: maps are merged
 // per key, sequences are appended to and other values are replaced.
-func ApplyLocalFile(yc *ycfg.YCfg, path string) error {
-	entries, err := readLineage(path)
-	if err != nil {
-		return err
+//
+// If filter is not nil, only keys for which it returns true are applied.  The
+// filter is called with keys stripped of operation suffixes.
+func (lf *LocalFile) Apply(yc *ycfg.YCfg, filter func(key string) bool) error {
+	accept := func(k string) bool {
+		if filter == nil {
+			return true
+		}
+		key, _ := splitOpKey(k)
+		return filter(key)
 	}
 
-	// The local file itself is processed last, after its imports.
-	local := entries[len(entries)-1]
-
-	for _, e := range entries[:len(entries)-1] {
+	for _, e := range lf.imports() {
 		for k, v := range e.Settings {
-			if _, op := splitOpKey(k); op == OP_REMOVE || op == OP_DELETE {
-				return e.FileInfo.ErrTree(util.FmtNewtError(
-					"\"%s\": %s and %s are only supported in %s",
-					k, OP_REMOVE, OP_DELETE,
-					newtutil.ProjRelPath(local.FileInfo.Path)))
+			if !accept(k) {
+				continue
 			}
 			if err := yc.MergeFromFile(k, v, e.FileInfo); err != nil {
 				return e.FileInfo.Parent.ErrTree(err)
@@ -381,8 +450,14 @@ func ApplyLocalFile(yc *ycfg.YCfg, path string) error {
 		}
 	}
 
+	local := lf.local()
+
 	opsMap := map[string]*localOps{}
 	for k, v := range local.Settings {
+		if !accept(k) {
+			continue
+		}
+
 		key, op := splitOpKey(k)
 
 		lo := opsMap[key]
@@ -423,4 +498,16 @@ func ApplyLocalFile(yc *ycfg.YCfg, path string) error {
 	}
 
 	return nil
+}
+
+// ApplyLocalFile reads a local overrides file (e.g., `local.project.yml`) and
+// applies it on top of an already populated YCfg tree.  See LocalFile.Apply
+// for a description of the supported operations.
+func ApplyLocalFile(yc *ycfg.YCfg, path string) error {
+	lf, err := ReadLocalFile(path)
+	if err != nil {
+		return err
+	}
+
+	return lf.Apply(yc, nil)
 }

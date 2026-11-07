@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"mynewt.apache.org/newt/newt/interfaces"
+	"mynewt.apache.org/newt/newt/ycfg"
 )
 
 func configWriteFile(t *testing.T, path string, content string) {
@@ -83,5 +84,171 @@ func TestReadFileRepoImportNoProject(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no project") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func configCheckStringSlice(t *testing.T, yc ycfg.YCfg, key string,
+	exp []string) {
+
+	t.Helper()
+	v, err := yc.GetValStringSlice(key, nil)
+	if err != nil {
+		t.Fatalf("unexpected error reading %s: %v", key, err)
+	}
+	if strings.Join(v, ",") != strings.Join(exp, ",") {
+		t.Errorf("%s: expected %v, got %v", key, exp, v)
+	}
+}
+
+// A local file applied on top of syscfg.yml and pkg.yml style settings
+// merges maps per key, appends to and removes from sequences and deletes
+// keys.
+func TestLocalFileApply(t *testing.T) {
+	interfaces.SetProject(nil)
+
+	dir := t.TempDir()
+	base := filepath.Join(dir, "base.yml")
+	configWriteFile(t, base, `
+syscfg.vals:
+    FOO: 1
+    BAR: 2
+pkg.cflags:
+    - -DA
+    - -DB
+pkg.lflags:
+    - -lm
+pkg.deps.FOO:
+    - foo
+`)
+	local := filepath.Join(dir, "local.yml")
+	configWriteFile(t, local, `
+$import:
+    - imp.yml
+syscfg.vals:
+    BAR: 3
+pkg.cflags:
+    - -DC
+pkg.cflags.REMOVE:
+    - -DA
+pkg.lflags.OVERWRITE:
+    - -lc
+pkg.deps.FOO.DELETE: true
+`)
+	configWriteFile(t, filepath.Join(dir, "imp.yml"), `
+syscfg.vals:
+    BAZ: 4
+`)
+
+	yc, err := ReadFile(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lf, err := ReadLocalFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expKeys := []string{"pkg.cflags", "pkg.deps.FOO", "pkg.lflags",
+		"syscfg.vals"}
+	if strings.Join(lf.Keys(), ",") != strings.Join(expKeys, ",") {
+		t.Errorf("keys: expected %v, got %v", expKeys, lf.Keys())
+	}
+
+	if err := lf.Apply(&yc, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	vals, err := yc.GetValStringMapString("syscfg.vals", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, exp := range map[string]string{"FOO": "1", "BAR": "3",
+		"BAZ": "4"} {
+
+		if vals[k] != exp {
+			t.Errorf("syscfg.vals.%s: expected %q, got %q", k, exp, vals[k])
+		}
+	}
+
+	configCheckStringSlice(t, yc, "pkg.cflags", []string{"-DB", "-DC"})
+	configCheckStringSlice(t, yc, "pkg.lflags", []string{"-lc"})
+	if yc.HasKey("pkg.deps.FOO") {
+		t.Errorf("pkg.deps.FOO not deleted")
+	}
+}
+
+// Only keys accepted by the filter are applied, including keys from imported
+// files and keys with operation suffixes.
+func TestLocalFileApplyFilter(t *testing.T) {
+	interfaces.SetProject(nil)
+
+	dir := t.TempDir()
+	local := filepath.Join(dir, "local.yml")
+	configWriteFile(t, local, `
+$import:
+    - imp.yml
+syscfg.vals:
+    FOO: 1
+pkg.cflags.OVERWRITE:
+    - -DC
+`)
+	configWriteFile(t, filepath.Join(dir, "imp.yml"), `
+pkg.lflags:
+    - -lm
+`)
+
+	lf, err := ReadLocalFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	syscfgYc := ycfg.NewYCfg("syscfg")
+	pkgYc := ycfg.NewYCfg("pkg")
+	pkgYc.Replace("pkg.cflags", []interface{}{"-DA"})
+
+	isSyscfg := func(key string) bool {
+		return strings.HasPrefix(key, "syscfg.")
+	}
+	if err := lf.Apply(&syscfgYc, isSyscfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := lf.Apply(&pkgYc, func(key string) bool {
+		return !isSyscfg(key)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if syscfgYc.HasKey("pkg.cflags") || syscfgYc.HasKey("pkg.lflags") {
+		t.Errorf("pkg settings applied to syscfg tree")
+	}
+	if pkgYc.HasKey("syscfg.vals") {
+		t.Errorf("syscfg settings applied to pkg tree")
+	}
+
+	vals, err := syscfgYc.GetValStringMapString("syscfg.vals", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vals["FOO"] != "1" {
+		t.Errorf("syscfg.vals.FOO: expected \"1\", got %q", vals["FOO"])
+	}
+	configCheckStringSlice(t, pkgYc, "pkg.cflags", []string{"-DC"})
+	configCheckStringSlice(t, pkgYc, "pkg.lflags", []string{"-lm"})
+}
+
+// REMOVE and DELETE are rejected in files imported by a local file.
+func TestLocalFileImportRemove(t *testing.T) {
+	interfaces.SetProject(nil)
+
+	dir := t.TempDir()
+	local := filepath.Join(dir, "local.yml")
+	configWriteFile(t, local, "$import:\n    - imp.yml\n")
+	configWriteFile(t, filepath.Join(dir, "imp.yml"),
+		"pkg.cflags.REMOVE:\n    - -DA\n")
+
+	_, err := ReadLocalFile(local)
+	if err == nil || !strings.Contains(err.Error(), "only supported in") {
+		t.Fatalf("expected error, got %v", err)
 	}
 }
