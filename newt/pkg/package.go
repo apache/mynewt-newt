@@ -23,6 +23,7 @@ import "mynewt.apache.org/newt/newt/interfaces"
 
 const PACKAGE_FILE_NAME = "pkg.yml"
 const SYSCFG_YAML_FILENAME = "syscfg.yml"
+const TARGET_YAML_FILENAME = "target.yml"
 
 const (
 	PACKAGE_STABILITY_STABLE = "stable"

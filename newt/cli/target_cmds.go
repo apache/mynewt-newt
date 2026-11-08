@@ -387,6 +387,13 @@ func targetCmakeCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
+// disableOverlays makes targets load without overlays.  It must be called by
+// commands which save targets before the project is loaded; otherwise the
+// overlays would be written to the target's files.
+func disableOverlays() {
+	pkg.LocalOverlayDisabled = true
+}
+
 func targetSetCmd(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
 		NewtUsage(cmd,
@@ -394,6 +401,7 @@ func targetSetCmd(cmd *cobra.Command, args []string) {
 				"(target-name & k=v) to set"))
 	}
 
+	disableOverlays()
 	TryGetProject()
 
 	// Parse target name.
@@ -499,6 +507,7 @@ func targetAmendCmd(cmd *cobra.Command, args []string) {
 				"(target-name & variable=value) to append"))
 	}
 
+	disableOverlays()
 	TryGetProject()
 
 	// Parse target name.
@@ -650,6 +659,7 @@ func targetCopyCmd(cmd *cobra.Command, args []string) {
 			"source target and one destination target"))
 	}
 
+	disableOverlays()
 	proj := TryGetProject()
 
 	srcTarget, err := resolveExistingTargetArg(args[0])
