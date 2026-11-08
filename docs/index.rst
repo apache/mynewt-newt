@@ -267,6 +267,92 @@ supported in local.project.yml itself, not in files it imports with ``$import``.
 Note that deleting a repository only removes its definition from project.yml. If another repository depends on it,
 it is still added to the project; add it to ``project.repositories.ignored`` to exclude it completely.
 
+Target Overlays
+~~~~~~~~~~~~~~~
+
+Configuration of a target can be modified locally in a similar way, e.g. to enable debug or trace settings during
+development without changing the target's files or shared configuration files. A ``local.overlay.yml`` file placed in
+the target's directory is applied on top of the target's configuration. Like local.project.yml, it is intended to be
+kept out of version control, e.g. by adding ``local.overlay.yml`` to ``.gitignore``.
+
+An overlay can contain settings from all configuration files of the target. Each setting is applied to the file
+selected by its prefix:
+
+* ``syscfg.*`` - syscfg.yml,
+* ``target.*`` and ``bsp.*`` - target.yml,
+* ``pkg.*`` and ``app.*`` - pkg.yml.
+
+Other settings are reported as errors, and ``pkg.name`` and ``pkg.type`` cannot be changed. As in local.project.yml,
+each setting is merged into the target's setting: maps are merged per key, sequences are appended to and other values
+are replaced. One of the following suffixes can be appended to a setting name to change this:
+
+* ``<setting>.OVERWRITE`` - replaces the whole value instead of merging into it,
+* ``<setting>.REMOVE`` - removes the listed items from a sequence, e.g. a single flag from ``pkg.cflags``,
+* ``<setting>.DELETE: true`` - deletes the whole setting, e.g. a conditional block of settings (see below).
+
+.. code-block:: yaml
+
+  # targets/my_blinky/local.overlay.yml
+  target.build_profile: debug
+
+  syscfg.vals:
+        LOG_LEVEL: 0
+        MY_TRACE: 1
+
+  # Compiler flags of the target apply to all packages in the build
+  pkg.cflags:
+        - -DMY_DEBUG
+  pkg.cflags.REMOVE:
+        - -DNDEBUG
+
+  pkg.deps:
+        - "@apache-mynewt-core/sys/shell"
+
+Settings of the target override settings of all other packages, so an overlay can change any setting, including
+settings defined by the target itself (e.g. in a file it imports). A value set unconditionally in the overlay does not
+override a value set by a conditional block in the target's syscfg.yml; override the conditional block instead, or
+delete it:
+
+.. code-block:: yaml
+
+  # targets/my_blinky/syscfg.yml
+  syscfg.vals.MY_BOARD_DEBUG:
+        CONSOLE_UART_BAUD: 1000000
+        MY_DEBUG_PIN: 5
+
+  # targets/my_blinky/local.overlay.yml
+  # Delete the whole conditional block above, so that its values are not
+  # applied even if MY_BOARD_DEBUG is enabled.
+  syscfg.vals.MY_BOARD_DEBUG.DELETE: true
+
+The ``pkgs`` section changes compiler flags of individual packages included in the build. Only ``pkg.cflags``,
+``pkg.cxxflags`` and ``pkg.aflags`` are supported, including conditional settings and the same operations as above.
+Package names are specified the same way as in ``pkg.deps`` of the target.
+
+.. code-block:: yaml
+
+  pkgs:
+        "@apache-mynewt-nimble/nimble/host":
+              pkg.cflags:
+                    - -O0
+              pkg.cflags.REMOVE:
+                    - -DNDEBUG
+
+When building, newt prints ``Using overlay <file>`` for each overlay applied to the target. Commands which modify
+targets (``newt target set``, ``newt target amend`` and ``newt target copy``) ignore overlays, so they are never written
+to the target's files nor copied to another target; ``--overlay`` cannot be used with them.
+
+The following global options control overlays for a single command:
+
+* ``--no-local`` - don't apply local.overlay.yml of targets,
+* ``--overlay <file>`` - apply an overlay file to all targets after their local overlays; it can be specified multiple
+  times and the files are applied in the order given. Relative paths in ``$import`` are resolved relative to the
+  overlay file.
+
+.. code-block:: console
+
+  $ newt build --overlay ~/overlays/trace.yml my_blinky
+
 Newt has the ability to autocomplete within ``bash``. The following
 instructions allow MAC users to enable autocomplete within ``bash``.
 
