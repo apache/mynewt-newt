@@ -391,6 +391,11 @@ func targetCmakeCmd(cmd *cobra.Command, args []string) {
 // commands which save targets before the project is loaded; otherwise the
 // overlays would be written to the target's files.
 func disableOverlays() {
+	if pkg.HasCliOverlays() {
+		NewtUsage(nil, util.NewNewtError(
+			"--overlay can't be used with commands which modify targets"))
+	}
+
 	pkg.LocalOverlayDisabled = true
 }
 

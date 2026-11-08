@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"mynewt.apache.org/newt/newt/cli"
 	"mynewt.apache.org/newt/newt/newtutil"
+	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"
 )
 
@@ -38,6 +39,8 @@ var newtVerbose bool
 var newtLogFile string
 var newtNumJobs int
 var newtHelp bool
+var newtNoLocal bool
+var newtOverlays []string
 
 // Returns the number of CPUs available to this process.  GOMAXPROCS honors
 // CPU affinity on all platforms and cgroup CPU limits on Linux.
@@ -107,6 +110,11 @@ func newtCmd() *cobra.Command {
 			if err != nil {
 				cli.NewtUsage(nil, err)
 			}
+
+			pkg.LocalOverlayDisabled = newtNoLocal
+			if err := pkg.ReadOverlays(newtOverlays); err != nil {
+				cli.NewtUsage(nil, err)
+			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -131,6 +139,10 @@ func newtCmd() *cobra.Command {
 		util.EscapeShellCmds, "Apply Windows escapes to shell commands")
 	newtCmd.PersistentFlags().IntVarP(&util.ShallowCloneDepth, "shallow", "",
 		util.ShallowCloneDepth, "Use shallow clone for git repositories up to specified number of commits")
+	newtCmd.PersistentFlags().BoolVar(&newtNoLocal, "no-local", false,
+		"Don't apply local overlays of targets (local.overlay.yml)")
+	newtCmd.PersistentFlags().StringArrayVar(&newtOverlays, "overlay", nil,
+		"Apply overlay file to targets; can be specified multiple times")
 
 	versHelpText := cli.FormatHelp(`Display the Newt version number`)
 	versHelpEx := "  newt version"
