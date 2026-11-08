@@ -225,3 +225,87 @@ func TestOverlayTargetSave(t *testing.T) {
 	overlayCheckContains(t, "target show success", out,
 		"build_profile=debug", "-DAMEND -DLOCAL")
 }
+
+// Overlays from the command line are applied after the local overlay, in the
+// order given.  Relative imports are resolved relative to the overlay file.
+func TestOverlayCli(t *testing.T) {
+	projDir := overlayProject(t, map[string]string{
+		overlayLocalPath: overlayLocal,
+		"ovl/ovl1.yml": `
+$import:
+    - imp.yml
+target.build_profile: optimized
+pkg.cflags:
+    - -DOVL1
+`,
+		"ovl/imp.yml": "syscfg.vals:\n    FOO_IMPLEMENTATION: ovl\n",
+		"ovl2.yml":    "pkg.cflags:\n    - -DOVL2\n",
+	})
+
+	args := []string{"--overlay", "ovl/ovl1.yml", "--overlay", "ovl2.yml"}
+
+	out := newtOutput(t, projDir, nil,
+		append(args, "target", "show", "success")...)
+	overlayCheckContains(t, "target show", out,
+		"build_profile=optimized",
+		"cflags=-DLOCAL -DOVL1 -DOVL2",
+		"FOO_IMPLEMENTATION=ovl")
+
+	out = newtConfigShow(t, projDir, args...)
+	overlayCheckContains(t, "target config show", out,
+		"Using overlay targets/success/local.overlay.yml",
+		"Using overlay ovl/ovl1.yml",
+		"Using overlay ovl2.yml",
+		"* Value: ovl")
+}
+
+// --no-local disables the local overlay, but not overlays from the command
+// line.
+func TestOverlayNoLocal(t *testing.T) {
+	projDir := overlayProject(t, map[string]string{
+		overlayLocalPath: overlayLocal,
+		"ovl.yml":        "pkg.cflags:\n    - -DOVERLAY\n",
+	})
+
+	out := newtOutput(t, projDir, nil, "--no-local", "target", "show",
+		"success")
+	overlayCheckContains(t, "target show", out, "build_profile=default",
+		"FOO_COND_1=1")
+	overlayCheckNotContains(t, "target show", out, "LOCAL", "baz")
+
+	out = newtOutput(t, projDir, nil, "--no-local", "--overlay", "ovl.yml",
+		"target", "show", "success")
+	overlayCheckContains(t, "target show", out, "build_profile=default",
+		"cflags=-DOVERLAY")
+	overlayCheckNotContains(t, "target show", out, "-DLOCAL")
+}
+
+func TestOverlayCliErrors(t *testing.T) {
+	projDir := overlayProject(t, map[string]string{
+		"unknown.yml": "syscfg.vals:\n    FOO: 1\nfoo.bar: 1\n",
+		"ok.yml":      "pkg.cflags:\n    - -DOVERLAY\n",
+	})
+
+	for _, tc := range []struct {
+		args []string
+		err  string
+	}{
+		{[]string{"--overlay", "unknown.yml", "target", "show", "success"},
+			"unrecognized setting \"foo.bar\""},
+		{[]string{"--overlay", "missing.yml", "target", "show", "success"},
+			"missing.yml"},
+		{[]string{"--overlay", "ok.yml", "target", "set", "success",
+			"target.build_profile=debug"},
+			"--overlay can't be used with commands which modify targets"},
+	} {
+		out, err := newtCombinedOutput(projDir, nil, tc.args...)
+		if err == nil {
+			t.Errorf("newt %v: expected failure\n%s", tc.args, out)
+		}
+		overlayCheckContains(t, strings.Join(tc.args, " "), out, tc.err)
+	}
+
+	overlayCheckNotContains(t, "target.yml",
+		readFile(t, filepath.Join(projDir, "targets", "success",
+			"target.yml")), "debug")
+}

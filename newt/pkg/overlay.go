@@ -36,6 +36,10 @@ const LOCAL_OVERLAY_FILENAME = "local.overlay.yml"
 // If set, targets' local overlay files are not applied.
 var LocalOverlayDisabled bool
 
+// Overlays specified on the command line.  They are applied to all targets,
+// after the local overlay files.
+var cliOverlays []*Overlay
+
 // Settings which identify a package and can't be changed by overlays.
 var overlayProtectedKeys = []string{
 	"pkg.name",
@@ -118,30 +122,59 @@ func (ov *Overlay) RelPath() string {
 	return filepath.ToSlash(newtutil.ProjRelPath(ov.Path()))
 }
 
+// ReadOverlays reads the overlays specified on the command line.  They are
+// read before the project is loaded, so relative imports are resolved
+// relative to the importing file.
+func ReadOverlays(paths []string) error {
+	cliOverlays = nil
+
+	for _, path := range paths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return util.ChildNewtError(err)
+		}
+
+		ov, err := readOverlay(absPath)
+		if err != nil {
+			return err
+		}
+		cliOverlays = append(cliOverlays, ov)
+	}
+
+	return nil
+}
+
+// HasCliOverlays reports whether any overlays were specified on the command
+// line.
+func HasCliOverlays() bool {
+	return len(cliOverlays) > 0
+}
+
 // Overlays returns the overlays applied to the package's configuration.  Only
 // targets have overlays.
 func (pkg *LocalPackage) Overlays() []*Overlay {
 	return pkg.overlays
 }
 
-// loadOverlays reads the overlays of a target package.
+// loadOverlays reads the overlays of a target package: its local overlay
+// file followed by the overlays specified on the command line.
 func (pkg *LocalPackage) loadOverlays() error {
 	pkg.overlays = nil
 
-	if pkg.packageType != PACKAGE_TYPE_TARGET || LocalOverlayDisabled {
+	if pkg.packageType != PACKAGE_TYPE_TARGET {
 		return nil
 	}
 
 	path := filepath.Join(pkg.BasePath(), LOCAL_OVERLAY_FILENAME)
-	if !util.NodeExist(path) {
-		return nil
+	if !LocalOverlayDisabled && util.NodeExist(path) {
+		ov, err := readOverlay(path)
+		if err != nil {
+			return err
+		}
+		pkg.overlays = append(pkg.overlays, ov)
 	}
 
-	ov, err := readOverlay(path)
-	if err != nil {
-		return err
-	}
-	pkg.overlays = append(pkg.overlays, ov)
+	pkg.overlays = append(pkg.overlays, cliOverlays...)
 
 	return nil
 }
