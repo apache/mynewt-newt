@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"mynewt.apache.org/newt/newt/cfgv"
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/newtutil"
 	"mynewt.apache.org/newt/newt/ycfg"
@@ -46,6 +47,16 @@ var overlayProtectedKeys = []string{
 	"pkg.type",
 }
 
+// Key of the overlay section with settings of individual packages.
+const OVERLAY_PKGS_KEY = "pkgs"
+
+// Settings of individual packages which can be changed by an overlay.
+var overlayPkgKeys = []string{
+	"pkg.cflags",
+	"pkg.cxxflags",
+	"pkg.aflags",
+}
+
 // Overlay is a configuration file applied on top of a target's configuration
 // files.  It can contain settings from all of them; each setting is applied
 // to the file selected by the setting's prefix:
@@ -54,10 +65,21 @@ var overlayProtectedKeys = []string{
 //	target.*, bsp.*  target.yml
 //	pkg.*, app.*     pkg.yml
 //
+// Additionally, the "pkgs" section can change compiler flags of individual
+// packages included in the build:
+//
+//	pkgs:
+//	    "@apache-mynewt-nimble/nimble/host":
+//	        pkg.cflags:
+//	            - -O0
+//
 // Overlays support the same operations as local.project.yml (OVERWRITE,
 // REMOVE and DELETE suffixes).
 type Overlay struct {
 	lf *config.LocalFile
+
+	// Settings of individual packages; package name -> settings.
+	pkgs map[string]*config.LocalFile
 }
 
 // isKeyOrCond reports whether key is the specified setting or its
@@ -93,11 +115,16 @@ func readOverlay(path string) (*Overlay, error) {
 	relPath := filepath.ToSlash(newtutil.ProjRelPath(lf.Path()))
 
 	for _, key := range lf.Keys() {
+		if key == OVERLAY_PKGS_KEY {
+			continue
+		}
+
 		if overlayKeyFile(key) == "" {
 			return nil, util.FmtNewtError(
 				"%s: unrecognized setting \"%s\"; overlays can only "+
 					"contain syscfg.*, target.*, bsp.*, pkg.* and app.* "+
-					"settings", relPath, key)
+					"settings and the %s section", relPath, key,
+				OVERLAY_PKGS_KEY)
 		}
 
 		for _, pk := range overlayProtectedKeys {
@@ -108,7 +135,31 @@ func readOverlay(path string) (*Overlay, error) {
 		}
 	}
 
-	return &Overlay{lf: lf}, nil
+	pkgs, err := lf.Sections(OVERLAY_PKGS_KEY)
+	if err != nil {
+		return nil, err
+	}
+
+	for name, sec := range pkgs {
+		for _, key := range sec.Keys() {
+			supported := false
+			for _, pk := range overlayPkgKeys {
+				if isKeyOrCond(key, pk) {
+					supported = true
+					break
+				}
+			}
+
+			if !supported {
+				return nil, util.FmtNewtError(
+					"%s: \"%s\" can't be changed for package \"%s\"; "+
+						"only %s are supported", relPath, key, name,
+					strings.Join(overlayPkgKeys, ", "))
+			}
+		}
+	}
+
+	return &Overlay{lf: lf, pkgs: pkgs}, nil
 }
 
 // Path returns the absolute path of the overlay file.
@@ -120,6 +171,36 @@ func (ov *Overlay) Path() string {
 // forward slashes, for use in messages.
 func (ov *Overlay) RelPath() string {
 	return filepath.ToSlash(newtutil.ProjRelPath(ov.Path()))
+}
+
+// PkgSections returns the settings of individual packages specified in the
+// overlay, indexed by package name.
+func (ov *Overlay) PkgSections() map[string]*config.LocalFile {
+	return ov.pkgs
+}
+
+// ApplyOverlayPkgSection applies settings from a package section of an
+// overlay to the package's values of the specified setting (e.g.,
+// "pkg.cflags"), and returns the resulting values.
+func ApplyOverlayPkgSection(sec *config.LocalFile, key string, vals []string,
+	settings *cfgv.Settings) ([]string, error) {
+
+	yc := ycfg.NewYCfg(sec.Path())
+	if len(vals) > 0 {
+		itfs := make([]interface{}, len(vals))
+		for i, v := range vals {
+			itfs[i] = v
+		}
+		yc.Replace(key, itfs)
+	}
+
+	if err := sec.Apply(&yc, func(k string) bool {
+		return isKeyOrCond(k, key)
+	}); err != nil {
+		return nil, err
+	}
+
+	return yc.GetValStringSlice(key, settings)
 }
 
 // ReadOverlays reads the overlays specified on the command line.  They are

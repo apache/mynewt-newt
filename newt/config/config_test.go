@@ -252,3 +252,85 @@ func TestLocalFileImportRemove(t *testing.T) {
 		t.Fatalf("expected error, got %v", err)
 	}
 }
+
+// Sections of a local file include settings from the files it imports and
+// support the same operations as the local file itself.
+func TestLocalFileSections(t *testing.T) {
+	interfaces.SetProject(nil)
+
+	dir := t.TempDir()
+	local := filepath.Join(dir, "local.yml")
+	configWriteFile(t, local, `
+$import:
+    - imp.yml
+secs:
+    a:
+        pkg.cflags.REMOVE:
+            - -DA
+`)
+	configWriteFile(t, filepath.Join(dir, "imp.yml"), `
+secs:
+    a:
+        pkg.cflags:
+            - -DIMP
+    b:
+        pkg.cflags:
+            - -DC
+`)
+
+	lf, err := ReadLocalFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	secs, err := lf.Sections("secs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(secs) != 2 {
+		t.Fatalf("expected 2 sections, got %d", len(secs))
+	}
+
+	for name, exp := range map[string][]string{
+		"a": {"-DB", "-DIMP"},
+		"b": {"-DA", "-DB", "-DC"},
+	} {
+		yc := ycfg.NewYCfg(name)
+		yc.Replace("pkg.cflags", []interface{}{"-DA", "-DB"})
+		if err := secs[name].Apply(&yc, nil); err != nil {
+			t.Fatal(err)
+		}
+		configCheckStringSlice(t, yc, "pkg.cflags", exp)
+	}
+
+	// REMOVE and DELETE are rejected in imported sections.
+	configWriteFile(t, filepath.Join(dir, "imp.yml"), `
+secs:
+    a:
+        pkg.cflags.REMOVE:
+            - -DA
+`)
+	lf, err = ReadLocalFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = lf.Sections("secs")
+	if err == nil || !strings.Contains(err.Error(), "only supported in") {
+		t.Fatalf("expected error, got %v", err)
+	}
+
+	// Empty sections are allowed.
+	configWriteFile(t, local, "$import:\n    - imp.yml\nsecs:\n")
+	configWriteFile(t, filepath.Join(dir, "imp.yml"), "secs:\n    a:\n")
+	lf, err = ReadLocalFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secs, err = lf.Sections("secs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(secs) != 1 || len(secs["a"].Keys()) != 0 {
+		t.Errorf("expected one empty section, got %v", secs)
+	}
+}

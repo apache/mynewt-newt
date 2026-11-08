@@ -363,6 +363,10 @@ func ReadLocalFile(path string) (*LocalFile, error) {
 		return nil, err
 	}
 
+	return newLocalFile(entries)
+}
+
+func newLocalFile(entries []FileEntry) (*LocalFile, error) {
 	lf := &LocalFile{entries: entries}
 
 	// Removal and deletion are only supported in the local file itself.
@@ -386,6 +390,88 @@ func (lf *LocalFile) local() FileEntry {
 
 func (lf *LocalFile) imports() []FileEntry {
 	return lf.entries[:len(lf.entries)-1]
+}
+
+// Sections splits the value of the specified key into separate local files.
+// The value must be a map of names to maps of settings, e.g.:
+//
+//	pkgs:
+//	    "@apache-mynewt-core/sys/log":
+//	        pkg.cflags.REMOVE:
+//	            - -DFOO
+//
+// For each name, the returned local file contains the settings for this name
+// from the local file and the files it imports, so it supports the same
+// operations as the local file itself.
+func (lf *LocalFile) Sections(key string) (map[string]*LocalFile, error) {
+	// The null value gets interpreted as an empty string during YAML parsing.
+	isNull := func(itf interface{}) bool {
+		s, ok := itf.(string)
+		return itf == nil || (ok && s == "")
+	}
+
+	sections := map[string][]FileEntry{}
+
+	for _, e := range lf.entries {
+		for k, _ := range e.Settings {
+			if strings.HasPrefix(k, key+".") {
+				return nil, util.FmtNewtError("%s: \"%s\" is not supported",
+					newtutil.ProjRelPath(e.FileInfo.Path), k)
+			}
+		}
+
+		itf := e.Settings[key]
+		if isNull(itf) {
+			continue
+		}
+
+		secs, ok := itf.(map[interface{}]interface{})
+		if !ok {
+			return nil, util.FmtNewtError("%s: \"%s\" must be a map",
+				newtutil.ProjRelPath(e.FileInfo.Path), key)
+		}
+
+		for nameItf, secItf := range secs {
+			name := cast.ToString(nameItf)
+
+			settings := map[string]interface{}{}
+			if !isNull(secItf) {
+				sec, ok := secItf.(map[interface{}]interface{})
+				if !ok {
+					return nil, util.FmtNewtError(
+						"%s: \"%s\" in \"%s\" must be a map",
+						newtutil.ProjRelPath(e.FileInfo.Path), name, key)
+				}
+				for k, v := range sec {
+					settings[cast.ToString(k)] = v
+				}
+			}
+
+			sections[name] = append(sections[name], FileEntry{
+				FileInfo: e.FileInfo,
+				Settings: settings,
+			})
+		}
+	}
+
+	ret := make(map[string]*LocalFile, len(sections))
+	for name, entries := range sections {
+		// The last entry must represent the local file itself.
+		if last := entries[len(entries)-1]; last.FileInfo != lf.local().FileInfo {
+			entries = append(entries, FileEntry{
+				FileInfo: lf.local().FileInfo,
+				Settings: map[string]interface{}{},
+			})
+		}
+
+		sec, err := newLocalFile(entries)
+		if err != nil {
+			return nil, err
+		}
+		ret[name] = sec
+	}
+
+	return ret, nil
 }
 
 // Path returns the absolute path of the local file.

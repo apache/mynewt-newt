@@ -309,3 +309,94 @@ func TestOverlayCliErrors(t *testing.T) {
 		readFile(t, filepath.Join(projDir, "targets", "success",
 			"target.yml")), "debug")
 }
+
+// overlayCompileOptions generates CMakeLists.txt for the "success" target and
+// returns the compile options of the app and the sys/foo package.
+func overlayCompileOptions(t *testing.T, projDir string,
+	args ...string) (string, string) {
+
+	t.Helper()
+
+	core := filepath.Join(projDir, "repos", "apache-mynewt-core")
+	overlayWriteFile(t, filepath.Join(core, "compiler", "sim",
+		"compiler.yml"),
+		"compiler.path.cc: cc\n"+
+			"compiler.path.as: cc\n"+
+			"compiler.path.archive: ar\n"+
+			"compiler.path.objsize: size\n"+
+			"compiler.flags.default: [-O1]\n")
+	overlayWriteFile(t, filepath.Join(core, "sys", "foo", "src", "foo.c"),
+		"void foo_init(void) {}\n")
+	overlayWriteFile(t, filepath.Join(projDir, "apps", "app", "src",
+		"main.c"), "int main(void) { return 0; }\n")
+
+	args = append(args, "target", "cmake", "success")
+	newtOutput(t, projDir, nil, args...)
+
+	cmake := readFile(t, filepath.Join(projDir, "CMakeLists.txt"))
+
+	// Compile options follow the library definition of each package.
+	opts := func(lib string) string {
+		_, rest, ok := strings.Cut(cmake, "add_library("+lib+" ")
+		if !ok {
+			t.Fatalf("library %s not found\n%s", lib, cmake)
+		}
+		_, rest, ok = strings.Cut(rest, "COMPILE_OPTIONS ")
+		if !ok {
+			t.Fatalf("compile options of %s not found\n%s", lib, cmake)
+		}
+		line, _, _ := strings.Cut(rest, "\n")
+		return line
+	}
+
+	return opts("repos_syscfg_collision_apps_app"),
+		opts("repos_apache-mynewt-core_sys_foo")
+}
+
+// The pkgs section of an overlay changes compiler flags of individual
+// packages, while compiler flags of the target apply to all packages.
+func TestOverlayPkgFlags(t *testing.T) {
+	projDir := overlayProject(t, map[string]string{
+		overlayLocalPath: `
+pkg.cflags:
+    - -DGLOBAL
+pkgs:
+    "@apache-mynewt-core/sys/foo":
+        pkg.cflags:
+            - -DFOO_ONLY
+            - -DFOO_REMOVED
+        pkg.cflags.FOO_COND_1:
+            - -DFOO_COND
+`,
+		"ovl.yml": `
+pkgs:
+    "@apache-mynewt-core/sys/foo":
+        pkg.cflags.REMOVE:
+            - -DFOO_REMOVED
+`,
+	})
+
+	app, foo := overlayCompileOptions(t, projDir, "--overlay", "ovl.yml")
+
+	overlayCheckContains(t, "app", app, "-DGLOBAL")
+	overlayCheckNotContains(t, "app", app, "-DFOO_")
+	overlayCheckContains(t, "sys/foo", foo,
+		"-DGLOBAL", "-DFOO_ONLY", "-DFOO_COND")
+	overlayCheckNotContains(t, "sys/foo", foo, "-DFOO_REMOVED")
+}
+
+func TestOverlayPkgErrors(t *testing.T) {
+	for overlay, exp := range map[string]string{
+		"pkgs:\n    sys/missing:\n        pkg.cflags: [-DX]\n":                 "unknown package \"sys/missing\" in \"pkgs\"",
+		"pkgs:\n    \"@apache-mynewt-core/sys/foo\":\n        pkg.deps: [x]\n": "\"pkg.deps\" can't be changed for package",
+		"pkgs.OVERWRITE:\n    foo: {}\n":                                       "\"pkgs.OVERWRITE\" is not supported",
+	} {
+		projDir := overlayProject(t, map[string]string{
+			overlayLocalPath: overlay,
+		})
+
+		out, _ := newtCombinedOutput(projDir, nil, "target", "config",
+			"show", "success")
+		overlayCheckContains(t, "target config show", out, exp)
+	}
+}
