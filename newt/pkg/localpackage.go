@@ -74,6 +74,9 @@ type LocalPackage struct {
 
 	// Names of all source yml files; used to determine if rebuild required.
 	cfgFilenames []string
+
+	// Overlays applied to the package's configuration; only for targets.
+	overlays []*Overlay
 }
 
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
@@ -388,6 +391,14 @@ func (pkg *LocalPackage) Load() error {
 		}
 	}
 
+	// Only targets have overlays, so they are applied once the type is known.
+	if err := pkg.loadOverlays(); err != nil {
+		return err
+	}
+	if err := pkg.ApplyOverlays(&pkg.PkgY, PACKAGE_FILE_NAME); err != nil {
+		return err
+	}
+
 	if pkg.packageType == PACKAGE_TYPE_TRANSIENT {
 		n, err := pkg.PkgY.GetValString("pkg.link", nil)
 		util.OneTimeWarningError(err)
@@ -432,6 +443,12 @@ func (pkg *LocalPackage) Load() error {
 	// Load syscfg settings.
 	pkg.SyscfgY, err = config.ReadFile(pkg.SyscfgYamlPath())
 	if err != nil && !util.IsNotExist(err) {
+		return err
+	}
+
+	if err := pkg.ApplyOverlays(&pkg.SyscfgY,
+		SYSCFG_YAML_FILENAME); err != nil {
+
 		return err
 	}
 

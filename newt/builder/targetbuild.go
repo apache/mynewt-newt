@@ -190,6 +190,8 @@ func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 		return nil
 	}
 
+	pkg.ReportOverlays(t.target.Package())
+
 	t.injectNewtSettings()
 	t.injectBuildSettings()
 

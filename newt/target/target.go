@@ -34,7 +34,7 @@ import (
 	"mynewt.apache.org/newt/util"
 )
 
-const TARGET_FILENAME string = "target.yml"
+const TARGET_FILENAME string = pkg.TARGET_YAML_FILENAME
 const DEFAULT_BUILD_PROFILE string = "default"
 const DEFAULT_HEADER_SIZE uint32 = 0x20
 
@@ -87,6 +87,10 @@ func (target *Target) TargetYamlPath() string {
 func (target *Target) Load(basePkg *pkg.LocalPackage) error {
 	yc, err := config.ReadFile(target.TargetYamlPath())
 	if err != nil {
+		return err
+	}
+
+	if err := basePkg.ApplyOverlays(&yc, TARGET_FILENAME); err != nil {
 		return err
 	}
 
