@@ -148,23 +148,41 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	var err error
 
-	// Read each set of flags and expand repo designators ("@<repo-name>") into
-	// paths.
-	ci.Cflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cflags", settings)
-	util.OneTimeWarningError(err)
-	expandFlags(ci.Cflags)
+	overlaySecs, err := b.targetBuilder.overlayPkgSections(bpkg.rpkg.Lpkg)
+	if err != nil {
+		return nil, err
+	}
 
-	ci.CXXflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.cxxflags", settings)
-	util.OneTimeWarningError(err)
-	expandFlags(ci.CXXflags)
+	// Read each set of flags, apply overlays and expand repo designators
+	// ("@<repo-name>") into paths.
+	readFlags := func(key string) ([]string, error) {
+		flags, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(key, settings)
+		util.OneTimeWarningError(err)
 
-	ci.Lflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.lflags", settings)
-	util.OneTimeWarningError(err)
-	expandFlags(ci.Lflags)
+		for _, sec := range overlaySecs {
+			flags, err = pkg.ApplyOverlayPkgSection(sec, key, flags, settings)
+			if err != nil {
+				return nil, err
+			}
+		}
 
-	ci.Aflags, err = bpkg.rpkg.Lpkg.PkgY.GetValStringSlice("pkg.aflags", settings)
-	util.OneTimeWarningError(err)
-	expandFlags(ci.Aflags)
+		expandFlags(flags)
+
+		return flags, nil
+	}
+
+	if ci.Cflags, err = readFlags("pkg.cflags"); err != nil {
+		return nil, err
+	}
+	if ci.CXXflags, err = readFlags("pkg.cxxflags"); err != nil {
+		return nil, err
+	}
+	if ci.Lflags, err = readFlags("pkg.lflags"); err != nil {
+		return nil, err
+	}
+	if ci.Aflags, err = readFlags("pkg.aflags"); err != nil {
+		return nil, err
+	}
 
 	var strArray []string
 	// // Check if the package should be linked as whole or not

@@ -33,6 +33,7 @@ import (
 
 	"github.com/apache/mynewt-artifact/flash"
 	"github.com/apache/mynewt-artifact/sec"
+	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/flashmap"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/newt/project"
@@ -60,6 +61,9 @@ type TargetBuilder struct {
 	injectedSettings *cfgv.Settings
 
 	res *resolve.Resolution
+
+	// Package sections of the target's overlays; see overlayPkgSections().
+	overlayPkgs map[*pkg.LocalPackage][]*config.LocalFile
 }
 
 func NewTargetTester(target *target.Target,
@@ -191,6 +195,11 @@ func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 	}
 
 	pkg.ReportOverlays(t.target.Package())
+
+	// Check package names in the overlays early.
+	if _, err := t.overlayPkgSections(nil); err != nil {
+		return err
+	}
 
 	t.injectNewtSettings()
 	t.injectBuildSettings()
