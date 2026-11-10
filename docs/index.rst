@@ -325,7 +325,7 @@ delete it:
   # applied even if MY_BOARD_DEBUG is enabled.
   syscfg.vals.MY_BOARD_DEBUG.DELETE: true
 
-A package's own flags override flags of the target; use the ``pkgs`` section to change them.
+A package's own flags override flags of the target; use the ``pkgs`` section (below) to change them.
 
 The ``pkgs`` section changes compiler flags of individual packages included in the build. Only ``pkg.cflags``,
 ``pkg.cxxflags`` and ``pkg.aflags`` are supported, including conditional settings and the same operations as above.
@@ -339,6 +339,10 @@ Package names are specified the same way as in ``pkg.deps`` of the target.
                     - -O0
               pkg.cflags.REMOVE:
                     - -DNDEBUG
+
+The ``pkgs`` section can also be specified in the target's ``pkg.yml``, so that such changes can be committed together
+with the target. Flags added there follow the package's own flags, so they override them. Sections of overlays are
+applied after it, so an overlay can change or remove flags set by the target.
 
 When building, newt prints ``Using overlay <file>`` for each overlay applied to the target. Commands which modify
 targets (``newt target set``, ``newt target amend`` and ``newt target copy``) ignore overlays, so they are never written

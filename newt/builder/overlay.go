@@ -20,37 +20,44 @@
 package builder
 
 import (
+	"sort"
+
 	"mynewt.apache.org/newt/newt/config"
 	"mynewt.apache.org/newt/newt/pkg"
 	"mynewt.apache.org/newt/util"
 )
 
-// overlayPkgSections returns the package sections of the target's overlays
-// which apply to the specified package, in the order the overlays are
+// pkgSections returns the package sections of the target's pkg.yml and of
+// its overlays which apply to the specified package, in the order they are
 // applied.  Package names are resolved the same way as the target's
 // dependencies; a package which doesn't exist is an error.  The sections are
 // only applied to this build, so the packages' configuration is not changed.
-func (t *TargetBuilder) overlayPkgSections(
+func (t *TargetBuilder) pkgSections(
 	lpkg *pkg.LocalPackage) ([]*config.LocalFile, error) {
 
-	if t.overlayPkgs == nil {
+	if t.targetPkgSections == nil {
 		m := map[*pkg.LocalPackage][]*config.LocalFile{}
 
-		for _, ov := range t.target.Package().Overlays() {
-			for name, sec := range ov.PkgSections() {
+		for _, ps := range t.target.Package().AllPkgSections() {
+			names := make([]string, 0, len(ps.Sections))
+			for name := range ps.Sections {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+
+			for _, name := range names {
 				p := t.target.ResolvePackageName(name)
 				if p == nil {
 					return nil, util.FmtNewtError(
 						"%s: unknown package \"%s\" in \"%s\"",
-						ov.RelPath(), name,
-						pkg.OVERLAY_PKGS_KEY)
+						ps.RelPath, name, pkg.OVERLAY_PKGS_KEY)
 				}
-				m[p] = append(m[p], sec)
+				m[p] = append(m[p], ps.Sections[name])
 			}
 		}
 
-		t.overlayPkgs = m
+		t.targetPkgSections = m
 	}
 
-	return t.overlayPkgs[lpkg], nil
+	return t.targetPkgSections[lpkg], nil
 }

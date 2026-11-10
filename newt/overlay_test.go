@@ -400,3 +400,74 @@ func TestOverlayPkgErrors(t *testing.T) {
 		overlayCheckContains(t, "target config show", out, exp)
 	}
 }
+
+const targetPkgsPkgYml = `pkg.name: targets/success
+pkg.type: target
+pkgs:
+    "@apache-mynewt-core/sys/foo":
+        pkg.cflags:
+            - -O3
+            - -DTGT_FOO
+            - -DTGT_REMOVED
+        pkg.cflags.REMOVE:
+            - -DPKG_FLAG
+        pkg.cflags.FOO_COND_1:
+            - -DTGT_COND
+`
+
+// The pkgs section of the target's pkg.yml changes compiler flags of
+// individual packages; flags added there follow the package's own flags, so
+// they override them.  Overlays are applied after it.
+func TestTargetPkgFlags(t *testing.T) {
+	projDir := overlayProject(t, map[string]string{
+		"targets/success/pkg.yml": targetPkgsPkgYml,
+		"repos/apache-mynewt-core/sys/foo/pkg.yml": `pkg.name: sys/foo
+pkg.type: lib
+pkg.cflags:
+    - -Os
+    - -DPKG_FLAG
+pkg.init:
+    foo_init: 100
+`,
+		"ovl.yml": `
+pkgs:
+    "@apache-mynewt-core/sys/foo":
+        pkg.cflags.REMOVE:
+            - -DTGT_REMOVED
+`,
+	})
+
+	app, foo := overlayCompileOptions(t, projDir, "--overlay", "ovl.yml")
+
+	overlayCheckNotContains(t, "app", app, "-DTGT_", "-O3")
+	overlayCheckContains(t, "sys/foo", foo,
+		"-Os;-O3;-DTGT_FOO;-DTGT_COND")
+	overlayCheckNotContains(t, "sys/foo", foo, "-DTGT_REMOVED",
+		"-DPKG_FLAG")
+
+	// Commands which modify the target keep the section.
+	newtOutput(t, projDir, nil, "target", "set", "success",
+		"target.build_profile=optimized")
+	newtOutput(t, projDir, nil, "target", "copy", "success", "dst")
+	for _, name := range []string{"success", "dst"} {
+		overlayCheckContains(t, name+"/pkg.yml",
+			readFile(t, filepath.Join(projDir, "targets", name, "pkg.yml")),
+			"pkgs:", "-DTGT_FOO", "pkg.cflags.REMOVE:")
+	}
+}
+
+func TestTargetPkgErrors(t *testing.T) {
+	for pkgYml, exp := range map[string]string{
+		"pkgs:\n    sys/missing:\n        pkg.cflags: [-DX]\n":                 "targets/success/pkg.yml: unknown package \"sys/missing\" in \"pkgs\"",
+		"pkgs:\n    \"@apache-mynewt-core/sys/foo\":\n        pkg.deps: [x]\n": "targets/success/pkg.yml: \"pkg.deps\" can't be changed for package",
+	} {
+		projDir := overlayProject(t, map[string]string{
+			"targets/success/pkg.yml": "pkg.name: targets/success\n" +
+				"pkg.type: target\n" + pkgYml,
+		})
+
+		out, _ := newtCombinedOutput(projDir, nil, "target", "config",
+			"show", "success")
+		overlayCheckContains(t, "target config show", out, exp)
+	}
+}

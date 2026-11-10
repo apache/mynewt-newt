@@ -148,18 +148,18 @@ func (bpkg *BuildPackage) CompilerInfo(
 
 	var err error
 
-	overlaySecs, err := b.targetBuilder.overlayPkgSections(bpkg.rpkg.Lpkg)
+	pkgSecs, err := b.targetBuilder.pkgSections(bpkg.rpkg.Lpkg)
 	if err != nil {
 		return nil, err
 	}
 
-	// Read each set of flags, apply overlays and expand repo designators
-	// ("@<repo-name>") into paths.
+	// Read each set of flags, apply package sections of the target and its
+	// overlays and expand repo designators ("@<repo-name>") into paths.
 	readFlags := func(key string) ([]string, error) {
 		flags, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(key, settings)
 		util.OneTimeWarningError(err)
 
-		for _, sec := range overlaySecs {
+		for _, sec := range pkgSecs {
 			flags, err = pkg.ApplyOverlayPkgSection(sec, key, flags, settings)
 			if err != nil {
 				return nil, err

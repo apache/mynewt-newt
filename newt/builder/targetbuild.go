@@ -62,8 +62,8 @@ type TargetBuilder struct {
 
 	res *resolve.Resolution
 
-	// Package sections of the target's overlays; see overlayPkgSections().
-	overlayPkgs map[*pkg.LocalPackage][]*config.LocalFile
+	// Package sections of the target and its overlays; see pkgSections().
+	targetPkgSections map[*pkg.LocalPackage][]*config.LocalFile
 }
 
 func NewTargetTester(target *target.Target,
@@ -196,8 +196,8 @@ func (t *TargetBuilder) ensureResolved(detectErr bool) error {
 
 	pkg.ReportOverlays(t.target.Package())
 
-	// Check package names in the overlays early.
-	if _, err := t.overlayPkgSections(nil); err != nil {
+	// Check package names in the package sections early.
+	if _, err := t.pkgSections(nil); err != nil {
 		return err
 	}
 
