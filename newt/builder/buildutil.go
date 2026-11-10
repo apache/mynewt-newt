@@ -344,3 +344,76 @@ func (b *Builder) EnvVars(imageSlot int) (map[string]string, error) {
 
 	return env, nil
 }
+
+// depSortedBuildPackages returns the build packages ordered so that each
+// package follows the packages it depends on.  Packages are visited in
+// alphabetical order, so the result is deterministic also for dependency
+// cycles.
+func (b *Builder) depSortedBuildPackages() []*BuildPackage {
+	bpkgs := b.sortedBuildPackages()
+	included := map[*BuildPackage]bool{}
+	for _, bpkg := range bpkgs {
+		included[bpkg] = true
+	}
+
+	sorted := []*BuildPackage{}
+	visited := map[*BuildPackage]bool{}
+	var visit func(bpkg *BuildPackage)
+	visit = func(bpkg *BuildPackage) {
+		if visited[bpkg] {
+			return
+		}
+		visited[bpkg] = true
+
+		for _, dep := range b.sortedDeps(bpkg) {
+			if included[dep] {
+				visit(dep)
+			}
+		}
+		sorted = append(sorted, bpkg)
+	}
+
+	for _, bpkg := range bpkgs {
+		visit(bpkg)
+	}
+
+	return sorted
+}
+
+// sortedDeps returns the build packages which the specified package directly
+// depends on, sorted by name.
+func (b *Builder) sortedDeps(bpkg *BuildPackage) []*BuildPackage {
+	sorter := bpkgSorter{}
+	for rpkg := range bpkg.rpkg.Deps {
+		if dep := b.PkgMap[rpkg]; dep != nil {
+			sorter.bpkgs = append(sorter.bpkgs, dep)
+		}
+	}
+	sort.Sort(sorter)
+	return sorter.bpkgs
+}
+
+// dependsOn indicates whether a package depends, directly or indirectly, on
+// another package.
+func (b *Builder) dependsOn(bpkg *BuildPackage, dep *BuildPackage) bool {
+	visited := map[*BuildPackage]bool{}
+	var visit func(p *BuildPackage) bool
+	visit = func(p *BuildPackage) bool {
+		if p == dep {
+			return true
+		}
+		if visited[p] {
+			return false
+		}
+		visited[p] = true
+
+		for _, d := range b.sortedDeps(p) {
+			if visit(d) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return bpkg != dep && visit(bpkg)
+}

@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -110,13 +111,9 @@ type Compiler struct {
 	info CompilerInfo
 
 	// Info read from the compiler package itself.  This is kept separate from
-	// the rest of the info because it has the lowest priority; it can only be
-	// added immediately before compiling beings.
+	// the rest of the info because it has the lowest priority: its flags
+	// precede all other flags on the command line.
 	lclInfo CompilerInfo
-
-	// Indicates whether the local compiler info has been appended to the
-	// common info set.  Ensures the local info only gets added once.
-	lclInfoAdded bool
 
 	compileCommands []CompileCommand
 
@@ -295,7 +292,8 @@ func flagsMap(cflags []string) map[string]string {
 
 // Appends a new set of flags to an original set.  If a new flag conflicts with
 // an original, the new flag is discarded.  The assumption is that flags from
-// higher priority packages get added first.
+// higher priority packages get added first.  This is used only for linker
+// flags; compiler flags are resolved by their order (see MergeFlags).
 //
 // This is not terribly efficient: it results in flag maps being generated
 // repeatedly when they could be cached.  Any inefficiencies here are probably
@@ -335,17 +333,22 @@ func addFlags(flagType string, orig []string, new []string) []string {
 	return combined
 }
 
+// AddCflags appends the specified flags.  Later flags override earlier ones.
 func (ci *CompilerInfo) AddCflags(cflags []string) {
-	ci.Cflags = addFlags("cflag", ci.Cflags, cflags)
+	ci.Cflags = append(ci.Cflags, cflags...)
 }
 
+// AddCompilerInfo appends the specified info.  Compiler flags are kept in
+// order; later flags override earlier ones, so higher priority info has to be
+// added later.  A conflicting linker flag is discarded, so higher priority
+// linker flags have to be added first.
 func (ci *CompilerInfo) AddCompilerInfo(newCi *CompilerInfo) {
 	ci.Includes = append(ci.Includes, newCi.Includes...)
-	ci.Cflags = addFlags("cflag", ci.Cflags, newCi.Cflags)
-	ci.CCflags = addFlags("ccflag", ci.CCflags, newCi.CCflags)
-	ci.CXXflags = addFlags("cxxflag", ci.CXXflags, newCi.CXXflags)
+	ci.Cflags = append(ci.Cflags, newCi.Cflags...)
+	ci.CCflags = append(ci.CCflags, newCi.CCflags...)
+	ci.CXXflags = append(ci.CXXflags, newCi.CXXflags...)
 	ci.Lflags = addFlags("lflag", ci.Lflags, newCi.Lflags)
-	ci.Aflags = addFlags("aflag", ci.Aflags, newCi.Aflags)
+	ci.Aflags = append(ci.Aflags, newCi.Aflags...)
 	ci.IgnoreFiles = append(ci.IgnoreFiles, newCi.IgnoreFiles...)
 	ci.IgnoreDirs = append(ci.IgnoreDirs, newCi.IgnoreDirs...)
 }
@@ -614,41 +617,27 @@ func (c *Compiler) IncludeDirs() []string {
 	return dirs
 }
 
+// Returns flags common to all source file types.  Flags of the compiler
+// package come first, so the other flags override them.
 func (c *Compiler) cflagsStrings() []string {
-	cflags := SortFlags(c.info.Cflags...)
-
-	for _, lclinfo_flag := range SortFlags(c.lclInfo.Cflags...) {
-		for _, info_flag := range cflags {
-			if lclinfo_flag == info_flag {
-				continue
-			}
-		}
-		cflags = append(cflags, lclinfo_flag)
-	}
-	return cflags
+	return MergeFlags(slices.Concat(c.lclInfo.Cflags, c.info.Cflags)...)
 }
 
-// Returns flags for compiling C files: common flags followed by C-only flags.
-// A C-only flag is dropped if a common flag with the same base is already
-// present (e.g., -std from a package overrides -std from the compiler).
-func (c *Compiler) ccflagsStrings() []string {
-	return addFlags("ccflag", c.cflagsStrings(),
-		SortFlags(c.info.CCflags...))
+// Returns flags for compiling files of a specific language: common flags
+// followed by flags for that language, first those of the compiler package,
+// then the other ones.
+func (c *Compiler) langFlagsStrings(lclLang []string,
+	infoLang []string) []string {
+
+	return MergeFlags(slices.Concat(c.lclInfo.Cflags, lclLang,
+		c.info.Cflags, infoLang)...)
 }
 
-func (c *Compiler) cxxflagsStrings() []string {
-	cxxflags := SortFlags(c.info.CXXflags...)
-	return cxxflags
-}
-
-func (c *Compiler) aflagsStrings() []string {
-	aflags := SortFlags(c.info.Aflags...)
-	return aflags
-}
-
+// Returns linker flags.  Linker flags of the compiler package have the
+// lowest priority: they are discarded if they conflict with flags of other
+// packages.
 func (c *Compiler) lflagsStrings() []string {
-	lflags := SortFlags(c.info.Lflags...)
-	return lflags
+	return SortFlags(addFlags("lflag", c.info.Lflags, c.lclInfo.Lflags)...)
 }
 
 func (c *Compiler) depsString() string {
@@ -707,14 +696,14 @@ func (c *Compiler) compilerPath(compilerType int) (string, string) {
 func (c *Compiler) CompileFlags(compilerType int) ([]string, error) {
 	switch compilerType {
 	case COMPILER_TYPE_C:
-		return c.ccflagsStrings(), nil
+		return c.langFlagsStrings(c.lclInfo.CCflags, c.info.CCflags), nil
 	case COMPILER_TYPE_ASM:
 		// Include both the compiler flags and the assembler flags.
 		// XXX: This is not great.  We don't have a way of specifying compiler
 		// flags without also passing them to the assembler.
-		return append(c.cflagsStrings(), c.aflagsStrings()...), nil
+		return c.langFlagsStrings(c.lclInfo.Aflags, c.info.Aflags), nil
 	case COMPILER_TYPE_CPP:
-		return append(c.cflagsStrings(), c.cxxflagsStrings()...), nil
+		return c.langFlagsStrings(c.lclInfo.CXXflags, c.info.CXXflags), nil
 	default:
 		return nil, util.NewNewtError("Unknown compiler type")
 	}
@@ -803,17 +792,6 @@ func writeCommandFile(dstFile string, cmd []string) error {
 	}
 
 	return nil
-}
-
-// Adds the info from the compiler package to the common set if it hasn't
-// already been added.  The compiler package's info needs to be added last
-// because the compiler is the lowest priority package.
-func (c *Compiler) ensureLclInfoAdded() {
-	if !c.lclInfoAdded {
-		log.Debugf("Generating build flags for compiler")
-		c.AddInfo(&c.lclInfo)
-		c.lclInfoAdded = true
-	}
 }
 
 // Compile the specified C or assembly file.
@@ -1090,9 +1068,6 @@ func (c *Compiler) CollectSingleEntry(filename string) (*CompilerJob, error) {
 func (c *Compiler) RecursiveCollectEntries(cType int,
 	ignDirs []string) ([]CompilerJob, error) {
 
-	// Make sure the compiler package info is added to the global set.
-	c.ensureLclInfoAdded()
-
 	if err := os.Chdir(c.baseDir); err != nil {
 		return nil, util.ChildNewtError(err)
 	}
@@ -1232,9 +1207,6 @@ func (c *Compiler) CompileBinaryCmd(dstFile string, options map[string]bool,
 func (c *Compiler) LinkFlags(dstFile string, options map[string]bool,
 	keepSymbols []string, elfLib string) ([]string, []string) {
 
-	// Make sure the compiler package info is added to the global set.
-	c.ensureLclInfoAdded()
-
 	preFlags := c.cflagsStrings()
 
 	if elfLib != "" {
@@ -1313,9 +1285,6 @@ func (c *Compiler) linkerPath() (string, string) {
 // @param objFiles              An array of the source .o and .a filenames.
 func (c *Compiler) CompileBinary(dstFile string, options map[string]bool,
 	staticLib []util.StaticLib, keepSymbols []string, elfLib string) error {
-
-	// Make sure the compiler package info is added to the global set.
-	c.ensureLclInfoAdded()
 
 	if err := c.checkToolPath(c.linkerPath()); err != nil {
 		return err
@@ -1463,9 +1432,6 @@ func (c *Compiler) PrintSize(elfFilename string) (string, error) {
 func (c *Compiler) CompileElf(binFile string, staticLib []util.StaticLib,
 	keepSymbols []string, elfLib string) error {
 	options := c.LinkOptions()
-
-	// Make sure the compiler package info is added to the global set.
-	c.ensureLclInfoAdded()
 
 	linkRequired, err := c.depTracker.LinkRequired(binFile, options,
 		staticLib, keepSymbols, elfLib)
@@ -1619,9 +1585,6 @@ func (c *Compiler) BuildSplitArchiveCmd(archiveFile string) string {
 //                              can be passed with @ to the linker.
 func (c *Compiler) CompileArchive(outputFile string, createList bool) error {
 	objFiles := []string{}
-
-	// Make sure the compiler package info is added to the global set.
-	c.ensureLclInfoAdded()
 
 	arRequired, err := c.depTracker.ArchiveRequired(outputFile, objFiles)
 	if err != nil {
