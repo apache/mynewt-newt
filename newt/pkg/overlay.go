@@ -47,10 +47,11 @@ var overlayProtectedKeys = []string{
 	"pkg.type",
 }
 
-// Key of the overlay section with settings of individual packages.
+// Key of the section with settings of individual packages, in overlays and
+// in the target's pkg.yml.
 const OVERLAY_PKGS_KEY = "pkgs"
 
-// Settings of individual packages which can be changed by an overlay.
+// Settings of individual packages which can be changed in the "pkgs" section.
 var overlayPkgKeys = []string{
 	"pkg.cflags",
 	"pkg.cxxflags",
@@ -135,6 +136,19 @@ func readOverlay(path string) (*Overlay, error) {
 		}
 	}
 
+	pkgs, err := readPkgSections(lf, relPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Overlay{lf: lf, pkgs: pkgs}, nil
+}
+
+// readPkgSections reads the "pkgs" section of a file and checks that it only
+// contains settings which can be changed for individual packages.
+func readPkgSections(lf *config.LocalFile,
+	relPath string) (map[string]*config.LocalFile, error) {
+
 	pkgs, err := lf.Sections(OVERLAY_PKGS_KEY)
 	if err != nil {
 		return nil, err
@@ -159,7 +173,7 @@ func readOverlay(path string) (*Overlay, error) {
 		}
 	}
 
-	return &Overlay{lf: lf, pkgs: pkgs}, nil
+	return pkgs, nil
 }
 
 // Path returns the absolute path of the overlay file.
@@ -238,12 +252,24 @@ func (pkg *LocalPackage) Overlays() []*Overlay {
 }
 
 // loadOverlays reads the overlays of a target package: its local overlay
-// file followed by the overlays specified on the command line.
+// file followed by the overlays specified on the command line.  It also reads
+// the "pkgs" section of the target's pkg.yml.
 func (pkg *LocalPackage) loadOverlays() error {
 	pkg.overlays = nil
+	pkg.pkgSections = nil
 
 	if pkg.packageType != PACKAGE_TYPE_TARGET {
 		return nil
+	}
+
+	lf, err := config.ReadLocalFile(pkg.PkgYamlPath())
+	if err != nil {
+		return err
+	}
+	pkg.pkgSections, err = readPkgSections(lf,
+		filepath.ToSlash(newtutil.ProjRelPath(lf.Path())))
+	if err != nil {
+		return err
 	}
 
 	path := filepath.Join(pkg.BasePath(), LOCAL_OVERLAY_FILENAME)
@@ -258,6 +284,35 @@ func (pkg *LocalPackage) loadOverlays() error {
 	pkg.overlays = append(pkg.overlays, cliOverlays...)
 
 	return nil
+}
+
+// PkgSections is the "pkgs" section of a file, i.e., settings of individual
+// packages indexed by package name.
+type PkgSections struct {
+	// Path of the file relative to the project, for use in messages.
+	RelPath string
+
+	Sections map[string]*config.LocalFile
+}
+
+// AllPkgSections returns the "pkgs" sections which apply to a target package,
+// in the order they are applied: the section of the target's pkg.yml followed
+// by the sections of its overlays.
+func (pkg *LocalPackage) AllPkgSections() []PkgSections {
+	all := []PkgSections{}
+	if len(pkg.pkgSections) > 0 {
+		all = append(all, PkgSections{
+			RelPath:  filepath.ToSlash(newtutil.ProjRelPath(pkg.PkgYamlPath())),
+			Sections: pkg.pkgSections,
+		})
+	}
+	for _, ov := range pkg.overlays {
+		all = append(all, PkgSections{
+			RelPath:  ov.RelPath(),
+			Sections: ov.PkgSections(),
+		})
+	}
+	return all
 }
 
 // ApplyOverlays applies the settings of the package's overlays which belong to

@@ -77,6 +77,10 @@ type LocalPackage struct {
 
 	// Overlays applied to the package's configuration; only for targets.
 	overlays []*Overlay
+
+	// The "pkgs" section of pkg.yml (settings of individual packages); only
+	// for targets.
+	pkgSections map[string]*config.LocalFile
 }
 
 func NewLocalPackage(r *repo.Repo, pkgDir string) *LocalPackage {
