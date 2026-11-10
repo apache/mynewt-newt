@@ -879,11 +879,6 @@ func (b *Builder) CMakeTargetWrite(w io.Writer) error {
 	cmakeDir := CmakeDir(targetName)
 	bpkgs := b.sortedBuildPackages()
 
-	err := b.appendAppCflags(bpkgs)
-	if err != nil {
-		return err
-	}
-
 	hasPreBuild := len(t.res.PreBuildCmdCfg.StageFuncs) > 0
 	if hasPreBuild {
 		scriptPath := cmakeDir + "/pre_build.cmake"

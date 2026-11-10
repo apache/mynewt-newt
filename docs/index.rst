@@ -325,6 +325,8 @@ delete it:
   # applied even if MY_BOARD_DEBUG is enabled.
   syscfg.vals.MY_BOARD_DEBUG.DELETE: true
 
+A package's own flags override flags of the target; use the ``pkgs`` section to change them.
+
 The ``pkgs`` section changes compiler flags of individual packages included in the build. Only ``pkg.cflags``,
 ``pkg.cxxflags`` and ``pkg.aflags`` are supported, including conditional settings and the same operations as above.
 Package names are specified the same way as in ``pkg.deps`` of the target.

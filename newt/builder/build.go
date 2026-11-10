@@ -566,16 +566,23 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 // configures each package's build settings.  After this function executes,
 // packages are ready to be built.
 func (b *Builder) PrepBuild() error {
-	// Populate the base set of compiler flags.  Flags from the following
-	// packages get applied to every source file:
-	//     * target
-	//     * app (if present)
-	//     * bsp
-	//     * compiler (not added here)
+	// Populate the base set of compiler flags, which get applied to every
+	// source file.  The flags of the package being built and of the compiler
+	// get added when the package is compiled.
 	//
-	// In the case of conflicting flags, the higher priority package's flag
-	// wins.  Package priorities are assigned as follows (highest priority
-	// first):
+	// Compiler flags are passed in the following order:
+	//     * compiler
+	//     * app.cflags of all packages, dependencies first
+	//     * bsp
+	//     * app (if present)
+	//     * target
+	//     * <package being built>
+	//
+	// Later flags override earlier ones, so the more specific a source of
+	// flags is, the higher its priority.
+	//
+	// Linker flags are resolved differently: in the case of conflicting
+	// flags, the flag of the first package in the following list wins:
 	//     * target
 	//     * app (if present)
 	//     * bsp
@@ -583,16 +590,44 @@ func (b *Builder) PrepBuild() error {
 	//     * compiler
 	baseCi := toolchain.NewCompilerInfo()
 
-	// Target flags.
+	// Let multiplatform libraries know that a Mynewt binary is being build.
+	baseCi.Cflags = append(baseCi.Cflags, "-DMYNEWT=1")
+
+	// Define a cpp symbol indicating the BSP architecture, name of the
+	// BSP and app.
+	// The arch, app, and bsp defines are kept here for backwards compatiblity.
+	// Users should prefer the equivalent syscfg defines.
+	archName := b.targetBuilder.bspPkg.Arch
+	baseCi.Cflags = append(baseCi.Cflags, "-DARCH_"+util.CIdentifier(archName))
+	baseCi.Cflags = append(baseCi.Cflags, "-DARCH_NAME="+archName+"")
+
+	if b.appPkg != nil {
+		appName := filepath.Base(b.appPkg.rpkg.Lpkg.Name())
+		baseCi.Cflags = append(baseCi.Cflags, "-DAPP_"+util.CIdentifier(appName))
+		baseCi.Cflags = append(baseCi.Cflags, "-DAPP_NAME="+appName+"")
+	}
+
+	bspName := filepath.Base(b.bspPkg.rpkg.Lpkg.Name())
+	baseCi.Cflags = append(baseCi.Cflags, "-DBSP_"+util.CIdentifier(bspName))
+	baseCi.Cflags = append(baseCi.Cflags, "-DBSP_NAME="+bspName+"")
+
+	appCflags, err := b.appCflags()
+	if err != nil {
+		return err
+	}
+	baseCi.Cflags = append(baseCi.Cflags, appCflags...)
+
+	// Package flags, from the highest priority one.
+	prioCis := []*toolchain.CompilerInfo{}
+
 	log.Debugf("Generating build flags for target %s",
 		b.targetPkg.rpkg.Lpkg.FullName())
 	targetCi, err := b.targetPkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
-	baseCi.AddCompilerInfo(targetCi)
+	prioCis = append(prioCis, targetCi)
 
-	// App flags.
 	if b.appPkg != nil {
 		log.Debugf("Generating build flags for app %s",
 			b.appPkg.rpkg.Lpkg.FullName())
@@ -600,37 +635,28 @@ func (b *Builder) PrepBuild() error {
 		if err != nil {
 			return err
 		}
-
-		baseCi.AddCompilerInfo(appCi)
+		prioCis = append(prioCis, appCi)
 	}
 
-	// Bsp flags.
 	log.Debugf("Generating build flags for bsp %s",
 		b.bspPkg.rpkg.Lpkg.FullName())
 	bspCi, err := b.bspPkg.CompilerInfo(b)
 	if err != nil {
 		return err
 	}
+	prioCis = append(prioCis, bspCi)
 
-	// Define a cpp symbol indicating the BSP architecture, name of the
-	// BSP and app.
-	// The arch, app, and bsp defines are kept here for backwards compatiblity.
-	// Users should prefer the equivalent syscfg defines.
-	archName := b.targetBuilder.bspPkg.Arch
-	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_"+util.CIdentifier(archName))
-	bspCi.Cflags = append(bspCi.Cflags, "-DARCH_NAME="+archName+"")
-
-	if b.appPkg != nil {
-		appName := filepath.Base(b.appPkg.rpkg.Lpkg.Name())
-		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_"+util.CIdentifier(appName))
-		bspCi.Cflags = append(bspCi.Cflags, "-DAPP_NAME="+appName+"")
+	// Linker flags: the first one wins.
+	for _, ci := range prioCis {
+		baseCi.AddCompilerInfo(&toolchain.CompilerInfo{Lflags: ci.Lflags})
 	}
 
-	bspName := filepath.Base(b.bspPkg.rpkg.Lpkg.Name())
-	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_"+util.CIdentifier(bspName))
-	bspCi.Cflags = append(bspCi.Cflags, "-DBSP_NAME="+bspName+"")
-
-	baseCi.AddCompilerInfo(bspCi)
+	// Everything else: the last one wins.
+	for i := len(prioCis) - 1; i >= 0; i-- {
+		ci := *prioCis[i]
+		ci.Lflags = nil
+		baseCi.AddCompilerInfo(&ci)
+	}
 
 	// All packages have access to the generated code header directory.
 	baseCi.Includes = append(baseCi.Includes,
@@ -640,11 +666,8 @@ func (b *Builder) PrepBuild() error {
 	baseCi.Includes = append(baseCi.Includes,
 		UserPreBuildIncludeDir(b.targetPkg.rpkg.Lpkg.Name()))
 
-	// Let multiplatform libraries know that a Mynewt binary is being build.
-	baseCi.Cflags = append(baseCi.Cflags, "-DMYNEWT=1")
-
-	// Note: The compiler package's flags get added at the end, after the flags
-	// for library package being built are calculated.
+	// Note: The compiler package's flags get added when the package being
+	// built is compiled.
 	b.compilerInfo = baseCi
 
 	return nil
@@ -720,25 +743,45 @@ func buildWorker(
 	}
 }
 
-func (b *Builder) appendAppCflags(bpkgs []*BuildPackage) error {
-	for _, bpkg := range bpkgs {
+// appCflags returns the app.cflags of all packages.  The flags of a package
+// follow the flags of its dependencies, so a package can override them.
+// Different definitions of a macro by packages which don't depend on each
+// other are reported, because their priority is not defined.
+func (b *Builder) appCflags() ([]string, error) {
+	type macroDef struct {
+		flag string
+		bpkg *BuildPackage
+	}
+	macros := map[string]macroDef{}
+
+	cflags := []string{}
+	for _, bpkg := range b.depSortedBuildPackages() {
 		settings := b.cfg.AllSettingsForLpkg(bpkg.rpkg.Lpkg)
-		globalAppCflags, err := bpkg.rpkg.Lpkg.PkgY.Get("app.cflags", settings)
+		pkgCflags, err := bpkg.rpkg.Lpkg.PkgY.GetValStringSlice(
+			"app.cflags", settings)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		for _, f := range globalAppCflags {
-			if itfVals, ok := f.Value.([]interface{}); ok {
-				for _, itfVal := range itfVals {
-					if strVal, ok := itfVal.(string); ok {
-						b.compilerInfo.Cflags = append(b.compilerInfo.Cflags, strVal)
-					}
-				}
+		expandFlags(pkgCflags)
+
+		for _, def := range toolchain.MacroFlags(pkgCflags...) {
+			name := toolchain.FlagMacro(def)
+			prev, ok := macros[name]
+			if ok && prev.flag != def && prev.bpkg != bpkg &&
+				!b.dependsOn(bpkg, prev.bpkg) {
+
+				util.OneTimeWarning("Conflicting app.cflags: %s in %s, "+
+					"%s in %s; using %s",
+					prev.flag, prev.bpkg.rpkg.Lpkg.FullName(),
+					def, bpkg.rpkg.Lpkg.FullName(), def)
 			}
+			macros[name] = macroDef{flag: def, bpkg: bpkg}
 		}
+
+		cflags = append(cflags, pkgCflags...)
 	}
 
-	return nil
+	return cflags, nil
 }
 
 func (b *Builder) Build() error {
@@ -748,11 +791,6 @@ func (b *Builder) Build() error {
 
 	// Build the packages alphabetically to ensure a consistent order.
 	bpkgs := b.sortedBuildPackages()
-
-	err = b.appendAppCflags(bpkgs)
-	if err != nil {
-		return err
-	}
 
 	// Calculate the list of jobs.  Each record represents a single file that
 	// needs to be compiled.
