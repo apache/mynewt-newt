@@ -20,7 +20,9 @@
 package util
 
 import (
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/kballard/go-shellquote"
@@ -46,6 +48,35 @@ func TestShellCmdStringQuoting(t *testing.T) {
 	}
 	if !slices.Equal(got, cmd) {
 		t.Errorf("got %q, want %q", got, cmd)
+	}
+}
+
+func TestExecuteShellArgs(t *testing.T) {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		t.Skip("ExecuteShell is supported on Linux and MacOS only")
+	}
+
+	args := []string{
+		"-DMBEDTLS_USER_CONFIG_FILE=\"mbedtls/config_mynewt.h\"",
+		"-DCONFIG_FILE=<mbedtls/config.h>",
+		"-DSTR='a b'",
+		"-Ipath with spaces/include",
+		"$HOME",
+		"a;b",
+	}
+
+	ExecuteShell = true
+	defer func() { ExecuteShell = false }()
+
+	o, err := ShellCommand(append([]string{"printf", "%s\\n"}, args...),
+		nil)
+	if err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	got := strings.Split(strings.TrimSuffix(string(o), "\n"), "\n")
+	if !slices.Equal(got, args) {
+		t.Errorf("got %q, want %q", got, args)
 	}
 }
 

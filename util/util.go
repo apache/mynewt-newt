@@ -381,12 +381,8 @@ func ShellCommandInit(cmdStrs []string, env map[string]string) (*exec.Cmd, error
 	fixupCmdArgs(cmdStrs)
 
 	if ExecuteShell && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
-		cmd := strings.Join(cmdStrs, " ")
 		name = "/bin/sh"
-		cmd = strings.Replace(cmd, "\"", "\\\"", -1)
-		cmd = strings.Replace(cmd, "<", "\\<", -1)
-		cmd = strings.Replace(cmd, ">", "\\>", -1)
-		args = []string{"-c", cmd}
+		args = []string{"-c", ShellCmdString(cmdStrs, nil)}
 	} else {
 		if strings.HasSuffix(cmdStrs[0], ".sh") {
 			var newt_sh = os.Getenv("NEWT_SH")
