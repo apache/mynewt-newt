@@ -548,6 +548,9 @@ func (b *Builder) link(elfName string, linkerScripts []string,
 	for _, d := range dirs {
 		fullNames, _ := filepath.Glob(d.pattern())
 		for _, archiveName := range fullNames {
+			// Glob returns paths with OS-specific separators; use forward
+			// slashes like in all other paths passed to the toolchain.
+			archiveName = filepath.ToSlash(archiveName)
 			s := util.NewStaticLib(archiveName, d.wholeArch)
 			staticLibs = append(staticLibs, s)
 		}
