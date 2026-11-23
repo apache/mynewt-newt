@@ -19,3 +19,8 @@
 
 pkg.name: hw/bsp/sim
 pkg.type: bsp
+
+# Generates the linker script, which split image links need before the
+# loader is built.
+pkg.pre_link_cmds:
+    scripts/gen_ld.sh: 100
