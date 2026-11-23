@@ -19,3 +19,6 @@
 
 pkg.name: sys/shared
 pkg.type: lib
+
+# Built as a list of objects instead of an archive.
+pkg.whole_archive: true
