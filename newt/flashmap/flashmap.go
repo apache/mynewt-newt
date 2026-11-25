@@ -38,6 +38,8 @@ import (
 
 const HEADER_PATH = "sysflash/sysflash.h"
 const C_VAR_NAME = "sysflash_map_dflt"
+const C_NAMES_VAR_NAME = "sysflash_map_names"
+const C_NAMES_MACRO = "SYSFLASH_MAP_HAS_NAMES"
 const C_VAR_COMMENT = `/**
  * This flash map definition is used for two purposes:
  * 1. To locate the meta area, which contains the true flash map definition.
@@ -231,11 +233,17 @@ func flashMapVarDecl(fm FlashMap) string {
 	return fmt.Sprintf("const struct flash_area %s[FLASH_AREA_COUNT]", C_VAR_NAME)
 }
 
+func flashMapNamesVarDecl(fm FlashMap) string {
+	return fmt.Sprintf("const char *const %s[FLASH_AREA_COUNT]",
+		C_NAMES_VAR_NAME)
+}
+
 func writeFlashAreaHeader(w io.Writer, area flash.FlashArea) {
 	fmt.Fprintf(w, "#define %-40s %d\n", area.Name, area.Id)
 	fmt.Fprintf(w, "#define %-40s %d\n", area.Name+"_DEVICE", area.Device)
 	fmt.Fprintf(w, "#define %-40s 0x%08x\n", area.Name+"_OFFSET", area.Offset)
 	fmt.Fprintf(w, "#define %-40s %d\n", area.Name+"_SIZE", area.Size)
+	fmt.Fprintf(w, "#define %-40s \"%s\"\n", area.Name+"_NAME", area.Name)
 	fmt.Fprintf(w, "\n")
 }
 
@@ -253,6 +261,10 @@ func writeFlashMapHeader(w io.Writer, fm FlashMap) {
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "%s", C_VAR_COMMENT)
 	fmt.Fprintf(w, "extern %s;\n", flashMapVarDecl(fm))
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "/* Area names, in the same order as %s */\n", C_VAR_NAME)
+	fmt.Fprintf(w, "#define %s 1\n", C_NAMES_MACRO)
+	fmt.Fprintf(w, "extern %s;\n", flashMapNamesVarDecl(fm))
 	fmt.Fprintf(w, "#endif\n")
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "/* Flash map was defined in %s */\n", fm.PkgName)
@@ -294,6 +306,14 @@ func writeFlashMapSrc(w io.Writer, fm FlashMap) {
 	for _, area := range fm.SortedAreas() {
 		fmt.Fprintf(w, "\n")
 		writeFlashAreaSrc(w, area)
+	}
+
+	fmt.Fprintf(w, "};\n")
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "%s = {\n", flashMapNamesVarDecl(fm))
+
+	for _, area := range fm.SortedAreas() {
+		fmt.Fprintf(w, "    %s_NAME,\n", area.Name)
 	}
 
 	fmt.Fprintf(w, "};\n")
