@@ -639,6 +639,13 @@ func (t *TargetBuilder) Build() error {
 		return err
 	}
 
+	// Execute the set of pre-link user scripts.  This has to happen before the
+	// loader is built because split image tentative links need their output,
+	// e.g., a generated linker script.
+	if err := t.execPreLinkCmds(workDir); err != nil {
+		return err
+	}
+
 	var linkerScripts []string
 	if t.LoaderBuilder == nil {
 		linkerScripts = t.bspPkg.LinkerScripts
@@ -647,11 +654,6 @@ func (t *TargetBuilder) Build() error {
 			return err
 		}
 		linkerScripts = t.bspPkg.Part2LinkerScripts
-	}
-
-	// Execute the set of pre-link user scripts.
-	if err := t.execPreLinkCmds(workDir); err != nil {
-		return err
 	}
 
 	/* Link the app. */
@@ -665,6 +667,18 @@ func (t *TargetBuilder) Build() error {
 	}
 
 	return nil
+}
+
+// removePrivateSymbols removes the symbols which belong to only one image of a
+// split build from the specified symbol map: the ones in the app package and
+// in the generated sysinit package.  Neither package is ever shared, so the
+// same symbol name in the other image refers to a different object by design.
+func (b *Builder) removePrivateSymbols(syms *symbol.SymbolMap) {
+	for _, bpkg := range []*BuildPackage{b.appPkg, b.sysinitPkg} {
+		if bpkg != nil {
+			syms.RemoveMap(syms.FilterPkg(bpkg.rpkg.Lpkg.Name()))
+		}
+	}
 }
 
 /*
@@ -706,6 +720,10 @@ func (t *TargetBuilder) RelinkLoader() (error, map[string]bool,
 	if err != nil {
 		return err, nil, nil
 	}
+
+	/* Symbols private to one image can't conflict with the other image */
+	t.AppBuilder.removePrivateSymbols(appLibSym)
+	t.LoaderBuilder.removePrivateSymbols(loaderLibSym)
 
 	/* create the set of matching and non-matching symbols */
 	err, smMatch, smNomatch := symbol.IdenticalUnion(appLibSym,

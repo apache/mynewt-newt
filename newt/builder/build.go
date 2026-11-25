@@ -52,6 +52,7 @@ type Builder struct {
 	compilerPkg      *BuildPackage
 	targetPkg        *BuildPackage
 	testPkg          *BuildPackage
+	sysinitPkg       *BuildPackage
 	compilerInfo     *toolchain.CompilerInfo
 	targetBuilder    *TargetBuilder
 	cfg              syscfg.Cfg
@@ -90,9 +91,11 @@ func NewBuilder(
 	}
 
 	// Create the pseudo build packages.
-	if _, err := b.addSysinitBpkg(); err != nil {
+	sysinitPkg, err := b.addSysinitBpkg()
+	if err != nil {
 		return nil, err
 	}
+	b.sysinitPkg = sysinitPkg
 	if _, err := b.addUserPreBuildBpkg(); err != nil {
 		return nil, err
 	}
