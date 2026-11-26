@@ -44,6 +44,10 @@ func runRunCmd(cmd *cobra.Command, args []string) {
 		useV2 = true
 	}
 
+	if util.InjectSyscfg != "" {
+		util.InjectSyscfg = "MYNEWT_DOWNLOADER=" + util.InjectSyscfg
+	}
+
 	TryGetProject()
 
 	b, err := TargetBuilderForTargetOrUnittest(args[0])
@@ -170,6 +174,8 @@ func AddRunCommands(cmd *cobra.Command) {
 		"pad-image", "i", 0, "Pad image to this length")
 	runCmd.PersistentFlags().StringVarP(&sections,
 		"sections", "S", "", "Section names for TLVs, comma delimited")
+	runCmd.Flags().StringVarP(&util.InjectSyscfg, "loader", "L", "",
+		"Override loader value from syscfg")
 
 	cmd.AddCommand(runCmd)
 	AddTabCompleteFn(runCmd, func() []string {
