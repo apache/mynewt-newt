@@ -129,7 +129,7 @@ func RunOptionalCheck(checkScript string, env map[string]string) error {
 	}()
 
 	util.StatusMessage(util.VERBOSITY_SILENT,
-		"Optional target check: %s\n", strings.Join(cmd, " "))
+		"Optional target check: %s\n", util.ShellCmdString(cmd, nil))
 	util.ShellInteractiveCommand(cmd, env, true)
 
 	/* Unregister SIGTERM handler */
@@ -169,7 +169,7 @@ func Load(binBasePath string, bspPkg *pkg.BspPackage,
 	}
 
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Load command: %s\n",
-		strings.Join(cmd, " "))
+		util.ShellCmdString(cmd, nil))
 	util.StatusMessage(util.VERBOSITY_VERBOSE, "Environment:\n")
 	for _, v := range env {
 		util.StatusMessage(util.VERBOSITY_VERBOSE, "* %s\n", v)

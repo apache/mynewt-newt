@@ -38,6 +38,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/otiai10/copy"
@@ -294,27 +295,45 @@ func fixupCmdArgs(args []string) {
 	}
 }
 
-func LogShellCmd(cmdStrs []string, env map[string]string) {
-	envLogStr := ""
-	if len(env) > 0 {
-		s := EnvVarsToSlice(env)
-		envLogStr = strings.Join(s, " ") + " "
+// ShellCmdString converts a command and its additional environment variables
+// into a command line that can be copied and executed in a POSIX shell
+// (including MSYS2 bash on Windows), i.e. arguments containing spaces, quotes,
+// backslashes or other shell metacharacters are quoted.
+func ShellCmdString(cmdStrs []string, env map[string]string) string {
+	var sb strings.Builder
+	for _, k := range sortedEnvKeys(env) {
+		sb.WriteString(k + "=" + shellquote.Join(env[k]) + " ")
 	}
-	log.Debugf("%s%s", envLogStr, strings.Join(cmdStrs, " "))
+	sb.WriteString(shellquote.Join(cmdStrs...))
+
+	return sb.String()
+}
+
+func LogShellCmd(cmdStrs []string, env map[string]string) {
+	if log.IsLevelEnabled(log.DebugLevel) {
+		log.Debugf("%s", ShellCmdString(cmdStrs, env))
+	}
 
 	if PrintShellCmds {
-		StatusMessage(VERBOSITY_DEFAULT, "%s\n", strings.Join(cmdStrs, " "))
+		StatusMessage(VERBOSITY_DEFAULT, "%s\n", ShellCmdString(cmdStrs, nil))
 	}
+}
+
+// sortedEnvKeys returns the names of environment variables in sorted order.
+func sortedEnvKeys(env map[string]string) []string {
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	return keys
 }
 
 // EnvVarsToSlice converts an environment variable map into a slice of `k=v`
 // strings.
 func EnvVarsToSlice(env map[string]string) []string {
-	keys := make([]string, 0, len(env))
-	for k, _ := range env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := sortedEnvKeys(env)
 
 	slice := make([]string, 0, len(env))
 	for _, key := range keys {
@@ -362,12 +381,8 @@ func ShellCommandInit(cmdStrs []string, env map[string]string) (*exec.Cmd, error
 	fixupCmdArgs(cmdStrs)
 
 	if ExecuteShell && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
-		cmd := strings.Join(cmdStrs, " ")
 		name = "/bin/sh"
-		cmd = strings.Replace(cmd, "\"", "\\\"", -1)
-		cmd = strings.Replace(cmd, "<", "\\<", -1)
-		cmd = strings.Replace(cmd, ">", "\\>", -1)
-		args = []string{"-c", cmd}
+		args = []string{"-c", ShellCmdString(cmdStrs, nil)}
 	} else {
 		if strings.HasSuffix(cmdStrs[0], ".sh") {
 			var newt_sh = os.Getenv("NEWT_SH")
