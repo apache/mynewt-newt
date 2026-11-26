@@ -1321,9 +1321,13 @@ func ResolveFull(
 		for rpkg, _ := range m {
 			c.Pkgs = append(c.Pkgs, rpkg)
 		}
+		SortResolvePkgs(c.Pkgs)
 
 		res.ApiConflicts = append(res.ApiConflicts, c)
 	}
+	sort.Slice(res.ApiConflicts, func(i, j int) bool {
+		return res.ApiConflicts[i].Api < res.ApiConflicts[j].Api
+	})
 
 	res.LpkgRpkgMap = r.pkgMap
 
