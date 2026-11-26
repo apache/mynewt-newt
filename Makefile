@@ -18,6 +18,7 @@
 # Use for building deb package. Needed by dpkg-buildpackage. 
 BIN=$(DESTDIR)/usr/bin
 TARGET=newt
+TUI=newt-tui
 build:
 	./build.sh
 
@@ -25,3 +26,12 @@ install:
 	install -d $(BIN)
 	install $(TARGET)/$(TARGET) $(BIN)
 	rm -f  $(TARGET)/$(TARGET)
+
+# Optional, not part of build or install
+build-tui:
+	cd $(TUI) && go build -o $(TUI)
+
+install-tui: build-tui
+	install -d $(BIN)
+	install $(TUI)/$(TUI) $(BIN)
+	rm -f  $(TUI)/$(TUI)

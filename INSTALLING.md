@@ -34,6 +34,19 @@ If you do not wish to run the included script, you can build newt manually with 
 
 This downloads the dependencies and builds newt executable.
 
+## Optional: newt-tui
+
+newt-tui, a terminal browser for newt projects (see `newt-tui/README.md`), is
+not built by default, as it needs Go modules that newt itself does not. To
+build it too, run:
+
+```no-highlight
+    $ ./build.sh --with-tui
+```
+
+This creates `newt-tui/newt-tui` next to `newt/newt`. `make install-tui`
+builds it and installs it to `/usr/bin` instead.
+
 You can test the installation by running newt:
 
 ```no-highlight

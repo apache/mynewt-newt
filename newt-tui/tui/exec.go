@@ -1,0 +1,229 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package tui
+
+import (
+	"bufio"
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/kballard/go-shellquote"
+)
+
+type execDoneMsg struct {
+	label  string
+	err    error
+	reload bool
+	// For newt commands: what ran on which target, and its output.
+	command string
+	target  string
+	output  string
+}
+
+// pausedCmd runs commands one after another on the normal terminal screen,
+// stopping at the first failure, and waits for the user to press Enter
+// before returning to the browser, so that the output of e.g. "newt build"
+// can be read.
+type pausedCmd struct {
+	cmds []*exec.Cmd
+	// Extra environment, shown in front of the command.
+	env []string
+	// Copy of the command's output, for finding build errors.
+	output lockedBuffer
+	in     io.Reader
+	out    io.Writer
+	// Interactive commands, such as a gdb session, get the terminal itself:
+	// gdb's TUI mode, for one, refuses to start when its output is copied.
+	interactive bool
+}
+
+func (p *pausedCmd) setInteractive() {
+	p.interactive = true
+}
+
+func (p *pausedCmd) SetStdin(r io.Reader) {
+	p.in = r
+	for _, c := range p.cmds {
+		c.Stdin = r
+	}
+}
+
+func (p *pausedCmd) SetStdout(w io.Writer) {
+	p.out = w
+	for _, c := range p.cmds {
+		c.Stdout = p.writer(w)
+	}
+}
+
+func (p *pausedCmd) SetStderr(w io.Writer) {
+	for _, c := range p.cmds {
+		c.Stderr = p.writer(w)
+	}
+}
+
+func (p *pausedCmd) writer(w io.Writer) io.Writer {
+	if p.interactive {
+		return w
+	}
+	return io.MultiWriter(w, &p.output)
+}
+
+// Output returns what the command printed.
+func (p *pausedCmd) Output() string {
+	return p.output.String()
+}
+
+// lockedBuffer collects output written from several goroutines.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (p *pausedCmd) Run() error {
+	var err error
+	for i, c := range p.cmds {
+		if len(p.cmds) > 1 {
+			fmt.Fprintf(p.out, "\n%s", styleDim.Render(fmt.Sprintf(
+				"[%d/%d]", i+1, len(p.cmds))))
+		}
+		args := append([]string{filepath.Base(c.Args[0])}, c.Args[1:]...)
+		fmt.Fprintf(p.out, "\n$ %s\n\n",
+			shellquote.Join(append(append([]string{}, p.env...), args...)...))
+		if err = c.Run(); err != nil {
+			break
+		}
+	}
+
+	if err != nil {
+		fmt.Fprintf(p.out, "\n%s\n", styleErr.Render(err.Error()))
+	} else {
+		fmt.Fprintf(p.out, "\n%s\n", styleOk.Render("done"))
+	}
+	fmt.Fprint(p.out, styleDim.Render("Press Enter to return to newt-tui"))
+	bufio.NewReader(p.in).ReadString('\n')
+
+	return err
+}
+
+// NewtPath is the newt binary the browser runs, e.g. for "newt build" and
+// "newt info --json".
+var NewtPath = "newt"
+
+// newtExec runs newt commands, e.g. {{"build", "t"}, {"load", "t"}}.
+func newtExec(steps [][]string, env []string) tea.ExecCommand {
+	p := &pausedCmd{env: env}
+	for _, args := range steps {
+		cmd := exec.Command(NewtPath, args...)
+		if len(env) > 0 {
+			cmd.Env = append(os.Environ(), env...)
+		}
+		p.cmds = append(p.cmds, cmd)
+	}
+	return p
+}
+
+// newtOutput runs the newt binary in the background and returns its output.
+func newtOutput(args []string) (string, error) {
+	out, err := exec.Command(NewtPath, args...).CombinedOutput()
+	return string(out), err
+}
+
+// userEditor returns the editor command: $VISUAL, $EDITOR or finally vi.
+func userEditor() ([]string, error) {
+	editor := os.Getenv("VISUAL")
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor == "" {
+		editor = "vi"
+	}
+	words, err := shellquote.Split(editor)
+	if err != nil || len(words) == 0 {
+		return nil, fmt.Errorf("invalid editor: %s", editor)
+	}
+	return words, nil
+}
+
+// editorExec opens a file in the editor, at a line if line > 0.
+func editorExec(path string, line int) (*exec.Cmd, error) {
+	editor, err := userEditor()
+	if err != nil {
+		return nil, err
+	}
+	return exec.Command(editor[0], editorArgs(editor, path, line)...), nil
+}
+
+// placeholderName is the project name that "newt new" writes to
+// project.yml; most projects keep it.
+const placeholderName = "my_project"
+
+// ProjectTitle returns the name the browser shows for a project: the
+// directory that holds it, and the project.yml name as a note if that says
+// something else.
+func ProjectTitle(dir string, name string) (string, string) {
+	title := filepath.Base(dir)
+	if name == "" || name == title || name == placeholderName {
+		return title, ""
+	}
+	return title, name
+}
+
+// Run starts the browser and blocks until the user quits.  The title is
+// the project's name and the note, if any, is shown dimmed next to it.
+// load is called whenever the project may have changed and should be quick;
+// loadFull, if not nil, then reads it again in the background with all
+// details that take longer.
+func Run(title string, note string, load LoadFunc, loadFull LoadFunc) error {
+	m := NewModel(title, load)
+	m.loadFull = loadFull
+	// Init starts the first full load.
+	m.resolveStart = false
+	m.note = note
+	if savedSetting("boards") != "hidden" {
+		m.showBoards()
+		m.boards.scanning = true
+	}
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	_, err := p.Run()
+	if err != nil {
+		return errors.New(strings.TrimSpace(err.Error()))
+	}
+	return nil
+}

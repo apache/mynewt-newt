@@ -18,6 +18,21 @@
 
 set -e
 
+### Optional parts.  newt-tui is a separate Go module, so its dependencies are
+### only downloaded when it is asked for.
+with_tui=0
+for arg in "$@"
+do
+    case "$arg" in
+        --with-tui) with_tui=1 ;;
+        *)
+            printf "Usage: %s [--with-tui]\n" "$0"
+            printf "  --with-tui  also build newt-tui (newt-tui/newt-tui)\n"
+            exit 1
+            ;;
+    esac
+done
+
 ### Function to do the task of the non-standard realpath utility.  This does
 ### not expand links, however.
 expandpath() {
@@ -102,6 +117,20 @@ DATE="$(date +%F_%R)"
 
     printf "Successfully built executable: %s\n" "$dstfile"
 )
+
+### Build newt-tui.
+if [ "$with_tui" = 1 ]
+then
+    (
+        cd "$installdir"/newt-tui
+
+        printf "Building newt-tui.  This may take a minute...\n"
+        unset GOPATH
+        go build -o newt-tui
+
+        printf "Successfully built executable: %s\n" "$installdir"/newt-tui/newt-tui
+    )
+fi
 
 ### Delete the temporary directory.
 # We have to relax permissions on the directory's contents; modules in
